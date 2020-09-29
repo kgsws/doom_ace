@@ -46,6 +46,11 @@ Therefore, save game file itself can be executed as an PSPR action code pointer.
 While save game buffer is freed using `Z_Free` before it can be executed, there is nothing that would overwrite it before code execution happens.
 Any persistent code would have to be copied somewhere else though.
 
+#### Update (The Ultimate ...)
+There are way more entry points - if you use custom PWAD. Many lumps are cached before game (status bar, etc ...).
+Many of these pointers are available as a state action. Each Doom version has different possibilities.
+Code can be executed directly from any such lump.
+
 ### Modifying example
 This repository contains example code and example binary save file. You can test save game as provided, it has example code already included.
 

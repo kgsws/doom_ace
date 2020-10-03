@@ -58,6 +58,12 @@ Provided loader is only supposed to load main code from freed savegame to memory
 ### Binaries
 There is currently only one example and that is SNAKE! game.
 
+#### Loading custom code
+You have to modify provided example savegame file.
+
+- loader starts at offset 0x22DA
+- if you do not need to modify the loader, game starts at 0x23C0
+
 ### Future
 This allows for far advanced Doom mods than dehacked alone ever allowed.
 It is possible to load savegame when game start if specified in command line parameters. Mods could provide exploited savegame to be used with it.

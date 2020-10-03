@@ -9,6 +9,6 @@ clean:
 	rm -f *.o ${program} ${program}.bin
 
 ${program}: ${OBJ}
-	${CC} ${OBJ} ${LIBS} -o ${program} ${OPT}
+	${CC} ${OBJ} ${LIBS} -o ${program} -Wl,--section-start=.text=0x1000
 	objcopy -O binary --only-section=.text ${program} ${program}.bin
 

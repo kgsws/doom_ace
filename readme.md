@@ -8,10 +8,11 @@ That is, no Doom2, no The Final Doom or Anthology.
 (Why is there so many different 1.9 versions?)
 
 ## Example
-Provided example does minor modifications to the code, just as an example.
+Example in provided in `savegame/doomsav0.dsg` is a simple snake game.
 
-- replace TITLEPIC
-- replace menu skull
+- it's a snake!
+- disables wipe while running
+- unloads itself on ESC key
 - invert the function of 'run key' (you can use run key to slow down now)
 
 ## Possibilities
@@ -46,15 +47,21 @@ Therefore, save game file itself can be executed as an PSPR action code pointer.
 While save game buffer is freed using `Z_Free` before it can be executed, there is nothing that would overwrite it before code execution happens.
 Any persistent code would have to be copied somewhere else though.
 
-#### Update (The Ultimate ...)
+#### Other versions
 There are way more entry points - if you use custom PWAD. Many lumps are cached before game (status bar, etc ...).
 Many of these pointers are available as a state action. Each Doom version has different possibilities.
 Code can be executed directly from any such lump.
 
-### Modifying example
-This repository contains example code and example binary save file. You can test save game as provided, it has example code already included.
+### Loader
+Provided loader is only supposed to load main code from freed savegame to memory it allocates.
 
-If you want to modify the code, just truncate save size to 0x22DA (8922 bytes) and append your own code at the end.
+### Binaries
+There is currently only one example and that is SNAKE! game.
+
+### Future
+This allows for far advanced Doom mods than dehacked alone ever allowed.
+It is possible to load savegame when game start if specified in command line parameters. Mods could provide exploited savegame to be used with it.
+https://www.doomworld.com/forum/topic/117123-dos-doom-code-execution/
 
 ## Credits
 Special thanks to `Randy87` for uploading their map files way back. This made it much quicker.

@@ -1,9 +1,9 @@
-# Arbitrary code execution in DOOM
+# Arbitrary code execution in DOOM 2
 This is an example of exploit for original DOS doom save game file.
 
 ## Version
 This example only works in version 1.9 Doom 2.
-That is, no Doom2, no The Final Doom or Anthology.
+That is, no The Ultimate Doom, no The Final Doom or Anthology.
 
 (Why is there so many different 1.9 versions?)
 

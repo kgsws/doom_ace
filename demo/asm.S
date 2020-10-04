@@ -84,6 +84,12 @@ rel_arg4_end:
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012
 __reloc_code_012:
+////////////////////////////////// sprintf
+.section .text.sprintf
+.global sprintf
+sprintf:
+	.byte	0xE9
+	.4byte	0x0004101C
 ////////////////////////////////// I_Error
 .section .text.I_Error
 .global I_Error
@@ -138,12 +144,24 @@ W_GetNumForName:
 W_CacheLumpNum:
 	.byte	0xE9
 	.4byte	0x00038D00
+////////////////////////////////// W_CacheLumpName
+.section .text.W_CacheLumpName
+.global W_CacheLumpName
+W_CacheLumpName:
+	.byte	0xE9
+	.4byte	0x00038CF0
 ////////////////////////////////// Z_Free
 .section .text.Z_Free
 .global Z_Free
 Z_Free:
 	.byte	0xE9
 	.4byte	0x00039600
+////////////////////////////////// R_RenderPlayerView
+.section .text.R_RenderPlayerView
+.global R_RenderPlayerView
+R_RenderPlayerView:
+	.byte	0xE9
+	.4byte	0x00035FB0
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:

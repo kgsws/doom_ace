@@ -19,6 +19,7 @@
 
 typedef uint32_t fixed_t;
 typedef uint32_t angle_t;
+typedef uint8_t byte;
 
 //
 // tables
@@ -96,6 +97,163 @@ enum
 	PU_PURGELEVEL = 100,
 	PU_CACHE
 };
+
+//
+// states
+
+typedef struct
+{
+	uint32_t sprite;
+	int32_t frame;
+	int32_t tics;
+	uint32_t action;
+	int32_t nextstate;
+	int32_t misc1, misc2;
+} state_t;
+
+//
+// ticcmd
+
+typedef struct
+{
+	char	forwardmove;
+	char	sidemove;
+	short	angleturn;
+	short	consistancy;
+	byte	chatchar;
+	byte	buttons;
+} ticcmd_t;
+
+//
+// render
+
+typedef struct
+{
+	uint16_t width, height;
+	int16_t x, y;
+	uint32_t offs[];
+} patch_t;
+
+//
+// weapons
+
+typedef struct
+{
+	uint32_t ammo;
+	uint32_t upstate;
+	uint32_t downstate;
+	uint32_t readystate;
+	uint32_t atkstate;
+	uint32_t flashstate;
+} weaponinfo_t;
+
+typedef struct
+{
+	uint32_t state;
+	int tics;
+	fixed_t	sx;
+	fixed_t	sy;
+} pspdef_t;
+
+//
+// player
+
+#define	NUMPSPRITES	2
+#define MAXPLAYERS	4
+
+enum
+{
+	PST_LIVE,
+	PST_DEAD,
+	PST_REBORN
+};
+
+enum
+{
+	wp_fist,
+	wp_pistol,
+	wp_shotgun,
+	wp_chaingun,
+	wp_missile,
+	wp_plasma,
+	wp_bfg,
+	wp_chainsaw,
+	wp_supershotgun,
+	NUMWEAPONS,
+	// No pending weapon change.
+	wp_nochange
+};
+
+enum
+{
+	pw_invulnerability,
+	pw_strength,
+	pw_invisibility,
+	pw_ironfeet,
+	pw_allmap,
+	pw_infrared,
+	NUMPOWERS
+};
+
+enum
+{
+	it_bluecard,
+	it_yellowcard,
+	it_redcard,
+	it_blueskull,
+	it_yellowskull,
+	it_redskull,
+	NUMCARDS
+};
+
+enum
+{
+	am_clip,	// Pistol / chaingun ammo.
+	am_shell,	// Shotgun / double barreled shotgun.
+	am_cell,	// Plasma rifle, BFG.
+	am_misl,	// Missile launcher.
+	NUMAMMO,
+	am_noammo	// Unlimited for chainsaw / fist.	
+};
+
+typedef struct
+{
+	uint32_t *mo; // TODO
+	uint32_t playerstate;
+	ticcmd_t cmd;
+	fixed_t viewz;
+	fixed_t viewheight;
+	fixed_t deltaviewheight;
+	fixed_t bob;	
+	int health;	
+	int armorpoints;
+	int armortype;	
+	int powers[NUMPOWERS];
+	uint32_t cards[NUMCARDS];
+	uint32_t backpack;
+	int frags[MAXPLAYERS];
+	uint32_t readyweapon;
+	uint32_t pendingweapon;
+	uint32_t weaponowned[NUMWEAPONS];
+	int ammo[NUMAMMO];
+	int maxammo[NUMAMMO];
+	int attackdown;
+	int usedown;
+	int cheats;		
+	int refire;		
+	int killcount;
+	int itemcount;
+	int secretcount;
+	char *message;	
+	int damagecount;
+	int bonuscount;
+	uint32_t *attacker; // TODO
+	int extralight;
+	int fixedcolormap;
+	int colormap;	
+	pspdef_t psprites[NUMPSPRITES];
+	uint32_t didsecret;
+} player_t;
 
 //
 // sound
@@ -219,7 +377,8 @@ typedef enum
 // Since Doom uses different calling conventions, most functions have to use special GCC attribute.
 // Even then functions with more than two arguments need another workaround. This is done in 'asm.S'.
 
-void I_Error(const char*, ...); // This function is variadic. No attribute required.
+void I_Error(char*, ...); // This function is variadic. No attribute required.
+//int sprintf(char*, ...); // from stdio.h
 
 // stuff
 uint8_t M_Random();
@@ -241,7 +400,11 @@ void Z_Free(void *ptr) __attribute((regparm(1)));
 // w_wad.c
 int W_GetNumForName(char *name) __attribute((regparm(1)));
 void *W_CacheLumpNum(int lump, int tag) __attribute((regparm(2)));
+void *W_CacheLumpName(char *name, int tag) __attribute((regparm(2)));
 
 // v_video.c
-void V_DrawPatchDirect(int x, int y, int zero, void *patch) __attribute((regparm(2)));
+void V_DrawPatchDirect(int x, int y, int zero, patch_t *patch) __attribute((regparm(2)));
+
+// render
+void R_RenderPlayerView(player_t*) __attribute((regparm(1)));
 

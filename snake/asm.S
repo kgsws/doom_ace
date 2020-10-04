@@ -95,55 +95,55 @@ I_Error:
 .global P_Random
 P_Random:
 	.byte	0xE9
-	.4byte	0x000241A0
+	.4byte	0x00024160
 ////////////////////////////////// M_Random
 .section .text.M_Random
 .global M_Random
 M_Random:
 	.byte	0xE9
-	.4byte	0x000241C0
+	.4byte	0x00024180
 ////////////////////////////////// M_StringHeight
 .section .text.M_StringHeight
 .global M_StringHeight
 M_StringHeight:
 	.byte	0xE9
-	.4byte	0x00022F90
+	.4byte	0x00022F50
 ////////////////////////////////// M_StringWidth
 .section .text.M_StringWidth
 .global M_StringWidth
 M_StringWidth:
 	.byte	0xE9
-	.4byte	0x00022F40
+	.4byte	0x00022F00
 ////////////////////////////////// M_StartControlPanel
 .section .text.M_StartControlPanel
 .global M_StartControlPanel
 M_StartControlPanel:
 	.byte	0xE9
-	.4byte	0x00023D10
+	.4byte	0x00023CD0
 ////////////////////////////////// S_StartSound
 .section .text.S_StartSound
 .global S_StartSound
 S_StartSound:
 	.byte	0xE9
-	.4byte	0x0003F560
+	.4byte	0x0003F370
 ////////////////////////////////// W_GetNumForName
 .section .text.W_GetNumForName
 .global W_GetNumForName
 W_GetNumForName:
 	.byte	0xE9
-	.4byte	0x00038CC0
+	.4byte	0x00038B80
 ////////////////////////////////// W_CacheLumpNum
 .section .text.W_CacheLumpNum
 .global W_CacheLumpNum
 W_CacheLumpNum:
 	.byte	0xE9
-	.4byte	0x00038E40
+	.4byte	0x00038D00
 ////////////////////////////////// Z_Free
 .section .text.Z_Free
 .global Z_Free
 Z_Free:
 	.byte	0xE9
-	.4byte	0x00039740
+	.4byte	0x00039600
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:
@@ -161,7 +161,7 @@ M_WriteText:
 	push	%ebx
 	mov	8(%esp),%ebx
 	.byte	0xE8
-	.4byte	0x00022FE0
+	.4byte	0x00022FA0
 	pop	%ebx
 	ret
 ////////////////////////////////// Z_Malloc
@@ -171,7 +171,7 @@ Z_Malloc:
 	push	%ebx
 	mov	8(%esp),%ebx
 	.byte	0xE8
-	.4byte	0x000397D0
+	.4byte	0x00039690
 	pop	%ebx
 	ret
 ////////////////////////////////// end
@@ -193,7 +193,7 @@ V_DrawPatchDirect:
 	mov	12(%esp),%ebx
 	mov	16(%esp),%ecx
 	.byte	0xE8
-	.4byte	0x000393E0
+	.4byte	0x000392A0
 	pop	%ecx
 	pop	%ebx
 	ret

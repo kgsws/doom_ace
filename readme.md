@@ -40,9 +40,29 @@ States 3144 to 3152 are located in memory we control.
 ### More memory
 Doom CODE and DATA is also allocated at random location. The only possible fixed location is video RAM. This would require custom PWAD with executable code hidden in graphics (like STDISK or STBAR).
 
-#### The Ultimate Coincidence
-Coincidentally, The Ultimate Doom is compiled with memory map where state number 3191 action pointer overlaps `savebuffer` variable. This variable holds pointer to the full contents of save game file.
-Therefore, save game file itself can be executed as an PSPR action code pointer.
+#### Doom 2-loaders
+While, The Ultimate Doom is compiled with memory map where state number 3191 action pointer overlaps `savebuffer` variable, Doom 2 does not.
+Therefore, we need another nice entry point.
+Fortunately, variable `sectors` happens to be usable as action pointer for frame 3283. Furthermore, most of the values that end up here are stored in savegame itself!
+
+This is not for free though, `sectors` is not copied from saved game directly but processed a bit. First two 32bit values are loaded and shifted by 16 bits to the left from 16bit value.
+This means that first two bytes will always end up as 0x00 0x00.
+Fortunately, this translates to the opcode `add	%al,(%eax)` and sice `eax` contains valid address, we can execute it.
+To simplify things i made pre-loader that just jumps to actual save buffer so i can use loader i have for The Ultimate Doom, with minimal modifications of course.
+
+```
+_start:
+floorheight:
+	add	%al,(%eax)	// 0x00 0x00 (forced by the engine - not present in savegame)
+	jmp	ceilingheight + 2
+ceilingheight:
+	add	%al,(%eax)	// 0x00 0x00 (forced by the engine - not present in savegame)
+it_starts_here: // 12B available
+	mov	(%esp),%eax	// read CODE pointer // 0x0013d095
+	mov	0x001311a4-0x0013d095(%eax),%eax	// get savebuffer variable location
+	jmp	*(%eax)	// and jump to its destination
+```
+(Yes, this code is stored in sector 0. And only 1 byte was left unused.)
 
 While save game buffer is freed using `Z_Free` before it can be executed, there is nothing that would overwrite it before code execution happens.
 Any persistent code would have to be copied somewhere else though.

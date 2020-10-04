@@ -29,11 +29,11 @@ typedef struct
 hook_t hook_restore[] =
 {
 	// restore menu drawing
-	{0x0001d4a9, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00023D40},
+	{0x0001d499, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00023D00},
 	// restore menu input
-	{0x0001d14a, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00023050},
+	{0x0001d13a, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00023010},
 	// enable 'wipe' again
-	{0x0001d4b4, CODE_HOOK | HOOK_UINT16, 0x0775}, // original instruction
+	{0x0001d4a4, CODE_HOOK | HOOK_UINT16, 0x0775}, // original instruction
 	// terminator
 	{0}
 };
@@ -41,7 +41,7 @@ hook_t hook_restore[] =
 msgline_t snake_info[] =
 {
 	{0, 0, "Arbitrary code execution"},
-	{0, 1, "in The Ultimate Doom"},
+	{0, 1, "in Doom 2"},
 	{0, 2, "by kgsws"},
 	{0, 4, "Use LEFT/RIGHT to turn"},
 	{0, 5, "Press ENTER to start ..."},
@@ -87,7 +87,7 @@ void snake_init()
 	snake_parts[0] = W_GetNumForName("STKEYS5"); // red
 	snake_parts[1] = W_GetNumForName("STKEYS3"); // blue
 	snake_parts[2] = W_GetNumForName("STKEYS4"); // yellow
-	snake_dead = W_GetNumForName("END0"); // THE END
+	snake_dead = W_GetNumForName("M_NEWG"); // THE END
 	snake_finished = W_GetNumForName("WIF"); // FINISHED
 
 	// get memory for history
@@ -197,7 +197,7 @@ void snake_drawer()
 			if(snake_direction & 8)
 				V_DrawPatchDirect(129, 94, 0, W_CacheLumpNum(snake_finished, PU_CACHE));
 			else
-				V_DrawPatchDirect(110, 70, 0, W_CacheLumpNum(snake_dead, PU_CACHE));
+				V_DrawPatchDirect(100, 93, 0, W_CacheLumpNum(snake_dead, PU_CACHE));
 		}
 	}
 }

@@ -35,7 +35,7 @@ Doom HEAP is allocated at random location. Therefore, it is not possible to know
 
 However, function `P_UnArchivePlayers` always copies saved `player_t` structure to `players[0]` variable, which has known location. Furthermore, this location has known offset from `states[NUMSTATES]` array.
 
-States 3144 to 3152 are located in memory we control.
+States 3112 to 3119 are located in memory we control.
 
 ### More memory
 Doom CODE and DATA is also allocated at random location. The only possible fixed location is video RAM. This would require custom PWAD with executable code hidden in graphics (like STDISK or STBAR).
@@ -81,8 +81,8 @@ There is currently only one example and that is SNAKE! game.
 #### Loading custom code
 You have to modify provided example savegame file.
 
-- loader starts at offset 0x22DA
-- if you do not need to modify the loader, game starts at 0x23C0
+- loader starts at offset 0x0CFA
+- if you do not need to modify the loader, game starts at 0x0DDF
 
 ### Future
 This allows for far advanced Doom mods than dehacked alone ever allowed.

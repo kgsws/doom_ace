@@ -61,32 +61,71 @@ _start:
 	mov	$9999,%edx	// and everything else
 	call	*Z_FreeTags(%esi)
 
+	// get ACE_CODE lump
+	lea	ace_code(%esi),%eax
+	call	*W_CheckNumForName(%esi)
+	test	%eax,%eax
+	jns	load_code
+
+	// code not found
+
+	// patch 'run' key
+	mov	autorun_offs(%esi),%eax
+	movb	$1,(%eax)
+
+	// show the message
+	lea	load_message(%esi),%eax
+	xor	%edx,%edx
+	xor	%ebx,%ebx
+	call	*M_StartMessage(%esi)
+
+	// and continue the game
+	pop	%ebp
+	pop	%edi
+	pop	%esi
+	pop	%edx
+	pop	%ecx
+	pop	%ebx
+	ret
+
+load_code:
+	// get lumpinfo base
+	push	%eax	// backup lumpnum
+	lea	0x0(,%eax,4),%edx
+	add	%edx,%eax
+	lea	0x0(,%eax,4),%edi	// EDI will point to ACE_CODE lump info
+	mov	lumpinfo(%esi),%edx
+	add	(%edx),%edi
+
+	// read .bss size
+	mov	8(%edi),%eax	// ->handle
+	mov	12(%edi),%edx	// ->position
+	xor	%ebx,%ebx	// SEEK_SET
+	call	*lseek(%esi)
+	mov	8(%edi),%eax	// ->handle
+	lea	lumpinfo(%esi),%edx
+	mov	$4,%ebx
+	call	*read(%esi)
+
 	// allocate memory for payload and its .bss
-	mov	payload_is_here(%esi),%eax
-	add	-(3346-TEXT_START)(%esi),%eax // almost savegame size (this won't be used anyway)
+	mov	lumpinfo(%esi),%eax // .bss size
+	add	16(%edi),%eax	// + lump size
 	mov	$1,%edx	// PU_STATIC
 	xor	%ebx,%ebx // NULL
 	call	*Z_Malloc(%esi)
 
-	// copy the payload
-	push	%eax
-	lea	payload_is_here(%esi),%ecx
-	mov	-(3346-TEXT_START)(%esi),%ebx
-	add	%eax,%ebx
-copy_loop:
-	mov	(%ecx),%edx
-	mov	%edx,(%eax)
-	add	$4,%ecx
-	add	$4,%eax
-	cmp	%ebx,%eax
-	jl	copy_loop
-	pop	%eax
+	// read ACE_CODE lump
+	mov	%eax,%edx
+	pop	%eax	// restore lumpnum
+	push	%edx	// backup code pointer
+	call	*W_ReadLump(%esi)
 
 	// pass relocation info
 	mov	_code_base(%esi),%ebx
 	mov	_data_base(%esi),%ecx
 
 	// run the code
+	pop	%eax	// restore code pointer
 	add	$4,%eax
 	jmp	*%eax
 
@@ -107,6 +146,13 @@ do_reloc_end:
 	ret
 
 //
+// strings
+ace_code:
+	.string	"ACE_CODE"
+load_message:
+	.string	"This savegame is intended to be\nused with a custom PWAD.\n\nAnyway, autorun was enabled."
+
+//
 // tables
 
 // pointers to the CODE section
@@ -123,6 +169,18 @@ Z_Malloc:
 	.4byte	0x00039690
 Z_FreeTags:
 	.4byte	0x00039780
+W_CheckNumForName:
+	.4byte	0x00038AF0
+M_StartMessage:
+	.4byte	0x00022EA0
+W_ReadLump:
+	.4byte	0x00038BF0
+lseek:
+	.4byte	0x000408c0
+read:
+	.4byte	0x00040935
+autorun_offs:
+	.4byte	0x0001fbc5
 //
 reloc_code_end:
 
@@ -136,21 +194,8 @@ gamestate:
 	.4byte	0x0002B3F4
 wipegamestate:
 	.4byte	0x00011B40
+lumpinfo:
+	.4byte	0x00074FA4
 //
 reloc_data_end:
 
-payload_is_here:
-// present at the end of loader
-// this part is in compiled 'snake' binary
-/*
-	// .bss size
-	.4byte	8
-	// continue
-	pop	%ebp
-	pop	%edi
-	pop	%esi
-	pop	%edx
-	pop	%ecx
-	pop	%ebx
-	ret
-*/

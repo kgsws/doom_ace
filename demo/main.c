@@ -4,16 +4,24 @@
 #include "utils.h"
 #include "defs.h"
 #include "stbar.h"
+#include "mlook.h"
 
-static void custom_RenderPlayerView(player_t*) __attribute((regparm(1)));
+static void custom_RenderPlayerView(player_t*) __attribute((regparm(1),no_caller_saved_registers));
 
 static hook_t hook_list[] =
 {
 	// import useful variables from DATA segment
-	{0x0002B3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gametic},
 	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
 	{0x00005A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finesine},
-	// more imports
+	{0x0002B3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gametic},
+	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
+	{0x0002B3D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&displayplayer},
+	//
+	{0x00032304, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewheight},
+	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
+	{0x00038FF8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&detailshift},
+	//
+	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
 	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&weaponinfo},
 	// invert 'run key' function (auto run)
 	{0x0001fbc5, CODE_HOOK | HOOK_UINT8, 0x01},
@@ -24,13 +32,20 @@ static hook_t hook_list[] =
 };
 
 // usefull variables
-uint32_t *screenblocks;
 uint32_t *gametic;
 uint32_t *leveltime;
 fixed_t *finesine;
 fixed_t *finecosine;
 
+uint32_t *consoleplayer;
+uint32_t *displayplayer;
+
+uint32_t *viewheight;
+uint32_t *viewwidth;
+uint32_t *detailshift;
+
 // sometimes usefull variables
+player_t *players;
 weaponinfo_t *weaponinfo;
 
 // this is the exploit entry function
@@ -45,12 +60,15 @@ void ace_init()
 
 	// init fullscreen status bar
 	stbar_init();
+
+	// init mouse look
+	mlook_init();
 }
 
 // this function is called when 3D view should be drawn
 // - only in level
 // - not in automap
-static __attribute((regparm(1))) void custom_RenderPlayerView(player_t *pl)
+static __attribute((regparm(1),no_caller_saved_registers)) void custom_RenderPlayerView(player_t *pl)
 {
 	// actually render 3D view
 	R_RenderPlayerView(pl);

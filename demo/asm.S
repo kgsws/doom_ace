@@ -162,6 +162,30 @@ Z_Free:
 R_RenderPlayerView:
 	.byte	0xE9
 	.4byte	0x00035FB0
+////////////////////////////////// R_DrawPlayerSprites
+.section .text.R_DrawPlayerSprites
+.global R_DrawPlayerSprites
+R_DrawPlayerSprites:
+	.byte	0xE9
+	.4byte	0x00038210
+////////////////////////////////// R_SetupFrame
+.section .text.R_SetupFrame
+.global R_SetupFrame
+R_SetupFrame:
+	.byte	0xE9
+	.4byte	0x00035E80
+////////////////////////////////// G_BuildTiccmd
+.section .text.G_BuildTiccmd
+.global G_BuildTiccmd
+G_BuildTiccmd:
+	.byte	0xE9
+	.4byte	0x0001FB10
+////////////////////////////////// FixedDiv
+.section .text.FixedDiv
+.global FixedDiv
+FixedDiv:
+	.byte	0xE9
+	.4byte	0x0001D180
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:

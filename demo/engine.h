@@ -17,7 +17,7 @@
 #define FRACBITS	16
 #define FRACUNIT	(1 << 16)
 
-typedef uint32_t fixed_t;
+typedef int32_t fixed_t;
 typedef uint32_t angle_t;
 typedef uint8_t byte;
 
@@ -224,10 +224,10 @@ typedef struct
 	fixed_t viewz;
 	fixed_t viewheight;
 	fixed_t deltaviewheight;
-	fixed_t bob;	
-	int health;	
+	fixed_t bob;
+	int health;
 	int armorpoints;
-	int armortype;	
+	int armortype;
 	int powers[NUMPOWERS];
 	uint32_t cards[NUMCARDS];
 	uint32_t backpack;
@@ -239,18 +239,18 @@ typedef struct
 	int maxammo[NUMAMMO];
 	int attackdown;
 	int usedown;
-	int cheats;		
-	int refire;		
+	int cheats;
+	int refire;
 	int killcount;
 	int itemcount;
 	int secretcount;
-	char *message;	
+	char *message;
 	int damagecount;
 	int bonuscount;
 	uint32_t *attacker; // TODO
 	int extralight;
 	int fixedcolormap;
-	int colormap;	
+	int colormap;
 	pspdef_t psprites[NUMPSPRITES];
 	uint32_t didsecret;
 } player_t;
@@ -405,6 +405,14 @@ void *W_CacheLumpName(char *name, int tag) __attribute((regparm(2)));
 // v_video.c
 void V_DrawPatchDirect(int x, int y, int zero, patch_t *patch) __attribute((regparm(2)));
 
+// g_game.c
+void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(1)));
+
 // render
 void R_RenderPlayerView(player_t*) __attribute((regparm(1)));
+void R_SetupFrame(player_t*) __attribute((regparm(1)));
+void R_DrawPlayerSprites();
+
+// math
+fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));
 

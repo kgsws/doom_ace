@@ -7,6 +7,8 @@ enum
 	// hooks that modify Doom memory
 	HOOK_RELADDR_ACE,	// replace 32bit 'call' or 'jmp' destination to ACE function
 	HOOK_RELADDR_DOOM,	// replace 32bit 'call' or 'jmp' destination to DOOM function
+	HOOK_JMP_ACE,	// same as 'RELADDR' but also writes 'jmp' opcode
+	HOOK_JMP_DOOM,	// same as 'RELADDR' but also writes 'jmp' opcode
 	HOOK_UINT32,	// replace 32bit value
 	HOOK_UINT16,	// replace 16bit value
 	HOOK_UINT8,	// replace 8bit value

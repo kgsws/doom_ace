@@ -1,9 +1,9 @@
 program=ace_code
-OBJ = asm.o main.o utils.o stbar.o
+OBJ = asm.o main.o utils.o stbar.o mlook.o
 CC=gcc -m32 -march=i386
 OPT=-O2 -g0
 BOTH=--static-pie
-CFLAGS=${BOTH} ${OPT} -fpie -fPIE -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
+CFLAGS=${BOTH} ${OPT} -mgeneral-regs-only -fpie -fPIE -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
 
 build: ${program}
 

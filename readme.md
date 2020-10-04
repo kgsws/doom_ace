@@ -2,7 +2,7 @@
 This is an example of exploit for original DOS doom save game file.
 
 ## Version
-This example only works in version 1.9 The Ultimate Doom.
+This example only works in version 1.9 Doom 2.
 That is, no Doom2, no The Final Doom or Anthology.
 
 (Why is there so many different 1.9 versions?)

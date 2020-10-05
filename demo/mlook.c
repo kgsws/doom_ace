@@ -45,6 +45,10 @@ static hook_t hook_list[] =
 void mlook_init()
 {
 	utils_install_hooks(hook_list);
+
+	// this has to be preloaded
+	cy_weapon = *viewheight / 2;
+	cy_look = cy_weapon;
 }
 
 static __attribute((regparm(1),no_caller_saved_registers))

@@ -47,7 +47,8 @@ void mlook_init()
 	utils_install_hooks(hook_list);
 }
 
-static __attribute((regparm(1),no_caller_saved_registers)) void custom_BuildTiccmd(ticcmd_t *cmd)
+static __attribute((regparm(1),no_caller_saved_registers))
+void custom_BuildTiccmd(ticcmd_t *cmd)
 {
 	// place for mouse look offset; only temporary solution
 	register fixed_t mlookpos = players[*consoleplayer].frags[3];
@@ -63,7 +64,8 @@ static __attribute((regparm(1),no_caller_saved_registers)) void custom_BuildTicc
 	G_BuildTiccmd(cmd);
 }
 
-static __attribute((regparm(1),no_caller_saved_registers)) void custom_SetupFrame(player_t *pl)
+static __attribute((regparm(1),no_caller_saved_registers))
+void custom_SetupFrame(player_t *pl)
 {
 	static fixed_t pitch;
 	fixed_t pn = pl->frags[3] >> FRACBITS;
@@ -99,7 +101,8 @@ static __attribute((regparm(1),no_caller_saved_registers)) void custom_SetupFram
 	R_SetupFrame(pl);
 }
 
-static __attribute((no_caller_saved_registers)) void custom_DrawPlayerSprites()
+static __attribute((no_caller_saved_registers))
+void custom_DrawPlayerSprites()
 {
 	*centery = cy_weapon;
 	*centeryfrac = cy_weapon << FRACBITS;

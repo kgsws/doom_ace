@@ -24,8 +24,6 @@ fixed_t *yslope;
 fixed_t cy_weapon;
 fixed_t cy_look;
 
-fixed_t mlookpos; // just for demo, place properly in future
-
 static hook_t hook_list[] =
 {
 	// custom R_SetupFrame
@@ -47,17 +45,18 @@ static hook_t hook_list[] =
 void mlook_init()
 {
 	utils_install_hooks(hook_list);
-	mlookpos = 0; // TODO: remove
 }
 
 static __attribute((regparm(1),no_caller_saved_registers)) void custom_BuildTiccmd(ticcmd_t *cmd)
 {
-	// place for mouse look offset
+	// place for mouse look offset; only temporary solution
+	register fixed_t mlookpos = players[*consoleplayer].frags[3];
 	mlookpos += *mousey << (FRACBITS - 3);
 	if(mlookpos > MLOOK_TOP)
 		mlookpos = MLOOK_TOP;
 	if(mlookpos < MLOOK_BOT)
 		mlookpos = MLOOK_BOT;
+	players[*consoleplayer].frags[3] = mlookpos;
 
 	// disable mouse Y for original function
 	*mousey = 0;
@@ -67,7 +66,7 @@ static __attribute((regparm(1),no_caller_saved_registers)) void custom_BuildTicc
 static __attribute((regparm(1),no_caller_saved_registers)) void custom_SetupFrame(player_t *pl)
 {
 	static fixed_t pitch;
-	fixed_t pn = mlookpos >> FRACBITS;
+	fixed_t pn = pl->frags[3] >> FRACBITS;
 
 	if(pitch != pn)
 	{

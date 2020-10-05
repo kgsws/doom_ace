@@ -36,7 +36,7 @@ static hook_t hook_list[] =
 	// required variables
 	{0x0003952C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centeryfrac},
 	{0x00039538, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centery},
-	{0x0004F91C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&yslope},
+	{0x0004F920, DATA_HOOK | HOOK_IMPORT, (uint32_t)&yslope},
 	{0x0002b33c, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mousey},
 	// terminator
 	{0}

@@ -1,5 +1,5 @@
-program=ace_code
-OBJ = asm.o main.o utils.o stbar.o mlook.o map.o
+program=snake
+OBJ = asm.o main.o utils.o snake.o
 CC=gcc -m32 -march=i386
 OPT=-O2 -g0
 BOTH=--static-pie

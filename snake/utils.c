@@ -22,26 +22,16 @@ void utils_install_hooks(const hook_t *table)
 		switch(table->type & 0xFFFF)
 		{
 			// these modify Doom memory
-			case HOOK_CALL_ACE:
-				*((uint8_t*)addr) = 0xE8;
-				addr++;
-			goto reladdr_ace;
 			case HOOK_JMP_ACE:
 				*((uint8_t*)addr) = 0xE9;
 				addr++; // fall trough
 			case HOOK_RELADDR_ACE:
-reladdr_ace:
 				*((uint32_t*)(addr)) = (table->value + ace_segment) - (addr + 4);
 			break;
-			case HOOK_CALL_DOOM:
-				*((uint8_t*)addr) = 0xE8;
-				addr++;
-			goto reladdr_doom;
 			case HOOK_JMP_DOOM:
 				*((uint8_t*)addr) = 0xE9;
 				addr++; // fall trough
 			case HOOK_RELADDR_DOOM:
-reladdr_doom:
 				*((uint32_t*)(addr)) = (table->value + doom_code_segment) - (addr + 4);
 			break;
 			case HOOK_UINT8:

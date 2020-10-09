@@ -89,12 +89,6 @@ __reloc_code_012:
 __return_to_game:
 	.byte	0xE9
 	.4byte	0x00020843
-////////////////////////////////// sprintf
-.section .text.sprintf
-.global sprintf
-sprintf:
-	.byte	0xE9
-	.4byte	0x0004101C
 ////////////////////////////////// I_Error
 .section .text.I_Error
 .global I_Error
@@ -149,78 +143,12 @@ W_GetNumForName:
 W_CacheLumpNum:
 	.byte	0xE9
 	.4byte	0x00038D00
-////////////////////////////////// W_CacheLumpName
-.section .text.W_CacheLumpName
-.global W_CacheLumpName
-W_CacheLumpName:
-	.byte	0xE9
-	.4byte	0x00038CF0
-////////////////////////////////// W_LumpLength
-.section .text.W_LumpLength
-.global W_LumpLength
-W_LumpLength:
-	.byte	0xE9
-	.4byte	0x00038BB0
 ////////////////////////////////// Z_Free
 .section .text.Z_Free
 .global Z_Free
 Z_Free:
 	.byte	0xE9
 	.4byte	0x00039600
-////////////////////////////////// R_RenderPlayerView
-.section .text.R_RenderPlayerView
-.global R_RenderPlayerView
-R_RenderPlayerView:
-	.byte	0xE9
-	.4byte	0x00035FB0
-////////////////////////////////// R_DrawPlayerSprites
-.section .text.R_DrawPlayerSprites
-.global R_DrawPlayerSprites
-R_DrawPlayerSprites:
-	.byte	0xE9
-	.4byte	0x00038210
-////////////////////////////////// R_SetupFrame
-.section .text.R_SetupFrame
-.global R_SetupFrame
-R_SetupFrame:
-	.byte	0xE9
-	.4byte	0x00035E80
-////////////////////////////////// G_BuildTiccmd
-.section .text.G_BuildTiccmd
-.global G_BuildTiccmd
-G_BuildTiccmd:
-	.byte	0xE9
-	.4byte	0x0001FB10
-////////////////////////////////// P_SpawnPlayer
-.section .text.P_SpawnPlayer
-.global P_SpawnPlayer
-P_SpawnPlayer:
-	.byte	0xE9
-	.4byte	0x000317F0
-////////////////////////////////// P_SpawnSpecials
-.section .text.P_SpawnSpecials
-.global P_SpawnSpecials
-P_SpawnSpecials:
-	.byte	0xE9
-	.4byte	0x0002FFF0
-////////////////////////////////// P_SetThingPosition
-.section .text.P_SetThingPosition
-.global P_SetThingPosition
-P_SetThingPosition:
-	.byte	0xE9
-	.4byte	0x0002C460
-////////////////////////////////// P_UnsetThingPosition
-.section .text.P_UnsetThingPosition
-.global P_UnsetThingPosition
-P_UnsetThingPosition:
-	.byte	0xE9
-	.4byte	0x0002C3B0
-////////////////////////////////// FixedDiv
-.section .text.FixedDiv
-.global FixedDiv
-FixedDiv:
-	.byte	0xE9
-	.4byte	0x0001D180
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:
@@ -251,16 +179,6 @@ Z_Malloc:
 	.4byte	0x00039690
 	pop	%ebx
 	ret
-////////////////////////////////// P_SpawnMobj
-.section .text.P_SpawnMobj
-.global P_SpawnMobj
-P_SpawnMobj:
-	push	%ebx
-	mov	8(%esp),%ebx
-	.byte	0xE8
-	.4byte	0x00031540
-	pop	%ebx
-	ret
 ////////////////////////////////// end
 .section .text.__reloc_code_arg3_end
 __reloc_code_arg3_end:
@@ -281,19 +199,6 @@ V_DrawPatchDirect:
 	mov	16(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x000392A0
-	pop	%ecx
-	pop	%ebx
-	ret
-////////////////////////////////// P_DamageMobj
-.section .text.P_DamageMobj
-.global P_DamageMobj
-P_DamageMobj:
-	push	%ebx
-	push	%ecx
-	mov	12(%esp),%ebx
-	mov	16(%esp),%ecx
-	.byte	0xE8
-	.4byte	0x0002A460
 	pop	%ecx
 	pop	%ebx
 	ret

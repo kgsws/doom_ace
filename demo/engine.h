@@ -99,20 +99,7 @@ enum
 };
 
 //
-// states
-
-typedef struct
-{
-	uint32_t sprite;
-	int32_t frame;
-	int32_t tics;
-	uint32_t action;
-	int32_t nextstate;
-	int32_t misc1, misc2;
-} state_t;
-
-//
-// ticcmd
+// tics
 
 typedef struct
 {
@@ -124,8 +111,31 @@ typedef struct
 	byte	buttons;
 } ticcmd_t;
 
+typedef struct thinker_s
+{
+	struct thinker_s *prev;
+	struct thinker_s *next;
+	void *function;
+} thinker_t;
+
 //
 // render
+
+enum
+{
+	ST_HORIZONTAL,
+	ST_VERTICAL,
+	ST_POSITIVE,
+	ST_NEGATIVE
+};
+
+enum
+{
+	BOXTOP,
+	BOXBOTTOM,
+	BOXLEFT,
+	BOXRIGHT
+};
 
 typedef struct
 {
@@ -218,7 +228,7 @@ enum
 
 typedef struct
 {
-	uint32_t *mo; // TODO
+	struct mobj_s *mo;
 	uint32_t playerstate;
 	ticcmd_t cmd;
 	fixed_t viewz;
@@ -247,13 +257,242 @@ typedef struct
 	char *message;
 	int damagecount;
 	int bonuscount;
-	uint32_t *attacker; // TODO
+	struct mobj_s *attacker;
 	int extralight;
 	int fixedcolormap;
 	int colormap;
 	pspdef_t psprites[NUMPSPRITES];
 	uint32_t didsecret;
 } player_t;
+
+//
+// wad
+
+typedef struct
+{
+	union
+	{
+		char name[8];
+		uint64_t wame;
+	};
+	int handle;
+	uint32_t position;
+	uint32_t size;
+} lumpinfo_t;
+
+//
+// info
+
+#define NUMMOBJTYPES	137
+
+typedef struct
+{
+	uint32_t doomednum;
+	uint32_t spawnstate;
+	int32_t spawnhealth;
+	uint32_t seestate;
+	uint32_t seesound;
+	uint32_t reactiontime;
+	uint32_t attacksound;
+	uint32_t painstate;
+	uint32_t painchance;
+	uint32_t painsound;
+	uint32_t meleestate;
+	uint32_t missilestate;
+	uint32_t deathstate;
+	uint32_t xdeathstate;
+	uint32_t deathsound;
+	int32_t speed;
+	uint32_t radius;
+	uint32_t height;
+	uint32_t mass;
+	int32_t damage;
+	uint32_t activesound;
+	uint32_t flags;
+	uint32_t raisestate;
+} mobjinfo_t;
+
+typedef struct
+{
+	uint32_t sprite;
+	int32_t frame;
+	int32_t tics;
+	void *action;
+	uint32_t nextstate;
+	int32_t misc1;
+	int32_t misc2;
+} state_t;
+
+//
+// map
+
+#define MTF_EASY	1
+#define MTF_MEDIUM	2
+#define MTF_HARD	4
+#define MTF_AMBUSH	8
+#define MTF_MULTIPLR	16
+
+enum
+{
+	ML_LABEL,
+	ML_THINGS,
+	ML_LINEDEFS,
+	ML_SIDEDEFS,
+	ML_VERTEXES,
+	ML_SEGS,
+	ML_SSECTORS,
+	ML_NODES,
+	ML_SECTORS,
+	ML_REJECT,
+	ML_BLOCKMAP,
+	ML_BEHAVIOR // [kg] fun stuff
+};
+
+typedef struct
+{
+	int16_t x, y;
+	uint16_t angle;
+	uint16_t type;
+	uint16_t flags;
+} mapthing_t;
+
+typedef struct
+{
+	thinker_t unused;
+	fixed_t x, y, z;
+} degenmobj_t;
+
+typedef struct
+{
+	fixed_t x, y;
+} vertex_t;
+
+typedef struct
+{
+	fixed_t floorheight;
+	fixed_t ceilingheight;
+	uint16_t floorpic;
+	uint16_t ceilingpic;
+	uint16_t lightlevel;
+	uint16_t special;
+	uint16_t tag;
+	int32_t sndtraversed;
+	struct mobj_s *soundtarget;
+	int32_t blockbox[4];
+	degenmobj_t soundorg;
+	int validcount;
+	struct mobj_s *thinglist;
+	void *specialdata;
+	uint32_t linecount;
+	struct line_s **lines;
+} __attribute__((packed)) sector_t;
+
+typedef struct line_s
+{
+	vertex_t *v1, *v2;
+	fixed_t dx, dy;
+	uint16_t flags;
+	uint16_t special;
+	uint16_t tag;
+	int16_t sidenum[2];
+	fixed_t bbox[4];
+	uint32_t slopetype;
+	sector_t *frontsector;
+	sector_t *backsector;
+	int validcount;
+	void *specialdata;
+} __attribute__((packed)) line_t;
+
+typedef struct
+{
+	fixed_t textureoffset;
+	fixed_t rowoffset;
+	uint16_t toptexture;
+	uint16_t bottomtexture;
+	uint16_t midtexture;
+	sector_t *sector;
+} __attribute__((packed)) side_t;
+
+typedef struct subsector_s
+{
+	sector_t *sector;
+	uint16_t numlines;
+	uint16_t firstline;
+} subsector_t;
+
+//
+// mobj
+
+#define MF_SPECIAL	0x1
+#define MF_SOLID	0x2
+#define MF_SHOOTABLE	0x4
+#define MF_NOSECTOR	0x8
+#define MF_NOBLOCKMAP	0x10
+#define MF_AMBUSH	0x20
+#define MF_JUSTHIT	0x40
+#define MF_JUSTATTACKED	0x80
+#define MF_SPAWNCEILING	0x100
+#define MF_NOGRAVITY	0x200
+#define MF_DROPOFF	0x400
+#define MF_PICKUP	0x800
+#define MF_NOCLIP	0x1000
+#define MF_SLIDE	0x2000
+#define MF_FLOAT	0x4000
+#define MF_TELEPORT	0x8000
+#define MF_MISSILE	0x10000
+#define MF_DROPPED	0x20000
+#define MF_SHADOW	0x40000
+#define MF_NOBLOOD	0x80000
+#define MF_CORPSE	0x100000
+#define MF_INFLOAT	0x200000
+#define MF_COUNTKILL	0x400000
+#define MF_COUNTITEM	0x800000
+#define MF_SKULLFLY	0x1000000
+#define MF_NOTDMATCH	0x2000000
+#define MF_TRANSLATION	0xc000000
+
+#define MF_TRANSSHIFT	26
+
+typedef struct mobj_s
+{
+	thinker_t thinker;
+	fixed_t x;
+	fixed_t y;
+	fixed_t z;
+	struct mobj_s *snext;
+	struct mobj_s *sprev;
+	angle_t angle;
+	int32_t sprite;
+	int32_t frame;
+	struct mobj_s *bnext;
+	struct mobj_s *bprev;
+	struct subsector_s *subsector;
+	fixed_t floorz;
+	fixed_t ceilingz;
+	fixed_t radius;
+	fixed_t height;
+	fixed_t momx;
+	fixed_t momy;
+	fixed_t momz;
+	int validcount;
+	uint32_t type;
+	mobjinfo_t *info;
+	int tics;
+	state_t *state;
+	uint32_t flags;
+	int health;
+	int movedir;
+	int movecount;
+	struct mobj_s *target;
+	int reactiontime;
+	int threshold;
+	struct player_s *player;
+	int lastlook;
+	struct mobj_s *tracer;
+	mapthing_t spawnpoint;
+	// [kg] fun stuff
+	uint16_t extra;
+} __attribute__((packed)) mobj_t;
 
 //
 // sound
@@ -401,6 +640,7 @@ void Z_Free(void *ptr) __attribute((regparm(1)));
 int W_GetNumForName(char *name) __attribute((regparm(1)));
 void *W_CacheLumpNum(int lump, int tag) __attribute((regparm(2)));
 void *W_CacheLumpName(char *name, int tag) __attribute((regparm(2)));
+int W_LumpLength(int lump) __attribute((regparm(1)));
 
 // v_video.c
 void V_DrawPatchDirect(int x, int y, int zero, patch_t *patch) __attribute((regparm(2)));
@@ -408,10 +648,20 @@ void V_DrawPatchDirect(int x, int y, int zero, patch_t *patch) __attribute((regp
 // g_game.c
 void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(1)));
 
+// p_mobj.c
+mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, uint32_t type) __attribute((regparm(2)));
+void P_SpawnPlayer(void *mt) __attribute((regparm(1)));
+
 // render
 void R_RenderPlayerView(player_t*) __attribute((regparm(1)));
 void R_SetupFrame(player_t*) __attribute((regparm(1)));
 void R_DrawPlayerSprites();
+
+// p_ stuff
+void P_SpawnSpecials();
+void P_SetThingPosition(mobj_t*) __attribute((regparm(1)));
+void P_UnsetThingPosition(mobj_t*) __attribute((regparm(1)));
+void P_DamageMobj(mobj_t*, mobj_t*, mobj_t*, int) __attribute((regparm(2)));
 
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));

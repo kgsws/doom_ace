@@ -215,6 +215,54 @@ P_SetThingPosition:
 P_UnsetThingPosition:
 	.byte	0xE9
 	.4byte	0x0002C3B0
+////////////////////////////////// P_PlayerInSpecialSector
+.section .text.P_PlayerInSpecialSector
+.global P_PlayerInSpecialSector
+P_PlayerInSpecialSector:
+	.byte	0xE9
+	.4byte	0x0002FB20
+////////////////////////////////// P_TouchSpecialThing
+.section .text.P_TouchSpecialThing
+.global P_TouchSpecialThing
+P_TouchSpecialThing:
+	.byte	0xE9
+	.4byte	0x00029AE0
+////////////////////////////////// P_ChangeSwitchTexture
+.section .text.P_ChangeSwitchTexture
+.global P_ChangeSwitchTexture
+P_ChangeSwitchTexture:
+	.byte	0xE9
+	.4byte	0x00030310
+////////////////////////////////// P_ChangeSector
+.section .text.P_ChangeSector
+.global P_ChangeSector
+P_ChangeSector:
+	.byte	0xE9
+	.4byte	0x0002BF90
+////////////////////////////////// P_RemoveThinker
+.section .text.P_RemoveThinker
+.global P_RemoveThinker
+P_RemoveThinker:
+	.byte	0xE9
+	.4byte	0x00032EF0
+////////////////////////////////// P_AddThinker
+.section .text.P_AddThinker
+.global P_AddThinker
+P_AddThinker:
+	.byte	0xE9
+	.4byte	0x00032ED0
+////////////////////////////////// P_FindLowestCeilingSurrounding
+.section .text.P_FindLowestCeilingSurrounding
+.global P_FindLowestCeilingSurrounding
+P_FindLowestCeilingSurrounding:
+	.byte	0xE9
+	.4byte	0x0002F170
+////////////////////////////////// G_ExitLevel
+.section .text.G_ExitLevel
+.global G_ExitLevel
+G_ExitLevel:
+	.byte	0xE9
+	.4byte	0x00020D40
 ////////////////////////////////// FixedDiv
 .section .text.FixedDiv
 .global FixedDiv

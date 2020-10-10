@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stddef.h>
 
 //
 // basic
@@ -332,6 +333,16 @@ typedef struct
 #define MTF_AMBUSH	8
 #define MTF_MULTIPLR	16
 
+#define ML_BLOCKING	1
+#define ML_BLOCKMONSTERS	2
+#define ML_TWOSIDED	4
+#define ML_DONTPEGTOP	8
+#define ML_DONTPEGBOTTOM	16
+#define ML_SECRET	32
+#define ML_SOUNDBLOCK	64
+#define ML_DONTDRAW	128
+#define ML_MAPPED	256
+
 enum
 {
 	ML_LABEL,
@@ -491,7 +502,8 @@ typedef struct mobj_s
 	struct mobj_s *tracer;
 	mapthing_t spawnpoint;
 	// [kg] fun stuff
-	uint16_t extra;
+	uint16_t extra0;
+	uint32_t extra1;
 } __attribute__((packed)) mobj_t;
 
 //
@@ -652,6 +664,9 @@ void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(1)));
 mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, uint32_t type) __attribute((regparm(2)));
 void P_SpawnPlayer(void *mt) __attribute((regparm(1)));
 
+// g_game.c
+void G_ExitLevel();
+
 // render
 void R_RenderPlayerView(player_t*) __attribute((regparm(1)));
 void R_SetupFrame(player_t*) __attribute((regparm(1)));
@@ -662,6 +677,15 @@ void P_SpawnSpecials();
 void P_SetThingPosition(mobj_t*) __attribute((regparm(1)));
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(1)));
 void P_DamageMobj(mobj_t*, mobj_t*, mobj_t*, int) __attribute((regparm(2)));
+void P_PlayerInSpecialSector(player_t*) __attribute((regparm(1)));
+void P_TouchSpecialThing(mobj_t*, mobj_t*) __attribute((regparm(2)));
+void P_ChangeSwitchTexture(line_t*,int) __attribute((regparm(2)));
+void P_AddThinker(thinker_t*) __attribute((regparm(1)));
+void P_RemoveThinker(thinker_t*) __attribute((regparm(1)));
+int P_ChangeSector(sector_t*,int) __attribute((regparm(2)));
+
+// p_ height search
+fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(1)));
 
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));

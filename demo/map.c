@@ -4,15 +4,26 @@
 #include "utils.h"
 #include "defs.h"
 #include "map.h"
+#include "generic.h"
+
+#define LNSPEC_ARG(x,y)	(((uint32_t)(x) >> ((y-1) * 8)) & 0xFF)
 
 typedef struct
 {
 	uint16_t v1, v2;
 	uint16_t flags;
 	uint8_t special;
-	uint8_t arg[5];
+	union
+	{
+		uint8_t arg[5];
+		struct
+		{
+			uint8_t arg0;
+			uint32_t args;
+		} __attribute__((packed));
+	};
 	int16_t sidenum[2];
-} new_maplinedef_t;
+} __attribute__((packed)) new_maplinedef_t;
 
 typedef struct
 {
@@ -22,8 +33,16 @@ typedef struct
 	uint16_t type;
 	uint16_t flags;
 	uint8_t special;
-	uint8_t arg[5];
-} new_mapthing_t;
+	union
+	{
+		uint8_t arg[5];
+		struct
+		{
+			uint8_t arg0;
+			uint32_t args;
+		} __attribute__((packed));
+	};
+} __attribute__((packed)) new_mapthing_t;
 
 typedef struct
 {
@@ -32,8 +51,18 @@ typedef struct
 	uint16_t angle;
 	uint16_t type;
 	uint8_t special;
-	uint8_t arg[3]; // TODO: more args
-} mobj_extra_t;
+	union
+	{
+		uint8_t arg[5];
+		struct
+		{
+			uint8_t arg0;
+			uint32_t args;
+		} __attribute__((packed));
+	};
+	uint8_t tag;
+	uint8_t newflags;
+} __attribute__((packed)) mobj_extra_t;
 
 static void activate_special(line_t *ln, mobj_t *mo, int side) __attribute((regparm(2)));
 
@@ -45,16 +74,23 @@ static void map_PlayerInSpecialSector(player_t*) __attribute((regparm(1),no_call
 static int map_UseSpecialLine(mobj_t*, line_t*) __attribute((regparm(2),no_caller_saved_registers));
 static void map_CrossSpecialLine(int,int) __attribute((regparm(2),no_caller_saved_registers));
 static void map_ShootSpecialLine(mobj_t*,line_t*) __attribute((regparm(2),no_caller_saved_registers));
+static void map_ItemPickup(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 uint32_t *numlines;
+uint32_t *numsectors;
 line_t **lines;
 vertex_t **vertexes;
 side_t **sides;
+sector_t **sectors;
 
 uint32_t *totalitems;
 uint32_t *totalkills;
 
+thinker_t *thinkercap;
+void *ptr_MobjThinker;
+
 static uint8_t skill_flag[] = {MTF_EASY, MTF_EASY, MTF_MEDIUM, MTF_HARD, MTF_HARD};
+static line_t fakeline; // for thing specials
 
 static hook_t hook_list[] =
 {
@@ -62,13 +98,17 @@ static hook_t hook_list[] =
 	{0x0002e8c1, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)get_map_lump},
 	// required variables
 	{0x0002C134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlines},
+	{0x0002C14C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsectors},
 	{0x0002C120, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lines},
 	{0x0002C138, DATA_HOOK | HOOK_IMPORT, (uint32_t)&vertexes},
 	{0x0002C118, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sides},
-	// lest required variables
+	{0x0002C148, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sectors},
+	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
+	{0x00031490, CODE_HOOK | HOOK_IMPORT, (uint32_t)&ptr_MobjThinker},
+	// less required variables
 	{0x0002B3D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalitems},
 	{0x0002B3D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalkills},
-	// change mobj_t size - Z_Malloc forces 4 byte align anyway
+	// change mobj_t size - add extra space for new stuff
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for Z_Malloc
 	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for memset
 	// terminator
@@ -93,28 +133,36 @@ static hook_t map_load_hooks_new[] =
 	{0x0002b341, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_CrossSpecialLine},
 	// replace call to 'shoot line' function
 	{0x0002b907, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_ShootSpecialLine},
+	// replace call to item pickup
+	{0x0002b032, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_ItemPickup},
+	// change exit switch sound line special
+	{0x00030368, CODE_HOOK | HOOK_UINT8, 243},
 	// terminator
 	{0}
 };
 
 static hook_t map_load_hooks_old[] =
 {
-	// replace call to map format specific lump loading
+	// restore call to map format specific lump loading
 	{0x0002e8f3, CODE_HOOK | HOOK_RELADDR_DOOM, 0x0002E220},
 	{0x0002e93b, CODE_HOOK | HOOK_RELADDR_DOOM, 0x0002E180},
-	// replace call to specials initialization
+	// restore call to specials initialization
 	{0x0002e982, CODE_HOOK | HOOK_RELADDR_DOOM, 0x0002FFF0},
 	{0x00030191, CODE_HOOK | HOOK_UINT16, 0xff66}, // original values
-	// replace call to player sector function
+	// restore call to player sector function
 	{0x000333e1, CODE_HOOK | HOOK_RELADDR_DOOM, 0x0002FB20},
-	// replace call to 'use line' function
+	// restore call to 'use line' function
 	{0x0002bcff, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00030710}, // by player
 	{0x00027287, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00030710}, // by monster
 	{0x0002bd03, CODE_HOOK | HOOK_UINT16, 0xC031}, // 'xor %eax,%eax'
-	// replace call to 'cross line' function
-	{0x0002b341, CODE_HOOK | HOOK_RELADDR_ACE, 0x0002F500},
-	// replace call to 'shoot line' function
-	{0x0002b907, CODE_HOOK | HOOK_RELADDR_ACE, 0x0002FA70},
+	// restore call to 'cross line' function
+	{0x0002b341, CODE_HOOK | HOOK_RELADDR_DOOM, 0x0002F500},
+	// restore call to 'shoot line' function
+	{0x0002b907, CODE_HOOK | HOOK_RELADDR_DOOM, 0x0002FA70},
+	// restore call to item pickup
+	{0x0002b032, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00029AE0},
+	// restore exit switch sound line special
+	{0x00030368, CODE_HOOK | HOOK_UINT8, 11},
 	// terminator
 	{0}
 };
@@ -143,7 +191,18 @@ void map_SpawnSpecials()
 static __attribute((regparm(1),no_caller_saved_registers))
 void map_PlayerInSpecialSector(player_t *pl)
 {
-	I_Error("TODO: special sector (%d)\n", pl->mo->subsector->sector->special);
+	if(pl->mo->subsector->sector->special & 1024)
+	{
+		// new secret message
+		pl->mo->subsector->sector->special &= ~1024;
+		pl->message = "SECRET!";
+		pl->secretcount++;
+		S_StartSound(NULL, sfx_radio);
+		if(!pl->mo->subsector->sector->special)
+			return;
+	}
+	// run the original
+	P_PlayerInSpecialSector(pl);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -209,6 +268,27 @@ void map_ShootSpecialLine(mobj_t *mo, line_t *ln)
 	activate_special(ln, mo, 0);
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void map_ItemPickup(mobj_t *item, mobj_t *mo)
+{
+	// original Doom code
+	P_TouchSpecialThing(item, mo);
+
+	// addon for specials
+	if(item->thinker.function != (void*)-1)
+		// item was not removed (not picked up)
+		return;
+
+	mobj_extra_t *me = (mobj_extra_t*)&item->spawnpoint;
+	if(me->special)
+	{
+		fakeline.special = me->special;
+		fakeline.tag = me->arg0;
+		fakeline.specialdata = (void*)me->args;
+		activate_special(&fakeline, mo, 0);
+	}
+}
+
 //
 // map loading
 
@@ -258,12 +338,12 @@ void map_LoadLineDefs(int lump)
 		ln->dx = v2->x - v1->x;
 		ln->dy = v2->y - v1->y;
 		ln->flags = ml->flags;
-		ln->special = ml->special | (ml->arg[0] << 8);
-		ln->tag = ml->arg[1] | (ml->arg[2] << 8); // TODO: more args
+		ln->special = ml->special;
+		ln->tag = ml->arg0; // arg[0] is often used as a tag
+		ln->specialdata = (void*)(ml->args); // abuse this space for more args
 		ln->sidenum[0] = ml->sidenum[0];
 		ln->sidenum[1] = ml->sidenum[1];
 		ln->validcount = 0;
-		ln->specialdata = NULL;
 
 		if(v1->x < v2->x)
 		{
@@ -405,12 +485,18 @@ void map_LoadThings(int lump)
 		if(mt->flags & MTF_SHADOW)
 			mo->flags |= MF_SHADOW;
 
+		// cool new stuff
+		mobj_extra_t *me = (mobj_extra_t*)&mo->spawnpoint;
+
 		if(mt->flags & MTF_INACTIVE)
 		{
 			// TODO
-			mo->flags |= MF_INACTIVE;
-			mo->flags |= MF_NOBLOOD; // this is a hack to disable blood
-			mo->health = 0; // this is a hack to disable damage
+			me->newflags |= MFN_INACTIVE;
+			if(mo->flags & MF_SHOOTABLE)
+			{
+				mo->flags |= MF_NOBLOOD; // this is a hack to disable blood
+				mo->health = -mo->health; // this is a hack to disable damage
+			}
 			mo->tics = -1;
 		} else
 		{
@@ -420,11 +506,10 @@ void map_LoadThings(int lump)
 		}
 
 		// place special & flags
-		mobj_extra_t *me = (mobj_extra_t*)&mo->spawnpoint;
 		me->special = mt->special;
-		me->arg[0] = mt->arg[0];
-		me->arg[1] = mt->arg[1];
-		me->arg[2] = mt->arg[2];
+		me->arg0 = mt->arg0;
+		me->args = mt->args;
+		me->tag = mt->tid;
 	}
 
 	Z_Free(buff);
@@ -434,26 +519,185 @@ void map_LoadThings(int lump)
 // line special functions
 
 static __attribute((regparm(2)))
+void spec_DoorOpen(sector_t *sec, fixed_t speed, int delay, int lighttag, int lightmin, int lightmax)
+{
+	// custom sounds can be supported
+	// even new sound behavior
+	// crushing doors can be defined too
+	generic_mover_info_t info;
+
+	info.start = sec->floorheight;
+	info.stop = P_FindLowestCeilingSurrounding(sec) - 4 * FRACUNIT;
+	info.speed = speed;
+	info.crushspeed = 0;
+	info.delay = delay;
+	info.stopsound = 0;
+	info.movesound = 0;
+	info.sleeping = 0;
+	info.lighttag = lighttag;
+	info.lightmin = lightmin;
+	info.lightmax = lightmax;
+
+	if(speed > 4 * FRACUNIT)
+	{
+		info.opensound = sfx_bdopn;
+		info.closesound = sfx_bdcls;
+	} else
+	{
+		info.opensound = sfx_doropn;
+		info.closesound = sfx_dorcls;
+	}
+
+	S_StartSound((mobj_t *)&sec->soundorg, info.opensound);
+	generic_door(sec, &info);
+}
+
+static __attribute((regparm(2)))
+void spec_ThrustThingZ(mobj_t *mo, fixed_t momz, int add)
+{
+	if(add)
+		mo->momz += momz;
+	else
+		mo->momz = momz;
+}
+
+static __attribute((regparm(2)))
 void activate_special(line_t *ln, mobj_t *mo, int side)
 {
 	// TODO: implement all
+	int success = 0;
 
-	switch(ln->special & 0xFF) // 
+	switch(ln->special)
 	{
-		case 0:
-			// original Doom code is checking 16 bits, so this can happen
+		case 12: // Door_Raise // TODO: lighttag
+		{
+			fixed_t speed = LNSPEC_ARG(ln->specialdata, 1) << (FRACBITS - 3);
+			uint16_t delay = LNSPEC_ARG(ln->specialdata, 2);
+			uint16_t lighttag = LNSPEC_ARG(ln->specialdata, 3);
+			uint8_t lightmax = 0;
+			uint8_t lightmin = 255;
+
+			if(ln->tag)
+			{
+				sector_t *sec;
+
+				// check for lights
+				if(lighttag)
+				{
+					sec = *sectors;
+					for(int i = 0; i < *numsectors; i++, sec++)
+					{
+						if(sec->tag == lighttag)
+						{
+							for(int j = 0; j < sec->linecount; j++)
+							{
+								line_t *ln = sec->lines[j];
+								if(ln->flags & ML_TWOSIDED)
+								{
+									sector_t *s2;
+									if(ln->frontsector == sec)
+										s2 = ln->backsector;
+									else
+										s2 = ln->frontsector;
+									if(s2->lightlevel > lightmax)
+										lightmax = s2->lightlevel;
+									if(s2->lightlevel < lightmin)
+										lightmin = s2->lightlevel;
+								}
+							}
+						}
+					}
+					if(lightmax <= lightmin)
+						lighttag = 0;
+				}
+
+				// activate
+				sec = *sectors;
+				for(int i = 0; i < *numsectors; i++, sec++)
+				{
+					if(sec->tag == ln->tag && !sec->specialdata)
+					{
+						spec_DoorOpen(sec, speed, delay, lighttag, lightmin, lightmax);
+						success = 1;
+					}
+				}
+			} else
+			{
+				if(side || !ln->backsector)
+					return;
+
+				if(ln->backsector->specialdata)
+				{
+					if(!mo->player)
+						// don't even try
+						return;
+					if(((thinker_t*)ln->backsector->specialdata)->function == think_door_mover)
+					{
+						// only change direction
+						generic_door_toggle(ln->backsector->specialdata);
+						success = 1;
+					}
+					// busy
+					return;
+				}
+
+				spec_DoorOpen(ln->backsector, speed, delay, lighttag, lightmin, lightmax);
+				success = 1;
+			}
+		}
 		break;
 		case 73: // DamageThing
 		{
-			register uint32_t dmg = ln->special >> 8;
+			register uint32_t dmg = ln->tag; // arg0
 			if(!dmg)
 				dmg = 10000;
 			P_DamageMobj(mo, NULL, NULL, dmg);
+			success = 1;
 		}
+		break;
+		case 128: // ThrustThingZ
+		{
+			uint32_t momz = LNSPEC_ARG(ln->specialdata, 1) << (FRACBITS-2);
+
+			if(LNSPEC_ARG(ln->specialdata, 2))
+				momz = -momz;
+
+			if(!ln->tag)
+			{
+				spec_ThrustThingZ(mo, momz, LNSPEC_ARG(ln->specialdata, 3));
+				success = 1;
+			} else
+			{
+				thinker_t *th;
+				for(th = thinkercap->next; th != thinkercap; th = th->next)
+				{
+					if(th->function != ptr_MobjThinker)
+						continue;
+
+					mobj_extra_t *me = (mobj_extra_t*)((void*)th + offsetof(mobj_t, spawnpoint));
+					if(me->tag != ln->tag)
+						continue;
+
+					spec_ThrustThingZ((mobj_t*)th, momz, LNSPEC_ARG(ln->specialdata, 3));
+					success = 1;
+				}
+			}
+		}
+		break;
+		case 243: // Exit_Normal
+			G_ExitLevel();
 		break;
 		default:
 			I_Error("TODO: special %d by %p side %d\n", ln->special, mo, side);
 		break;
 	}
+
+	if(ln == &fakeline)
+		return;
+
+	if(!success)
+		return;
+
+	P_ChangeSwitchTexture(ln, ln->flags & 0x0200);
 }
 

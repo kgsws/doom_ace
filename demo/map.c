@@ -519,6 +519,46 @@ void map_LoadThings(int lump)
 // line special functions
 
 static __attribute((regparm(2)))
+void spec_CeilingMove(sector_t *sec, fixed_t speed, fixed_t dest)
+{
+	// custom sounds can be supported
+	// even new sound behavior
+	generic_mover_info_t info;
+
+	info.start = sec->ceilingheight;
+	info.stop = dest;
+	info.speed = speed;
+	info.crushspeed = 0;
+	info.stopsound = 0;
+	info.movesound = sfx_stnmov;
+	info.texture = sec->ceilingpic; // no change
+	info.special = sec->special; // no change
+	info.light = sec->lightlevel; // no change
+
+	generic_ceiling(sec, &info);
+}
+
+static __attribute((regparm(2)))
+void spec_FloorMove(sector_t *sec, fixed_t speed, fixed_t dest)
+{
+	// custom sounds can be supported
+	// even new sound behavior
+	generic_mover_info_t info;
+
+	info.start = sec->floorheight;
+	info.stop = dest;
+	info.speed = speed;
+	info.crushspeed = 0;
+	info.stopsound = 0;
+	info.movesound = sfx_stnmov;
+	info.texture = sec->floorpic; // no change
+	info.special = sec->special; // no change
+	info.light = sec->lightlevel; // no change
+
+	generic_floor(sec, &info);
+}
+
+static __attribute((regparm(2)))
 void spec_DoorOpen(sector_t *sec, fixed_t speed, int delay, int lighttag, int lightmin, int lightmax)
 {
 	// custom sounds can be supported
@@ -577,42 +617,41 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 			uint8_t lightmax = 0;
 			uint8_t lightmin = 255;
 
-			if(ln->tag)
+			// check for lights
+			if(lighttag)
 			{
-				sector_t *sec;
-
-				// check for lights
-				if(lighttag)
+				sector_t *sec = *sectors;
+				for(int i = 0; i < *numsectors; i++, sec++)
 				{
-					sec = *sectors;
-					for(int i = 0; i < *numsectors; i++, sec++)
+					if(sec->tag == lighttag)
 					{
-						if(sec->tag == lighttag)
+						for(int j = 0; j < sec->linecount; j++)
 						{
-							for(int j = 0; j < sec->linecount; j++)
+							line_t *ln = sec->lines[j];
+							if(ln->flags & ML_TWOSIDED)
 							{
-								line_t *ln = sec->lines[j];
-								if(ln->flags & ML_TWOSIDED)
-								{
-									sector_t *s2;
-									if(ln->frontsector == sec)
-										s2 = ln->backsector;
-									else
-										s2 = ln->frontsector;
-									if(s2->lightlevel > lightmax)
-										lightmax = s2->lightlevel;
-									if(s2->lightlevel < lightmin)
-										lightmin = s2->lightlevel;
-								}
+								sector_t *s2;
+								if(ln->frontsector == sec)
+									s2 = ln->backsector;
+								else
+									s2 = ln->frontsector;
+								if(s2->lightlevel > lightmax)
+									lightmax = s2->lightlevel;
+								if(s2->lightlevel < lightmin)
+									lightmin = s2->lightlevel;
 							}
 						}
 					}
-					if(lightmax <= lightmin)
-						lighttag = 0;
 				}
+				if(lightmax <= lightmin)
+					lighttag = 0;
+			}
 
-				// activate
-				sec = *sectors;
+			if(ln->tag)
+			{
+				sector_t *sec = *sectors;
+
+				// activate all
 				for(int i = 0; i < *numsectors; i++, sec++)
 				{
 					if(sec->tag == ln->tag && !sec->specialdata)
@@ -643,6 +682,47 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 
 				spec_DoorOpen(ln->backsector, speed, delay, lighttag, lightmin, lightmax);
 				success = 1;
+			}
+		}
+		break;
+		case 20:
+		case 23:
+		{
+			fixed_t speed = LNSPEC_ARG(ln->specialdata, 1) << (FRACBITS - 3);
+			fixed_t value = LNSPEC_ARG(ln->specialdata, 2) << FRACBITS;
+			sector_t *sec = *sectors;
+
+			if(ln->special == 20)
+				value = -value;
+
+			// activate all
+			for(int i = 0; i < *numsectors; i++, sec++)
+			{
+				if(sec->tag == ln->tag && !sec->specialdata)
+				{
+					spec_FloorMove(sec, speed, sec->floorheight + value);
+					success = 1;
+				}
+			}
+		}
+		case 40: // Ceiling_LowerByValue
+		case 41: // Ceiling_RaiseByValue
+		{
+			fixed_t speed = LNSPEC_ARG(ln->specialdata, 1) << (FRACBITS - 3);
+			fixed_t value = LNSPEC_ARG(ln->specialdata, 2) << FRACBITS;
+			sector_t *sec = *sectors;
+
+			if(ln->special == 40)
+				value = -value;
+
+			// activate all
+			for(int i = 0; i < *numsectors; i++, sec++)
+			{
+				if(sec->tag == ln->tag && !sec->specialdata)
+				{
+					spec_CeilingMove(sec, speed, sec->ceilingheight + value);
+					success = 1;
+				}
 			}
 		}
 		break;

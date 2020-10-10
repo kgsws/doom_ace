@@ -7,6 +7,7 @@
 
 //
 // DOOR
+
 __attribute((regparm(1),no_caller_saved_registers))
 void think_door_mover(generic_mover_t *gm)
 {
@@ -169,6 +170,7 @@ void generic_door_toggle(generic_mover_t *gm)
 
 //
 // CEILING
+
 static __attribute((regparm(1),no_caller_saved_registers))
 void think_ceiling_mover(generic_mover_t *gm)
 {
@@ -248,6 +250,92 @@ void generic_ceiling(sector_t *sec, generic_mover_info_t *info)
 
 	// copy settings
 	gm->thinker.function = (void*)think_ceiling_mover;
+	gm->sector = sec;
+	gm->info = *info;
+}
+
+//
+// FLOOR
+
+static __attribute((regparm(1),no_caller_saved_registers))
+void think_floor_mover(generic_mover_t *gm)
+{
+	if(gm->info.start < gm->info.stop)
+	{
+		fixed_t height = gm->sector->floorheight;
+
+		// raise
+		gm->sector->floorheight = height + gm->info.speed;
+
+		// do not overshoot
+		if(gm->sector->floorheight > gm->info.stop)
+			gm->sector->floorheight = gm->info.stop;
+
+		if(P_ChangeSector(gm->sector, !!gm->info.crushspeed))
+		{
+			// move blocked
+			if(gm->info.crushspeed)
+				// change speed and continue
+				gm->info.speed = gm->info.crushspeed;
+			else
+			{
+				// restore original height
+				gm->sector->floorheight = height;
+				P_ChangeSector(gm->sector, 0);
+			}
+		}
+	} else
+	{
+		// lower
+		gm->sector->floorheight -= gm->info.speed;
+
+		// do not overshoot
+		if(gm->sector->floorheight < gm->info.stop)
+			gm->sector->floorheight = gm->info.stop;
+
+		P_ChangeSector(gm->sector, 0);
+	}
+	// finished?
+	if(gm->sector->floorheight == gm->info.stop)
+	{
+		// yes
+		if(gm->info.stopsound)
+			S_StartSound((mobj_t *)&gm->sector->soundorg, gm->info.stopsound);
+
+		gm->sector->floorpic = gm->info.texture;
+		gm->sector->special = gm->info.special;
+		gm->sector->lightlevel = gm->info.light;
+
+		P_RemoveThinker(&gm->thinker);
+		gm->sector->specialdata = NULL;
+	} else
+	if(gm->info.movesound && !(*leveltime & 7))
+		S_StartSound((mobj_t *)&gm->sector->soundorg, gm->info.movesound);
+}
+
+__attribute((regparm(2)))
+void generic_floor(sector_t *sec, generic_mover_info_t *info)
+{
+	generic_mover_t *gm;
+
+	// remove old thinker
+	if(sec->specialdata)
+		P_RemoveThinker(sec->specialdata);
+
+	// check speed
+	if(!info->speed)
+	{
+		sec->specialdata = NULL;
+		return;
+	}
+
+	// allocate memory
+	gm = Z_Malloc(sizeof(generic_mover_t), PU_LEVELSPEC, NULL);
+	P_AddThinker(&gm->thinker);
+	sec->specialdata = gm;
+
+	// copy settings
+	gm->thinker.function = (void*)think_floor_mover;
 	gm->sector = sec;
 	gm->info = *info;
 }

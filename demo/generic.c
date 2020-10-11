@@ -87,7 +87,7 @@ void think_door_mover(generic_mover_t *gm)
 		for(int i = 0; i < *numsectors; i++, sec++)
 		{
 			if(sec->tag == gm->info.lighttag)
-				sec->lightlevel = diff;
+				sec->light = diff; // only change light, not colormap
 		}
 	}
 	// finished?
@@ -108,7 +108,7 @@ void think_door_mover(generic_mover_t *gm)
 			gm->sector->specialdata = NULL;
 		}
 	} else
-	if(gm->info.movesound && !(*leveltime & 7)) // maybe replace with something like S_HasSoundPlaying ?
+	if(gm->info.movesound && !(*leveltime & 7)) // maybe replace with something like S_HasSoundPlaying(mobj) ?
 		S_StartSound((mobj_t *)&gm->sector->soundorg, gm->info.movesound);
 }
 
@@ -223,7 +223,7 @@ void think_ceiling_mover(generic_mover_t *gm)
 		P_RemoveThinker(&gm->thinker);
 		gm->sector->specialdata = NULL;
 	} else
-	if(gm->info.movesound && !(*leveltime & 7))
+	if(gm->info.movesound && !(*leveltime & 7)) // maybe replace with something like S_HasSoundPlaying(mobj) ?
 		S_StartSound((mobj_t *)&gm->sector->soundorg, gm->info.movesound);
 }
 
@@ -309,7 +309,7 @@ void think_floor_mover(generic_mover_t *gm)
 		P_RemoveThinker(&gm->thinker);
 		gm->sector->specialdata = NULL;
 	} else
-	if(gm->info.movesound && !(*leveltime & 7))
+	if(gm->info.movesound && !(*leveltime & 7)) // maybe replace with something like S_HasSoundPlaying(mobj) ?
 		S_StartSound((mobj_t *)&gm->sector->soundorg, gm->info.movesound);
 }
 

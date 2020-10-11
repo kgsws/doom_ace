@@ -384,7 +384,15 @@ typedef struct
 	fixed_t ceilingheight;
 	uint16_t floorpic;
 	uint16_t ceilingpic;
-	uint16_t lightlevel;
+	union
+	{
+		uint16_t lightlevel;
+		struct
+		{	// [kg] fun stuff
+			uint8_t light;
+			uint8_t colormap;
+		};
+	};
 	uint16_t special;
 	uint16_t tag;
 	int32_t sndtraversed;
@@ -404,14 +412,32 @@ typedef struct line_s
 	fixed_t dx, dy;
 	uint16_t flags;
 	uint16_t special;
-	uint16_t tag;
+	union
+	{
+		uint16_t tag;
+		struct
+		{	// [kg] fun stuff
+			uint8_t arg0;
+			uint8_t unused;
+		};
+	};
 	int16_t sidenum[2];
 	fixed_t bbox[4];
 	uint32_t slopetype;
 	sector_t *frontsector;
 	sector_t *backsector;
 	int validcount;
-	void *specialdata;
+	union
+	{
+		void *specialdata;
+		struct
+		{	// [kg] fun stuff
+			uint8_t arg1;
+			uint8_t arg2;
+			uint8_t arg3;
+			uint8_t arg4;
+		};
+	};
 } __attribute__((packed)) line_t;
 
 typedef struct
@@ -464,6 +490,26 @@ typedef struct subsector_s
 
 #define MF_TRANSSHIFT	26
 
+typedef struct
+{	// [kg] fun stuff
+	// partialy overlaps mapthing_t
+	int16_t x, y;
+	uint16_t angle;
+	uint16_t type;
+	uint8_t special;
+	union
+	{
+		uint8_t arg[5];
+		struct
+		{
+			uint8_t arg0;
+			uint32_t args;
+		} __attribute__((packed));
+	};
+	uint8_t tag;
+	uint8_t flags;
+} __attribute__((packed)) mobj_extra_t;
+
 typedef struct mobj_s
 {
 	thinker_t thinker;
@@ -500,11 +546,50 @@ typedef struct mobj_s
 	struct player_s *player;
 	int lastlook;
 	struct mobj_s *tracer;
-	mapthing_t spawnpoint;
-	// [kg] fun stuff
-	uint16_t extra0;
-	uint32_t extra1;
+	union
+	{
+		mapthing_t spawnpoint;
+		mobj_extra_t extra; // [kg] fun stuff
+	};
 } __attribute__((packed)) mobj_t;
+
+//
+// render
+
+#define FF_FULLBRIGHT	0x8000
+
+#define LIGHTLEVELS	16
+#define LIGHTSEGSHIFT	4
+#define MAXLIGHTSCALE	0x30
+#define	LIGHTSCALESHIFT	12
+#define MAXLIGHTZ	128
+
+typedef struct vissprite_s
+{
+	struct vissprite_s *prev;
+	struct vissprite_s *next;
+	int x1, x2;
+	fixed_t gx, gy;
+	fixed_t gz, gzt;
+	fixed_t startfrac;
+	fixed_t scale;
+	fixed_t xiscale;
+	fixed_t texturemid;
+	int patch;
+	void *colormap;
+	uint32_t mobjflags;
+} vissprite_t;
+
+typedef struct
+{
+	vertex_t *v1, *v2;
+	fixed_t offset;
+	angle_t angle;
+	side_t *sidedef;
+	line_t *linedef;
+	sector_t *frontsector;
+	sector_t *backsector;
+} seg_t;
 
 //
 // sound

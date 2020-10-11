@@ -6,6 +6,7 @@
 #include "stbar.h"
 #include "mlook.h"
 #include "map.h"
+#include "render.h"
 
 static void custom_RenderPlayerView(player_t*) __attribute((regparm(1),no_caller_saved_registers));
 
@@ -86,6 +87,9 @@ void ace_init()
 
 	// init new map format
 	map_init();
+
+	// init renderer updates
+	render_init();
 }
 
 // this function is called when 3D view should be drawn

@@ -6,8 +6,6 @@
 #include "map.h"
 #include "generic.h"
 
-#define LNSPEC_ARG(x,y)	(((uint32_t)(x) >> ((y-1) * 8)) & 0xFF)
-
 typedef struct
 {
 	uint16_t v1, v2;
@@ -43,26 +41,6 @@ typedef struct
 		} __attribute__((packed));
 	};
 } __attribute__((packed)) new_mapthing_t;
-
-typedef struct
-{
-	// partialy overlaps mapthing_t
-	int16_t x, y;
-	uint16_t angle;
-	uint16_t type;
-	uint8_t special;
-	union
-	{
-		uint8_t arg[5];
-		struct
-		{
-			uint8_t arg0;
-			uint32_t args;
-		} __attribute__((packed));
-	};
-	uint8_t tag;
-	uint8_t newflags;
-} __attribute__((packed)) mobj_extra_t;
 
 static void activate_special(line_t *ln, mobj_t *mo, int side) __attribute((regparm(2)));
 
@@ -210,13 +188,17 @@ int map_UseSpecialLine(mobj_t *mo, line_t *ln)
 {
 	register int side asm("ebx");
 
+	if(side)
+		// wrong side
+		return 1;
+
 	if((ln->flags & 0x1C00) != 0x0400 && (ln->flags & 0x1C00) != 0x1800)
 		// not a 'use' special
 		return 1;
 
 	if(!mo->player && !(ln->flags & 0x2000))
 		// monsters can't use this
-		return 1;
+		return 0;
 
 	activate_special(ln, mo, side);
 
@@ -225,7 +207,7 @@ int map_UseSpecialLine(mobj_t *mo, line_t *ln)
 		return (ln->flags & 0x1C00) == 0x1800;
 
 	// continue checking for monster
-	return 0;
+	return 1;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -279,12 +261,11 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 		// item was not removed (not picked up)
 		return;
 
-	mobj_extra_t *me = (mobj_extra_t*)&item->spawnpoint;
-	if(me->special)
+	if(item->extra.special)
 	{
-		fakeline.special = me->special;
-		fakeline.tag = me->arg0;
-		fakeline.specialdata = (void*)me->args;
+		fakeline.special = item->extra.special;
+		fakeline.tag = item->extra.arg0;
+		fakeline.specialdata = (void*)item->extra.args;
 		activate_special(&fakeline, mo, 0);
 	}
 }
@@ -486,12 +467,10 @@ void map_LoadThings(int lump)
 			mo->flags |= MF_SHADOW;
 
 		// cool new stuff
-		mobj_extra_t *me = (mobj_extra_t*)&mo->spawnpoint;
-
 		if(mt->flags & MTF_INACTIVE)
 		{
 			// TODO
-			me->newflags |= MFN_INACTIVE;
+			mo->extra.flags |= MFN_INACTIVE;
 			if(mo->flags & MF_SHOOTABLE)
 			{
 				mo->flags |= MF_NOBLOOD; // this is a hack to disable blood
@@ -505,11 +484,15 @@ void map_LoadThings(int lump)
 				mo->tics = 1 + (P_Random() % mo->tics);
 		}
 
+		// color hack for demo
+		if(mt->flags & MTF_STANDSTILL)
+			mo->extra.flags |= MFN_COLORHACK;
+
 		// place special & flags
-		me->special = mt->special;
-		me->arg0 = mt->arg0;
-		me->args = mt->args;
-		me->tag = mt->tid;
+		mo->extra.special = mt->special;
+		mo->extra.arg0 = mt->arg0;
+		mo->extra.args = mt->args;
+		mo->extra.tag = mt->tid;
 	}
 
 	Z_Free(buff);
@@ -559,26 +542,34 @@ void spec_FloorMove(sector_t *sec, fixed_t speed, fixed_t dest)
 }
 
 static __attribute((regparm(2)))
-void spec_DoorOpen(sector_t *sec, fixed_t speed, int delay, int lighttag, int lightmin, int lightmax)
+void spec_DoorGeneric(sector_t *sec, fixed_t speed, int delay, int lighttag, int lightmin, int lightmax)
 {
 	// custom sounds can be supported
 	// even new sound behavior
 	// crushing doors can be defined too
 	generic_mover_info_t info;
 
-	info.start = sec->floorheight;
-	info.stop = P_FindLowestCeilingSurrounding(sec) - 4 * FRACUNIT;
-	info.speed = speed;
-	info.crushspeed = 0;
-	info.delay = delay;
-	info.stopsound = 0;
-	info.movesound = 0;
-	info.sleeping = 0;
-	info.lighttag = lighttag;
-	info.lightmin = lightmin;
-	info.lightmax = lightmax;
+	// direction
+	if(speed > 0)
+	{
+		// open
+		info.start = sec->floorheight;
+		info.stop = P_FindLowestCeilingSurrounding(sec) - 4 * FRACUNIT;
+		info.speed = speed;
+	} else
+	{
+		// close
+		info.start = P_FindLowestCeilingSurrounding(sec) - 4 * FRACUNIT;
+		info.stop = sec->floorheight;
+		info.speed = -speed;
+	}
 
-	if(speed > 4 * FRACUNIT)
+	// the check
+	if(info.stop == sec->ceilingheight)
+		return;
+
+	// sound by speed
+	if(info.speed > 4 * FRACUNIT)
 	{
 		info.opensound = sfx_bdopn;
 		info.closesound = sfx_bdcls;
@@ -588,8 +579,66 @@ void spec_DoorOpen(sector_t *sec, fixed_t speed, int delay, int lighttag, int li
 		info.closesound = sfx_dorcls;
 	}
 
-	S_StartSound((mobj_t *)&sec->soundorg, info.opensound);
+	S_StartSound((mobj_t *)&sec->soundorg, speed < 0 ? info.closesound : info.opensound);
+
+	// the rest
+	info.crushspeed = 0;
+	info.delay = delay;
+	info.stopsound = 0;
+	info.movesound = 0;
+	info.sleeping = 0;
+	info.lighttag = lighttag;
+	info.lightmin = lightmin;
+	info.lightmax = lightmax;
+
 	generic_door(sec, &info);
+}
+
+static __attribute((regparm(2)))
+int specDoorLight(int lighttag, uint8_t *lmin, uint8_t *lmax)
+{
+	uint8_t lightmax = 0;
+	uint8_t lightmin = 255;
+
+	if(!lighttag)
+		return 0;
+
+	sector_t *sec = *sectors;
+	for(int i = 0; i < *numsectors; i++, sec++)
+	{
+		if(sec->tag == lighttag)
+		{
+			if(sec->light > lightmax)
+				lightmax = sec->light;
+			if(sec->light < lightmin)
+				lightmin = sec->light;
+
+			for(int j = 0; j < sec->linecount; j++)
+			{
+				line_t *ln = sec->lines[j];
+				if(ln->flags & ML_TWOSIDED)
+				{
+					sector_t *s2;
+					if(ln->frontsector == sec)
+						s2 = ln->backsector;
+					else
+						s2 = ln->frontsector;
+					if(s2->light > lightmax)
+						lightmax = s2->light;
+					if(s2->light < lightmin)
+						lightmin = s2->light;
+				}
+			}
+		}
+	}
+
+	if(lightmax <= lightmin)
+		return 0;
+
+	*lmin = lightmin;
+	*lmax = lightmax;
+
+	return lighttag;
 }
 
 static __attribute((regparm(2)))
@@ -609,44 +658,57 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 
 	switch(ln->special)
 	{
-		case 12: // Door_Raise // TODO: lighttag
+		case 80:
 		{
-			fixed_t speed = LNSPEC_ARG(ln->specialdata, 1) << (FRACBITS - 3);
-			uint16_t delay = LNSPEC_ARG(ln->specialdata, 2);
-			uint16_t lighttag = LNSPEC_ARG(ln->specialdata, 3);
+			// HACK FOR DEMO
+			sector_t *sec = *sectors;
+			uint8_t step = ln->arg1 + 1;
+
+			if(step == 4)
+				step = 0;
+			ln->arg1 = step;
+
+			if(step > 0)
+				step++;
+
+			// change colormap
+			for(int i = 0; i < *numsectors; i++, sec++)
+			{
+				if(sec->tag == ln->tag)
+				{
+					sec->colormap = step;
+					success = 1;
+				}
+			}
+		}
+		break;
+		case 10: // Door_Close
+		case 11: // Door_Open
+		case 12: // Door_Raise
+		{
+			int16_t delay;
+			fixed_t speed = ln->arg1 << (FRACBITS - 3);
+			uint16_t lighttag;
 			uint8_t lightmax = 0;
 			uint8_t lightmin = 255;
 
-			// check for lights
-			if(lighttag)
+			if(ln->special == 12)
 			{
-				sector_t *sec = *sectors;
-				for(int i = 0; i < *numsectors; i++, sec++)
-				{
-					if(sec->tag == lighttag)
-					{
-						for(int j = 0; j < sec->linecount; j++)
-						{
-							line_t *ln = sec->lines[j];
-							if(ln->flags & ML_TWOSIDED)
-							{
-								sector_t *s2;
-								if(ln->frontsector == sec)
-									s2 = ln->backsector;
-								else
-									s2 = ln->frontsector;
-								if(s2->lightlevel > lightmax)
-									lightmax = s2->lightlevel;
-								if(s2->lightlevel < lightmin)
-									lightmin = s2->lightlevel;
-							}
-						}
-					}
-				}
-				if(lightmax <= lightmin)
-					lighttag = 0;
+				delay = ln->arg2;
+				lighttag = ln->arg3;
+			} else
+			{
+				delay = -1;
+				lighttag = ln->arg2;
 			}
 
+			if(ln->special == 10)
+				speed = -speed;
+
+			// check for lights
+			lighttag = specDoorLight(lighttag, &lightmin, &lightmax);
+
+			// activate
 			if(ln->tag)
 			{
 				sector_t *sec = *sectors;
@@ -656,7 +718,7 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 				{
 					if(sec->tag == ln->tag && !sec->specialdata)
 					{
-						spec_DoorOpen(sec, speed, delay, lighttag, lightmin, lightmax);
+						spec_DoorGeneric(sec, speed, delay, lighttag, lightmin, lightmax);
 						success = 1;
 					}
 				}
@@ -667,6 +729,9 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 
 				if(ln->backsector->specialdata)
 				{
+					if(delay < 0)
+						// wrong type
+						return;
 					if(!mo->player)
 						// don't even try
 						return;
@@ -680,7 +745,7 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 					return;
 				}
 
-				spec_DoorOpen(ln->backsector, speed, delay, lighttag, lightmin, lightmax);
+				spec_DoorGeneric(ln->backsector, speed, delay, lighttag, lightmin, lightmax);
 				success = 1;
 			}
 		}
@@ -688,8 +753,8 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 		case 20:
 		case 23:
 		{
-			fixed_t speed = LNSPEC_ARG(ln->specialdata, 1) << (FRACBITS - 3);
-			fixed_t value = LNSPEC_ARG(ln->specialdata, 2) << FRACBITS;
+			fixed_t speed = ln->arg1 << (FRACBITS - 3);
+			fixed_t value = ln->arg2 << FRACBITS;
 			sector_t *sec = *sectors;
 
 			if(ln->special == 20)
@@ -708,8 +773,8 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 		case 40: // Ceiling_LowerByValue
 		case 41: // Ceiling_RaiseByValue
 		{
-			fixed_t speed = LNSPEC_ARG(ln->specialdata, 1) << (FRACBITS - 3);
-			fixed_t value = LNSPEC_ARG(ln->specialdata, 2) << FRACBITS;
+			fixed_t speed = ln->arg1 << (FRACBITS - 3);
+			fixed_t value = ln->arg2 << FRACBITS;
 			sector_t *sec = *sectors;
 
 			if(ln->special == 40)
@@ -737,14 +802,14 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 		break;
 		case 128: // ThrustThingZ
 		{
-			uint32_t momz = LNSPEC_ARG(ln->specialdata, 1) << (FRACBITS-2);
+			uint32_t momz = ln->arg1 << (FRACBITS-2);
 
-			if(LNSPEC_ARG(ln->specialdata, 2))
+			if(ln->arg2)
 				momz = -momz;
 
 			if(!ln->tag)
 			{
-				spec_ThrustThingZ(mo, momz, LNSPEC_ARG(ln->specialdata, 3));
+				spec_ThrustThingZ(mo, momz, ln->arg3);
 				success = 1;
 			} else
 			{
@@ -758,7 +823,7 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 					if(me->tag != ln->tag)
 						continue;
 
-					spec_ThrustThingZ((mobj_t*)th, momz, LNSPEC_ARG(ln->specialdata, 3));
+					spec_ThrustThingZ((mobj_t*)th, momz, ln->arg3);
 					success = 1;
 				}
 			}
@@ -767,6 +832,9 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 		case 243: // Exit_Normal
 			G_ExitLevel();
 		break;
+		case 208: // TranslucentLine
+			// do nothing
+			return;
 		default:
 			I_Error("TODO: special %d by %p side %d\n", ln->special, mo, side);
 		break;

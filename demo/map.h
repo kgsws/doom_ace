@@ -6,6 +6,7 @@
 
 // new flags
 #define	MFN_INACTIVE	0x01
+#define MFN_COLORHACK	0x02 // just testing
 
 #define MTF_INACTIVE	0x10
 #define MTF_CLASS0	0x20

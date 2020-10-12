@@ -18,7 +18,7 @@ enum
 	HOOK_CSTR_DOOM,	// replace cstring from Doom DATA segment
 	HOOK_ABSADDR_ACE, // replace 32bit pointer destination to ACE segment
 	HOOK_ABSADDR_CODE, // replace 32bit pointer destination to Doom CODE segment
-	HOOK_ABSADDR_DATA, // replace 32bit pointer destination to Doom CODE segment
+	HOOK_ABSADDR_DATA, // replace 32bit pointer destination to Doom DATA segment
 	// 'hooks' that modify ACE memory
 	HOOK_IMPORT,	// get address of any variable
 	HOOK_READ8,	// get value of 8bit variable

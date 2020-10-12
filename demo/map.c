@@ -664,12 +664,9 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 			sector_t *sec = *sectors;
 			uint8_t step = ln->arg1 + 1;
 
-			if(step == 4)
+			if(step == 7)
 				step = 0;
 			ln->arg1 = step;
-
-			if(step > 0)
-				step++;
 
 			// change colormap
 			for(int i = 0; i < *numsectors; i++, sec++)

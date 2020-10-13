@@ -7,6 +7,7 @@
 #include "mlook.h"
 #include "map.h"
 #include "render.h"
+#include "hitscan.h"
 
 static void custom_RenderPlayerView(player_t*) __attribute((regparm(1),no_caller_saved_registers));
 
@@ -76,6 +77,10 @@ void ace_init()
 	// install hooks
 	utils_install_hooks(hook_list);
 
+	// disable warning TITLEPIC
+	int lmp = W_GetNumForName("TITLEPIC");
+	lumpinfo[lmp].name[0] = 0xCC;
+
 	// update
 	finecosine = finesine + (FINEANGLES / 4);
 
@@ -90,6 +95,9 @@ void ace_init()
 
 	// init renderer updates
 	render_init();
+
+	// init hitscan updates
+	hitscan_init();
 }
 
 // this function is called when 3D view should be drawn

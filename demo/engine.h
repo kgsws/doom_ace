@@ -723,8 +723,8 @@ void I_Error(char*, ...); // This function is variadic. No attribute required.
 //int sprintf(char*, ...); // from stdio.h
 
 // stuff
-uint8_t M_Random();
-uint8_t P_Random();
+int32_t M_Random();
+int32_t P_Random();
 
 // menu.c
 int M_StringHeight(const char *) __attribute((regparm(1)));
@@ -768,12 +768,14 @@ void P_SpawnSpecials();
 void P_SetThingPosition(mobj_t*) __attribute((regparm(1)));
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(1)));
 void P_DamageMobj(mobj_t*, mobj_t*, mobj_t*, int) __attribute((regparm(2)));
+void P_SetMobjState(mobj_t*,int) __attribute((regparm(2)));
 void P_PlayerInSpecialSector(player_t*) __attribute((regparm(1)));
 void P_TouchSpecialThing(mobj_t*, mobj_t*) __attribute((regparm(2)));
 void P_ChangeSwitchTexture(line_t*,int) __attribute((regparm(2)));
 void P_AddThinker(thinker_t*) __attribute((regparm(1)));
 void P_RemoveThinker(thinker_t*) __attribute((regparm(1)));
 int P_ChangeSector(sector_t*,int) __attribute((regparm(2)));
+void P_SpawnPuff(fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
 
 // p_ height search
 fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(1)));

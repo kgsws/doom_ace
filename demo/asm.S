@@ -215,6 +215,12 @@ P_SetThingPosition:
 P_UnsetThingPosition:
 	.byte	0xE9
 	.4byte	0x0002C3B0
+////////////////////////////////// P_SetMobjState
+.section .text.P_SetMobjState
+.global P_SetMobjState
+P_SetMobjState:
+	.byte	0xE9
+	.4byte	0x00030EA0
 ////////////////////////////////// P_PlayerInSpecialSector
 .section .text.P_PlayerInSpecialSector
 .global P_PlayerInSpecialSector
@@ -299,14 +305,14 @@ Z_Malloc:
 	.4byte	0x00039690
 	pop	%ebx
 	ret
-////////////////////////////////// P_SpawnMobj
-.section .text.P_SpawnMobj
-.global P_SpawnMobj
-P_SpawnMobj:
+////////////////////////////////// P_SpawnPuff
+.section .text.P_SpawnPuff
+.global P_SpawnPuff
+P_SpawnPuff:
 	push	%ebx
 	mov	8(%esp),%ebx
 	.byte	0xE8
-	.4byte	0x00031540
+	.4byte	0x00031B00
 	pop	%ebx
 	ret
 ////////////////////////////////// end
@@ -329,6 +335,19 @@ V_DrawPatchDirect:
 	mov	16(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x000392A0
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// P_SpawnMobj
+.section .text.P_SpawnMobj
+.global P_SpawnMobj
+P_SpawnMobj:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00031540
 	pop	%ecx
 	pop	%ebx
 	ret

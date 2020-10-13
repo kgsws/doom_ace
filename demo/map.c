@@ -64,6 +64,7 @@ sector_t **sectors;
 
 uint32_t *totalitems;
 uint32_t *totalkills;
+uint32_t *totalsecret;
 
 thinker_t *thinkercap;
 void *ptr_MobjThinker;
@@ -87,6 +88,7 @@ static hook_t hook_list[] =
 	// less required variables
 	{0x0002B3D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalitems},
 	{0x0002B3D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalkills},
+	{0x0002B3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalsecret},
 	// change mobj_t size - add extra space for new stuff
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for Z_Malloc
 	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for memset
@@ -116,6 +118,8 @@ static hook_t map_load_hooks_new[] =
 	{0x0002b032, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_ItemPickup},
 	// change exit switch sound line special
 	{0x00030368, CODE_HOOK | HOOK_UINT8, 243},
+	// disable rejectmatrix
+	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x73EB}, // 'jmp'
 	// terminator
 	{0}
 };
@@ -142,6 +146,8 @@ static hook_t map_load_hooks_old[] =
 	{0x0002b032, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00029AE0},
 	// restore exit switch sound line special
 	{0x00030368, CODE_HOOK | HOOK_UINT8, 11},
+	// enable rejectmatrix
+	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x508B}, // original value
 	// terminator
 	{0}
 };
@@ -151,7 +157,7 @@ void map_init()
 	utils_install_hooks(hook_list);
 
 	// fix all mobjtypes, set MF_ISMONSTER where needed
-	mobjinfo[15].flags |= MF_ISMONSTER; // lost soul
+	mobjinfo[18].flags |= MF_ISMONSTER; // lost soul
 	for(int i = 0; i < 137; i++)
 		if(mobjinfo[i].flags & MF_COUNTKILL)
 			mobjinfo[i].flags |= MF_ISMONSTER;
@@ -165,6 +171,13 @@ void map_SpawnSpecials()
 {
 	// must call original initialization too
 	P_SpawnSpecials();
+
+	// count secrets
+	for(int i = 0; i < *numsectors; i++)
+	{
+		if((*sectors)[i].special & 1024)
+			(*totalsecret)++;
+	}
 }
 
 static __attribute((regparm(1),no_caller_saved_registers))
@@ -475,7 +488,7 @@ void map_LoadThings(int lump)
 			if(mo->flags & MF_SHOOTABLE)
 			{
 				mo->flags |= MF_NOBLOOD; // this is a hack to disable blood
-				mo->health = -mo->health; // this is a hack to disable damage
+				mo->health = -mo->health; // this is a hack to disable damage, crusher breaks this
 			}
 			mo->tics = -1;
 		} else
@@ -845,6 +858,30 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 			success = 1;
 		}
 		break;
+		case 119: // Thing_Damage
+		{
+			if(!ln->tag) // arg0
+			{
+				P_DamageMobj(mo, NULL, NULL, ln->arg1);
+				success = 1;
+			} else
+			{
+				thinker_t *th;
+				for(th = thinkercap->next; th != thinkercap; th = th->next)
+				{
+					if(th->function != ptr_MobjThinker)
+						continue;
+
+					mobj_t *tt = (mobj_t*)th;
+					if(tt->extra.tag != ln->tag)
+						continue;
+
+					P_DamageMobj(tt, NULL, NULL, ln->arg1);
+					success = 1;
+				}
+			}
+		}
+		break;
 		case 128: // ThrustThingZ
 		{
 			uint32_t momz = ln->arg1 << (FRACBITS-2);
@@ -869,6 +906,37 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 						continue;
 
 					spec_ThrustThingZ(tt, momz, ln->arg3);
+					success = 1;
+				}
+			}
+		}
+		break;
+		case 130: // Thing_Activate
+		{
+			// TODO: propper handling
+			if(ln->tag)
+			{
+				thinker_t *th;
+				for(th = thinkercap->next; th != thinkercap; th = th->next)
+				{
+					if(th->function != ptr_MobjThinker)
+						continue;
+
+					mobj_t *tt = (mobj_t*)th;
+					if(tt->extra.tag != ln->tag)
+						continue;
+
+					if(!(tt->extra.flags & MFN_INACTIVE))
+						continue;
+
+					if(tt->flags & MF_ISMONSTER)
+					{
+						tt->health = -tt->health;
+						if(!(tt->info->flags & MF_NOBLOOD))
+							tt->flags &= ~MF_NOBLOOD;
+						tt->tics = 2;
+					}
+
 					success = 1;
 				}
 			}

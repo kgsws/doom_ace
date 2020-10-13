@@ -930,7 +930,7 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 					if(!(tt->extra.flags & MFN_INACTIVE))
 						continue;
 
-					if(tt->flags & MF_ISMONSTER)
+					if(tt->flags & MF_SHOOTABLE)
 					{
 						tt->health = -tt->health;
 						if(!(tt->info->flags & MF_NOBLOOD))

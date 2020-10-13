@@ -104,6 +104,8 @@ static hook_t hook_list[] =
 	{0x00036654, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_planeLight},
 	// sky colormap
 	{0x00036584, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_skyColormap},
+	// disable player translation mobj flags // TODO: apply new translation
+	{0x00031859, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	// terminator
 	{0}
 };
@@ -276,6 +278,9 @@ void render_spriteColormap(mobj_t *mo, vissprite_t *vis)
 	register fixed_t xscale asm("edi");
 	register uint32_t base;
 
+	// replace 'mobjflags' with mobj_t* for vissprites
+	vis->mo = mo;
+
 	if(mo->flags & MF_SHADOW)
 	{
 		vis->colormap = NULL;
@@ -362,10 +367,10 @@ void render_spriteColfunc(void *colormap)
 		return;
 	}
 
-	if(vis->mobjflags & MF_TRANSLATION)
+	if(vis->mo && vis->mo->extra.translation)
 	{
 		*colfunc = (void*)relocate_addr_code(0x00034C50); // R_DrawTranslatedColumn
-		*dc_translation = *translationtables - 256 + ((vis->mobjflags & MF_TRANSLATION) >> (MF_TRANSSHIFT - 8));
+		*dc_translation = vis->mo->extra.translation;
 		return;
 	}
 
@@ -380,5 +385,15 @@ void *render_skyColormap()
 		// this fixes invulnerability sky bug
 		return *fixedcolormap;
 	return *colormaps;
+}
+
+//
+// stuff
+__attribute((regparm(2)))
+void *render_get_translation(int num)
+{
+	if(!num)
+		return NULL;
+	return *colormaps + (32*10+num) * 256;
 }
 

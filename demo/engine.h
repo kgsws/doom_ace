@@ -486,8 +486,9 @@ typedef struct subsector_s
 #define MF_COUNTITEM	0x800000
 #define MF_SKULLFLY	0x1000000
 #define MF_NOTDMATCH	0x2000000
-#define MF_TRANSLATION	0xc000000
 
+// not used with rendering changes
+#define MF_TRANSLATION	0xc000000
 #define MF_TRANSSHIFT	26
 
 typedef struct
@@ -508,6 +509,7 @@ typedef struct
 	};
 	uint8_t tag;
 	uint8_t flags;
+	void *translation;
 } __attribute__((packed)) mobj_extra_t;
 
 typedef struct mobj_s
@@ -577,7 +579,11 @@ typedef struct vissprite_s
 	fixed_t texturemid;
 	int patch;
 	void *colormap;
-	uint32_t mobjflags;
+	union
+	{
+		uint32_t mobjflags;
+		mobj_t *mo; // [kg] rendering changes
+	};
 } vissprite_t;
 
 typedef struct

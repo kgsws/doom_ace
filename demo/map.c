@@ -5,6 +5,7 @@
 #include "defs.h"
 #include "map.h"
 #include "generic.h"
+#include "render.h"
 
 typedef struct
 {
@@ -658,9 +659,9 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 
 	switch(ln->special)
 	{
+		// HACK FOR DEMO
 		case 80:
 		{
-			// HACK FOR DEMO
 			sector_t *sec = *sectors;
 			uint8_t step = ln->arg1 + 1;
 
@@ -678,6 +679,53 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 				}
 			}
 		}
+		case 81:
+		{
+			static uint8_t tidx_torch[] = {0, 5, 6, 7, 8, 9};
+			void *translation;
+			uint8_t idx;
+
+			if(ln->arg1)
+			{
+				// monsters
+				idx = ln->arg2 + 1;
+				if(idx >= 5)
+					idx = 0;
+				ln->arg2 = idx;
+			} else
+			{
+				// green stuff
+				idx = ln->arg2 + 1;
+				if(idx >= sizeof(tidx_torch))
+					idx = 0;
+				ln->arg2 = idx;
+				idx = tidx_torch[idx];
+			}
+
+			translation = render_get_translation(idx);
+
+			if(!ln->tag)
+			{
+				mo->extra.translation = translation;
+				success = 1;
+			} else
+			{
+				thinker_t *th;
+				for(th = thinkercap->next; th != thinkercap; th = th->next)
+				{
+					if(th->function != ptr_MobjThinker)
+						continue;
+
+					mobj_t *tt = (mobj_t*)th;
+					if(tt->extra.tag != ln->tag)
+						continue;
+
+					tt->extra.translation = translation;
+					success = 1;
+				}
+			}
+		}
+		// normal functions
 		break;
 		case 10: // Door_Close
 		case 11: // Door_Open
@@ -816,11 +864,11 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 					if(th->function != ptr_MobjThinker)
 						continue;
 
-					mobj_extra_t *me = (mobj_extra_t*)((void*)th + offsetof(mobj_t, spawnpoint));
-					if(me->tag != ln->tag)
+					mobj_t *tt = (mobj_t*)th;
+					if(tt->extra.tag != ln->tag)
 						continue;
 
-					spec_ThrustThingZ((mobj_t*)th, momz, ln->arg3);
+					spec_ThrustThingZ(tt, momz, ln->arg3);
 					success = 1;
 				}
 			}

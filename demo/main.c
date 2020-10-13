@@ -80,6 +80,9 @@ void ace_init()
 	// disable warning TITLEPIC
 	int lmp = W_GetNumForName("TITLEPIC");
 	lumpinfo[lmp].name[0] = 0xCC;
+	// disable crashing M_DOOM
+	lmp = W_GetNumForName("M_DOOM");
+	lumpinfo[lmp].name[0] = 0xCC;
 
 	// update
 	finecosine = finesine + (FINEANGLES / 4);

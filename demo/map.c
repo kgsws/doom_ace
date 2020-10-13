@@ -579,7 +579,7 @@ void spec_DoorGeneric(sector_t *sec, fixed_t speed, int delay, int lighttag, int
 	}
 
 	// the check
-	if(info.stop == sec->ceilingheight)
+	if(info.stop == sec->ceilingheight && delay < 0)
 		return;
 
 	// sound by speed
@@ -593,7 +593,8 @@ void spec_DoorGeneric(sector_t *sec, fixed_t speed, int delay, int lighttag, int
 		info.closesound = sfx_dorcls;
 	}
 
-	S_StartSound((mobj_t *)&sec->soundorg, speed < 0 ? info.closesound : info.opensound);
+	if(info.stop != sec->ceilingheight)
+		S_StartSound((mobj_t *)&sec->soundorg, speed < 0 ? info.closesound : info.opensound);
 
 	// the rest
 	info.crushspeed = 0;

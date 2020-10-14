@@ -185,6 +185,12 @@ R_DrawPlayerSprites:
 R_SetupFrame:
 	.byte	0xE9
 	.4byte	0x00035E80
+////////////////////////////////// R_ExecuteSetViewSize
+.section .text.R_ExecuteSetViewSize
+.global R_ExecuteSetViewSize
+R_ExecuteSetViewSize:
+	.byte	0xE9
+	.4byte	0x00035A70
 ////////////////////////////////// G_BuildTiccmd
 .section .text.G_BuildTiccmd
 .global G_BuildTiccmd

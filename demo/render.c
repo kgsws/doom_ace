@@ -5,6 +5,7 @@
 #include "defs.h"
 #include "render.h"
 #include "map.h"
+#include "mlook.h"
 
 #define CMAPF_NOFULLBRIGHT	1
 #define CMAPF_NOFAKECONTRAST	2
@@ -19,6 +20,7 @@ typedef struct
 	uint32_t flags;
 } colormap_t;
 
+static void render_SetViewSize() __attribute((regparm(2),no_caller_saved_registers));
 static void render_planeColormap(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static int render_planeLight(int) __attribute((regparm(2),no_caller_saved_registers));
 static void render_segColormap(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -31,6 +33,7 @@ static vissprite_t *render_pspColormap(vissprite_t*,player_t*) __attribute((regp
 static void render_spriteColfunc(void*) __attribute((regparm(2),no_caller_saved_registers));
 static void *render_skyColormap() __attribute((regparm(2),no_caller_saved_registers));
 
+static uint32_t *setsizeneeded;
 static void **colormaps;
 static void **ds_colormap;
 static void **dc_colormap;
@@ -52,6 +55,7 @@ static void *plane_colormap;
 static hook_t hook_list[] =
 {
 	// required variables
+	{0x00038fe8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&setsizeneeded},
 	{0x00030104, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colormaps},
 	{0x000322D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ds_colormap},
 	{0x000322D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_colormap},
@@ -66,6 +70,8 @@ static hook_t hook_list[] =
 	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
 	{0x0003900C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&basecolfunc},
 	{0x00039008, DATA_HOOK | HOOK_IMPORT, (uint32_t)&fuzzcolfunc},
+	// hook 'R_ExecuteSetViewSize' to fix mouselook when screen size changes
+	{0x0001d1ff, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)render_SetViewSize},
 	// disable 'colormaps' offset in 'scalelight' so any colormap can be used
 	{0x00035d34, CODE_HOOK | HOOK_UINT16, 0x9090},
 	// setup 'ds_colormap' in 'R_MapPlane'
@@ -138,6 +144,18 @@ void render_init()
 	// relocate colormap pointers
 	for(int i = 0; i < COLORMAP_COUNT; i++)
 		colormap_list[i].offset += (uint32_t)*colormaps;
+
+	// force recalculation
+	*setsizeneeded = 1;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void render_SetViewSize()
+{
+	// force mouselook to recalculate
+	mlook_recalc();
+	// call original function
+	R_ExecuteSetViewSize();
 }
 
 //

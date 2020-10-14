@@ -945,6 +945,7 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 		break;
 		case 243: // Exit_Normal
 			G_ExitLevel();
+//			I_Error("Memory:\nCODE: 0x%08X\nDATA: 0x%08X\nZone: 0x%08X", doom_code_segment, doom_data_segment, *((uint32_t*)(relocate_addr_data(0x00074FE0))));
 		break;
 		case 208: // TranslucentLine
 			// do nothing

@@ -762,6 +762,7 @@ void G_ExitLevel();
 void R_RenderPlayerView(player_t*) __attribute((regparm(1)));
 void R_SetupFrame(player_t*) __attribute((regparm(1)));
 void R_DrawPlayerSprites();
+void R_ExecuteSetViewSize();
 
 // p_ stuff
 void P_SpawnSpecials();

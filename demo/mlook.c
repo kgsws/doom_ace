@@ -24,6 +24,8 @@ fixed_t *yslope;
 fixed_t cy_weapon;
 fixed_t cy_look;
 
+static fixed_t mlook_pitch;
+
 static hook_t hook_list[] =
 {
 	// custom R_SetupFrame
@@ -46,7 +48,12 @@ void mlook_init()
 {
 	utils_install_hooks(hook_list);
 
-	// this has to be preloaded
+	mlook_recalc();
+}
+
+void mlook_recalc()
+{
+	mlook_pitch = 0x7FFF;
 	cy_weapon = *viewheight / 2;
 	cy_look = cy_weapon;
 }
@@ -71,13 +78,12 @@ void custom_BuildTiccmd(ticcmd_t *cmd)
 static __attribute((regparm(1),no_caller_saved_registers))
 void custom_SetupFrame(player_t *pl)
 {
-	static fixed_t pitch;
 	fixed_t pn = pl->frags[3] >> FRACBITS;
 
-	if(pitch != pn)
+	if(mlook_pitch != pn)
 	{
 		fixed_t cy = *viewheight / 2;
-		pitch = pn;
+		mlook_pitch = pn;
 
 		if(pn > 0)
 			// allow weapon offset when looking up

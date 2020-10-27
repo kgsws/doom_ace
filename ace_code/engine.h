@@ -14,6 +14,7 @@
 
 #define SCREENWIDTH	320
 #define SCREENHEIGHT	200
+#define SCREENSIZE	(SCREENWIDTH*SCREENHEIGHT)
 
 #define FRACBITS	16
 #define FRACUNIT	(1 << 16)
@@ -715,6 +716,39 @@ typedef enum
 } sfxenum_t;
 
 //
+// stuff
+typedef union
+{
+	uint32_t ex;
+	uint16_t x;
+	struct
+	{
+		uint8_t l, h;
+	};
+} reg32_t;
+
+typedef struct
+{
+	reg32_t edi;
+	reg32_t esi;
+	reg32_t ebp;
+	uint32_t zero0;
+	reg32_t ebx;
+	reg32_t edx;
+	reg32_t ecx;
+	reg32_t eax;
+	uint16_t flags;
+	uint16_t es;
+	uint16_t ds;
+	uint16_t fs;
+	uint16_t gs;
+	uint16_t ip;
+	uint16_t cs;
+	uint16_t sp;
+	uint16_t ss;
+} dpmi_regs_t;
+
+//
 // Doom Engine Functions
 // Since Doom uses different calling conventions, most functions have to use special GCC attribute.
 // Even then functions with more than two arguments need another workaround. This is done in 'asm.S'.
@@ -728,13 +762,17 @@ int write(int,void*,uint32_t) __attribute((regparm(2)));
 int read(int,void*,uint32_t) __attribute((regparm(2)));
 int lseek(int,uint32_t,int) __attribute((regparm(2)));
 
+void dpmi_irq(int,dpmi_regs_t*);
+
 // stuff
+void I_FinishUpdate();
+void I_UpdateBox(int x, int y, int w, int h) __attribute((regparm(2)));
 int32_t M_Random();
 int32_t P_Random();
 
 // menu.c
-int M_StringHeight(const char *) __attribute((regparm(1)));
-int M_StringWidth(const char *) __attribute((regparm(1)));
+int M_StringHeight(const char *) __attribute((regparm(2)));
+int M_StringWidth(const char *) __attribute((regparm(2)));
 void M_WriteText(int x, int y, const char *txt) __attribute((regparm(2)));
 void M_StartControlPanel();
 
@@ -743,49 +781,52 @@ void S_StartSound(void *origin, int id) __attribute((regparm(2)));
 
 // z_zone.c
 void *Z_Malloc(int size, int tag, void *user) __attribute((regparm(2)));
-void Z_Free(void *ptr) __attribute((regparm(1)));
+void Z_Free(void *ptr) __attribute((regparm(2)));
 
 // w_wad.c
-int W_GetNumForName(char *name) __attribute((regparm(1)));
+int W_CheckNumForName(char *name) __attribute((regparm(2)));
+int W_GetNumForName(char *name) __attribute((regparm(2)));
 void *W_CacheLumpNum(int lump, int tag) __attribute((regparm(2)));
 void *W_CacheLumpName(char *name, int tag) __attribute((regparm(2)));
-int W_LumpLength(int lump) __attribute((regparm(1)));
+int W_LumpLength(int lump) __attribute((regparm(2)));
+void W_ReadLump(int lump, void *dst) __attribute((regparm(2)));
 
 // v_video.c
 void V_DrawPatchDirect(int x, int y, int zero, patch_t *patch) __attribute((regparm(2)));
+void V_DrawPatch(int x, int y, int zero, patch_t *patch) __attribute((regparm(2)));
 
 // g_game.c
-void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(1)));
+void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(2)));
 
 // p_mobj.c
 mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, uint32_t type) __attribute((regparm(2)));
-void P_SpawnPlayer(void *mt) __attribute((regparm(1)));
+void P_SpawnPlayer(void *mt) __attribute((regparm(2)));
 
 // g_game.c
 void G_ExitLevel();
 
 // render
-void R_RenderPlayerView(player_t*) __attribute((regparm(1)));
-void R_SetupFrame(player_t*) __attribute((regparm(1)));
+void R_RenderPlayerView(player_t*) __attribute((regparm(2)));
+void R_SetupFrame(player_t*) __attribute((regparm(2)));
 void R_DrawPlayerSprites();
 void R_ExecuteSetViewSize();
 
 // p_ stuff
 void P_SpawnSpecials();
-void P_SetThingPosition(mobj_t*) __attribute((regparm(1)));
-void P_UnsetThingPosition(mobj_t*) __attribute((regparm(1)));
+void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
+void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
 void P_DamageMobj(mobj_t*, mobj_t*, mobj_t*, int) __attribute((regparm(2)));
 void P_SetMobjState(mobj_t*,int) __attribute((regparm(2)));
-void P_PlayerInSpecialSector(player_t*) __attribute((regparm(1)));
+void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2)));
 void P_TouchSpecialThing(mobj_t*, mobj_t*) __attribute((regparm(2)));
 void P_ChangeSwitchTexture(line_t*,int) __attribute((regparm(2)));
-void P_AddThinker(thinker_t*) __attribute((regparm(1)));
-void P_RemoveThinker(thinker_t*) __attribute((regparm(1)));
+void P_AddThinker(thinker_t*) __attribute((regparm(2)));
+void P_RemoveThinker(thinker_t*) __attribute((regparm(2)));
 int P_ChangeSector(sector_t*,int) __attribute((regparm(2)));
 void P_SpawnPuff(fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
 
 // p_ height search
-fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(1)));
+fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2)));
 
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));

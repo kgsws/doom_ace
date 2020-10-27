@@ -10,19 +10,21 @@
 //
 // Entry point
 // %eax - entry point address
-// %edi - CODE segment base
-// %ebp - DATA segment base
+// %ebx - CODE segment base
+// %ecx - DATA segment base
 _start:
+	// loader already backed-up all registers
+
 	// get ACE base
 	sub	$0x1004,%eax	// compensate for VMA offset (set in linker script) and '_size_of_bss'
 	mov	%eax,%esi	// store base in ESI for use
 	mov	%eax,ace_segment(%esi)
 
 	// get CODE base
-	mov	%edi,doom_code_segment(%esi)
+	mov	%ebx,doom_code_segment(%esi)
 
 	// get DATA base
-	mov	%ebp,doom_data_segment(%esi)
+	mov	%ecx,doom_data_segment(%esi)
 
 	// relocate 012 table
 	lea	__reloc_code_012(%esi),%eax
@@ -30,7 +32,7 @@ _start:
 rel_012_loop:
 	cmp	%edx,%eax
 	jge	rel_012_end
-	add	%edi,1(%eax)	// add CODE base to the address
+	add	%ebx,1(%eax)	// add CODE base to the address
 	add	$5,%eax	// each entry is 5 bytes long
 	sub	%eax,-4(%eax)
 	jmp	rel_012_loop
@@ -42,7 +44,7 @@ rel_012_end:
 rel_arg3_loop:
 	cmp	%edx,%eax
 	jge	rel_arg3_end
-	add	%edi,6(%eax)	// add CODE base to the address
+	add	%ebx,6(%eax)	// add CODE base to the address
 	add	$10,%eax	// 10 bytes
 	sub	%eax,-4(%eax)
 	add	$2,%eax	// 2 bytes (12 total)
@@ -55,7 +57,7 @@ rel_arg3_end:
 rel_arg4_loop:
 	cmp	%edx,%eax
 	jge	rel_arg4_end
-	add	%edi,11(%eax)	// add CODE base to the address
+	add	%ebx,11(%eax)	// add CODE base to the address
 	add	$15,%eax	// 15 bytes
 	sub	%eax,-4(%eax)
 	add	$3,%eax	// 3 bytes (18 total)
@@ -67,17 +69,31 @@ rel_arg4_end:
 	// run custom code
 	call	ace_init
 
+	// restore registers
+	pop	%ebp
+	pop	%edi
+	pop	%esi
+	pop	%edx
+	pop	%ecx
+	pop	%ebx
 	// continue the game
 	jmp	__return_to_game
 
 //
-// exit to DOS
-.section .text.dos_exit
-.global dos_exit
-dos_exit:
-	// exit to DOS
-	mov	$0x4C00,%ax
-	int	$0x21
+// IRQ trough DPMI
+.section .text.dpmi_irq
+.global dpmi_irq
+dpmi_irq:
+	push	%edi
+	push	%ebx
+	mov	12(%esp),%ebx
+	mov	$0x0300,%ax
+	xor	%cx,%cx
+	mov	16(%esp),%edi
+	int	$0x31
+	pop	%ebx
+	pop	%edi
+	ret
 
 //
 // Relocation table for functions with 0, 1 or 2 arguments.
@@ -87,7 +103,7 @@ __reloc_code_012:
 ////////////////////////////////// return_to_game
 __return_to_game:
 	.byte	0xE9
-	.4byte	0x0003446D
+	.4byte	0x00020843
 ////////////////////////////////// doom_printf
 .section .text.doom_printf
 .global doom_printf
@@ -106,6 +122,12 @@ doom_sprintf:
 I_Error:
 	.byte	0xE9
 	.4byte	0x0001AB10
+////////////////////////////////// I_FinishUpdate
+.section .text.I_FinishUpdate
+.global I_FinishUpdate
+I_FinishUpdate:
+	.byte	0xE9
+	.4byte	0x00019F60
 ////////////////////////////////// P_Random
 .section .text.P_Random
 .global P_Random
@@ -142,6 +164,12 @@ M_StartControlPanel:
 S_StartSound:
 	.byte	0xE9
 	.4byte	0x0003F370
+////////////////////////////////// W_CheckNumForName
+.section .text.W_CheckNumForName
+.global W_CheckNumForName
+W_CheckNumForName:
+	.byte	0xE9
+	.4byte	0x00038AF0
 ////////////////////////////////// W_GetNumForName
 .section .text.W_GetNumForName
 .global W_GetNumForName
@@ -166,6 +194,12 @@ W_CacheLumpName:
 W_LumpLength:
 	.byte	0xE9
 	.4byte	0x00038BB0
+////////////////////////////////// W_ReadLump
+.section .text.W_ReadLump
+.global W_ReadLump
+W_ReadLump:
+	.byte	0xE9
+	.4byte	0x00038BF0
 ////////////////////////////////// Z_Free
 .section .text.Z_Free
 .global Z_Free
@@ -376,6 +410,32 @@ V_DrawPatchDirect:
 	mov	16(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x000392A0
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// V_DrawPatch
+.section .text.V_DrawPatch
+.global V_DrawPatch
+V_DrawPatch:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00039020
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// I_UpdateBox
+.section .text.I_UpdateBox
+.global I_UpdateBox
+I_UpdateBox:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00019d20
 	pop	%ecx
 	pop	%ebx
 	ret

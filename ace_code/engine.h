@@ -146,6 +146,19 @@ typedef struct
 	uint32_t offs[];
 } patch_t;
 
+typedef struct
+{
+	uint32_t rotate;
+	uint16_t lump[8];
+	uint8_t flip[8];
+} spriteframe_t;
+
+typedef struct
+{
+	uint32_t count;
+	spriteframe_t *frames;
+} spritedef_t;
+
 //
 // weapons
 
@@ -276,6 +289,7 @@ typedef struct
 	{
 		char name[8];
 		uint64_t wame;
+		uint32_t same;
 	};
 	int handle;
 	uint32_t position;
@@ -598,6 +612,23 @@ typedef struct
 	sector_t *backsector;
 } seg_t;
 
+typedef struct
+{
+	int32_t x, y, p;
+} texpatch_t;
+
+typedef struct
+{
+	union
+	{
+		char name[8];
+		uint64_t wame;
+	};
+	uint16_t width, height;
+	uint16_t count;
+	texpatch_t patch[];
+} __attribute__((packed)) texture_t;
+
 //
 // sound
 
@@ -764,11 +795,16 @@ int lseek(int,uint32_t,int) __attribute((regparm(2)));
 
 void dpmi_irq(int,dpmi_regs_t*);
 
+// to be removed
+void P_InitSwitchList();
+
 // stuff
 void I_FinishUpdate();
 void I_UpdateBox(int x, int y, int w, int h) __attribute((regparm(2)));
 int32_t M_Random();
 int32_t P_Random();
+void HU_Init();
+void ST_Init();
 
 // menu.c
 int M_StringHeight(const char *) __attribute((regparm(2)));
@@ -784,10 +820,10 @@ void *Z_Malloc(int size, int tag, void *user) __attribute((regparm(2)));
 void Z_Free(void *ptr) __attribute((regparm(2)));
 
 // w_wad.c
-int W_CheckNumForName(char *name) __attribute((regparm(2)));
-int W_GetNumForName(char *name) __attribute((regparm(2)));
+int W_CheckNumForName(const char *name) __attribute((regparm(2)));
+int W_GetNumForName(const char *name) __attribute((regparm(2)));
 void *W_CacheLumpNum(int lump, int tag) __attribute((regparm(2)));
-void *W_CacheLumpName(char *name, int tag) __attribute((regparm(2)));
+void *W_CacheLumpName(const char *name, int tag) __attribute((regparm(2)));
 int W_LumpLength(int lump) __attribute((regparm(2)));
 void W_ReadLump(int lump, void *dst) __attribute((regparm(2)));
 
@@ -806,10 +842,14 @@ void P_SpawnPlayer(void *mt) __attribute((regparm(2)));
 void G_ExitLevel();
 
 // render
+void R_GenerateLookup(int) __attribute((regparm(2)));
+void R_InstallSpriteLump(int32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2)));
 void R_RenderPlayerView(player_t*) __attribute((regparm(2)));
 void R_SetupFrame(player_t*) __attribute((regparm(2)));
 void R_DrawPlayerSprites();
 void R_ExecuteSetViewSize();
+void R_InitLightTables();
+void R_InitSkyMap();
 
 // p_ stuff
 void P_SpawnSpecials();

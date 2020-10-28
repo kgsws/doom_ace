@@ -8,7 +8,7 @@
 
 // imported variables
 patch_t **tallnum;
-patch_t *tallpercent;
+patch_t **tallpercent;
 
 // doom number size
 static int tallnum_height;
@@ -65,12 +65,12 @@ void stbar_draw(player_t *pl)
 		return;
 
 	stbar_big_number_r(stbar_hp_x, stbar_y, pl->health, 3);
-	V_DrawPatchDirect(stbar_hp_x, stbar_y, 0, tallpercent);
+	V_DrawPatchDirect(stbar_hp_x, stbar_y, 0, *tallpercent);
 
 	if(pl->armorpoints)
 	{
 		stbar_big_number_r(stbar_ar_x, stbar_y, pl->armorpoints, 3);
-		V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, tallpercent);
+		V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, *tallpercent);
 	}
 
 	if(pl->readyweapon < NUMWEAPONS)

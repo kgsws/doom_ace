@@ -25,11 +25,37 @@ _start:
 	push	%edi
 	push	%ebp
 
-	// get _start base
+	// get _start address
 	mov	(%ebx),%esi
-	add	$(-TEXT_START),%esi	// ESI will always point to local base
 	// get DATA base
 	sub	$0x2c114,%ebx
+
+	// entire zone allocation will be reset
+	// to avoid loader overwrite copy it somewhere safe
+	// 'screenheightarray' is 640B
+	mov	$((loader_end-_start)/4),%edx // total uint32_t count to copy
+	mov	$0x5C00E,%ecx // screenheightarray
+	add	%ebx,%ecx // destination
+copy_loop:
+	mov	(%esi),%edi
+	mov	%edi,(%ecx)
+	add	$4,%esi
+	add	$4,%ecx
+	dec	%edx
+	jnz	copy_loop
+
+	// get _start base
+	mov	$0x5C00E,%ecx // screenheightarray
+	add	%ebx,%ecx
+	mov	$(-TEXT_START),%esi
+	add	%ecx,%esi	// ESI will always point to local base
+
+	// get jump location
+	add	$(code_start-_start),%ecx
+	jmp	*%ecx
+
+code_start:
+	// save DATA base
 	push	%ebx
 	// get CODE base
 	sub	$0x2e922,%eax
@@ -73,10 +99,27 @@ _start:
 	// stop music (to free the data)
 	call	*S_StopMusic(%esi)
 
-	// free everything not needed
-	mov	$50,%eax	// from PU_LEVEL
-	mov	$255,%edx	// and everything else
-	call	*Z_FreeTags(%esi)
+	// reset mainzone
+	lea	zone_continue(%esi),%eax
+	push	%eax
+	sub	$12,%esp
+	mov	mainzone(%esi),%edx
+	mov	(%edx),%edx	// actual mainzone
+	mov	(%edx),%eax	// size
+	jmp	*hax_Z_Init(%esi)
+zone_continue:
+
+	// clear lumpcache
+	mov	numlumps(%esi),%ebx
+	mov	(%ebx),%ebx	// actual number
+	mov	lumpcache(%esi),%ecx
+	mov	(%ecx),%ecx	// actual pointer
+	xor	%eax,%eax
+lc_loop:
+	mov	%eax,(%ecx)
+	add	$4,%ecx
+	dec	%ebx
+	jnz	lc_loop
 
 	// get ACE_CODE lump
 	lea	ace_code(%esi),%eax
@@ -198,8 +241,8 @@ S_Start:
 	.4byte	0x0003F600
 S_StopMusic:
 	.4byte	0x0003EC40
-Z_FreeTags:
-	.4byte	0x00039780
+hax_Z_Init:
+	.4byte	0x000395C6
 W_CheckNumForName:
 	.4byte	0x00038AF0
 W_ReadLump:
@@ -227,6 +270,12 @@ wipegamestate:
 	.4byte	0x00011B40
 pagename:
 	.4byte	0x0002a388
+mainzone:
+	.4byte	0x00074fe0
+numlumps:
+	.4byte	0x00074FA0
+lumpcache:
+	.4byte	0x00074F94
 lumpinfo:
 	.4byte	0x00074FA4
 titlepic_str:
@@ -237,5 +286,7 @@ fixaddr1:
 	.4byte	0x0001D530
 //
 reloc_data_end:
-
+// padding
+	.4byte 0x7773676b
+loader_end:
 

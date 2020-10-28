@@ -128,6 +128,42 @@ I_Error:
 I_FinishUpdate:
 	.byte	0xE9
 	.4byte	0x00019F60
+////////////////////////////////// R_GenerateLookup
+.section .text.R_GenerateLookup
+.global R_GenerateLookup
+R_GenerateLookup:
+	.byte	0xE9
+	.4byte	0x00033D40
+////////////////////////////////// P_InitSwitchList
+.section .text.P_InitSwitchList
+.global P_InitSwitchList
+P_InitSwitchList:
+	.byte	0xE9
+	.4byte	0x000301F0
+////////////////////////////////// R_InitSkyMap
+.section .text.R_InitSkyMap
+.global R_InitSkyMap
+R_InitSkyMap:
+	.byte	0xE9
+	.4byte	0x00036000
+////////////////////////////////// R_InitLightTables
+.section .text.R_InitLightTables
+.global R_InitLightTables
+R_InitLightTables:
+	.byte	0xE9
+	.4byte	0x000359B0
+////////////////////////////////// ST_Init
+.section .text.ST_Init
+.global ST_Init
+ST_Init:
+	.byte	0xE9
+	.4byte	0x0003AFA0
+////////////////////////////////// HU_Init
+.section .text.HU_Init
+.global HU_Init
+HU_Init:
+	.byte	0xE9
+	.4byte	0x0003B4B0
 ////////////////////////////////// P_Random
 .section .text.P_Random
 .global P_Random
@@ -400,6 +436,19 @@ __reloc_code_arg3_end:
 // Similar to 'arg3'.
 .section .text.__reloc_code_arg4
 __reloc_code_arg4:
+////////////////////////////////// R_InstallSpriteLump
+.section .text.R_InstallSpriteLump
+.global R_InstallSpriteLump
+R_InstallSpriteLump:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00037650
+	pop	%ecx
+	pop	%ebx
+	ret
 ////////////////////////////////// V_DrawPatchDirect
 .section .text.V_DrawPatchDirect
 .global V_DrawPatchDirect

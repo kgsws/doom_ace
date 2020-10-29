@@ -160,7 +160,7 @@ void map_PlayerInSpecialSector(player_t *pl)
 			return;
 	}
 	// run the original
-	P_PlayerInSpecialSector(pl);
+//	P_PlayerInSpecialSector(pl);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

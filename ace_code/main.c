@@ -273,6 +273,7 @@ static hook_t hook_list[] =
 	// DEBUG STUFF TO BE REMOVED OR FIXED
 	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
+	{0x00034760, CODE_HOOK | HOOK_UINT32, 0x0CEBC031}, // disable unknown texture error; TODO
 	// terminator
 	{0}
 };
@@ -953,8 +954,8 @@ int custom_R_FlatNumForName(char *name)
 		idx++;
 	}
 
-	I_Error("[ACE] invalid flat name %s", &wame);
-	return 0;
+//	I_Error("[ACE] invalid flat name %s", &wame); // TODO
+	return 1; // TODO
 }
 
 //

@@ -501,10 +501,12 @@ typedef struct subsector_s
 #define MF_COUNTITEM	0x800000
 #define MF_SKULLFLY	0x1000000
 #define MF_NOTDMATCH	0x2000000
+// more flags
+#define	MF_ISMONSTER	0x10000000
 
-// not used with rendering changes
-#define MF_TRANSLATION	0xc000000
-#define MF_TRANSSHIFT	26
+// new flags
+#define	MFN_INACTIVE	0x01
+#define MFN_COLORHACK	0x02 // just testing
 
 typedef struct
 {	// [kg] fun stuff
@@ -563,11 +565,25 @@ typedef struct mobj_s
 	struct player_s *player;
 	int lastlook;
 	struct mobj_s *tracer;
+	mapthing_t spawnpoint;
+	uint16_t spawnz;
+	uint8_t unused; // reserved
+	uint8_t tid;
+	uint8_t special;
+	uint8_t arg0;
 	union
 	{
-		mapthing_t spawnpoint;
-		mobj_extra_t extra; // [kg] fun stuff
+		struct
+		{
+			uint8_t arg1;
+			uint8_t arg2;
+			uint8_t arg3;
+			uint8_t arg4;
+		};
+		uint32_t args;
 	};
+	void *translation;
+	uint32_t new_flags;
 } __attribute__((packed)) mobj_t;
 
 //

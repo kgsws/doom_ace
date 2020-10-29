@@ -6,6 +6,9 @@
 #include "utils.h"
 #include "defs.h"
 #include "stbar.h"
+#include "map.h"
+#include "render.h"
+#include "hitscan.h"
 
 // progres bar task weight
 #define PBAR_FLR_SPR	32	// flats / sprite processing
@@ -79,26 +82,78 @@ static uint32_t **flattranslation;
 static uint32_t *grmode;
 static uint32_t *numChannels;
 static void **channels;
-
-// TODO: move
-static void **colormaps;
+static uint32_t *detailshift;
 
 // all the hooks for ACE engine
 static hook_t hook_list[] =
 {
-	// common
+/******************
+	common
+******************/
+	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
+	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&weaponinfo},
+	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mobjinfo},
+	// TODO: states here
+	//
 	{0x00074FA0, DATA_HOOK | HOOK_READ32, (uint32_t)&numlumps},
 	{0x00074FA4, DATA_HOOK | HOOK_READ32, (uint32_t)&lumpinfo},
 	{0x00074F94, DATA_HOOK | HOOK_READ32, (uint32_t)&lumpcache},
+	//
 	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
-	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&weaponinfo},
 	{0x0002914C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&destscreen},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screens0},
-	// stuff
+	//
+	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
+	{0x0002B3D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&displayplayer},
+	{0x0002B3E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemap},
+	{0x0002B3F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameepisode},
+	{0x0002B3E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameskill},
+	{0x0002B3FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatch},
+	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
+	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
+	{0x0002B3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gametic},
+	{0x0002B3D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalitems},
+	{0x0002B3D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalkills},
+	{0x0002B3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalsecret},
+	//
+	{0x00005A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finesine},
+	{0x00032304, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewheight},
+	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
+	{0x00038FF8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&detailshift},
+	{0x00038fe8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&setsizeneeded},
+	{0x000322D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ds_colormap},
+	{0x000322D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_colormap},
+	{0x000322B8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_translation},
+	{0x00038FFC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&fixedcolormap},
+	{0x0005C550, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spritelights},
+	{0x000300A4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&curline},
+	{0x00039014, DATA_HOOK | HOOK_IMPORT, (uint32_t)&extralight},
+	{0x00030104, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colormaps},
+	//
+	{0x0002C134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlines},
+	{0x0002C14C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsectors},
+	{0x0002C120, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lines},
+	{0x0002C138, DATA_HOOK | HOOK_IMPORT, (uint32_t)&vertexes},
+	{0x0002C118, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sides},
+	{0x0002C148, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sectors},
+	//
+	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
+	{0x00031490, CODE_HOOK | HOOK_IMPORT, (uint32_t)&ptr_MobjThinker},
+	//
+	{0x0002B9B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&la_damage},
+	// render function pointers // TODO: remove
+	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
+	{0x0003900C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&basecolfunc},
+	{0x00039008, DATA_HOOK | HOOK_IMPORT, (uint32_t)&fuzzcolfunc},
+/*******************
+	stuff
+*******************/
 	{0x00029134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&grmode},
 	{0x00075C94, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numChannels},
 	{0x00075C98, DATA_HOOK | HOOK_IMPORT, (uint32_t)&channels},
-	// textures
+/*******************
+	textures
+*******************/
 	{0x000300e4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numtextures},
 	{0x000300e0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&textures},
 	{0x000300f4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturecolumnlump},
@@ -108,7 +163,9 @@ static hook_t hook_list[] =
 	{0x000300d8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturewidthmask},
 	{0x00030124, DATA_HOOK | HOOK_IMPORT, (uint32_t)&textureheight},
 	{0x0003010c, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturetranslation},
-	// sprites
+/*******************
+	sprites
+*******************/
 	{0x00030120, DATA_HOOK | HOOK_IMPORT, (uint32_t)&firstspritelump},
 	{0x00030100, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spritewidth},
 	{0x00030118, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spriteoffset},
@@ -120,27 +177,94 @@ static hook_t hook_list[] =
 	{0x0005C8E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sprites},
 	{0x00037b96, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)vissprite_cache_lump},
 	{0x00037B9B, CODE_HOOK | HOOK_UINT16, 0x0EEB},
-	// flats
+/*******************
+	flats
+*******************/
 	{0x000300DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numflats},
 	{0x000300FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&firstflat},
 	{0x00030110, DATA_HOOK | HOOK_IMPORT, (uint32_t)&flattranslation},
 	{0x00034690, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)custom_R_FlatNumForName},
-	// render
-	{0x00030104, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colormaps},
-	// stbar.c
+/*******************
+	stbar.c
+*******************/
 	{0x000752f0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},
 	{0x00075458, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallpercent},
+/*******************
+	map.c
+*******************/
+	// replace call to W_GetNumForName in P_SetupLevel
+	{0x0002e8c1, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_get_map_lump},
+	// change mobj_t size - add extra space for new stuff
+	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for Z_Malloc
+	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for memset
+/*******************
+	hitscan.c
+*******************/
+	// custom mobj hit handling
+	{0x0002bb30, CODE_HOOK | HOOK_UINT32, 0x24148b}, // 'mov (%esp),%edx'
+	{0x0002BB33, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hitscan_HitMobj},
+	{0x0002bb38, CODE_HOOK | HOOK_UINT32, 0x18EB}, // 'jmp'
+/*******************
+	render.c
+*******************/
+	// hook 'R_ExecuteSetViewSize' to fix mouselook when screen size changes
+	{0x0001d1ff, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)render_SetViewSize},
+	// disable 'colormaps' offset in 'scalelight' so any colormap can be used
+	{0x00035d34, CODE_HOOK | HOOK_UINT16, 0x9090},
+	// setup 'ds_colormap' in 'R_MapPlane'
+	{0x00036189, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_planeColormap},
+	// setup 'dc_colormap' in 'R_RenderSegLoop'
+	{0x00036ac4, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_segColormap},
+	// setup 'dc_colormap' in 'R_RenderMaskedSegRange'
+	{0x000368e4, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_maskedColormap},
+	// modify end of 'R_ProjectSprite' for custom colormaps
+	{0x00037f31, CODE_HOOK | HOOK_UINT32, 0xda89f089}, // 'mov %esi,%eax' 'mov %ebx,%edx'
+	{0x00037f35, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_spriteColormap},
+	{0x00037f3a, CODE_HOOK | HOOK_UINT16, 0x11EB}, // 'jmp'
+	// modify end of 'R_DrawPSprite' for custom colormaps
+	{0x000381b2, CODE_HOOK | HOOK_UINT16, 0x0E8B}, // 'mov (%esi),%ecx'
+	{0x000381b4, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_pspColormap},
+	{0x000381b9, CODE_HOOK | HOOK_UINT16, 0x3DEB}, // 'jmp'
+	// modify 'R_DrawVisSprite' for custom render functions
+	{0x00037bb5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_spriteColfunc},
+	{0x00037bba, CODE_HOOK | HOOK_UINT16, 0x39EB}, // 'jmp'
+	// custom light level handling for 'walls'
+	{0x000372d8, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_segLight},
+	{0x000372dd, CODE_HOOK | HOOK_UINT16, 0x10EB}, // 'jmp'
+	// custom light level handling for 'mid walls'
+	{0x0003676e, CODE_HOOK | HOOK_UINT8, 0x50}, // 'push %eax'
+	{0x0003676f, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_maskedLight},
+	{0x00036774, CODE_HOOK | HOOK_UINT32, 0xEB58c289}, // 'mov %eax,%edx' 'pop %eax' 'jmp'
+	{0x00036778, CODE_HOOK | HOOK_UINT8, 0x18}, // jmp offset
+	// custom light level handling for 'sprites'
+	{0x00037fa2, CODE_HOOK | HOOK_UINT8, 0x50}, // 'push %eax'
+	{0x00037fa3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_spriteLight},
+	{0x00037fa8, CODE_HOOK | HOOK_UINT32, 0x58c289}, // 'mov %eax,%edx' 'pop %eax'
+	{0x00037fab, CODE_HOOK | HOOK_UINT16, 0x9090}, // 'nop's
+	// change lightlevel in sector to take only 8bit values
+	{0x00038221, CODE_HOOK | HOOK_UINT32, 0x0C52B60F}, // 'movzbl 0xc(%edx),%edx' // player sprites
+	// plane light level hook
+	{0x00036654, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_planeLight},
+	// sky colormap
+	{0x00036584, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_skyColormap},
+	// disable player translation mobj flags // TODO: apply new translation
+	{0x00031859, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
+/*******************
+	enhancements
+*******************/
+	// disable 'colormaps' in 'R_InitLightTables'
+	{0x00035a10, CODE_HOOK | HOOK_UINT32, 0x01EBC031}, // 'xor %eax,%eax' 'jmp'
 	// disable "store demo" mode check
-//	{0x0001d113, CODE_HOOK | HOOK_UINT16, 0x4CEB}, // 'jmp'
+	{0x0001d113, CODE_HOOK | HOOK_UINT16, 0x4CEB}, // 'jmp'
 	// invert 'run key' function (auto run)
 	{0x0001fbc5, CODE_HOOK | HOOK_UINT8, 0x01},
 	// custom overlay stuff
 	{0x0001d362, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)custom_RenderPlayerView},
 	// make invalid sprites invisible
-//	{0x00037d4c, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite
-//	{0x00037d7a, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite frame
-//	{0x00038029, CODE_HOOK | HOOK_JMP_DOOM, 0x00038203}, // invalid Psprite
-//	{0x00038059, CODE_HOOK | HOOK_JMP_DOOM, 0x00038203}, // invalid Psprite frame
+	{0x00037d4c, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite
+	{0x00037d7a, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite frame
+	{0x00038029, CODE_HOOK | HOOK_JMP_DOOM, 0x00038203}, // invalid Psprite
+	{0x00038059, CODE_HOOK | HOOK_JMP_DOOM, 0x00038203}, // invalid Psprite frame
 	// DEBUG STUFF TO BE REMOVED OR FIXED
 	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
@@ -150,13 +274,39 @@ static hook_t hook_list[] =
 
 //
 // imported variables
+player_t *players;
+weaponinfo_t *weaponinfo;
+mobjinfo_t *mobjinfo;
+
 uint32_t numlumps;
 lumpinfo_t *lumpinfo;
 void **lumpcache;
+
 uint32_t *screenblocks;
-weaponinfo_t *weaponinfo;
 uint8_t **destscreen;
 uint8_t *screens0;
+
+uint32_t *consoleplayer;
+uint32_t *displayplayer;
+
+uint32_t *gamemap;
+uint32_t *gameepisode;
+uint32_t *gameskill;
+uint32_t *netgame;
+uint32_t *deathmatch;
+uint32_t *gametic;
+uint32_t *leveltime;
+uint32_t *totalitems;
+uint32_t *totalkills;
+uint32_t *totalsecret;
+
+fixed_t *finesine;
+fixed_t *finecosine;
+uint32_t *viewheight;
+uint32_t *viewwidth;
+
+thinker_t *thinkercap;
+void *ptr_MobjThinker;
 
 // progress bar info
 static uint32_t pbar_step;
@@ -768,10 +918,22 @@ void ace_init()
 	// install hooks
 	utils_install_hooks(hook_list);
 
+	// update
+	finecosine = finesine + (FINEANGLES / 4);
+
+	// TODO: disable low detail mode
+	*detailshift = 0;
+
 	// load / initialize everything
 	do_loader();
 
 	// fullscreen status bar
 	stbar_init();
+
+	// new map format
+	map_init();
+
+	// rendering changes
+	render_init();
 }
 

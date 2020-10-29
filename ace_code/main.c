@@ -260,6 +260,11 @@ static hook_t hook_list[] =
 	{0x0001fbc5, CODE_HOOK | HOOK_UINT8, 0x01},
 	// custom overlay stuff
 	{0x0001d362, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)custom_RenderPlayerView},
+	// disable sprite table errors
+	{0x0003769d, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
+	{0x000376c5, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
+	{0x00037727, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
+	{0x00037767, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	// make invalid sprites invisible
 	{0x00037d4c, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite
 	{0x00037d7a, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite frame
@@ -312,6 +317,15 @@ void *ptr_MobjThinker;
 static uint32_t pbar_step;
 static patch_t *pbar_patch;
 
+// markers
+static uint64_t markers[] =
+{
+	0x0054524154535fFF, // ?_START
+	0x000000444e455fFF, // ?_END
+	0x54524154535fFFFF, // ??_START
+	0x0000444e455fFFFF, // ??_END
+};
+
 // this function is called when 3D view should be drawn
 // - only in level
 // - not in automap
@@ -327,28 +341,34 @@ void custom_RenderPlayerView(player_t *pl)
 
 //
 // section search
-static int section_count_lumps(const char *start, const char *end)
+static int section_count_lumps(uint8_t s, uint16_t d)
 {
 	int lump = numlumps - 1;
 	int inside = 0;
 	int count = 0;
 
+	// edit markers
+	((uint8_t*)markers)[0] = s;
+	((uint8_t*)markers)[8] = s;
+	((uint16_t*)markers)[8] = d;
+	((uint16_t*)markers)[12] = d;
+
 	// go backwards trough all the lumps
 	while(lump >= 0)
 	{
-		if(lumpinfo[lump].wame == *((uint64_t*)start))
+		if(lumpinfo[lump].wame == markers[0] || lumpinfo[lump].wame == markers[2])
 		{
 			if(!inside)
 				// unclosed section
-				I_Error("[ACE] %s without %s", start, end);
+				I_Error("[ACE] x_START without x_END");
 			// close this section
 			inside = 0;
 		} else
-		if(lumpinfo[lump].wame == *((uint64_t*)end))
+		if(lumpinfo[lump].wame == markers[1] || lumpinfo[lump].wame == markers[3])
 		{
 			if(inside)
 				// unclosed section
-				I_Error("[ACE] %s without %s", end, start);
+				I_Error("[ACE] x_END without x_START");
 			// open new section
 			inside = 1;
 			// do not count this one
@@ -361,7 +381,7 @@ static int section_count_lumps(const char *start, const char *end)
 
 	if(inside)
 		// unclosed section
-		I_Error("[ACE] %s without %s", end, start);
+		I_Error("[ACE] x_END without x_START");
 
 	return count;
 }
@@ -490,19 +510,25 @@ static uint32_t texture_process(uint32_t idx)
 
 //
 // TX section loader
-static uint32_t tx_process(uint32_t idx, const char *start, const char *end)
+static uint32_t tx_process(uint32_t idx, uint8_t s, uint16_t d)
 {
 	int inside = 0;
 	patch_t header;
 
+	// edit markers
+	((uint8_t*)markers)[0] = s;
+	((uint8_t*)markers)[8] = s;
+	((uint16_t*)markers)[8] = d;
+	((uint16_t*)markers)[12] = d;
+
 	for(uint32_t i = 0; i < numlumps; i++)
 	{
-		if(lumpinfo[i].wame == *((uint64_t*)start))
+		if(lumpinfo[i].wame == markers[0] || lumpinfo[i].wame == markers[2])
 		{
 			inside = 1;
 			continue;
 		}
-		if(lumpinfo[i].wame == *((uint64_t*)end))
+		if(lumpinfo[i].wame == markers[1] || lumpinfo[i].wame == markers[3])
 		{
 			inside = 0;
 			continue;
@@ -558,20 +584,26 @@ static uint32_t tx_process(uint32_t idx, const char *start, const char *end)
 
 //
 // sprite section loader
-int sprite_process(int idx, const char *start, const char *end)
+int sprite_process(int idx, uint8_t s, uint16_t d)
 {
 	int sidx = 0;
 	patch_t header;
 	int inside = 0;
 
+	// edit markers
+	((uint8_t*)markers)[0] = s;
+	((uint8_t*)markers)[8] = s;
+	((uint16_t*)markers)[8] = d;
+	((uint16_t*)markers)[12] = d;
+
 	for(uint32_t i = 0; i < numlumps; i++)
 	{
-		if(lumpinfo[i].wame == *((uint64_t*)start))
+		if(lumpinfo[i].wame == markers[0] || lumpinfo[i].wame == markers[2])
 		{
 			inside = 1;
 			continue;
 		}
-		if(lumpinfo[i].wame == *((uint64_t*)end))
+		if(lumpinfo[i].wame == markers[1] || lumpinfo[i].wame == markers[3])
 		{
 			inside = 0;
 			continue;
@@ -600,19 +632,25 @@ int sprite_process(int idx, const char *start, const char *end)
 
 //
 // flat section loader
-void flat_translation(const char *start, const char *end)
+void flat_translation(uint8_t s, uint16_t d)
 {
 	int idx = 0;
 	int inside = 0;
 
+	// edit markers
+	((uint8_t*)markers)[0] = s;
+	((uint8_t*)markers)[8] = s;
+	((uint16_t*)markers)[8] = d;
+	((uint16_t*)markers)[12] = d;
+
 	for(uint32_t i = 0; i < numlumps; i++)
 	{
-		if(lumpinfo[i].wame == *((uint64_t*)start))
+		if(lumpinfo[i].wame == markers[0] || lumpinfo[i].wame == markers[2])
 		{
 			inside = 1;
 			continue;
 		}
-		if(lumpinfo[i].wame == *((uint64_t*)end))
+		if(lumpinfo[i].wame == markers[1] || lumpinfo[i].wame == markers[3])
 		{
 			inside = 0;
 			continue;
@@ -627,19 +665,25 @@ void flat_translation(const char *start, const char *end)
 
 //
 // sprite lookup tables
-void sprite_table_loop(uint32_t match, const char *start, const char *end)
+void sprite_table_loop(uint32_t match, uint8_t s, uint16_t d)
 {
 	int sidx = 0;
 	int inside = 0;
 
+	// edit markers
+	((uint8_t*)markers)[0] = s;
+	((uint8_t*)markers)[8] = s;
+	((uint16_t*)markers)[8] = d;
+	((uint16_t*)markers)[12] = d;
+
 	for(uint32_t i = 0; i < numlumps; i++)
 	{
-		if(lumpinfo[i].wame == *((uint64_t*)start))
+		if(lumpinfo[i].wame == markers[0] || lumpinfo[i].wame == markers[2])
 		{
 			inside = 1;
 			continue;
 		}
-		if(lumpinfo[i].wame == *((uint64_t*)end))
+		if(lumpinfo[i].wame == markers[1] || lumpinfo[i].wame == markers[3])
 		{
 			inside = 0;
 			continue;
@@ -689,7 +733,7 @@ void sprite_table_gen()
 		memset(spr_temp, 0xFF, 29 * sizeof(spriteframe_t));
 		*spr_maxframe = -1;
 
-		sprite_table_loop(match, "S_START", "S_END\x00\x00");
+		sprite_table_loop(match, 0x53, 0x5353);
 		int found = *spr_maxframe;
 
 		if(found < 0)
@@ -743,7 +787,7 @@ void do_loader()
 	}
 
 	// count all the textures in each TX_START-TX_END section
-	tex_count = section_count_lumps("TX_START", "TX_END\x00");
+	tex_count = section_count_lumps(0, 0x5854);
 
 	// count TEXTUREx
 	tex_count += texture_read("TEXTURE2");
@@ -751,7 +795,7 @@ void do_loader()
 	tex_count += tmp;
 
 	// count all the sprites in each S_START-S_END section
-	tmpA = section_count_lumps("S_START", "S_END\x00\x00");
+	tmpA = section_count_lumps(0x53, 0x5353);
 
 	// total for progress bar
 	pbar_total = tex_count;
@@ -778,7 +822,7 @@ void do_loader()
 	sprite_lump = Z_Malloc(tmpA * sizeof(uint16_t), PU_STATIC, NULL); // new lump lookup table
 
 	// process TX sections
-	idx = tx_process(0, "TX_START", "TX_END\x00");
+	idx = tx_process(0, 0, 0x5854);
 	tmpA = idx;
 	// process TEXTURE1
 	if(tmp)
@@ -806,16 +850,16 @@ void do_loader()
 	}
 
 	// process sprite lumps
-	idx = sprite_process(idx, "S_START", "S_END\x00\x00");
+	idx = sprite_process(idx, 0x53, 0x5353);
 
 	// count all the flats in each F_START-F_END section
-	tmp = section_count_lumps("F_START", "F_END\x00\x00");
+	tmp = section_count_lumps(0x46, 0x4646);
 	*numflats = tmp;
 	*firstflat = 0;
 
 	// generate translation table
 	*flattranslation = Z_Malloc((tmp+1) * 4, PU_STATIC, NULL); // TODO: why +1 ?
-	flat_translation("F_START", "F_END\x00\x00");
+	flat_translation(0x46, 0x4646);
 
 	// generate sprite tables
 	sprite_table_gen();
@@ -867,25 +911,35 @@ static __attribute((regparm(2),no_caller_saved_registers))
 int custom_R_FlatNumForName(char *name)
 {
 	int idx = 0;
-	int inside = 0;
-	char *start = "F_START";
-	char *end;
+	int inside;
+	char *ptr;
 	uint64_t wame = 0;
 
-	end = (char*)&wame;
-	for(inside = 0; inside < 8 && *name; inside++)
-		*end++ = *name++;
+	// edit markers 'F'
+	((uint8_t*)markers)[0] = 0x46;
+	((uint8_t*)markers)[8] = 0x46;
+	((uint16_t*)markers)[8] = 0x4646;
+	((uint16_t*)markers)[12] = 0x4646;
 
-	end = "F_END\x00\x00";
+	// convert name to u64, uppercase
+	ptr = (char*)&wame;
+	for(inside = 0; inside < 8 && *name; inside++)
+	{
+		uint8_t in = *name++;
+		if(in >= 'a' && in <= 'z')
+			in &= 0b11011111;
+		*ptr++ = in;
+	}
+
 	inside = 0;
 	for(uint32_t i = 0; i < numlumps; i++)
 	{
-		if(lumpinfo[i].wame == *((uint64_t*)start))
+		if(lumpinfo[i].wame == markers[0] || lumpinfo[i].wame == markers[2])
 		{
 			inside = 1;
 			continue;
 		}
-		if(lumpinfo[i].wame == *((uint64_t*)end))
+		if(lumpinfo[i].wame == markers[1] || lumpinfo[i].wame == markers[3])
 		{
 			inside = 0;
 			continue;

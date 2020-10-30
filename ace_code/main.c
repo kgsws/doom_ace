@@ -252,6 +252,8 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// replace unknown texture error with "no texture"
+	{0x0003473d, CODE_HOOK | HOOK_UINT32, 1},
 	// disable 'colormaps' in 'R_InitLightTables'
 	{0x00035a10, CODE_HOOK | HOOK_UINT32, 0x01EBC031}, // 'xor %eax,%eax' 'jmp'
 	// disable "store demo" mode check
@@ -273,7 +275,6 @@ static hook_t hook_list[] =
 	// DEBUG STUFF TO BE REMOVED OR FIXED
 	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
-	{0x00034760, CODE_HOOK | HOOK_UINT32, 0x0CEBC031}, // disable unknown texture error; TODO
 	// terminator
 	{0}
 };
@@ -510,11 +511,54 @@ static uint32_t texture_process(uint32_t idx)
 }
 
 //
+// TX raw patch loader
+static void tx_from_patch(uint32_t idx, uint32_t lmp)
+{
+	patch_t header;
+	texture_t *tex;
+
+	tex = Z_Malloc(sizeof(texture_t) + sizeof(texpatch_t), PU_STATIC, NULL);
+	(*textures)[idx] = tex;
+
+	// must read patch header here
+	// but do not cache it, yet
+	lseek(lumpinfo[lmp].handle, lumpinfo[lmp].position, 0);
+	read(lumpinfo[lmp].handle, &header, sizeof(header));
+
+	tex->width = header.width;
+	tex->height = header.height;
+	tex->count = 1;
+	tex->wame = lumpinfo[lmp].wame;
+	tex->patch[0].x = 0;
+	tex->patch[0].y = 0;
+	tex->patch[0].p = lmp;
+
+	(*texturecolumnlump)[idx] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+	(*texturecolumnofs)[idx] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+
+	{
+		uint32_t bits = 1;
+		while(bits < tex->width)
+			bits <<= 1;
+		(*texturewidthmask)[idx] = bits - 1;
+		(*textureheight)[idx] = (int32_t)tex->height << FRACBITS;
+	}
+
+	// call original function
+	R_GenerateLookup(idx);
+
+	// free this patch to avoid fragmentation
+	Z_Free(lumpcache[lmp]);
+
+	// animation stuff
+	(*texturetranslation)[idx] = idx;
+}
+
+//
 // TX section loader
 static uint32_t tx_process(uint32_t idx, uint8_t s, uint16_t d)
 {
 	int inside = 0;
-	patch_t header;
 
 	// edit markers
 	((uint8_t*)markers)[0] = s;
@@ -537,43 +581,7 @@ static uint32_t tx_process(uint32_t idx, uint8_t s, uint16_t d)
 		if(!inside)
 			continue;
 
-		texture_t *tex;
-
-		tex = Z_Malloc(sizeof(texture_t) + sizeof(texpatch_t), PU_STATIC, NULL);
-		(*textures)[idx] = tex;
-
-		// must read patch header here
-		// but do not cache it, yet
-		lseek(lumpinfo[i].handle, lumpinfo[i].position, 0);
-		read(lumpinfo[i].handle, &header, sizeof(header));
-
-		tex->width = header.width;
-		tex->height = header.height;
-		tex->count = 1;
-		tex->wame = lumpinfo[i].wame;
-		tex->patch[0].x = 0;
-		tex->patch[0].y = 0;
-		tex->patch[0].p = i;
-
-		(*texturecolumnlump)[idx] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
-		(*texturecolumnofs)[idx] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
-
-		{
-			uint32_t bits = 1;
-			while(bits < tex->width)
-				bits <<= 1;
-			(*texturewidthmask)[idx] = bits - 1;
-			(*textureheight)[idx] = (int32_t)tex->height << FRACBITS;
-		}
-
-		// call original function
-		R_GenerateLookup(idx);
-
-		// free this patch to avoid fragmentation
-		Z_Free(lumpcache[i]);
-
-		// animation stuff
-		(*texturetranslation)[idx] = idx;
+		tx_from_patch(idx, i);
 
 		idx++;
 		// update progress
@@ -635,7 +643,7 @@ int sprite_process(int idx, uint8_t s, uint16_t d)
 // flat section loader
 void flat_translation(uint8_t s, uint16_t d)
 {
-	int idx = 0;
+	int idx = 1; // skip "no texture"
 	int inside = 0;
 
 	// edit markers
@@ -643,6 +651,8 @@ void flat_translation(uint8_t s, uint16_t d)
 	((uint8_t*)markers)[8] = s;
 	((uint16_t*)markers)[8] = d;
 	((uint16_t*)markers)[12] = d;
+
+	(*flattranslation)[0] = W_GetNumForName("\xCCNOFLAT"); // "no texture"
 
 	for(uint32_t i = 0; i < numlumps; i++)
 	{
@@ -794,6 +804,7 @@ void do_loader()
 	tex_count += texture_read("TEXTURE2");
 	tmp = texture_read("TEXTURE1");
 	tex_count += tmp;
+	tex_count += 2; // hardcoded "-" and "no texture"
 
 	// count all the sprites in each S_START-S_END section
 	tmpA = section_count_lumps(0x53, 0x5353);
@@ -822,8 +833,13 @@ void do_loader()
 	*spritetopoffset = Z_Malloc(tmpA * sizeof(fixed_t), PU_STATIC, NULL);
 	sprite_lump = Z_Malloc(tmpA * sizeof(uint16_t), PU_STATIC, NULL); // new lump lookup table
 
+	// add "no texture"
+	tmpA = W_GetNumForName("\xCCNOTEX");
+	tx_from_patch(0, tmpA); // TODO: maybe use less memory
+	tx_from_patch(1, tmpA);
+
 	// process TX sections
-	idx = tx_process(0, 0, 0x5854);
+	idx = tx_process(2, 0, 0x5854);
 	tmpA = idx;
 	// process TEXTURE1
 	if(tmp)
@@ -855,7 +871,7 @@ void do_loader()
 
 	// count all the flats in each F_START-F_END section
 	tmp = section_count_lumps(0x46, 0x4646);
-	*numflats = tmp;
+	*numflats = tmp + 1; // count "no flat" too
 	*firstflat = 0;
 
 	// generate translation table
@@ -911,7 +927,7 @@ void do_loader()
 static __attribute((regparm(2),no_caller_saved_registers))
 int custom_R_FlatNumForName(char *name)
 {
-	int idx = 0;
+	int idx = *numflats - 1;
 	int inside;
 	char *ptr;
 	uint64_t wame = 0;
@@ -933,16 +949,16 @@ int custom_R_FlatNumForName(char *name)
 	}
 
 	inside = 0;
-	for(uint32_t i = 0; i < numlumps; i++)
+	for(uint32_t i = numlumps-1; i; i--) // go from last to first
 	{
 		if(lumpinfo[i].wame == markers[0] || lumpinfo[i].wame == markers[2])
 		{
-			inside = 1;
+			inside = 0;
 			continue;
 		}
 		if(lumpinfo[i].wame == markers[1] || lumpinfo[i].wame == markers[3])
 		{
-			inside = 0;
+			inside = 1;
 			continue;
 		}
 		if(!inside)
@@ -951,11 +967,11 @@ int custom_R_FlatNumForName(char *name)
 		if(lumpinfo[i].wame == wame)
 			return idx;
 
-		idx++;
+		idx--;
 	}
 
-//	I_Error("[ACE] invalid flat name %s", &wame); // TODO
-	return 1; // TODO
+//	I_Error("[ACE] invalid flat name %s", &wame); // replaced by "no texture"
+	return 0;
 }
 
 //

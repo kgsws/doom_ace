@@ -254,6 +254,8 @@ static hook_t hook_list[] =
 *******************/
 	// replace unknown texture error with "no texture"
 	{0x0003473d, CODE_HOOK | HOOK_UINT32, 1},
+	// third part of medusa effect fix; update 5 bytes in column memory
+	{0x00033d30, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)medusa_cache_fix},
 	// disable 'colormaps' in 'R_InitLightTables'
 	{0x00035a10, CODE_HOOK | HOOK_UINT32, 0x01EBC031}, // 'xor %eax,%eax' 'jmp'
 	// disable "store demo" mode check
@@ -852,7 +854,18 @@ void do_loader()
 	for(uint32_t i = tmpA; i < idx; i++)
 	{
 		// call original function
+		// first part of medusa effect fix is to fake texture height here
+		// this will only add 5 more bytes for each row into column cache
+		(*textures)[i]->height += 5;
 		R_GenerateLookup(i);
+		// second part is to add 3 to column offsets
+		for(uint32_t x = 0; x < (*textures)[i]->width; x++)
+			if((*texturecolumnlump)[i][x] < 0)
+				// but only for cached columns
+				(*texturecolumnofs)[i][x] += 3;
+		// also return height back
+		(*textures)[i]->height -= 5;
+
 		(*texturetranslation)[i] = i;
 		// update progress
 		pbar_set(i + 1);

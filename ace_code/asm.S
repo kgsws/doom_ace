@@ -134,6 +134,12 @@ I_FinishUpdate:
 R_GenerateLookup:
 	.byte	0xE9
 	.4byte	0x00033D40
+////////////////////////////////// R_DrawColumnInCache
+.section .text.R_DrawColumnInCache // never called from C; must stay in this group
+.global R_DrawColumnInCache
+R_DrawColumnInCache:
+	.byte	0xE9
+	.4byte	0x00033B40
 ////////////////////////////////// P_InitSwitchList
 .section .text.P_InitSwitchList
 .global P_InitSwitchList
@@ -519,6 +525,27 @@ P_DamageMobj:
 __reloc_code_arg4_end:
 ////////////////////////////////////////////////////////
 
+//
+// ASM engine hooks
+
+.section .text.medusa_cache_fix
+.global medusa_cache_fix
+medusa_cache_fix:
+	push	%eax
+	push	%edx
+	mov	(%edx),%al
+	dec	%edx
+	mov	%al,(%edx)	// padding pixel
+	dec	%edx
+	mov	%cl,(%edx)	// height
+	dec	%edx
+	mov	%ch,(%edx)	// should be zero
+	add	%ecx,%edx
+	add	$4,%edx
+	movb	$255,(%edx)
+	pop	%edx
+	pop	%eax
+	jmp	R_DrawColumnInCache
 
 .section .rodata
 

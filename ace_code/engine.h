@@ -811,6 +811,9 @@ int lseek(int,uint32_t,int) __attribute((regparm(2)));
 
 void dpmi_irq(int,dpmi_regs_t*);
 
+// ASM hooks - never called directly
+void medusa_cache_fix();
+
 // to be removed
 void P_InitSwitchList();
 

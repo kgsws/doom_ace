@@ -134,6 +134,12 @@ I_FinishUpdate:
 R_GenerateLookup:
 	.byte	0xE9
 	.4byte	0x00033D40
+////////////////////////////////// R_GenerateComposite
+.section .text.R_GenerateComposite
+.global R_GenerateComposite
+R_GenerateComposite:
+	.byte	0xE9
+	.4byte	0x00033BB0
 ////////////////////////////////// R_DrawColumnInCache
 .section .text.R_DrawColumnInCache // never called from C; must stay in this group
 .global R_DrawColumnInCache
@@ -542,7 +548,7 @@ medusa_cache_fix:
 	mov	%ch,(%edx)	// should be zero
 	add	%ecx,%edx
 	add	$4,%edx
-	movb	$255,(%edx)
+	movb	$255,(%edx)	// ending
 	pop	%edx
 	pop	%eax
 	jmp	R_DrawColumnInCache

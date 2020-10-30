@@ -49,6 +49,10 @@ typedef struct
 static void custom_RenderPlayerView(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 static int custom_R_FlatNumForName(char*) __attribute((regparm(2),no_caller_saved_registers));
 static void *vissprite_cache_lump(vissprite_t*) __attribute((regparm(2),no_caller_saved_registers));
+static void generate_composite(int) __attribute((regparm(2),no_caller_saved_registers));
+
+// texture count
+uint32_t texture_count;
 
 // texture info
 static uint32_t *numtextures;
@@ -254,6 +258,8 @@ static hook_t hook_list[] =
 *******************/
 	// replace unknown texture error with "no texture"
 	{0x0003473d, CODE_HOOK | HOOK_UINT32, 1},
+	// support for 'flats' on 'walls'; hook 'R_GenerateComposite'
+	{0x00033fad, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)generate_composite},
 	// third part of medusa effect fix; update 5 bytes in column memory
 	{0x00033d30, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)medusa_cache_fix},
 	// disable 'colormaps' in 'R_InitLightTables'
@@ -643,10 +649,11 @@ int sprite_process(int idx, uint8_t s, uint16_t d)
 
 //
 // flat section loader
-void flat_translation(uint8_t s, uint16_t d)
+void flat_process(uint8_t s, uint16_t d)
 {
-	int idx = 1; // skip "no texture"
+	int idx = *numflats - 1;
 	int inside = 0;
+	int texnum = texture_count;
 
 	// edit markers
 	((uint8_t*)markers)[0] = s;
@@ -656,23 +663,50 @@ void flat_translation(uint8_t s, uint16_t d)
 
 	(*flattranslation)[0] = W_GetNumForName("\xCCNOFLAT"); // "no texture"
 
-	for(uint32_t i = 0; i < numlumps; i++)
+	for(uint32_t i = numlumps-1; i; i--) // go from last to first
 	{
 		if(lumpinfo[i].wame == markers[0] || lumpinfo[i].wame == markers[2])
 		{
-			inside = 1;
+			inside = 0;
 			continue;
 		}
 		if(lumpinfo[i].wame == markers[1] || lumpinfo[i].wame == markers[3])
 		{
-			inside = 0;
+			inside = 1;
 			continue;
 		}
 		if(!inside)
 			continue;
 
+		// generate wall texture
+		texture_t *tex = Z_Malloc(sizeof(texture_t), PU_STATIC, NULL);
+		(*textures)[texnum] = tex;
+
+		tex->width = 64;
+		tex->height = 128;
+		tex->count = i; // this uses custom composite
+		tex->wame = lumpinfo[i].wame;
+
+		(*texturecolumnlump)[texnum] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+		(*texturecolumnofs)[texnum] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+		(*texturewidthmask)[texnum] = 63;
+		(*textureheight)[texnum] = 64 << FRACBITS; // report only 64 units
+
+		// generate texture lookup
+		for(uint32_t x = 0; x < 64; x++)
+		{
+			(*texturecolumnlump)[texnum][x] = -1; // always use composite
+			(*texturecolumnofs)[texnum][x] = 3 + x * (128+5); // also include medusa effect fix
+		}
+		(*texturecomposite)[texnum] = NULL;
+
+		// texture translation
+		(*texturetranslation)[texnum] = texnum;
+
+		// flat translation
 		(*flattranslation)[idx] = i;
-		idx++;
+		idx--;
+		texnum++;
 	}
 }
 
@@ -772,7 +806,6 @@ void do_loader()
 	int32_t *patch_lump;
 	uint32_t patch_count;
 	uint32_t tmp, tmpA;
-	uint32_t tex_count;
 	uint32_t pbar_total;
 	uint32_t idx;
 
@@ -800,33 +833,37 @@ void do_loader()
 	}
 
 	// count all the textures in each TX_START-TX_END section
-	tex_count = section_count_lumps(0, 0x5854);
+	texture_count = section_count_lumps(0, 0x5854);
 
 	// count TEXTUREx
-	tex_count += texture_read("TEXTURE2");
+	texture_count += texture_read("TEXTURE2");
 	tmp = texture_read("TEXTURE1");
-	tex_count += tmp;
-	tex_count += 2; // hardcoded "-" and "no texture"
+	texture_count += tmp;
+	texture_count += 2; // hardcoded "-" and "no texture"
 
 	// count all the sprites in each S_START-S_END section
 	tmpA = section_count_lumps(0x53, 0x5353);
 
+	// count all the flats in each F_START-F_END section
+	*numflats = section_count_lumps(0x46, 0x4646);
+
 	// total for progress bar
-	pbar_total = tex_count;
+	pbar_total = texture_count;
 	pbar_total += tmpA;
 	pbar_step = (((uint32_t)pbar_patch->width) << 23) / (pbar_total + PBAR_ADD);
 	pbar_patch->width = 0;
 
 	// memory for textures
-	*numtextures = tex_count;
-	*textures = Z_Malloc(tex_count * 4, PU_STATIC, NULL);
-	*texturecolumnlump = Z_Malloc(tex_count * 4, PU_STATIC, NULL);
-	*texturecolumnofs = Z_Malloc(tex_count * 4, PU_STATIC, NULL);
-	*texturecomposite = Z_Malloc(tex_count * 4, PU_STATIC, NULL);
-	*texturecompositesize = Z_Malloc(tex_count * 4, PU_STATIC, NULL);
-	*texturewidthmask = Z_Malloc(tex_count * 4, PU_STATIC, NULL);
-	*textureheight = Z_Malloc(tex_count * 4, PU_STATIC, NULL);
-	*texturetranslation = Z_Malloc((tex_count+1) * 4, PU_STATIC, NULL); // TODO: why +1 ?
+	idx = texture_count + *numflats; // also allow flats as textures // TODO: optional
+	*numtextures = idx;
+	*textures = Z_Malloc(idx * 4, PU_STATIC, NULL);
+	*texturecolumnlump = Z_Malloc(idx * 4, PU_STATIC, NULL);
+	*texturecolumnofs = Z_Malloc(idx * 4, PU_STATIC, NULL);
+	*texturecomposite = Z_Malloc(idx * 4, PU_STATIC, NULL);
+	*texturecompositesize = Z_Malloc(idx * 4, PU_STATIC, NULL);
+	*texturewidthmask = Z_Malloc(idx * 4, PU_STATIC, NULL);
+	*textureheight = Z_Malloc(idx * 4, PU_STATIC, NULL);
+	*texturetranslation = Z_Malloc((idx+1) * 4, PU_STATIC, NULL); // TODO: why +1 ?
 
 	// memory for sprites
 	*firstspritelump = 0;
@@ -882,14 +919,14 @@ void do_loader()
 	// process sprite lumps
 	idx = sprite_process(idx, 0x53, 0x5353);
 
-	// count all the flats in each F_START-F_END section
-	tmp = section_count_lumps(0x46, 0x4646);
-	*numflats = tmp + 1; // count "no flat" too
+	// add the flats
+	tmp = *numflats + 1; // count "no flat" too
+	*numflats = tmp;
 	*firstflat = 0;
 
 	// generate translation table
 	*flattranslation = Z_Malloc((tmp+1) * 4, PU_STATIC, NULL); // TODO: why +1 ?
-	flat_translation(0x46, 0x4646);
+	flat_process(0x46, 0x4646);
 
 	// generate sprite tables
 	sprite_table_gen();
@@ -933,6 +970,47 @@ void do_loader()
 
 	// eable disk icon
 	*grmode = 1;
+}
+
+//
+// texture loading
+static __attribute((regparm(2),no_caller_saved_registers))
+void generate_composite(int idx)
+{
+	if(idx < texture_count)
+	{
+		R_GenerateComposite(idx);
+		return;
+	}
+
+	// texture from flat in cache
+	texture_t *tex = (*textures)[idx];
+	uint8_t *src = W_CacheLumpNum(tex->count, PU_CACHE);
+	uint8_t *dst;
+
+	dst = Z_Malloc(64 * (128+5), PU_CACHE, &(*texturecomposite)[idx]);
+	(*texturecomposite)[idx] = dst;
+
+	for(uint32_t x = 0; x < 64; x++)
+	{
+		*dst++ = 0; // offset
+		*dst++ = 128; // height
+		dst++; // padding
+		for(uint32_t y = 0; y < 64; y++)
+		{
+			*dst++ = *src;
+			src += 64;
+		}
+		src -= 64 * 64; // full rollback
+		for(uint32_t y = 0; y < 64; y++)
+		{
+			*dst++ = *src;
+			src += 64;
+		}
+		src -= 64 * 64 - 1; // next pixel rollback
+		dst++; // padding
+		*dst++ = 255; // ending
+	}
 }
 
 //

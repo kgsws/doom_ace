@@ -862,6 +862,7 @@ void G_ExitLevel();
 
 // render
 void R_GenerateLookup(int) __attribute((regparm(2)));
+void R_GenerateComposite(int) __attribute((regparm(2)));
 void R_InstallSpriteLump(int32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2)));
 void R_RenderPlayerView(player_t*) __attribute((regparm(2)));
 void R_SetupFrame(player_t*) __attribute((regparm(2)));

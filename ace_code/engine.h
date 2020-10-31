@@ -121,45 +121,6 @@ typedef struct thinker_s
 } thinker_t;
 
 //
-// render
-
-enum
-{
-	ST_HORIZONTAL,
-	ST_VERTICAL,
-	ST_POSITIVE,
-	ST_NEGATIVE
-};
-
-enum
-{
-	BOXTOP,
-	BOXBOTTOM,
-	BOXLEFT,
-	BOXRIGHT
-};
-
-typedef struct
-{
-	uint16_t width, height;
-	int16_t x, y;
-	uint32_t offs[];
-} patch_t;
-
-typedef struct
-{
-	uint32_t rotate;
-	uint16_t lump[8];
-	uint8_t flip[8];
-} spriteframe_t;
-
-typedef struct
-{
-	uint32_t count;
-	spriteframe_t *frames;
-} spritedef_t;
-
-//
 // weapons
 
 typedef struct
@@ -644,6 +605,69 @@ typedef struct
 	uint16_t count;
 	texpatch_t patch[];
 } __attribute__((packed)) texture_t;
+
+
+enum
+{
+	ST_HORIZONTAL,
+	ST_VERTICAL,
+	ST_POSITIVE,
+	ST_NEGATIVE
+};
+
+enum
+{
+	BOXTOP,
+	BOXBOTTOM,
+	BOXLEFT,
+	BOXRIGHT
+};
+
+typedef struct
+{
+	uint16_t width, height;
+	int16_t x, y;
+	uint32_t offs[];
+} patch_t;
+
+typedef struct
+{
+	uint32_t rotate;
+	uint16_t lump[8];
+	uint8_t flip[8];
+} spriteframe_t;
+
+typedef struct
+{
+	uint32_t count;
+	spriteframe_t *frames;
+} spritedef_t;
+
+typedef struct
+{
+	seg_t *curline;
+	int32_t x1, x2;
+	fixed_t scale1, scale2, scalestep;
+	int32_t silhouette;
+	fixed_t bsilheight;
+	fixed_t tsilheight;
+	int16_t *sprtopclip;
+	int16_t *sprbottomclip;
+	int16_t *maskedtexturecol;
+} drawseg_t;
+
+typedef struct
+{
+	fixed_t height;
+	int32_t picnum;
+	int32_t lightlevel;
+	int32_t minx, maxx;
+	uint8_t pad0;
+	uint8_t top[SCREENWIDTH];
+	uint8_t pad1[2];
+	uint8_t bottom[SCREENWIDTH];
+	uint8_t pad2;
+} __attribute__((packed)) visplane_t;
 
 //
 // sound

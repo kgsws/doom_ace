@@ -88,6 +88,16 @@ static uint32_t *numChannels;
 static void **channels;
 static uint32_t *detailshift;
 
+// ACE config
+static uint32_t cfg_max_drawseg;
+static uint32_t cfg_max_visplane;
+static uint32_t cfg_max_vissprite;
+
+// limit removal
+static void *ptr_drawsegs;
+static void *ptr_visplanes;
+static void *ptr_vissprites;
+
 // all the hooks for ACE engine
 static hook_t hook_list[] =
 {
@@ -256,6 +266,8 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// disable "drawseg overflow" error in 'R_DrawPlanes'
+	{0x000364c9, CODE_HOOK | HOOK_UINT16, 0x2BEB}, // 'jmp'
 	// replace unknown texture error with "no texture"
 	{0x0003473d, CODE_HOOK | HOOK_UINT32, 1},
 	// support for 'flats' on 'walls'; hook 'R_GenerateComposite'
@@ -283,6 +295,53 @@ static hook_t hook_list[] =
 	// DEBUG STUFF TO BE REMOVED OR FIXED
 	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
+	// terminator
+	{0}
+};
+
+// expanded drawseg limit
+static hook_t hook_drawseg[] =
+{
+	// change limit check pointer in 'R_StoreWallRange'
+	{0x00036d0f, CODE_HOOK | HOOK_UINT32, 0},
+	// drawseg base pointer at various locations
+	{0x00033596, CODE_HOOK | HOOK_UINT32, 0}, // R_ClearDrawSegs
+	{0x000383e4, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawSprite
+	{0x00038561, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawSprite
+	{0x0003861f, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
+	{0x0003863d, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
+	// terminator
+	{0}
+};
+
+// expanded visplane limit
+static hook_t hook_visplane[] =
+{
+	// visplane base pointer at various locations
+	{0x000361f1, CODE_HOOK | HOOK_UINT32, 0}, // R_ClearPlanes
+	{0x0003628e, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
+	{0x000362bb, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
+	{0x000364fe, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
+	{0x00036545, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
+	// visplane max count at various locations
+	{0x000362d1, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
+	{0x0003650f, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
+	// terminator
+	{0}
+};
+
+// expanded vissprite limit
+static hook_t hook_vissprite[] =
+{
+	// vissprite base pointer at various locations
+	{0x00037a66, CODE_HOOK | HOOK_UINT32, 0}, // R_ClearSprites
+	{0x000382c0, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
+	{0x000382e4, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
+	{0x0003830c, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
+	{0x00038311, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
+	{0x000385ee, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
+	// vissprite max pointer
+	{0x00037e5a, CODE_HOOK | HOOK_UINT32, 0}, // R_ProjectSprite
 	// terminator
 	{0}
 };
@@ -814,6 +873,52 @@ void do_loader()
 
 	// setup graphics
 	init_lgfx();
+
+	// TODO: parse ACE config
+	cfg_max_drawseg = 2*1024;
+	cfg_max_visplane = 1*1024;
+	cfg_max_vissprite = 1*1024;
+
+	// drawseg limit
+	if(cfg_max_drawseg > 256)
+	{
+		// allocate new memory
+		ptr_drawsegs = Z_Malloc(cfg_max_drawseg * sizeof(drawseg_t), PU_STATIC, NULL);
+		// update values in hooks
+		hook_drawseg[0].value = (uint32_t)ptr_drawsegs + cfg_max_drawseg * sizeof(drawseg_t);
+		for(int i = 1; i <= 5; i++)
+			hook_drawseg[i].value = (uint32_t)ptr_drawsegs;
+		// install hooks
+		utils_install_hooks(hook_drawseg);
+	}
+
+	// visplane limit
+	if(cfg_max_visplane > 128)
+	{
+		// allocate new memory
+		ptr_visplanes = Z_Malloc(cfg_max_visplane * sizeof(visplane_t), PU_STATIC, NULL);
+		memset(ptr_visplanes, 0, cfg_max_visplane * sizeof(visplane_t)); // this is required
+		// update values in hooks
+		for(int i = 0; i <= 4; i++)
+			hook_visplane[i].value = (uint32_t)ptr_visplanes;
+		for(int i = 5; i <= 6; i++)
+			hook_visplane[i].value = cfg_max_visplane;
+		// install hooks
+		utils_install_hooks(hook_visplane);
+	}
+
+	// vissprite limit
+	if(cfg_max_vissprite > 128)
+	{
+		// allocate new memory
+		ptr_vissprites = Z_Malloc(cfg_max_vissprite * sizeof(vissprite_t), PU_STATIC, NULL);
+		// update values in hooks
+		for(int i = 0; i <= 5; i++)
+			hook_vissprite[i].value = (uint32_t)ptr_vissprites;
+		hook_vissprite[6].value = (uint32_t)ptr_vissprites + cfg_max_vissprite * sizeof(vissprite_t);
+		// install hooks
+		utils_install_hooks(hook_vissprite);
+	}
 
 	// parse PNAMES
 	{

@@ -15,7 +15,7 @@
 _start:
 	// loader already backed-up all registers
 
-	// get ACE base
+	// get ACE base // 0x0024E038
 	sub	$0x1004,%eax	// compensate for VMA offset (set in linker script) and '_size_of_bss'
 	mov	%eax,%esi	// store base in ESI for use
 	mov	%eax,ace_segment(%esi)
@@ -116,6 +116,12 @@ doom_printf:
 doom_sprintf:
 	.byte	0xE9
 	.4byte	0x0004101C
+////////////////////////////////// doom_free
+.section .text.doom_free
+.global doom_free
+doom_free:
+	.byte	0xE9
+	.4byte	0x0004066D
 ////////////////////////////////// I_Error
 .section .text.I_Error
 .global I_Error

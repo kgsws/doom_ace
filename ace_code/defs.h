@@ -12,6 +12,9 @@ extern uint32_t *screenblocks;
 extern uint8_t **destscreen;
 extern uint8_t *screens0;
 
+extern uint32_t *skytexture;
+extern uint32_t *skyflatnum;
+
 extern uint32_t *consoleplayer;
 extern uint32_t *displayplayer;
 

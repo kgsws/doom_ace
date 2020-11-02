@@ -99,10 +99,12 @@ void utils_fix_parray(uint32_t *table, uint32_t count)
 char *strcpy(char *dst, const char *src)
 {
 	char *ret = dst;
-	do
+	while(*src)
 	{
 		*dst++ = *src++;
-	} while(*src);
+	}
+	*dst = *src;
+	return ret;
 }
 
 void *memset(void *dst, int value, size_t len)

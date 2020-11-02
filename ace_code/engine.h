@@ -252,10 +252,28 @@ typedef struct
 		uint64_t wame;
 		uint32_t same;
 	};
-	int handle;
+	int32_t handle;
 	uint32_t position;
 	uint32_t size;
 } lumpinfo_t;
+
+typedef struct
+{
+	uint32_t id;
+	uint32_t numlumps;
+	uint32_t diroffs;
+} wadhead_t;
+
+typedef struct
+{
+	uint32_t offset;
+	uint32_t size;
+	union
+	{
+		uint8_t name[8];
+		uint64_t wame;
+	};
+} wadlump_t;
 
 //
 // info
@@ -829,9 +847,11 @@ void I_Error(char*, ...); // This function is variadic. No attribute required.
 int doom_sprintf(char*, const char*, ...);
 int doom_printf(const char*, ...);
 
+// SDK
 int write(int,void*,uint32_t) __attribute((regparm(2)));
 int read(int,void*,uint32_t) __attribute((regparm(2)));
 int lseek(int,uint32_t,int) __attribute((regparm(2)));
+void doom_free(void*) __attribute((regparm(2)));
 
 void dpmi_irq(int,dpmi_regs_t*);
 

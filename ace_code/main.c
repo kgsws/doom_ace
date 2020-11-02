@@ -89,6 +89,7 @@ static void **channels;
 static uint32_t *detailshift;
 
 // ACE config
+static uint32_t cfg_flat_textures;
 static uint32_t cfg_max_drawseg;
 static uint32_t cfg_max_visplane;
 static uint32_t cfg_max_vissprite;
@@ -97,6 +98,9 @@ static uint32_t cfg_max_vissprite;
 static void *ptr_drawsegs;
 static void *ptr_visplanes;
 static void *ptr_vissprites;
+static uint32_t *ptr_numlumps;
+static lumpinfo_t **ptr_lumpinfo;
+static void ***ptr_lumpcache;
 
 // all the hooks for ACE engine
 static hook_t hook_list[] =
@@ -110,8 +114,11 @@ static hook_t hook_list[] =
 	// TODO: states here
 	//
 	{0x00074FA0, DATA_HOOK | HOOK_READ32, (uint32_t)&numlumps},
+	{0x00074FA0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ptr_numlumps},
 	{0x00074FA4, DATA_HOOK | HOOK_READ32, (uint32_t)&lumpinfo},
+	{0x00074FA4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ptr_lumpinfo},
 	{0x00074F94, DATA_HOOK | HOOK_READ32, (uint32_t)&lumpcache},
+	{0x00074F94, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ptr_lumpcache},
 	//
 	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
 	{0x0002914C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&destscreen},
@@ -143,6 +150,8 @@ static hook_t hook_list[] =
 	{0x000300A4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&curline},
 	{0x00039014, DATA_HOOK | HOOK_IMPORT, (uint32_t)&extralight},
 	{0x00030104, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colormaps},
+	{0x0005A164, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skyflatnum},
+	{0x0005A170, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skytexture},
 	//
 	{0x0002C134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlines},
 	{0x0002C14C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsectors},
@@ -266,6 +275,8 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// allow textures > 64k
+//	{0x00033f07, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	// disable "drawseg overflow" error in 'R_DrawPlanes'
 	{0x000364c9, CODE_HOOK | HOOK_UINT16, 0x2BEB}, // 'jmp'
 	// replace unknown texture error with "no texture"
@@ -295,6 +306,9 @@ static hook_t hook_list[] =
 	// DEBUG STUFF TO BE REMOVED OR FIXED
 	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
+	{0x00022370, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OATRSKY"}, // Eviternity hack for testing
+	{0x00022378, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY01"}, // Eviternity hack for testing
+	{0x00022368, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY25"}, // Eviternity hack for testing
 	// terminator
 	{0}
 };
@@ -359,6 +373,9 @@ void **lumpcache;
 uint32_t *screenblocks;
 uint8_t **destscreen;
 uint8_t *screens0;
+
+uint32_t *skytexture;
+uint32_t *skyflatnum;
 
 uint32_t *consoleplayer;
 uint32_t *displayplayer;
@@ -462,6 +479,8 @@ static void init_lgfx()
 	patch_t *p;
 	uint32_t lmp, tmp;
 
+	// TODO: load PLAYPAL
+
 	// fill all video buffers with background
 	p = W_CacheLumpName("\xCC""LOADING", PU_STATIC);
 	*destscreen = (void*)0xA0000;
@@ -541,6 +560,11 @@ static uint32_t texture_process(uint32_t idx)
 		tex->height = src->height;
 		tex->count = src->count;
 		tex->wame = src->wame;
+
+		if(tex->height > 128)
+			// this is renderer limit
+			// TODO: add warning or error
+			tex->height = 128;
 
 		srp = src->patch;
 		pat = tex->patch;
@@ -737,30 +761,33 @@ void flat_process(uint8_t s, uint16_t d)
 		if(!inside)
 			continue;
 
-		// generate wall texture
-		texture_t *tex = Z_Malloc(sizeof(texture_t), PU_STATIC, NULL);
-		(*textures)[texnum] = tex;
-
-		tex->width = 64;
-		tex->height = 128;
-		tex->count = i; // this uses custom composite
-		tex->wame = lumpinfo[i].wame;
-
-		(*texturecolumnlump)[texnum] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
-		(*texturecolumnofs)[texnum] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
-		(*texturewidthmask)[texnum] = 63;
-		(*textureheight)[texnum] = 64 << FRACBITS; // report only 64 units
-
-		// generate texture lookup
-		for(uint32_t x = 0; x < 64; x++)
+		if(cfg_flat_textures)
 		{
-			(*texturecolumnlump)[texnum][x] = -1; // always use composite
-			(*texturecolumnofs)[texnum][x] = 3 + x * (128+5); // also include medusa effect fix
-		}
-		(*texturecomposite)[texnum] = NULL;
+			// generate wall texture
+			texture_t *tex = Z_Malloc(sizeof(texture_t), PU_STATIC, NULL);
+			(*textures)[texnum] = tex;
 
-		// texture translation
-		(*texturetranslation)[texnum] = texnum;
+			tex->width = 64;
+			tex->height = 128;
+			tex->count = i; // this uses custom composite
+			tex->wame = lumpinfo[i].wame;
+
+			(*texturecolumnlump)[texnum] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+			(*texturecolumnofs)[texnum] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+			(*texturewidthmask)[texnum] = 63;
+			(*textureheight)[texnum] = 64 << FRACBITS; // report only 64 units
+
+			// generate texture lookup
+			for(uint32_t x = 0; x < 64; x++)
+			{
+				(*texturecolumnlump)[texnum][x] = -1; // always use composite
+				(*texturecolumnofs)[texnum][x] = 3 + x * (128+5); // also include medusa effect fix
+			}
+			(*texturecomposite)[texnum] = NULL;
+
+			// texture translation
+			(*texturetranslation)[texnum] = texnum;
+		}
 
 		// flat translation
 		(*flattranslation)[idx] = i;
@@ -868,16 +895,81 @@ void do_loader()
 	uint32_t pbar_total;
 	uint32_t idx;
 
+	// TODO: allocate more memory for ZONE
+
 	// disable disk icon
 	*grmode = 0;
 
 	// setup graphics
 	init_lgfx();
 
+	// S_Init - memory allocation
+	ptr = Z_Malloc(*numChannels * 12, PU_STATIC, NULL);
+	// and copy here old data - otherwise crash
+	// TODO: this could still cause issue in the future
+	// when ACE_CODE gets big enough to overwrite this
+	memcpy(ptr, *channels, *numChannels * 12);
+	*channels = ptr;
+
 	// TODO: parse ACE config
-	cfg_max_drawseg = 2*1024;
+	cfg_flat_textures = 0;
+	cfg_max_drawseg = 4*1024;
 	cfg_max_visplane = 1*1024;
 	cfg_max_vissprite = 1*1024;
+
+	// check for WAD in WAD
+	tmp = W_CheckNumForName("ACE_WAD");
+	if(tmp != 0xFFFFFFFF)
+	{
+		wadhead_t head;
+		wadlump_t lump[256]; // 4k chunks
+		lumpinfo_t *dst;
+		void **dsc;
+		// check
+		if(lumpinfo[tmp].size < sizeof(wadhead_t))
+			I_Error("[ACE] invalid ACE_WAD");
+		// read WAD header
+		lseek(lumpinfo[tmp].handle, lumpinfo[tmp].position, 0);
+		read(lumpinfo[tmp].handle, &head, sizeof(wadhead_t));
+		// check
+		if(head.id != 0x44415750 && head.id != 0x44415749)
+			I_Error("[ACE] invalid ACE_WAD");
+		// change numlumps
+		numlumps += head.numlumps;
+		// allocate new buffers
+		lumpcache = Z_Malloc(numlumps * sizeof(void*), PU_STATIC, NULL);
+		lumpinfo = Z_Malloc(numlumps * sizeof(lumpinfo_t), PU_STATIC, NULL);
+		// copy old values
+		memcpy(lumpcache, *ptr_lumpcache, *ptr_numlumps * sizeof(void*));
+		memcpy(lumpinfo, *ptr_lumpinfo, *ptr_numlumps * sizeof(lumpinfo_t));
+		// load new entries
+		dst = lumpinfo + *ptr_numlumps;
+		dsc = lumpcache + *ptr_numlumps;
+		tmpA = head.numlumps;
+		lseek(lumpinfo[tmp].handle, lumpinfo[tmp].position + head.diroffs, 0);
+		while(tmpA)
+		{
+			uint32_t count = tmpA > 256 ? 256 : tmpA;
+			read(lumpinfo[tmp].handle, lump, count * sizeof(wadlump_t));
+			for(uint32_t i = 0; i < count; i++)
+			{
+				dst->wame = lump[i].wame;
+				dst->handle = lumpinfo[tmp].handle;
+				dst->position = lumpinfo[tmp].position + lump[i].offset;
+				dst->size = lump[i].size;
+				dst++;
+				*dsc++ = NULL;
+			}
+			tmpA -= count;
+		}
+		// free original buffers
+		doom_free(*ptr_lumpinfo);
+		doom_free(*ptr_lumpcache);
+		// update engine values
+		*ptr_numlumps = numlumps;
+		*ptr_lumpinfo = lumpinfo;
+		*ptr_lumpcache = lumpcache;
+	}
 
 	// drawseg limit
 	if(cfg_max_drawseg > 256)
@@ -959,7 +1051,10 @@ void do_loader()
 	pbar_patch->width = 0;
 
 	// memory for textures
-	idx = texture_count + *numflats; // also allow flats as textures // TODO: optional
+	idx = texture_count;
+	if(cfg_flat_textures)
+		// also allow flats as textures
+		texture_count += *numflats;
 	*numtextures = idx;
 	*textures = Z_Malloc(idx * 4, PU_STATIC, NULL);
 	*texturecolumnlump = Z_Malloc(idx * 4, PU_STATIC, NULL);
@@ -1060,9 +1155,6 @@ void do_loader()
 	idx += PBAR_NEW;
 	pbar_set(idx);
 
-	// S_Init - memory allocation only
-	*channels = Z_Malloc(*numChannels * 12, PU_STATIC, NULL);
-
 	// init other doom stuff
 	P_InitSwitchList(); // TODO: custom
 	HU_Init();
@@ -1071,6 +1163,9 @@ void do_loader()
 
 	// update progress
 	idx += PBAR_P_HU_ST;
+	pbar_set(idx);
+	// force all buffers to be the same (for wipe)
+	pbar_set(idx);
 	pbar_set(idx);
 
 	// eable disk icon

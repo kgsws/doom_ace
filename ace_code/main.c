@@ -58,7 +58,7 @@ uint32_t texture_count;
 static uint32_t *numtextures;
 static texture_t ***textures;
 static int16_t ***texturecolumnlump;
-static uint16_t ***texturecolumnofs;
+static uint32_t ***texturecolumnofs;
 static uint8_t ***texturecomposite;
 static int32_t **texturecompositesize;
 static uint32_t **texturewidthmask;
@@ -101,6 +101,14 @@ static void *ptr_vissprites;
 static uint32_t *ptr_numlumps;
 static lumpinfo_t **ptr_lumpinfo;
 static void ***ptr_lumpcache;
+
+// binary patches
+static uint8_t patch_gen_lookup[] =
+{
+	26,
+	0x89, 0xd6, 0x01, 0xd6, 0x56, 0x01, 0xf6, 0x01, 0xf1, 0x89, 0x4d, 0xfc, 0x89,
+	0xf1, 0x5e, 0x8d, 0x04, 0x85, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90
+};
 
 // all the hooks for ACE engine
 static hook_t hook_list[] =
@@ -293,6 +301,20 @@ static hook_t hook_list[] =
 	{0x0001fbc5, CODE_HOOK | HOOK_UINT8, 0x01},
 	// custom overlay stuff
 	{0x0001d362, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)custom_RenderPlayerView},
+	// 32bit texturecolumnofs
+	{0x00033e18, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_gen_lookup}, // R_GenerateLookup; raw patch
+	{0x00033e98, CODE_HOOK | HOOK_UINT8, 0x90}, // R_GenerateLookup; raw patch
+	{0x00033ea3, CODE_HOOK | HOOK_UINT8, 0x90}, // R_GenerateLookup; raw patch
+	{0x00033ea8, CODE_HOOK | HOOK_UINT8, 0x04}, // R_GenerateLookup; raw patch
+	{0x00033edf, CODE_HOOK | HOOK_UINT8, 0x90}, // R_GenerateLookup; composite
+	{0x00033ee2, CODE_HOOK | HOOK_UINT8, 0x90}, // R_GenerateLookup; composite
+	{0x00033f30, CODE_HOOK | HOOK_UINT8, 0x04}, // R_GenerateLookup; composite
+	{0x00033d16, CODE_HOOK | HOOK_UINT32, 0x128bda01}, // R_GenerateComposite
+	{0x00033d1a, CODE_HOOK | HOOK_UINT32, 0x90909090}, // R_GenerateComposite
+	{0x00033d1e, CODE_HOOK | HOOK_UINT8, 0x90}, // R_GenerateComposite
+	{0x00033f82, CODE_HOOK | HOOK_UINT32, 0x0c8bc901}, // R_GetColumn
+	{0x00033f86, CODE_HOOK | HOOK_UINT32, 0x90909031}, // R_GetColumn
+	{0x00033f8a, CODE_HOOK | HOOK_UINT16, 0x9090}, // R_GetColumn
 	// disable sprite table errors
 	{0x0003769d, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	{0x000376c5, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
@@ -581,7 +603,7 @@ static uint32_t texture_process(uint32_t idx)
 			}
 		}
 		(*texturecolumnlump)[idx] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
-		(*texturecolumnofs)[idx] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+		(*texturecolumnofs)[idx] = Z_Malloc(tex->width * sizeof(uint32_t), PU_STATIC, NULL);
 
 		{
 			uint32_t bits = 1;
@@ -625,7 +647,7 @@ static void tx_from_patch(uint32_t idx, uint32_t lmp)
 	tex->patch[0].p = lmp;
 
 	(*texturecolumnlump)[idx] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
-	(*texturecolumnofs)[idx] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+	(*texturecolumnofs)[idx] = Z_Malloc(tex->width * sizeof(uint32_t), PU_STATIC, NULL);
 
 	{
 		uint32_t bits = 1;
@@ -773,7 +795,7 @@ void flat_process(uint8_t s, uint16_t d)
 			tex->wame = lumpinfo[i].wame;
 
 			(*texturecolumnlump)[texnum] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
-			(*texturecolumnofs)[texnum] = Z_Malloc(tex->width * sizeof(uint16_t), PU_STATIC, NULL);
+			(*texturecolumnofs)[texnum] = Z_Malloc(tex->width * sizeof(uint32_t), PU_STATIC, NULL);
 			(*texturewidthmask)[texnum] = 63;
 			(*textureheight)[texnum] = 64 << FRACBITS; // report only 64 units
 

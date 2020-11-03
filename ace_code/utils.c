@@ -59,6 +59,9 @@ reladdr_doom:
 			case HOOK_CSTR_DOOM:
 				strcpy((char*)addr, (char*)(table->value + doom_data_segment));
 			break;
+			case HOOK_BUF8_ACE:
+				memcpy((char*)addr, (char*)(table->value + ace_segment + 1), *((uint8_t*)(table->value + ace_segment)));
+			break;
 			case HOOK_ABSADDR_ACE:
 				*((uint32_t*)addr) = table->value + ace_segment;
 			break;

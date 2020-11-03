@@ -96,14 +96,24 @@ dpmi_irq:
 	ret
 
 //
+// skip map loading on error
+.global bad_map_warning
+bad_map_warning:
+	add	$0x38,%esp
+	jmp	__bad_map_skip
+
+//
 // Relocation table for functions with 0, 1 or 2 arguments.
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012
 __reloc_code_012:
-////////////////////////////////// return_to_game
+////////////////////////////////// special hooks
 __return_to_game:
 	.byte	0xE9
 	.4byte	0x00020843
+__bad_map_skip:
+	.byte	0xE9
+	.4byte	0x0002E997
 ////////////////////////////////// doom_printf
 .section .text.doom_printf
 .global doom_printf
@@ -122,6 +132,12 @@ doom_sprintf:
 doom_free:
 	.byte	0xE9
 	.4byte	0x0004066D
+////////////////////////////////// doom_malloc
+.section .text.doom_malloc
+.global doom_malloc
+doom_malloc:
+	.byte	0xE9
+	.4byte	0x00040602
 ////////////////////////////////// I_Error
 .section .text.I_Error
 .global I_Error
@@ -134,6 +150,12 @@ I_Error:
 I_FinishUpdate:
 	.byte	0xE9
 	.4byte	0x00019F60
+////////////////////////////////// I_SetPalette
+.section .text.I_SetPalette
+.global I_SetPalette
+I_SetPalette:
+	.byte	0xE9
+	.4byte	0x00019CA0
 ////////////////////////////////// R_GenerateLookup
 .section .text.R_GenerateLookup
 .global R_GenerateLookup
@@ -170,6 +192,12 @@ R_InitSkyMap:
 R_InitLightTables:
 	.byte	0xE9
 	.4byte	0x000359B0
+////////////////////////////////// D_StartTitle
+.section .text.D_StartTitle
+.global D_StartTitle
+D_StartTitle:
+	.byte	0xE9
+	.4byte	0x0001D810
 ////////////////////////////////// ST_Init
 .section .text.ST_Init
 .global ST_Init
@@ -422,6 +450,16 @@ M_WriteText:
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x00022FA0
+	pop	%ebx
+	ret
+////////////////////////////////// M_StartMessage
+.section .text.M_StartMessage
+.global M_StartMessage
+M_StartMessage:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x00022EA0
 	pop	%ebx
 	ret
 ////////////////////////////////// Z_Malloc

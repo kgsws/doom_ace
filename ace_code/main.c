@@ -87,6 +87,7 @@ static uint32_t *grmode;
 static uint32_t *numChannels;
 static void **channels;
 static uint32_t *detailshift;
+static mainzone_t *mainzone;
 
 // ACE config
 static uint32_t cfg_flat_textures;
@@ -170,6 +171,7 @@ static hook_t hook_list[] =
 	//
 	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
 	{0x00031490, CODE_HOOK | HOOK_IMPORT, (uint32_t)&ptr_MobjThinker},
+	{0x00074FE0, DATA_HOOK | HOOK_READ32, (uint32_t)&mainzone},
 	//
 	{0x0002B9B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&la_damage},
 	// render function pointers // TODO: remove
@@ -284,7 +286,7 @@ static hook_t hook_list[] =
 	enhancements
 *******************/
 	// allow textures > 64k
-//	{0x00033f07, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
+	{0x00033f07, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	// disable "drawseg overflow" error in 'R_DrawPlanes'
 	{0x000364c9, CODE_HOOK | HOOK_UINT16, 0x2BEB}, // 'jmp'
 	// replace unknown texture error with "no texture"
@@ -328,6 +330,9 @@ static hook_t hook_list[] =
 	// DEBUG STUFF TO BE REMOVED OR FIXED
 	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
+	{0x00031a0a, CODE_HOOK | HOOK_UINT32, 0xeb66e983}, // allow unknown map thing (old map format)
+	{0x00031a0e, CODE_HOOK | HOOK_UINT8, 0x17}, // allow unknown map thing (old map format)
+	{0x0002fc27, CODE_HOOK | HOOK_UINT16, 0x10EB}, // disable unknown sector error
 	{0x00022370, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OATRSKY"}, // Eviternity hack for testing
 	{0x00022378, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY01"}, // Eviternity hack for testing
 	{0x00022368, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY25"}, // Eviternity hack for testing
@@ -500,8 +505,6 @@ static void init_lgfx()
 {
 	patch_t *p;
 	uint32_t lmp, tmp;
-
-	// TODO: load PLAYPAL
 
 	// fill all video buffers with background
 	p = W_CacheLumpName("\xCC""LOADING", PU_STATIC);
@@ -917,7 +920,39 @@ void do_loader()
 	uint32_t pbar_total;
 	uint32_t idx;
 
-	// TODO: allocate more memory for ZONE
+	// allocate more memory for ZONE
+	// TODO: check available memory first
+	tmp = 7*1024*1024;
+	ptr = doom_malloc(tmp);
+	if(ptr)
+	{
+		zoneblock_t *block;
+		zoneblock_t *flock;
+
+		// add fake static area
+		// this fake area covers space between two zone allocations and is never freed
+		mainzone->rover->size -= sizeof(zoneblock_t);
+		flock = (void*)mainzone->rover + mainzone->rover->size;
+		flock->size = (uint32_t)ptr - (uint32_t)flock;
+		flock->user = (void*)flock;
+		flock->tag = PU_STATIC;
+		flock->id = 0x1d4a11;
+		flock->next = ptr;
+		flock->prev = mainzone->rover;
+
+		// add new area
+		block = ptr;
+		block->size = tmp;
+		block->user = NULL;
+		block->tag = PU_STATIC;
+		block->id = 0x1d4a11;
+		block->next = mainzone->rover->next;
+		block->prev = flock;
+
+		// fix the chain
+		mainzone->rover->next->prev = block;
+		mainzone->rover->next = flock;
+	}
 
 	// disable disk icon
 	*grmode = 0;
@@ -1187,7 +1222,9 @@ void do_loader()
 	idx += PBAR_P_HU_ST;
 	pbar_set(idx);
 	// force all buffers to be the same (for wipe)
+	pbar_patch->width = 0;
 	pbar_set(idx);
+	pbar_patch->width = 0;
 	pbar_set(idx);
 
 	// eable disk icon

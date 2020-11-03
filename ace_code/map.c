@@ -7,6 +7,8 @@
 #include "generic.h"
 #include "render.h"
 
+void bad_map_warning(); // asm.S
+
 typedef struct
 {
 	uint16_t v1, v2;
@@ -257,6 +259,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 int map_get_map_lump(char *name)
 {
 	int lumpnum;
+	uint32_t tmp;
 
 	// TODO: custom names
 
@@ -270,7 +273,31 @@ int map_get_map_lump(char *name)
 		// old map format
 		utils_install_hooks(map_load_hooks_old);
 
+	// check some limits here so game does not have to crash
+	tmp = W_LumpLength(lumpnum + ML_SEGS);
+	if(!tmp)
+	{
+		M_StartMessage("This map does not use DOOM nodes.\n", NULL, 0);
+		goto bail_out;
+	}
+	if((tmp / 12) > 32767)
+	{
+		M_StartMessage("This map has too many segs.\n", NULL, 0);
+		goto bail_out;
+	}
+	tmp = W_LumpLength(lumpnum + ML_SIDEDEFS);
+	if((tmp / 30) > 32767)
+	{
+		M_StartMessage("This map has too many sidedefs.\n", NULL, 0);
+		goto bail_out;
+	}
+
 	return lumpnum;
+
+bail_out:
+	D_StartTitle();
+	bad_map_warning();
+	return -1;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

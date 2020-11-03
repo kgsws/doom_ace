@@ -100,6 +100,23 @@ enum
 	PU_CACHE
 };
 
+typedef struct zoneblock_s
+{
+	int32_t size;
+	void **user;
+	int32_t tag;
+	uint32_t id;
+	struct zoneblock_s *next;
+	struct zoneblock_s *prev;
+} zoneblock_t;
+
+typedef struct
+{
+	int32_t size;
+	zoneblock_t block;
+	zoneblock_t *rover;
+} mainzone_t;
+
 //
 // tics
 
@@ -852,6 +869,7 @@ int write(int,void*,uint32_t) __attribute((regparm(2)));
 int read(int,void*,uint32_t) __attribute((regparm(2)));
 int lseek(int,uint32_t,int) __attribute((regparm(2)));
 void doom_free(void*) __attribute((regparm(2)));
+void *doom_malloc(uint32_t) __attribute((regparm(2)));
 
 void dpmi_irq(int,dpmi_regs_t*);
 
@@ -862,18 +880,21 @@ void medusa_cache_fix();
 void P_InitSwitchList();
 
 // stuff
+void I_SetPalette(void*) __attribute((regparm(2)));
 void I_FinishUpdate();
 void I_UpdateBox(int x, int y, int w, int h) __attribute((regparm(2)));
 int32_t M_Random();
 int32_t P_Random();
 void HU_Init();
 void ST_Init();
+void D_StartTitle();
 
 // menu.c
 int M_StringHeight(const char *) __attribute((regparm(2)));
 int M_StringWidth(const char *) __attribute((regparm(2)));
 void M_WriteText(int x, int y, const char *txt) __attribute((regparm(2)));
 void M_StartControlPanel();
+void M_StartMessage(char*, void*, uint32_t) __attribute((regparm(2)));
 
 // s_sound.c
 void S_StartSound(void *origin, int id) __attribute((regparm(2)));

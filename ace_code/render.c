@@ -50,7 +50,8 @@ static colormap_t colormap_list[] =
 	{(1+32*8) * 256, CMAPF_ISFOG}, // gray/white fog
 	{(1+32*9) * 256, CMAPF_ISFOG}, // green fog
 };
-#define COLORMAP_COUNT	(sizeof(colormap_list) / sizeof(colormap_t))
+//#define COLORMAP_COUNT	(sizeof(colormap_list) / sizeof(colormap_t))
+#define COLORMAP_COUNT	1
 
 void render_init()
 {
@@ -323,8 +324,8 @@ void *render_skyColormap()
 __attribute((regparm(2)))
 void *render_get_translation(int num)
 {
-	if(!num)
+//	if(!num)
 		return NULL;
-	return *colormaps + (32*10+num) * 256;
+//	return *colormaps + (32*10+num) * 256;
 }
 

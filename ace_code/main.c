@@ -164,8 +164,8 @@ static uint8_t patch_painchance[] =
 };
 static uint8_t patch_start_sound[] =
 {
-	14,
-	0x0f, 0xb7, 0xd2, 0x83, 0xfa, 0x01, 0x0f, 0x8c, 0x1b, 0x02, 0x00, 0x00, 0xeb, 0x0a
+	16,
+	0x0f, 0xb7, 0xd2, 0x83, 0xfa, 0x01, 0x0f, 0x8c, 0x1b, 0x02, 0x00, 0x00, 0x89, 0xd7, 0xeb, 0x08
 };
 
 // all the hooks for ACE engine
@@ -280,6 +280,10 @@ static hook_t hook_list[] =
 	{0x00030110, DATA_HOOK | HOOK_IMPORT, (uint32_t)&flattranslation},
 	{0x00034690, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)custom_R_FlatNumForName},
 /*******************
+	sound
+*******************/
+	{0x0001488C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sfxinfo},
+/*******************
 	stbar.c
 *******************/
 	{0x000752f0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},
@@ -300,6 +304,13 @@ static hook_t hook_list[] =
 	{0x0002bb30, CODE_HOOK | HOOK_UINT32, 0x24148b}, // 'mov (%esp),%edx'
 	{0x0002BB33, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hitscan_HitMobj},
 	{0x0002bb38, CODE_HOOK | HOOK_UINT32, 0x18EB}, // 'jmp'
+/*******************
+	decorate.c
+*******************/
+	// update 'A_Chase' to support 'fixed_t' (modified 'P_Move')
+	{0x000271cc, CODE_HOOK | HOOK_UINT16, 0xc889}, // 'mov %ecx,%eax'
+	{0x000271ce, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)enemy_chase_move},
+	{0x000271d3, CODE_HOOK | HOOK_UINT16, 0x24eb}, // 'jmp'
 /*******************
 	render.c
 *******************/

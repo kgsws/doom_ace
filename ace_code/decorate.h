@@ -15,3 +15,6 @@ void decorate_init(int enabled);
 void decorate_count_actors(uint8_t *start, uint8_t *end);
 void decorate_parse(uint8_t *start, uint8_t *end);
 
+// hooks
+uint32_t enemy_chase_move(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
+

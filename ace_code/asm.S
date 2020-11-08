@@ -472,6 +472,16 @@ Z_Malloc:
 	.4byte	0x00039690
 	pop	%ebx
 	ret
+////////////////////////////////// P_TryMove
+.section .text.P_TryMove
+.global P_TryMove
+P_TryMove:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002B200
+	pop	%ebx
+	ret
 ////////////////////////////////// P_SpawnPuff
 .section .text.P_SpawnPuff
 .global P_SpawnPuff

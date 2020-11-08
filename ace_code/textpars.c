@@ -5,13 +5,13 @@
 #include "textpars.h"
 
 int tp_nl_is_ws; // newline is whitespace
+uint8_t *tp_func_name_end; // for 'tp_get_function'
 
 // cleanup already valid string
 // destructive!
 uint8_t *tp_clean_string(uint8_t *str)
 {
 	int escaped = 0;
-	uint32_t count = TP_MAX_TMP_STRING-1;
 	uint8_t *src = str + 1;
 	uint8_t *dst = str;
 
@@ -279,10 +279,10 @@ uint8_t *tp_get_function(uint8_t *start, uint8_t *end)
 	while(1)
 	{
 		register uint8_t tmp = *start;
-		if(in_arg)
+		if(in_arg == 1)
 		{
 			if(tmp == ')')
-				in_arg = 0;
+				in_arg = 2;
 		} else
 		{
 			if(tmp == ' ')
@@ -295,12 +295,19 @@ uint8_t *tp_get_function(uint8_t *start, uint8_t *end)
 		if(tmp == '\r')
 			break;
 		if(tmp == '(')
+		{
+			if(in_arg)
+				return NULL;
 			in_arg = 1;
+			tp_func_name_end = start;
+		}
 		start++;
 		if(start == end)
 			return NULL;
 	}
-	if(in_arg)
+	if(!in_arg)
+		tp_func_name_end = start;
+	if(in_arg == 1)
 		return NULL;
 	return start;
 }
@@ -485,5 +492,24 @@ skip:
 		start++;
 	}
 	return start;
+}
+
+// kinda strcmp, with case check
+// t2 must be uppercase
+uint8_t *tp_nc_compare(uint8_t *t1, uint8_t *t2)
+{
+	while(1)
+	{
+		register uint8_t tmp = *t1++;
+
+		if(tmp >= 'A' && tmp <= 'Z')
+			tmp |= 0x20;
+
+		if(tmp != *t2++)
+			return NULL;
+		if(!tmp)
+			break;
+	}
+	return t1;
 }
 

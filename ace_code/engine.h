@@ -717,6 +717,19 @@ typedef struct
 //
 // sound
 
+typedef struct
+{
+	char *name;
+	uint32_t single;
+	uint32_t priority;
+	void *link;
+	int32_t pitch;
+	uint32_t volume;
+	void *data;
+	int32_t used;
+	int32_t lumpnum;
+} sfx_info_t;
+
 typedef enum
 {
 	sfx_None,
@@ -959,10 +972,12 @@ void P_AddThinker(thinker_t*) __attribute((regparm(2)));
 void P_RemoveThinker(thinker_t*) __attribute((regparm(2)));
 int P_ChangeSector(sector_t*,int) __attribute((regparm(2)));
 void P_SpawnPuff(fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
+uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
 
 // p_ height search
 fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2)));
 
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));
+#define FixedMul(a,b)	(((uint64_t)(a) * (uint64_t)(b)) >> FRACBITS)
 

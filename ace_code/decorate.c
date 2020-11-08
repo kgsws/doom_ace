@@ -94,6 +94,13 @@ typedef struct
 
 typedef struct
 {
+	uint8_t *match;
+	void *func;
+	uint8_t *(*parser)(uint8_t*);
+} code_ptr_t;
+
+typedef struct
+{
 	union
 	{
 		uint8_t name[CUSTOM_STATE_MAX_NAME];
@@ -232,6 +239,66 @@ static actor_animation_t actor_anim_list[] =
 	{NULL}
 };
 
+// code pointers for normal actors
+// all names must be lowercase
+static code_ptr_t doom_codeptr_list[] =
+{
+	// common
+	{"a_look", (void*)0x000276C0, NULL},
+	{"a_chase", (void*)0x00027790, NULL},
+	{"a_pain", (void*)0x000288A0, NULL},
+	{"a_scream", (void*)0x00028820, NULL},
+	{"a_noblocking", (void*)0x000288C0, NULL},
+	{"a_fall", (void*)0x000288C0, NULL},
+	{"a_xscream", (void*)0x00028890, NULL},
+	{"a_facetarget", (void*)0x00027970, NULL},
+	{"a_posattack", (void*)0x000279D0, NULL},
+	{"a_sposattack", (void*)0x00027A50, NULL},
+	{"a_cposattack", (void*)0x00027AE0, NULL},
+	{"a_cposrefire", (void*)0x00027B60, NULL},
+	{"a_spidrefire", (void*)0x00027BA0, NULL},
+	{"a_bspiattack", (void*)0x00027BE0, NULL},
+	{"a_troopattack", (void*)0x00027C10, NULL},
+	{"a_sargattack", (void*)0x00027C80, NULL},
+	{"a_headattack", (void*)0x00027CD0, NULL},
+	{"a_cyberattack", (void*)0x00027D30, NULL},
+	{"a_bruisattack", (void*)0x00027D60, NULL},
+	{"a_skelmissile", (void*)0x00027DC0, NULL},
+	{"a_tracer", (void*)0x00027E20, NULL},
+	{"a_skelwhoosh", (void*)0x00027FA0, NULL},
+	{"a_skelfist", (void*)0x00027FC0, NULL},
+//	{"a_vilechase", (void*)0x00028100, NULL}, // TODO: healstate
+	{"a_vilestart", (void*)0x00028250, NULL},
+	{"a_startfire", (void*)0x00028260, NULL},
+	{"a_firecrackle", (void*)0x00028280, NULL},
+	{"a_fire", (void*)0x000282A0, NULL},
+	{"a_viletarget", (void*)0x00028320, NULL},
+	{"a_vileattack", (void*)0x00028370, NULL},
+	{"a_fatraise", (void*)0x00028440, NULL},
+	{"a_fatattack1", (void*)0x00028460, NULL},
+	{"a_fatattack2", (void*)0x000284E0, NULL},
+	{"a_fatattack3", (void*)0x00028560, NULL},
+	{"a_skullattack", (void*)0x00028620, NULL},
+	{"a_painattack", (void*)0x000287C0, NULL},
+	{"a_paindie", (void*)0x000287E0, NULL},
+	{"a_explode", (void*)0x000288D0, NULL}, // TODO: custom
+	{"a_bossdeath", (void*)0x000288F0, NULL},
+	{"a_hoof", (void*)0x00028A20, NULL},
+	{"a_metal", (void*)0x00028A40, NULL},
+	{"a_babymetal", (void*)0x00028A60, NULL},
+	{"a_brainawake", (void*)0x00028AC0, NULL},
+	{"a_brainpain", (void*)0x00028B20, NULL},
+//	{"a_BrainScream", (void*)0x00028B30, NULL}, // TODO: some state
+//	{"a_BrainExplode", (void*)0x00028BD0, NULL}, // TODO: some state
+	{"a_braindie", (void*)0x00028C50, NULL},
+	{"a_brainspit", (void*)0x00028C60, NULL},
+	{"a_spawnsound", (void*)0x00028D00, NULL},
+	{"a_spawnfly", (void*)0x00028D20, NULL},
+	{"a_playerscream", (void*)0x00028E40, NULL},
+	// terminator
+	{NULL}
+};
+
 // modifications for custom tables
 static hook_t hook_update_tables[] =
 {
@@ -275,6 +342,7 @@ static uint8_t *actor_parent;
 static uint32_t actor_parent_len;
 static uint32_t actor_ednum;
 static uint32_t actor_first_state;
+static void *func_extra_data;
 
 #define MAX_SPRITES	(STORAGE_ZLIGHT/4)
 uint32_t decorate_num_sprites;
@@ -282,11 +350,43 @@ static uint32_t last_sprite = 0xFFFFFFFF;
 static uint32_t last_sprite_idx;
 
 #define MAX_CUSTOM_STATES	(STORAGE_VISSPRITES/sizeof(custom_state_list_t)) // should be 320
-#define NOT_REAL_STATE	0xFFFFFFFF
 #define STATE_ANIMATION_TARGET	0x80000000
 #define STATE_CUSTOM_SOURCE	0x40000000
 #define STATE_CUSTOM_TARGET	0x20000000
 static uint32_t custom_state_idx;
+
+// relocate code pointer list
+static void codeptr_list_reloc(code_ptr_t *list, uint32_t base)
+{
+	while(list->match)
+	{
+		list->match = list->match + ace_segment;
+		list->func = list->func + base;
+		list->parser = (void*)list->parser + ace_segment;
+		list++;
+	}
+}
+
+static void *codeptr_parse(code_ptr_t *list, uint8_t *text, uint8_t *fend)
+{
+	uint8_t backup = *fend;
+
+	func_extra_data = NULL;
+	*fend = 0;
+
+	while(list->match)
+	{
+		if(tp_nc_compare(text, list->match))
+		{
+			*fend = backup;
+			// TODO: optional parser
+			return list->func;
+		}
+		list++;
+	}
+	*fend = backup;
+	return NULL;
+}
 
 // find custom table
 static int32_t custom_state_by_name(uint64_t *wame, uint32_t mask)
@@ -404,7 +504,7 @@ static void link_states(mobjinfo_t *info)
 	// go trough every single added state
 	for(uint32_t i = actor_first_state; i < last_state; i++)
 	{
-		if(states[i].sprite == NOT_REAL_STATE)
+		if(states[i].extra == (void*)0xFFFFFFFF) // TODO: something better
 			continue;
 		if(states[i].nextstate & STATE_CUSTOM_TARGET)
 		{
@@ -910,10 +1010,11 @@ bad_states:
 							dstate->nextstate = base | (offset & 0xFFFF);
 					} else
 					{
-						uint8_t *frames;
+						uint8_t *frames, *frend;
 						uint8_t *bright = NULL;
 						uint32_t sprnum;
 						uint32_t duration;
+						void *func;
 
 						// add sprite
 						sprnum = decorate_get_sprite(ptr, tmp);
@@ -927,6 +1028,7 @@ bad_states:
 						tmp = tp_get_keyword(frames, end);
 						if(tmp == end || tmp == ptr)
 							goto bad_states;
+						frend = tmp;
 
 						// skip WS
 						ptr = tp_skip_wsc(tmp, end);
@@ -970,9 +1072,28 @@ bad_states:
 								goto end_eof;
 						}
 
+						// check for code pointer
+						tmp = tp_get_function(ptr, end);
+						if(!tmp)
+						{
+							actor_name[actor_name_len] = 0;
+							I_Error("[ACE] DECORATE: actor '%s' invalid codepointer", actor_name);
+						}
+
+						if(tmp != ptr)
+						{
+							func = codeptr_parse(doom_codeptr_list, ptr, tp_func_name_end);
+//							if(!func)
+							ptr = tmp;
+						} else
+						{
+							func = NULL;
+							func_extra_data = NULL;
+						}
+
 						// add every frame
 						// no archvile frames supported
-						while(frames < tmp)
+						while(frames < frend)
 						{
 							register uint8_t frame = *frames++;
 
@@ -991,27 +1112,10 @@ bad_states:
 								dstate->tics = -1;
 							else
 								dstate->tics = duration;
-							dstate->action = NULL;
+							dstate->action = func;
+							dstate->extra = func_extra_data;
 							dstate->misc1 = 0;
 							dstate->misc2 = 0;
-						}
-
-						// check for code pointer
-						tmp = tp_get_function(ptr, end);
-						if(!tmp)
-						{
-							actor_name[actor_name_len] = 0;
-							I_Error("[ACE] DECORATE: actor '%s' invalid codepointer", actor_name);
-						}
-
-						if(tmp != ptr)
-						{
-							uint8_t backup = *tmp;
-							*tmp = 0;
-							doom_printf("TODO: codeptr: '%s'\n", ptr);
-							*tmp = backup;
-
-							ptr = tmp;
 						}
 					}
 					// back to multi line parsing
@@ -1284,6 +1388,7 @@ void decorate_init(int enabled)
 				tab++;
 			}
 		}
+		codeptr_list_reloc(doom_codeptr_list, doom_code_segment);
 	} else
 	{
 		// use original pointers
@@ -1316,8 +1421,12 @@ void decorate_init(int enabled)
 	{
 		old_mobjinfo_t *old = (old_mobjinfo_t*)(mobjinfo + i);
 		// monsters
-		if(mobjinfo[i].flags & MF_COUNTKILL)
+		if(mobjinfo[i].flags & (MF_COUNTKILL | MF_ISMONSTER))
+		{
 			mobjinfo[i].flags |= MF_ISMONSTER;
+			// monster speed
+			mobjinfo[i].speed <<= FRACBITS;
+		}
 		// clear spawnid
 		mobjinfo[i].spawnid = 0;
 		// fix sounds
@@ -1329,5 +1438,18 @@ void decorate_init(int enabled)
 		mobjinfo[i].__free__1 = 667;
 		mobjinfo[i].__free__2 = 668;
 	}
+}
+
+//
+// hooks
+static fixed_t move_speed[] = {FRACUNIT, 47000, 0, -47000, -FRACUNIT, -47000, 0, 47000, FRACUNIT, 47000, 0, -47000, -FRACUNIT, -47000};
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t enemy_chase_move(mobj_t *mo)
+{
+	fixed_t x, y;
+	x = mo->x + FixedMul(mo->info->speed, move_speed[mo->movedir]);
+	y = mo->y + FixedMul(mo->info->speed, move_speed[mo->movedir + 6]);
+	return P_TryMove(mo, x, y);
 }
 

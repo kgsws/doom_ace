@@ -2,6 +2,7 @@
 //
 // This file contains all required engine types and function prototypes.
 // This file also contains all required includes.
+// Some structures and constatns are modified for ACE ENGINE.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -296,6 +297,7 @@ typedef struct
 // info
 
 #define NUMMOBJTYPES	137
+#define NUMSTATES	967
 
 typedef struct
 {
@@ -325,9 +327,10 @@ typedef struct
 } mobjinfo_t;
 
 typedef struct
-{
-	uint32_t sprite;
-	int32_t frame;
+{ // modified
+	void *extra;
+	uint16_t frame;
+	uint16_t sprite;
 	int32_t tics;
 	void *action;
 	uint32_t nextstate;
@@ -498,7 +501,9 @@ typedef struct subsector_s
 #define MF_SKULLFLY	0x1000000
 #define MF_NOTDMATCH	0x2000000
 // more flags
-#define	MF_ISMONSTER	0x10000000
+#define	MF_NOTELEPORT	0x4000000
+#define	MF_ISMONSTER	0x8000000
+#define	MF_BOSS		0x10000000
 
 // new flags
 #define	MFN_INACTIVE	0x01
@@ -526,7 +531,7 @@ typedef struct
 } __attribute__((packed)) mobj_extra_t;
 
 typedef struct mobj_s
-{
+{ // modified
 	thinker_t thinker;
 	fixed_t x;
 	fixed_t y;
@@ -534,8 +539,9 @@ typedef struct mobj_s
 	struct mobj_s *snext;
 	struct mobj_s *sprev;
 	angle_t angle;
-	int32_t sprite;
-	int32_t frame;
+	int32_t dehacked_sprite;
+	uint16_t frame;
+	uint16_t sprite;
 	struct mobj_s *bnext;
 	struct mobj_s *bprev;
 	struct subsector_s *subsector;

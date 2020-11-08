@@ -9,6 +9,7 @@
 #include "map.h"
 #include "render.h"
 #include "hitscan.h"
+#include "decorate.h"
 
 // progres bar task weight
 #define PBAR_FLR_SPR	32	// flats / sprite processing
@@ -73,7 +74,6 @@ static fixed_t **spritetopoffset;
 static uint16_t *sprite_lump;
 static int32_t *spr_maxframe;
 static spriteframe_t *spr_temp;
-static char **spr_names;
 static uint32_t *numsprites;
 static spritedef_t **sprites;
 
@@ -103,6 +103,12 @@ static uint32_t *ptr_numlumps;
 static lumpinfo_t **ptr_lumpinfo;
 static void ***ptr_lumpcache;
 
+// temporary storage
+void *storage_visplanes;
+void *storage_vissprites;
+void *storage_drawsegs;
+void *storage_zlight;
+
 // binary patches
 static uint8_t patch_gen_lookup[] =
 {
@@ -118,9 +124,9 @@ static hook_t hook_list[] =
 	common
 ******************/
 	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
-	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&weaponinfo},
-	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mobjinfo},
-	// TODO: states here
+	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&e_weaponinfo},
+	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&e_mobjinfo},
+	{0x00015A28, DATA_HOOK | HOOK_IMPORT, (uint32_t)&e_states},
 	//
 	{0x00074FA0, DATA_HOOK | HOOK_READ32, (uint32_t)&numlumps},
 	{0x00074FA0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ptr_numlumps},
@@ -174,6 +180,11 @@ static hook_t hook_list[] =
 	{0x00074FE0, DATA_HOOK | HOOK_READ32, (uint32_t)&mainzone},
 	//
 	{0x0002B9B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&la_damage},
+	//
+	{0x0003A1E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&storage_visplanes},
+	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&storage_vissprites},
+	{0x0002D0A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&storage_drawsegs},
+	{0x000323E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&storage_zlight},
 	// render function pointers // TODO: remove
 	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
 	{0x0003900C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&basecolfunc},
@@ -227,9 +238,10 @@ static hook_t hook_list[] =
 *******************/
 	// replace call to W_GetNumForName in P_SetupLevel
 	{0x0002e8c1, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_get_map_lump},
-	// change mobj_t size - add extra space for new stuff
-	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for Z_Malloc
-	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for memset
+	// replace mobjinfo search in old map 'P_SpawnMapThing'
+	{0x000319e7, CODE_HOOK | HOOK_UINT32, 0x0645bf0f}, // 'movswl 0x6(%ebp),%eax'
+	{0x000319eb, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_get_spawn_type},
+	{0x000319f0, CODE_HOOK | HOOK_UINT32, 0x32ebc189}, // 'mov %eax,%ecx' 'jmp'
 /*******************
 	hitscan.c
 *******************/
@@ -285,6 +297,9 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// change mobj_t size - add extra space for new stuff
+	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for Z_Malloc
+	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for memset
 	// allow textures > 64k
 	{0x00033f07, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	// disable "drawseg overflow" error in 'R_DrawPlanes'
@@ -322,20 +337,31 @@ static hook_t hook_list[] =
 	{0x000376c5, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	{0x00037727, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	{0x00037767, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
+	// change 'sprite' and 'frame' in 'mobj_t' and 'state_t'
+	{0x00030ecd, CODE_HOOK | HOOK_UINT32, 0x90909090}, // P_SetMobjState
+	{0x00030ed1, CODE_HOOK | HOOK_UINT8, 0x90}, // P_SetMobjState
+	{0x000315ef, CODE_HOOK | HOOK_UINT32, 0x90909090}, // P_SpawnMobj
+	{0x000315f3, CODE_HOOK | HOOK_UINT8, 0x90}, // P_SpawnMobj
+	{0x00037d45, CODE_HOOK | HOOK_UINT32, 0x2a46b70f}, // R_ProjectSprite
+	{0x00037d49, CODE_HOOK | HOOK_UINT32, 0x1072e839}, // R_ProjectSprite
+	{0x00038023, CODE_HOOK | HOOK_UINT32, 0x0650b70f}, // R_DrawPSprite
+	{0x00038027, CODE_HOOK | HOOK_UINT32, 0x1072da39}, // R_DrawPSprite
+	// replace call to item pickup; used in above fix and new map format
+	{0x0002b032, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_ItemPickup},
 	// make invalid sprites invisible
-	{0x00037d4c, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite
+	{0x00037d4c+1, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite // compensated for fix above
 	{0x00037d7a, CODE_HOOK | HOOK_JMP_DOOM, 0x00037f86}, // invalid sprite frame
-	{0x00038029, CODE_HOOK | HOOK_JMP_DOOM, 0x00038203}, // invalid Psprite
+	{0x00038029+2, CODE_HOOK | HOOK_JMP_DOOM, 0x00038203}, // invalid Psprite // compensated for fix above
 	{0x00038059, CODE_HOOK | HOOK_JMP_DOOM, 0x00038203}, // invalid Psprite frame
 	// DEBUG STUFF TO BE REMOVED OR FIXED
-	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix
+	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix (textures, flats, states)
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
 	{0x00031a0a, CODE_HOOK | HOOK_UINT32, 0xeb66e983}, // allow unknown map thing (old map format)
 	{0x00031a0e, CODE_HOOK | HOOK_UINT8, 0x17}, // allow unknown map thing (old map format)
 	{0x0002fc27, CODE_HOOK | HOOK_UINT16, 0x10EB}, // disable unknown sector error
-	{0x00022370, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OATRSKY"}, // Eviternity hack for testing
-	{0x00022378, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY01"}, // Eviternity hack for testing
-	{0x00022368, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY25"}, // Eviternity hack for testing
+//	{0x00022370, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OATRSKY"}, // Eviternity hack for testing
+//	{0x00022378, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY01"}, // Eviternity hack for testing
+//	{0x00022368, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY25"}, // Eviternity hack for testing
 	// terminator
 	{0}
 };
@@ -390,8 +416,11 @@ static hook_t hook_vissprite[] =
 //
 // imported variables
 player_t *players;
-weaponinfo_t *weaponinfo;
-mobjinfo_t *mobjinfo;
+weaponinfo_t *e_weaponinfo;
+mobjinfo_t *e_mobjinfo;
+state_t *e_states;
+
+char **spr_names;
 
 uint32_t numlumps;
 lumpinfo_t *lumpinfo;
@@ -873,20 +902,18 @@ void sprite_table_loop(uint32_t match, uint8_t s, uint16_t d)
 
 void sprite_table_gen()
 {
-	int count = 0;
-	char **table = spr_names;
+	uint32_t *table = storage_zlight + sizeof(uint32_t);
 
-	while(*table)
-		table++;
-	count = table - spr_names;
-	*numsprites = count;
+	*numsprites = decorate_num_sprites;
+	*sprites = Z_Malloc(decorate_num_sprites * sizeof(spritedef_t), PU_STATIC, NULL);
 
-	*sprites = Z_Malloc(count * sizeof(spritedef_t), PU_STATIC, NULL);
+	// sprite 0 is always invisible
+	(*sprites)[0].count = 0;
 
-	table = spr_names;
-	for(uint32_t i = 0; i < count; i++, table++)
+	// get other sprites
+	for(uint32_t i = 1; i < decorate_num_sprites; i++, table++)
 	{
-		uint32_t match = *((uint32_t*)*table);
+		uint32_t match = *table;
 
 		memset(spr_temp, 0xFF, 29 * sizeof(spriteframe_t));
 		*spr_maxframe = -1;
@@ -962,10 +989,8 @@ void do_loader()
 
 	// S_Init - memory allocation
 	ptr = Z_Malloc(*numChannels * 12, PU_STATIC, NULL);
-	// and copy here old data - otherwise crash
-	// TODO: this could still cause issue in the future
-	// when ACE_CODE gets big enough to overwrite this
-	memcpy(ptr, *channels, *numChannels * 12);
+	// and clear - otherwise crash
+	memset(ptr, 0, *numChannels * 12);
 	*channels = ptr;
 
 	// TODO: parse ACE config
@@ -1185,14 +1210,47 @@ void do_loader()
 	*flattranslation = Z_Malloc((tmp+1) * 4, PU_STATIC, NULL); // TODO: why +1 ?
 	flat_process(0x46, 0x4646);
 
-	// generate sprite tables
-	sprite_table_gen();
-
 	// update progress
 	idx += PBAR_FLR_SPR;
 	pbar_set(idx);
 
 	// TODO: animations
+
+	// decorate
+	decorate_num_mobjinfo = NUMMOBJTYPES;
+	tmp = W_CheckNumForName("DECORATE");
+	if(tmp != 0xFFFFFFFF)
+	{
+		// count all actors (and add names)
+		actor_names_ptr = storage_drawsegs;
+		for(int lmp = numlumps-1; lmp >= 0; lmp--)
+		{
+			if(lumpinfo[lmp].wame == 0x455441524f434544)
+			{
+				if(lumpinfo[lmp].size > STORAGE_VISPLANES)
+					I_Error("[ACE] DECORATE is too big %d / %d", lumpinfo[lmp].size, STORAGE_VISPLANES);
+				W_ReadLump(lmp, storage_visplanes);
+				decorate_count_actors(storage_visplanes, storage_visplanes + lumpinfo[lmp].size);
+			}
+		}
+
+		// initialize
+		decorate_init(1);
+
+		// process all actors
+		for(int lmp = numlumps-1; lmp >= 0; lmp--)
+		{
+			if(lumpinfo[lmp].wame == 0x455441524f434544)
+			{
+				W_ReadLump(lmp, storage_visplanes);
+				decorate_parse(storage_visplanes, storage_visplanes + lumpinfo[lmp].size);
+			}
+		}
+	} else
+		decorate_init(0);
+
+	// generate sprite tables
+	sprite_table_gen();
 
 	// colormap
 	{
@@ -1330,6 +1388,49 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void *vissprite_cache_lump(vissprite_t *vis)
 {
 	return W_CacheLumpNum(sprite_lump[vis->patch], PU_CACHE);
+}
+
+//
+// special form of allocation
+__attribute((regparm(2)))
+void Z_Enlarge(void *ptr, uint32_t size)
+{
+	uint32_t need;
+	zoneblock_t *block = ptr - sizeof(zoneblock_t);
+	zoneblock_t *nlock;
+
+	if(block->id != 0x1d4a11)
+		I_Error("[ACE] Z_Enlarge pointer without zone ID");
+
+	size = (size + 3) & ~3;
+	size += sizeof(zoneblock_t);
+
+	if(block->size >= size)
+		return;
+
+	need = size - block->size;
+
+	if(block->next->user || block->next->size < need)
+		I_Error("[ACE] Z_Enlarge no more memory");
+
+	block->size += need;
+
+	// copy from back
+	block = block->next;
+	nlock = (void*)block + need;
+	nlock->prev = block->prev;
+	nlock->next = block->next;
+	nlock->id = block->id;
+	nlock->tag = 0;
+	nlock->user = NULL;
+	nlock->size = block->size - need;
+	block->id = 0; // safety
+
+	// fix links
+	nlock->prev->next = nlock;
+	nlock->next->prev = nlock;
+	if(mainzone->rover == block)
+		mainzone->rover = nlock;
 }
 
 //

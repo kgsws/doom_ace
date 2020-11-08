@@ -3,6 +3,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "defs.h"
+#include "decorate.h"
 
 #define STBAR_Y	(SCREENHEIGHT-2)	// ending of status bar
 

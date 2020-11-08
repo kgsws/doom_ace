@@ -25,5 +25,7 @@ extern sector_t **sectors;
 void map_init();
 
 // hooks
-int map_get_map_lump(char*) __attribute((regparm(2),no_caller_saved_registers));
+int32_t map_get_map_lump(char*) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t map_get_spawn_type(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void map_ItemPickup(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 

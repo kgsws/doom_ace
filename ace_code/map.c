@@ -6,6 +6,7 @@
 #include "map.h"
 #include "generic.h"
 #include "render.h"
+#include "decorate.h"
 
 void bad_map_warning(); // asm.S
 
@@ -53,7 +54,6 @@ static void map_PlayerInSpecialSector(player_t*) __attribute((regparm(2),no_call
 static int map_UseSpecialLine(mobj_t*, line_t*) __attribute((regparm(2),no_caller_saved_registers));
 static void map_CrossSpecialLine(int,int) __attribute((regparm(2),no_caller_saved_registers));
 static void map_ShootSpecialLine(mobj_t*,line_t*) __attribute((regparm(2),no_caller_saved_registers));
-static void map_ItemPickup(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 uint32_t *numlines;
 uint32_t *numsectors;
@@ -83,12 +83,8 @@ static hook_t map_load_hooks_new[] =
 	{0x0002b341, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_CrossSpecialLine},
 	// replace call to 'shoot line' function
 	{0x0002b907, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_ShootSpecialLine},
-	// replace call to item pickup
-	{0x0002b032, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_ItemPickup},
 	// change exit switch sound line special
 	{0x00030368, CODE_HOOK | HOOK_UINT8, 243},
-	// disable rejectmatrix
-	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x73EB}, // 'jmp'
 	// terminator
 	{0}
 };
@@ -111,24 +107,30 @@ static hook_t map_load_hooks_old[] =
 	{0x0002b341, CODE_HOOK | HOOK_RELADDR_DOOM, 0x0002F500},
 	// restore call to 'shoot line' function
 	{0x0002b907, CODE_HOOK | HOOK_RELADDR_DOOM, 0x0002FA70},
-	// restore call to item pickup
-	{0x0002b032, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00029AE0},
 	// restore exit switch sound line special
 	{0x00030368, CODE_HOOK | HOOK_UINT8, 11},
+	// terminator
+	{0}
+};
+
+static hook_t map_enable_reject[] = // TODO: broken sight check
+{
 	// enable rejectmatrix
 	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x508B}, // original value
 	// terminator
 	{0}
 };
 
+static hook_t map_disable_reject[] = // TODO: fix sight check
+{
+	// disable rejectmatrix
+	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x73EB}, // 'jmp'
+	// terminator
+	{0}
+};
+
 void map_init()
 {
-	// fix all mobjtypes, set MF_ISMONSTER where needed
-	// TODO: move to DECORATE
-	mobjinfo[18].flags |= MF_ISMONSTER; // lost soul
-	for(int i = 0; i < 137; i++)
-		if(mobjinfo[i].flags & MF_COUNTKILL)
-			mobjinfo[i].flags |= MF_ISMONSTER;
 }
 
 //
@@ -232,16 +234,21 @@ void map_ShootSpecialLine(mobj_t *mo, line_t *ln)
 	activate_special(ln, mo, 0);
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void map_ItemPickup(mobj_t *item, mobj_t *mo)
 {
-	// original Doom code
-	P_TouchSpecialThing(item, mo);
+	if(item->type < NUMMOBJTYPES)
+	{
+		// original Doom code
+		item->dehacked_sprite = item->sprite - 1;
+		P_TouchSpecialThing(item, mo);
+		// addon for specials
+		if(item->thinker.function != (void*)-1)
+			// item was not removed (not picked up)
+			return;
+	}
 
-	// addon for specials
-	if(item->thinker.function != (void*)-1)
-		// item was not removed (not picked up)
-		return;
+	// TODO: decorate items
 
 	if(item->special)
 	{
@@ -256,7 +263,7 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 // map loading
 
 __attribute((regparm(2),no_caller_saved_registers))
-int map_get_map_lump(char *name)
+int32_t map_get_map_lump(char *name)
 {
 	int lumpnum;
 	uint32_t tmp;
@@ -292,12 +299,32 @@ int map_get_map_lump(char *name)
 		goto bail_out;
 	}
 
+	// check 'reject'
+	tmp = W_LumpLength(lumpnum + ML_REJECT);
+	if(tmp)
+		utils_install_hooks(map_enable_reject);
+	else
+		utils_install_hooks(map_disable_reject);
+
 	return lumpnum;
 
 bail_out:
 	D_StartTitle();
 	bad_map_warning();
 	return -1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t map_get_spawn_type(uint32_t ednum)
+{
+	// scan backwards
+	uint32_t idx = decorate_num_mobjinfo - 1;
+	do
+	{
+		if(mobjinfo[idx].doomednum == ednum)
+			return idx;
+	} while(--idx);
+	return 35; // this is 'unknown item' (29=spawnfire; 35=bfgball)
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -432,11 +459,11 @@ void map_LoadThings(int lump)
 		}
 
 		// find this thing
-		for(idx = 0; idx < NUMMOBJTYPES; idx++)
+		for(idx = decorate_num_mobjinfo - 1; idx; idx--)
 			if(mobjinfo[idx].doomednum == mt->type)
 				break;
 
-		if(idx >= NUMMOBJTYPES)
+		if(!idx)
 			// maybe spawn something instead
 			continue;
 

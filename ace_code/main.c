@@ -9,6 +9,7 @@
 #include "map.h"
 #include "render.h"
 #include "hitscan.h"
+#include "sound.h"
 #include "decorate.h"
 
 // progres bar task weight
@@ -115,6 +116,56 @@ static uint8_t patch_gen_lookup[] =
 	26,
 	0x89, 0xd6, 0x01, 0xd6, 0x56, 0x01, 0xf6, 0x01, 0xf1, 0x89, 0x4d, 0xfc, 0x89,
 	0xf1, 0x5e, 0x8d, 0x04, 0x85, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90
+};
+static uint8_t patch_a_look_sound[] =
+{
+	15,
+	0x0f, 0xb7, 0xd2, 0x31, 0xc0, 0xf6, 0x43, 0x6b, 0x10, 0x75, 0x02, 0x89, 0xd8, 0x90, 0x90
+};
+static uint8_t patch_a_chase_activesound[] =
+{
+	24,
+	0x0f, 0xb7, 0x50, 0x22, 0x85, 0xd2, 0x74, 0x15, 0xe8, 0xFF, 0xFF, 0xFF, 0xFF, 0x83, 0xf8, 0x03, 0x7d, 0x0b, 0x89, 0xd8, 0x90, 0x90, 0x90, 0x90
+};
+static uint8_t patch_a_chase_attacksound[] =
+{
+	9,
+	0x0f, 0xb7, 0x52, 0x12, 0x85, 0xd2, 0x74, 0x08, 0x90
+};
+static uint8_t patch_spawnmissile_sound[] =
+{
+	11,
+	0x0f, 0xb7, 0x53, 0x10, 0x89, 0xc6, 0x85, 0xd2, 0x74, 0x06, 0x90
+};
+static uint8_t patch_spawnplayermissile_sound[] =
+{
+	13,
+	0x0f, 0xb7, 0x43, 0x10, 0x85, 0xc0, 0x74, 0x0a, 0x92, 0x90, 0x90, 0x90, 0x90
+};
+static uint8_t patch_explodemissile_sound[] =
+{
+	11,
+	0x0f, 0xb7, 0x50, 0x26, 0x85, 0xd2, 0x74, 0x08, 0x89, 0xd8, 0x90
+};
+static uint8_t patch_a_pain_sound[] =
+{
+	9,
+	0x0f, 0xb7, 0x52, 0x24, 0x85, 0xd2, 0x74, 0x06, 0x90
+};
+static uint8_t patch_a_scream_sound[] =
+{
+	18,
+	0x0f, 0xb7, 0xd2, 0x31, 0xc0, 0xf6, 0x43, 0x6b, 0x10, 0x75, 0x02, 0x89, 0xd8, 0x90, 0x90, 0x90, 0x90, 0x90
+};
+static uint8_t patch_painchance[] =
+{
+	23,
+	0x66, 0x3b, 0x42, 0x20, 0x7d, 0x1b, 0xf6, 0x46, 0x6b, 0x01, 0x75, 0x15, 0x80, 0x4e, 0x68, 0x40, 0x8b, 0x56, 0x5c, 0x90, 0x90, 0x90, 0x90
+};
+static uint8_t patch_start_sound[] =
+{
+	14,
+	0x0f, 0xb7, 0xd2, 0x83, 0xfa, 0x01, 0x0f, 0x8c, 0x1b, 0x02, 0x00, 0x00, 0xeb, 0x0a
 };
 
 // all the hooks for ACE engine
@@ -297,6 +348,30 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// modify 'mobjinfo_t' structure fields - move and pack fields to uint16_t
+	{0x00027714, CODE_HOOK | HOOK_MOVE_OFFSET, HOOK_MOVE_VAL(0x45,4)}, // A_Look
+	{0x0002772c, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00024160}, // A_Look (after move)
+	{0x00027742, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00024160}, // A_Look (after move)
+	{0x00027710, CODE_HOOK | HOOK_UINT32, 0xffffe181}, // A_Look
+	{0x00027714, CODE_HOOK | HOOK_UINT32, 0x59740000}, // A_Look
+	{0x0002775D, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_a_look_sound}, // A_Look
+	{0x00027940, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_a_chase_activesound}, // A_Chase
+	{0x00027949, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00024160}, // A_Chase (patch_a_chase_activesound)
+	{0x00027888, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_a_chase_attacksound}, // A_Chase
+	{0x00031c83, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_spawnmissile_sound}, // P_SpawnMissile
+	{0x00031dd3, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_spawnplayermissile_sound}, // P_SpawnPlayerMissile
+	{0x00030f4a, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_explodemissile_sound}, // P_ExplodeMissile
+	{0x000288a5, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_a_pain_sound}, // A_Pain
+	{0x0002882b, CODE_HOOK | HOOK_MOVE_OFFSET, HOOK_MOVE_VAL(0x49,1)}, // A_Scream
+	{0x00028828, CODE_HOOK | HOOK_UINT32, 0x2652b70f},  // A_Scream
+	{0x00028875, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_a_scream_sound}, // A_Scream
+	{0x00028874, CODE_HOOK | HOOK_UINT8, 0x26}, // A_Scream (after move)
+	{0x00028844, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00024160}, // A_Scream (after move)
+	{0x0002885a, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00024160}, // A_Scream (after move)
+	{0x00028645, CODE_HOOK | HOOK_UINT8, 0x12}, // A_SkullAttack
+	{0x0002a6be, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_painchance}, // P_DamageMobj
+	// disable sfx_id check in 'S_StartSoundAtVolume', patch uint16_t sfx_id
+	{0x0003f13e, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_start_sound},
 	// change mobj_t size - add extra space for new stuff
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for Z_Malloc
 	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for memset
@@ -1215,6 +1290,9 @@ void do_loader()
 	pbar_set(idx);
 
 	// TODO: animations
+
+	// sounds
+	sound_init();
 
 	// decorate
 	decorate_num_mobjinfo = NUMMOBJTYPES;

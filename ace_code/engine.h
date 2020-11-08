@@ -300,28 +300,32 @@ typedef struct
 #define NUMSTATES	967
 
 typedef struct
-{
-	uint32_t doomednum;
+{ // modified
+	int16_t doomednum;
+	uint16_t spawnid;
 	uint32_t spawnstate;
 	int32_t spawnhealth;
 	uint32_t seestate;
-	uint32_t seesound;
+	uint16_t seesound;
+	uint16_t attacksound;
 	uint32_t reactiontime;
-	uint32_t attacksound;
+	uint32_t __free__0;
 	uint32_t painstate;
-	uint32_t painchance;
-	uint32_t painsound;
+	uint16_t painchance;
+	uint16_t activesound;
+	uint16_t painsound;
+	uint16_t deathsound;
 	uint32_t meleestate;
 	uint32_t missilestate;
 	uint32_t deathstate;
 	uint32_t xdeathstate;
-	uint32_t deathsound;
+	uint32_t __free__1;
 	int32_t speed;
 	uint32_t radius;
 	uint32_t height;
 	uint32_t mass;
 	int32_t damage;
-	uint32_t activesound;
+	uint32_t __free__2;
 	uint32_t flags;
 	uint32_t raisestate;
 } mobjinfo_t;
@@ -377,7 +381,7 @@ typedef struct
 {
 	int16_t x, y;
 	uint16_t angle;
-	uint16_t type;
+	int16_t type;
 	uint16_t flags;
 } mapthing_t;
 
@@ -503,7 +507,7 @@ typedef struct subsector_s
 // more flags
 #define	MF_NOTELEPORT	0x4000000
 #define	MF_ISMONSTER	0x8000000
-#define	MF_BOSS		0x10000000
+#define	MF_BOSS		0x10000000	// also used in hooks!
 
 // new flags
 #define	MFN_INACTIVE	0x01

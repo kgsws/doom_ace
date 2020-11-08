@@ -2,8 +2,40 @@
 // Text script parsing helper.
 #include "engine.h"
 #include "defs.h"
+#include "textpars.h"
 
 int tp_nl_is_ws; // newline is whitespace
+
+// cleanup already valid string
+// destructive!
+uint8_t *tp_clean_string(uint8_t *str)
+{
+	int escaped = 0;
+	uint32_t count = TP_MAX_TMP_STRING-1;
+	uint8_t *src = str + 1;
+	uint8_t *dst = str;
+
+	while(1)
+	{
+		register uint8_t tmp = *src++;
+
+		if(escaped)
+			escaped = 0;
+		else
+		if(tmp == '"')
+			break;
+		else
+		if(tmp == '\\')
+		{
+			escaped = 1;
+			continue;
+		}
+
+		*dst++ = tmp;
+	}
+	*dst = 0;
+	return str;
+}
 
 // skip entire section, full feature set (strings and escaping)
 // section in section is supported, but not different section types

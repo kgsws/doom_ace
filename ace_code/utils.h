@@ -20,6 +20,7 @@ enum
 	HOOK_ABSADDR_ACE, // replace 32bit pointer destination to ACE segment
 	HOOK_ABSADDR_CODE, // replace 32bit pointer destination to Doom CODE segment
 	HOOK_ABSADDR_DATA, // replace 32bit pointer destination to Doom DATA segment
+	HOOK_MOVE_OFFSET, // move block by offset
 	// 'hooks' that modify ACE memory
 	HOOK_IMPORT,	// get address of any variable
 	HOOK_READ8,	// get value of 8bit variable
@@ -30,6 +31,8 @@ enum
 	DATA_HOOK = 0x80000000,
 	ACE_HOOK = 0xC0000000,
 };
+
+#define HOOK_MOVE_VAL(size,offset)	(((size) << 16) | ((offset) & 0xFFFF))
 
 typedef struct
 {

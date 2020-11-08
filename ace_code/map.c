@@ -32,7 +32,7 @@ typedef struct
 	uint16_t tid;
 	uint16_t x, y, z;
 	uint16_t angle;
-	uint16_t type;
+	int16_t type;
 	uint16_t flags;
 	uint8_t special;
 	union
@@ -424,6 +424,9 @@ void map_LoadThings(int lump)
 		ot.y = mt->y;
 		ot.angle = mt->angle;
 		ot.type = mt->type;
+
+		if(mt->type < 1)
+			continue;
 
 		if(mt->type == 11)
 			// TODO: deathmatch start

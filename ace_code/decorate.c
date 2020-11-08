@@ -3,6 +3,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "defs.h"
+#include "sound.h"
 #include "textpars.h"
 #include "decorate.h"
 
@@ -23,6 +24,33 @@ typedef struct
 	int32_t misc1;
 	int32_t misc2;
 } old_state_t;
+
+typedef struct
+{
+	uint32_t doomednum;
+	uint32_t spawnstate;
+	int32_t spawnhealth;
+	uint32_t seestate;
+	uint32_t seesound;
+	uint32_t reactiontime;
+	uint32_t attacksound;
+	uint32_t painstate;
+	uint32_t painchance;
+	uint32_t painsound;
+	uint32_t meleestate;
+	uint32_t missilestate;
+	uint32_t deathstate;
+	uint32_t xdeathstate;
+	uint32_t deathsound;
+	int32_t speed;
+	uint32_t radius;
+	uint32_t height;
+	uint32_t mass;
+	int32_t damage;
+	uint32_t activesound;
+	uint32_t flags;
+	uint32_t raisestate;
+} old_mobjinfo_t;
 
 enum
 {
@@ -93,22 +121,25 @@ static mobjinfo_t info_default_actor =
 	.spawnhealth = 1000,
 	.seestate = 0,
 	.seesound = 0,
-	.reactiontime = 8,
 	.attacksound = 0,
+	.reactiontime = 8,
+	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 0,
+	.activesound = 0,
 	.painsound = 0,
+	.deathsound = 0,
 	.meleestate = 0,
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.deathsound = 0,
+	.__free__1 = 0,
 	.speed = 0,
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
 	.damage = 0,
-	.activesound = 0,
+	.__free__2 = 0,
 	.flags = 0,
 	.raisestate = 0,
 };
@@ -122,7 +153,7 @@ static actor_property_t actor_prop_list[] =
 	//
 	{"health", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, spawnhealth)}, // default 1000
 	{"reactiontime", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, reactiontime)}, // default 8
-	{"painchance", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, painchance)}, // default 0
+	{"painchance", PROPTYPE_INT16, 0, offsetof(mobjinfo_t, painchance)}, // default 0
 	{"damage", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, damage)}, // default 0
 	{"speed", PROPTYPE_FIXED, 0, offsetof(mobjinfo_t, speed)}, // default 0
 	//
@@ -430,7 +461,13 @@ static uint32_t decorate_get_sprite(uint8_t *spr, uint8_t *end)
 	if(last_sprite == name)
 		return last_sprite_idx;
 
-	// TODO: check for valid sprite name
+	// TODO: (better) check for valid sprite name
+	if(end - spr != 4)
+	{
+		*end = 0;
+		actor_name[actor_name_len] = 0;
+		I_Error("[ACE] DECORATE: actor '%s' invalid sprite name '%s'", actor_name, spr);
+	}
 
 	// find in existing names
 	check = storage_zlight;
@@ -738,6 +775,9 @@ bad_states:
 						break;
 					}
 
+					// single line parsing
+					tp_nl_is_ws = 0;
+
 					// get stuff
 					tmp = tp_get_keyword(ptr, end);
 					if(tmp == end || tmp == ptr)
@@ -875,9 +915,6 @@ bad_states:
 						uint32_t sprnum;
 						uint32_t duration;
 
-						// single line parsing
-						tp_nl_is_ws = 0;
-
 						// add sprite
 						sprnum = decorate_get_sprite(ptr, tmp);
 
@@ -976,10 +1013,9 @@ bad_states:
 
 							ptr = tmp;
 						}
-
-						// back to multi line parsing
-						tp_nl_is_ws = 1;
 					}
+					// back to multi line parsing
+					tp_nl_is_ws = 1;
 				}
 			} else
 			{
@@ -996,16 +1032,17 @@ bad_states:
 				debug_printf("%s\n", ptr);
 				*tmp = backup;
 #endif
-/*				if(!(prop->flags & PROPFLAG_IGNORED))
+				if(!(prop->flags & PROPFLAG_IGNORED))
 				{
 					switch(prop->type)
 					{
 						case PROPTYPE_SOUND:
-							// TODO: sound in sndtab
+							// sound in sndtab
+							*((uint16_t*)(((void*)info) + prop->offset)) = sound_get_id(tp_clean_string(ptr));
 						break;
 					}
 				}
-*/
+
 				ptr = tmp;
 			}
 		}
@@ -1269,11 +1306,28 @@ void decorate_init(int enabled)
 		} while(--count);
 	}
 
-	// fix all mobjtypes, set MF_ISMONSTER where needed
+	// fix all mobjtypes
+
 	mobjinfo[18].flags |= MF_ISMONSTER; // lost soul
+	mobjinfo[19].flags |= MF_BOSS; // big spider
+	mobjinfo[21].flags |= MF_BOSS; // cyberdemon
+
 	for(int i = 0; i < NUMMOBJTYPES; i++)
+	{
+		old_mobjinfo_t *old = (old_mobjinfo_t*)(mobjinfo + i);
+		// monsters
 		if(mobjinfo[i].flags & MF_COUNTKILL)
 			mobjinfo[i].flags |= MF_ISMONSTER;
-
+		// clear spawnid
+		mobjinfo[i].spawnid = 0;
+		// fix sounds
+		mobjinfo[i].attacksound = old->attacksound;
+		mobjinfo[i].deathsound = old->deathsound;
+		mobjinfo[i].activesound = old->activesound;
+		// DEBUG SOUNDS
+		mobjinfo[i].__free__0 = 666;
+		mobjinfo[i].__free__1 = 667;
+		mobjinfo[i].__free__2 = 668;
+	}
 }
 

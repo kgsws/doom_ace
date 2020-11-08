@@ -71,6 +71,23 @@ reladdr_doom:
 			case HOOK_ABSADDR_DATA:
 				*((uint32_t*)addr) = table->value + doom_data_segment;
 			break;
+			case HOOK_MOVE_OFFSET:
+			{
+				uint16_t size = table->value >> 16;
+				int16_t offset = table->value & 0xFFFF;
+
+				if(offset > 0)
+				{
+					// must go from back
+					uint8_t *src = (uint8_t*)addr;
+					uint8_t *dst = (uint8_t*)addr + offset;
+					for(int32_t i = size-1; i >= 0; i--)
+						dst[i] = src[i];
+				} else
+					// just copy
+					memcpy((void*)addr + offset, (void*)addr, size);
+			}
+			break;
 			// these modify ACE memory
 			case HOOK_IMPORT:
 				*((uint32_t*)(table->value + ace_segment)) = addr;

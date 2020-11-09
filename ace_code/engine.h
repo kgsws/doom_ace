@@ -332,9 +332,9 @@ typedef struct
 
 typedef struct
 { // modified
-	void *extra;
 	uint16_t frame;
 	uint16_t sprite;
+	void *extra;
 	int32_t tics;
 	void *action;
 	uint32_t nextstate;

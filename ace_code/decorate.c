@@ -62,6 +62,8 @@ enum
 	PROPTYPE_FIXED,
 	// flags special
 	PROPTYPE_FLAGCOMBO,
+	// drop item list
+	PROPTYPE_DROPLIST,
 	// state definitions
 	PROPTYPE_STATES,
 	// sound special
@@ -109,6 +111,14 @@ typedef struct
 	uint32_t state;
 } custom_state_list_t;
 
+// custom data in storage for code pointers
+typedef struct
+{
+	uint8_t count;
+	uint32_t typecombo;
+} __attribute__((packed)) arg_droplist_t;
+
+// keywords
 static uint8_t mark_section[] = {'{', '}'};
 static uint8_t kw_actor[] = {'a', 'c', 't', 'o', 'r', 0};
 static uint8_t kw_goto[] = {'g', 'o', 't', 'o', 0};
@@ -180,6 +190,8 @@ static actor_property_t actor_prop_list[] =
 	//
 	{"obituary", PROPTYPE_STRING, PROPFLAG_IGNORED, 0},
 	{"hitobituary", PROPTYPE_STRING, PROPFLAG_IGNORED, 0},
+	//
+	{"dropitem", PROPTYPE_DROPLIST, 0, 0},
 	// terminator
 	{NULL}
 };
@@ -343,6 +355,13 @@ static uint32_t actor_parent_len;
 static uint32_t actor_ednum;
 static uint32_t actor_first_state;
 static void *func_extra_data;
+static uint32_t state_storage_free;
+static void *state_storage_ptr;
+static state_t *state_storage;
+#define IS_LAST_STORAGE(x)	(((void*)(x)-4) == (void*)state_storage)
+
+// extra data for codepointers
+static arg_droplist_t *droplist;
 
 #define MAX_SPRITES	(STORAGE_ZLIGHT/4)
 uint32_t decorate_num_sprites;
@@ -504,8 +523,11 @@ static void link_states(mobjinfo_t *info)
 	// go trough every single added state
 	for(uint32_t i = actor_first_state; i < last_state; i++)
 	{
-		if(states[i].extra == (void*)0xFFFFFFFF) // TODO: something better
+		if(states[i].sprite == 0xFFFF)
+		{
+			i += states[i].frame - 1;
 			continue;
+		}
 		if(states[i].nextstate & STATE_CUSTOM_TARGET)
 		{
 			// parse custom state destination
@@ -596,14 +618,67 @@ static uint32_t decorate_get_sprite(uint8_t *spr, uint8_t *end)
 
 static state_t *decorate_get_state()
 {
+	// allocate single state
 	state_t *ret = states + decorate_state_idx;
 	decorate_state_idx++;
 
 	Z_Enlarge(states, decorate_state_idx * sizeof(state_t));
 
-	ret->nextstate = decorate_state_idx;
+	// storage chain was broken
+	state_storage = NULL;
 
 	return ret;
+}
+
+static void *decorate_get_storage(uint32_t size)
+{
+	// allocate memory in 'states'
+	void *ret;
+	uint32_t count;
+
+	if(state_storage)
+	{
+		ret = state_storage_ptr;
+		if(size <= state_storage_free)
+		{
+			// requested size will fit
+			state_storage_free -= size;
+			state_storage_ptr += size;
+		} else
+		{
+			// requested size won't fit
+			state_storage_ptr += size;
+			size -= state_storage_free;
+			count = (size + (sizeof(state_t)-1)) / sizeof(state_t);
+			state_storage_free = (count * sizeof(state_t)) - size;
+			decorate_state_idx += count;
+			Z_Enlarge(states, decorate_state_idx * sizeof(state_t));
+			// update marker
+			state_storage->frame += count;
+		}
+		return ret;
+	}
+
+	// new allocation
+	size += 4; // size of marker
+	count = (size + (sizeof(state_t)-1)) / sizeof(state_t);
+
+	ret = states + decorate_state_idx;
+
+	state_storage_free = (count * sizeof(state_t)) - size;
+	state_storage_ptr = ret + size;
+
+doom_printf("STORE; adding %u states, %u bytes left\n", count, state_storage_free);
+
+	decorate_state_idx += count;
+	Z_Enlarge(states, decorate_state_idx * sizeof(state_t));
+
+	// mark as 'not a state'
+	state_storage = ret;
+	state_storage->sprite = 0xFFFF;
+	state_storage->frame = count;
+
+	return ret + 4;
 }
 
 static mobjinfo_t *decorate_new_actor()
@@ -676,6 +751,10 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 	*info = info_default_actor;
 	// set ednum
 	info->doomednum = actor_ednum;
+
+	// reset some stuff
+	actor_first_state = decorate_state_idx;
+	droplist = NULL;
 
 	ptr++; // skip '{'
 
@@ -830,6 +909,75 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 				debug_printf("\n");
 #endif
 			} else
+			if(prop->type == PROPTYPE_DROPLIST)
+			{
+				uint32_t prob = 255; // negative probability (= no drop) is not supported
+				// item name
+				tmp = tp_get_string(ptr, end);
+				if(!tmp)
+				{
+					actor_name[actor_name_len] = 0;
+					I_Error("[ACE] DECORATE: actor '%s' invalid string for property '%s'", actor_name, prop->match);
+				}
+#ifdef debug_printf
+				backup = *tmp;
+				*tmp = 0;
+				debug_printf("%s ", ptr);
+				*tmp = backup;
+#endif
+				// skip WS
+				ptr = tp_skip_wsc(tmp, end);
+				if(ptr == end)
+					goto end_eof;
+
+				// optional probability
+				if(*ptr == ',')
+				{
+					ptr++;
+					if(ptr == end)
+						goto end_eof;
+					// skip WS
+					ptr = tp_skip_wsc(ptr, end);
+					if(ptr == end)
+						goto end_eof;
+					// parse number
+					ptr = tp_get_uint(ptr, end, &prob);
+					if(ptr == end)
+						goto end_eof;
+					if(!ptr || !tp_is_ws_next(ptr, end, 1))
+					{
+						actor_name[actor_name_len] = 0;
+						I_Error("[ACE] DECORATE: actor '%s' invalid integer for property '%s'", actor_name, prop->match);
+					}
+					if(prob < 255)
+						prob = 255;
+				}
+#ifdef debug_printf
+				doom_printf("%u\n", prob);
+#endif
+				// 'amount' is not supported
+
+				if(!droplist)
+				{
+					// new droplist
+					droplist = decorate_get_storage(sizeof(arg_droplist_t));
+					droplist->count = 1;
+					droplist->typecombo = 0xAABBAACC | (prob << 24);
+				} else
+				if(IS_LAST_STORAGE(droplist))
+				{
+					// add entry to existing list
+					uint32_t *tc;
+					tc = decorate_get_storage(sizeof(uint32_t));
+					*tc = 0xAABBAACC | (prob << 24);
+					droplist->count++;
+				} else
+				{
+					// list was not contiguous
+					actor_name[actor_name_len] = 0;
+					I_Error("[ACE] DECORATE: actor '%s' DropItem list was split", actor_name);
+				}
+			} else
 			if(prop->type == PROPTYPE_STATES)
 			{
 				state_t *dstate = NULL;
@@ -853,8 +1001,6 @@ bad_states:
 
 				// reset custom states
 				custom_state_clear();
-				// mark first state
-				actor_first_state = decorate_state_idx;
 
 				while(1)
 				{
@@ -925,24 +1071,28 @@ bad_states:
 					{
 						if(dstate)
 							dstate->nextstate = 0;
+						dstate = NULL;
 						ptr = tmp;
 					} else
 					if(tp_ncompare_skip(ptr, end, kw_fail))
 					{
 						if(dstate)
 							dstate->nextstate = 0; // TODO
+						dstate = NULL;
 						ptr = tmp;
 					} else
 					if(tp_ncompare_skip(ptr, end, kw_loop))
 					{
 						if(dstate)
 							dstate->nextstate = lstate;
+						dstate = NULL;
 						ptr = tmp;
 					} else
 					if(tp_ncompare_skip(ptr, end, kw_wait))
 					{
 						if(dstate)
 							dstate->nextstate = dstate - states;
+						dstate = NULL;
 						ptr = tmp;
 					} else
 					if(tp_ncompare_skip(ptr, end, kw_goto))
@@ -1008,6 +1158,7 @@ bad_states:
 						// change next
 						if(dstate)
 							dstate->nextstate = base | (offset & 0xFFFF);
+						dstate = NULL;
 					} else
 					{
 						uint8_t *frames, *frend;
@@ -1103,6 +1254,9 @@ bad_states:
 								I_Error("[ACE] DECORATE: actor '%s' invalid sprite frame '%c'", actor_name, frame);
 							}
 
+							if(dstate)
+								dstate->nextstate = decorate_state_idx;
+
 							dstate = decorate_get_state();
 							dstate->sprite = sprnum;
 							dstate->frame = frame - 'A';
@@ -1114,6 +1268,7 @@ bad_states:
 								dstate->tics = duration;
 							dstate->action = func;
 							dstate->extra = func_extra_data;
+							dstate->nextstate = 0;
 							dstate->misc1 = 0;
 							dstate->misc2 = 0;
 						}
@@ -1299,6 +1454,7 @@ void decorate_init(int enabled)
 {
 	decorate_mobjinfo_idx = NUMMOBJTYPES;
 	decorate_state_idx = NUMSTATES;
+	state_storage = NULL;
 
 	// generate original sprite table
 	{
@@ -1334,9 +1490,9 @@ void decorate_init(int enabled)
 		count = NUMSTATES;
 		do
 		{
-			st->extra = NULL;
 			st->frame = os->frame;
 			st->sprite = os->sprite + 1; // sprite[0] is always invisible
+			st->extra = NULL;
 			st->tics = os->tics;
 			st->action = os->action;
 			st->nextstate = os->nextstate;
@@ -1399,15 +1555,13 @@ void decorate_init(int enabled)
 		// update original states
 		// compensate for changes 'sprite' and 'frame' in 'mobj_t' and 'state_t'
 		old_state_t *os = (old_state_t*)states;
-		state_t *state = states;
 		uint32_t count = NUMSTATES;
 
 		do
 		{
-			state->sprite = os->sprite + 1; // sprite[0] is always invisible
-			os->sprite = 0; // this is *extra
+			os->sprite = ((os->sprite + 1) << 16) | os->frame;
+			os->frame = 0; // this is *extra
 			os++;
-			state++;
 		} while(--count);
 	}
 

@@ -88,6 +88,9 @@ reladdr_doom:
 					memcpy((void*)addr + offset, (void*)addr, size);
 			}
 			break;
+			case HOOK_SET_NOPS:
+				memset((void*)addr, 0x90, table->value);
+			break;
 			// these modify ACE memory
 			case HOOK_IMPORT:
 				*((uint32_t*)(table->value + ace_segment)) = addr;

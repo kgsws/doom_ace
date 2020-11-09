@@ -424,14 +424,15 @@ static hook_t hook_list[] =
 	{0x00037727, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	{0x00037767, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	// change 'sprite' and 'frame' in 'mobj_t' and 'state_t'
-	{0x00030ecd, CODE_HOOK | HOOK_UINT32, 0x90909090}, // P_SetMobjState
-	{0x00030ed1, CODE_HOOK | HOOK_UINT8, 0x90}, // P_SetMobjState
-	{0x000315ef, CODE_HOOK | HOOK_UINT32, 0x90909090}, // P_SpawnMobj
-	{0x000315f3, CODE_HOOK | HOOK_UINT8, 0x90}, // P_SpawnMobj
+	{0x00030ecf, CODE_HOOK | HOOK_SET_NOPS, 6}, // P_SetMobjState
+	{0x000315ef, CODE_HOOK | HOOK_UINT16, 0x128b}, // P_SpawnMobj
+	{0x000315f1, CODE_HOOK | HOOK_SET_NOPS, 6}, // P_SpawnMobj
 	{0x00037d45, CODE_HOOK | HOOK_UINT32, 0x2a46b70f}, // R_ProjectSprite
 	{0x00037d49, CODE_HOOK | HOOK_UINT32, 0x1072e839}, // R_ProjectSprite
-	{0x00038023, CODE_HOOK | HOOK_UINT32, 0x0650b70f}, // R_DrawPSprite
+	{0x00038023, CODE_HOOK | HOOK_UINT32, 0x0250b70f}, // R_DrawPSprite
 	{0x00038027, CODE_HOOK | HOOK_UINT32, 0x1072da39}, // R_DrawPSprite
+	{0x0003804c, CODE_HOOK | HOOK_UINT8, 0}, // R_DrawPSprite
+	{0x00038071, CODE_HOOK | HOOK_UINT8, 0}, // R_DrawPSprite
 	// replace call to item pickup; used in above fix and new map format
 	{0x0002b032, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)map_ItemPickup},
 	// make invalid sprites invisible

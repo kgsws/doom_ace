@@ -6,6 +6,7 @@
 #include "sound.h"
 #include "textpars.h"
 #include "decorate.h"
+#include "action.h"
 
 #define CUSTOM_STATE_MAX_NAME	16
 //#define debug_printf	doom_printf
@@ -110,13 +111,6 @@ typedef struct
 	};
 	uint32_t state;
 } custom_state_list_t;
-
-// custom data in storage for code pointers
-typedef struct
-{
-	uint8_t count;
-	uint32_t typecombo;
-} __attribute__((packed)) arg_droplist_t;
 
 // keywords
 static uint8_t mark_section[] = {'{', '}'};
@@ -253,15 +247,13 @@ static actor_animation_t actor_anim_list[] =
 
 // code pointers for normal actors
 // all names must be lowercase
-static code_ptr_t doom_codeptr_list[] =
+static code_ptr_t codeptr_list_doom[] =
 {
 	// common
 	{"a_look", (void*)0x000276C0, NULL},
 	{"a_chase", (void*)0x00027790, NULL},
 	{"a_pain", (void*)0x000288A0, NULL},
 	{"a_scream", (void*)0x00028820, NULL},
-	{"a_noblocking", (void*)0x000288C0, NULL},
-	{"a_fall", (void*)0x000288C0, NULL},
 	{"a_xscream", (void*)0x00028890, NULL},
 	{"a_facetarget", (void*)0x00027970, NULL},
 	{"a_posattack", (void*)0x000279D0, NULL},
@@ -307,6 +299,16 @@ static code_ptr_t doom_codeptr_list[] =
 	{"a_spawnsound", (void*)0x00028D00, NULL},
 	{"a_spawnfly", (void*)0x00028D20, NULL},
 	{"a_playerscream", (void*)0x00028E40, NULL},
+	// terminator
+	{NULL}
+};
+
+// code pointers for normal actors
+// all names must be lowercase
+static code_ptr_t codeptr_list_ace[] =
+{
+	{"a_noblocking", A_NoBlocking, NULL},
+	{"a_fall", A_NoBlocking, NULL},
 	// terminator
 	{NULL}
 };
@@ -358,10 +360,10 @@ static void *func_extra_data;
 static uint32_t state_storage_free;
 static void *state_storage_ptr;
 static state_t *state_storage;
-#define IS_LAST_STORAGE(x)	(((void*)(x)-4) == (void*)state_storage)
 
 // extra data for codepointers
 static arg_droplist_t *droplist;
+static uint32_t *droplist_next;
 
 #define MAX_SPRITES	(STORAGE_ZLIGHT/4)
 uint32_t decorate_num_sprites;
@@ -373,6 +375,40 @@ static uint32_t last_sprite_idx;
 #define STATE_CUSTOM_SOURCE	0x40000000
 #define STATE_CUSTOM_TARGET	0x20000000
 static uint32_t custom_state_idx;
+
+// find actor by name
+static int32_t decorate_get_actor(uint8_t *name)
+{
+	// TODO: include built-in names
+	uint32_t idx = NUMMOBJTYPES;
+	uint8_t *match = storage_drawsegs;
+
+	while(match < actor_names_ptr)
+	{
+		uint8_t *end = match + *match + 1;
+		uint8_t *ptr = name;
+
+		match++;
+		while(1)
+		{
+			if(*match != *ptr)
+				break;
+			ptr++;
+			match++;
+			if(match == end)
+			{
+				if(!*ptr)
+					return idx;
+				else
+					break;
+			}
+		}
+		match = end;
+		idx++;
+	}
+
+	return -1;
+}
 
 // relocate code pointer list
 static void codeptr_list_reloc(code_ptr_t *list, uint32_t base)
@@ -514,8 +550,8 @@ static uint32_t custom_state_find(uint8_t *name, uint8_t *end)
 	return i;
 }
 
-// link states
-static void link_states(mobjinfo_t *info)
+// link everything
+static void link_actor(mobjinfo_t *info)
 {
 	custom_state_list_t *custom_state = storage_vissprites;
 	uint32_t last_state = decorate_state_idx;
@@ -527,6 +563,12 @@ static void link_states(mobjinfo_t *info)
 		{
 			i += states[i].frame - 1;
 			continue;
+		}
+		if(states[i].action == A_NoBlocking)
+		{
+			// very special handling for this function
+			// TODO: only when enabled
+			states[i].extra = droplist;
 		}
 		if(states[i].nextstate & STATE_CUSTOM_TARGET)
 		{
@@ -667,8 +709,6 @@ static void *decorate_get_storage(uint32_t size)
 
 	state_storage_free = (count * sizeof(state_t)) - size;
 	state_storage_ptr = ret + size;
-
-doom_printf("STORE; adding %u states, %u bytes left\n", count, state_storage_free);
 
 	decorate_state_idx += count;
 	Z_Enlarge(states, decorate_state_idx * sizeof(state_t));
@@ -911,7 +951,9 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 			} else
 			if(prop->type == PROPTYPE_DROPLIST)
 			{
+				uint8_t *dropname;
 				uint32_t prob = 255; // negative probability (= no drop) is not supported
+
 				// item name
 				tmp = tp_get_string(ptr, end);
 				if(!tmp)
@@ -919,6 +961,8 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 					actor_name[actor_name_len] = 0;
 					I_Error("[ACE] DECORATE: actor '%s' invalid string for property '%s'", actor_name, prop->match);
 				}
+				dropname = ptr;
+
 #ifdef debug_printf
 				backup = *tmp;
 				*tmp = 0;
@@ -956,33 +1000,36 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 				doom_printf("%u\n", prob);
 #endif
 				// 'amount' is not supported
-
-				if(!droplist)
+				int aidx = decorate_get_actor(tp_clean_string(dropname));
+				if(aidx >= 0)
 				{
-					// new droplist
-					droplist = decorate_get_storage(sizeof(arg_droplist_t));
-					droplist->count = 1;
-					droplist->typecombo = 0xAABBAACC | (prob << 24);
-				} else
-				if(IS_LAST_STORAGE(droplist))
-				{
-					// add entry to existing list
-					uint32_t *tc;
-					tc = decorate_get_storage(sizeof(uint32_t));
-					*tc = 0xAABBAACC | (prob << 24);
-					droplist->count++;
-				} else
-				{
-					// list was not contiguous
-					actor_name[actor_name_len] = 0;
-					I_Error("[ACE] DECORATE: actor '%s' DropItem list was split", actor_name);
+					if(!droplist)
+					{
+						// new droplist
+						droplist = decorate_get_storage(sizeof(arg_droplist_t) + sizeof(uint32_t));
+						droplist->count = 0; // this means 1
+						droplist->typecombo[0] = aidx | (prob << 24);
+						droplist_next = droplist->typecombo + 1;
+					} else
+					{
+						// add entry to existing list
+						if(decorate_get_storage(sizeof(uint32_t)) != droplist_next)
+						{
+							// list is not contiguous
+							actor_name[actor_name_len] = 0;
+							I_Error("[ACE] DECORATE: actor '%s' DropItem list was split", actor_name);
+						}
+						*droplist_next = aidx | (prob << 24);
+						droplist_next++;
+						droplist->count++;
+					}
 				}
 			} else
 			if(prop->type == PROPTYPE_STATES)
 			{
 				state_t *dstate = NULL;
 				uint32_t astate = decorate_state_idx;
-				uint32_t lstate = astate; // only for 'loop' keyword
+				uint32_t lstate = decorate_state_idx; // only for 'loop' keyword
 #ifdef debug_printf
 				debug_printf("\n");
 #endif
@@ -1017,7 +1064,7 @@ bad_states:
 						if(ptr == end)
 							goto end_eof;
 						// final linkage
-						link_states(info);
+						link_actor(info);
 						break;
 					}
 
@@ -1233,8 +1280,9 @@ bad_states:
 
 						if(tmp != ptr)
 						{
-							func = codeptr_parse(doom_codeptr_list, ptr, tp_func_name_end);
-//							if(!func)
+							func = codeptr_parse(codeptr_list_doom, ptr, tp_func_name_end);
+							if(!func)
+								func = codeptr_parse(codeptr_list_ace, ptr, tp_func_name_end);
 							ptr = tmp;
 						} else
 						{
@@ -1544,7 +1592,8 @@ void decorate_init(int enabled)
 				tab++;
 			}
 		}
-		codeptr_list_reloc(doom_codeptr_list, doom_code_segment);
+		codeptr_list_reloc(codeptr_list_doom, doom_code_segment);
+		codeptr_list_reloc(codeptr_list_ace, ace_segment);
 	} else
 	{
 		// use original pointers

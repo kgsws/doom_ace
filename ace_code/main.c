@@ -359,6 +359,9 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// disable saw sounds
+	{0x0002d319, CODE_HOOK | HOOK_UINT16, 0x18EB}, // A_WeaponReady
+	{0x0002d131, CODE_HOOK | HOOK_UINT16, 0x10EB}, // P_BringUpWeapon
 	// modify 'mobjinfo_t' structure fields - move and pack fields to uint16_t
 	{0x00027714, CODE_HOOK | HOOK_MOVE_OFFSET, HOOK_MOVE_VAL(0x45,4)}, // A_Look
 	{0x0002772c, CODE_HOOK | HOOK_RELADDR_DOOM, 0x00024160}, // A_Look (after move)

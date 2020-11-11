@@ -2,6 +2,7 @@
 //
 
 extern int tp_nl_is_ws;
+extern int tp_kw_is_func;
 extern uint8_t *tp_func_name_end;
 
 uint8_t *tp_clean_string(uint8_t *src);

@@ -1314,8 +1314,10 @@ void do_loader()
 	tmp = W_CheckNumForName("DECORATE");
 	if(tmp != 0xFFFFFFFF)
 	{
+		// pre-init
+		decorate_prepare();
+
 		// count all actors (and add names)
-		actor_names_ptr = storage_drawsegs;
 		for(int lmp = numlumps-1; lmp >= 0; lmp--)
 		{
 			if(lumpinfo[lmp].wame == 0x455441524f434544)

@@ -5,6 +5,7 @@
 #include "textpars.h"
 
 int tp_nl_is_ws; // newline is whitespace
+int tp_kw_is_func; // keyword search in function arguments
 uint8_t *tp_func_name_end; // for 'tp_get_function'
 
 // cleanup already valid string
@@ -257,6 +258,13 @@ uint8_t *tp_ncompare_skip(uint8_t *src, uint8_t *eof, uint8_t *templ)
 				return src;
 			if(tmp == '\r')
 				return src;
+			if(tp_kw_is_func)
+			{
+				if(tmp == ',')
+					return src;
+				if(tmp == ')')
+					return src;
+			}
 		}
 
 		if(tmp >= 'A' && tmp <= 'Z')
@@ -289,6 +297,8 @@ uint8_t *tp_get_function(uint8_t *start, uint8_t *end)
 				break;
 			if(tmp == '\t')
 				break;
+			if(tmp == ')')
+				return NULL;
 		}
 		if(tmp == '\n')
 			break;

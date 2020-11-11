@@ -8,6 +8,9 @@
 #include "decorate.h"
 #include "action.h"
 
+// extra
+#include "d_actornames.h"
+
 #define CUSTOM_STATE_MAX_NAME	16
 //#define debug_printf	doom_printf
 
@@ -95,11 +98,11 @@ typedef struct
 	uint32_t offset; // in mobjinfo_t structure
 } actor_animation_t;
 
-typedef struct
+typedef struct code_ptr_s
 {
 	uint8_t *match;
 	void *func;
-	uint8_t *(*parser)(uint8_t*);
+	void *(*parser)(void*, uint8_t*, uint8_t*);
 } code_ptr_t;
 
 typedef struct
@@ -128,6 +131,7 @@ static uint8_t kw_null_sprite[] = {'T', 'N', 'T', '1'}; // not used in parser
 static mobjinfo_t info_default_actor =
 {
 	.doomednum = -1,
+	.spawnid = 0,
 	.spawnstate = 0,
 	.spawnhealth = 1000,
 	.seestate = 0,
@@ -160,7 +164,7 @@ static mobjinfo_t info_default_actor =
 static actor_property_t actor_prop_list[] =
 {
 	//
-	{"spawnid", PROPTYPE_INT16, PROPFLAG_IGNORED, 0}, // default 0
+	{"spawnid", PROPTYPE_INT16, 0, offsetof(mobjinfo_t, spawnid)}, // default 0
 	//
 	{"health", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, spawnhealth)}, // default 1000
 	{"reactiontime", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, reactiontime)}, // default 8
@@ -307,7 +311,7 @@ static code_ptr_t codeptr_list_doom[] =
 // all names must be lowercase
 static code_ptr_t codeptr_list_ace[] =
 {
-	{"a_noblocking", A_NoBlocking, NULL},
+	{"a_noblocking", A_NoBlocking, arg_NoBlocking},
 	{"a_fall", A_NoBlocking, NULL},
 	// terminator
 	{NULL}
@@ -349,6 +353,7 @@ state_t *states;
 uint8_t *actor_names_ptr;
 uint32_t decorate_num_mobjinfo;
 uint32_t decorate_mobjinfo_idx;
+void *func_extra_data;
 static uint32_t decorate_state_idx;
 static uint8_t *actor_name;
 static uint32_t actor_name_len;
@@ -356,7 +361,6 @@ static uint8_t *actor_parent;
 static uint32_t actor_parent_len;
 static uint32_t actor_ednum;
 static uint32_t actor_first_state;
-static void *func_extra_data;
 static uint32_t state_storage_free;
 static void *state_storage_ptr;
 static state_t *state_storage;
@@ -380,7 +384,7 @@ static uint32_t custom_state_idx;
 static int32_t decorate_get_actor(uint8_t *name)
 {
 	// TODO: include built-in names
-	uint32_t idx = NUMMOBJTYPES;
+	uint32_t idx = 0;
 	uint8_t *match = storage_drawsegs;
 
 	while(match < actor_names_ptr)
@@ -389,6 +393,7 @@ static int32_t decorate_get_actor(uint8_t *name)
 		uint8_t *ptr = name;
 
 		match++;
+
 		while(1)
 		{
 			if(*match != *ptr)
@@ -417,29 +422,38 @@ static void codeptr_list_reloc(code_ptr_t *list, uint32_t base)
 	{
 		list->match = list->match + ace_segment;
 		list->func = list->func + base;
-		list->parser = (void*)list->parser + ace_segment;
+		if(list->parser)
+			list->parser = (void*)list->parser + ace_segment;
 		list++;
 	}
 }
 
-static void *codeptr_parse(code_ptr_t *list, uint8_t *text, uint8_t *fend)
+static void *codeptr_parse(code_ptr_t *list, uint8_t *text, uint8_t *end)
 {
-	uint8_t backup = *fend;
+	uint8_t backup = *tp_func_name_end;
 
 	func_extra_data = NULL;
-	*fend = 0;
+	*tp_func_name_end = 0;
 
 	while(list->match)
 	{
 		if(tp_nc_compare(text, list->match))
 		{
-			*fend = backup;
-			// TODO: optional parser
-			return list->func;
+			void *ret = list->func;
+			if(list->parser)
+				ret = list->parser(list->func, backup == '(' ? tp_func_name_end + 1 : NULL, end);
+			else
+			if(backup == '(')
+				ret = NULL;
+			if(ret)
+			{
+				*tp_func_name_end = backup;
+				return ret;
+			}
 		}
 		list++;
 	}
-	*fend = backup;
+	*tp_func_name_end = backup;
 	return NULL;
 }
 
@@ -567,8 +581,10 @@ static void link_actor(mobjinfo_t *info)
 		if(states[i].action == A_NoBlocking)
 		{
 			// very special handling for this function
-			// TODO: only when enabled
-			states[i].extra = droplist;
+			if(!states[i].extra)
+				states[i].extra = droplist;
+			else
+				states[i].extra = NULL;
 		}
 		if(states[i].nextstate & STATE_CUSTOM_TARGET)
 		{
@@ -1272,17 +1288,23 @@ bad_states:
 
 						// check for code pointer
 						tmp = tp_get_function(ptr, end);
-						if(!tmp)
+						if(!tmp || (*tp_func_name_end == '(' && tmp[-1] != ')'))
 						{
 							actor_name[actor_name_len] = 0;
-							I_Error("[ACE] DECORATE: actor '%s' invalid codepointer", actor_name);
+							I_Error("[ACE] DECORATE: actor '%s' broken codepointer function", actor_name);
 						}
 
 						if(tmp != ptr)
 						{
-							func = codeptr_parse(codeptr_list_doom, ptr, tp_func_name_end);
+							func = codeptr_parse(codeptr_list_doom, ptr, tmp);
 							if(!func)
-								func = codeptr_parse(codeptr_list_ace, ptr, tp_func_name_end);
+								func = codeptr_parse(codeptr_list_ace, ptr, tmp);
+							if(!func)
+							{
+								*tmp = 0;
+								actor_name[actor_name_len] = 0;
+								I_Error("[ACE] DECORATE: actor '%s' codepointer '%s' error", actor_name, ptr);
+							}
 							ptr = tmp;
 						} else
 						{
@@ -1377,6 +1399,7 @@ static void decorate_process(uint8_t *start, uint8_t *end, uint8_t* (*cb)(uint8_
 	actor_name_len = 1;
 
 	tp_nl_is_ws = 1;
+	tp_kw_is_func = 0;
 
 	while(1)
 	{
@@ -1494,6 +1517,14 @@ void decorate_count_actors(uint8_t *start, uint8_t *end)
 void decorate_parse(uint8_t *start, uint8_t *end)
 {
 	decorate_process(start, end, decparse_full);
+}
+
+// stuff required before any parsing
+void decorate_prepare()
+{
+	// setup original doom actor names
+	memcpy(storage_drawsegs, doom_actor_names, sizeof(doom_actor_names)-1);
+	actor_names_ptr = storage_drawsegs + (sizeof(doom_actor_names)-1);
 }
 
 // few required things
@@ -1630,8 +1661,8 @@ void decorate_init(int enabled)
 			// monster speed
 			mobjinfo[i].speed <<= FRACBITS;
 		}
-		// clear spawnid
-		mobjinfo[i].spawnid = 0;
+		// set spawnid
+		mobjinfo[i].spawnid = doom_spawn_id[i];
 		// fix sounds
 		mobjinfo[i].attacksound = old->attacksound;
 		mobjinfo[i].deathsound = old->deathsound;

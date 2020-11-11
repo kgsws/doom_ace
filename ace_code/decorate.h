@@ -11,6 +11,9 @@ extern uint32_t decorate_mobjinfo_idx;
 
 extern uint32_t decorate_num_sprites;
 
+extern void *func_extra_data;
+
+void decorate_prepare();
 void decorate_init(int enabled);
 void decorate_count_actors(uint8_t *start, uint8_t *end);
 void decorate_parse(uint8_t *start, uint8_t *end);

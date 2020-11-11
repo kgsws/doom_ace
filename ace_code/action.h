@@ -10,5 +10,6 @@ typedef struct
 //
 //
 
-void A_NoBlocking(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
+void *arg_NoBlocking(void*, uint8_t*, uint8_t*);
+void A_NoBlocking(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 

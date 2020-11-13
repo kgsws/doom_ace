@@ -508,6 +508,8 @@ typedef struct subsector_s
 #define	MF_NOTELEPORT	0x4000000
 #define	MF_ISMONSTER	0x8000000
 #define	MF_BOSS		0x10000000	// also used in hooks!
+#define MF_SEEKERMISSILE	0x20000000
+#define MF_RANDOMIZE	0x40000000	// TODO: implement everywhere (projectiles only)
 
 // new flags
 #define	MFN_INACTIVE	0x01

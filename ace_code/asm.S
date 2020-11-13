@@ -64,7 +64,16 @@ rel_arg4_loop:
 	jmp	rel_arg4_loop
 rel_arg4_end:
 
-	// TODO: clear .bss
+	// clear .bss
+	// TODO: better code
+	xor	%eax,%eax
+	mov	$_bss_start,%ebx
+	add	%esi,%ebx
+	mov	$_size_of_bss,%ecx
+bss_loop:
+	mov	%ax,(%ebx)
+	dec	%ecx
+	jnz	bss_loop
 
 	// run custom code
 	call	ace_init

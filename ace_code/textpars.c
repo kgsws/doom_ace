@@ -262,6 +262,8 @@ uint8_t *tp_ncompare_skip(uint8_t *src, uint8_t *eof, uint8_t *templ)
 				return src;
 			if(tp_kw_is_func)
 			{
+				if(tmp == '|')
+					return src;
 				if(tmp == ',')
 					return src;
 				if(tmp == ')')

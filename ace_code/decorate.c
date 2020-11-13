@@ -227,6 +227,7 @@ static actor_flag_t actor_flag_list[] =
 	{"noteleport", MF_NOTELEPORT},
 	{"ismonster", MF_ISMONSTER},
 	{"boss", MF_BOSS},
+	{"seekermissile", MF_SEEKERMISSILE},
 	// ignored flags
 	{"floorclip", 0},
 	// terminator
@@ -315,6 +316,7 @@ static code_ptr_t codeptr_list_ace[] =
 	{"a_fall", A_NoBlocking, NULL},
 	{"a_spawnprojectile", A_SpawnProjectile, arg_SpawnProjectile},
 	{"a_jumpifcloser", A_JumpIfCloser, arg_JumpIfCloser},
+	{"a_jump", A_Jump, arg_Jump},
 	// terminator
 	{NULL}
 };
@@ -614,6 +616,34 @@ static uint32_t state_by_offset(uint32_t state, uint32_t offset)
 	}
 }
 
+// link for jumps
+static uint32_t link_state_jump(mobjinfo_t *info, uint32_t state, uint32_t from)
+{
+	custom_state_list_t *custom_state = storage_vissprites;
+	int32_t idx;
+	if(state & STATE_CUSTOM_TARGET)
+	{
+		// jump to custom state
+		uint32_t dst_name_idx = (state >> 16) & 0x0FFF;
+		idx = custom_state_by_name(custom_state[dst_name_idx].wame, STATE_CUSTOM_SOURCE);
+		if(idx < 0)
+			state = 0;
+		else
+			state = state_by_offset(custom_state[idx].state & 0x00FFFFFF, 0);
+	} else
+	if(state & STATE_ANIMATION_TARGET)
+	{
+		// jump to animation label
+		uint32_t anim_idx = (state >> 16) & 0x0FFF;
+		state = *((uint32_t*)(((void*)info) + actor_anim_list[anim_idx].offset));
+	} else
+	{
+		// relative offset
+		state = state_by_offset(from, state);
+	}
+	return state;
+}
+
 // link everything
 static void link_actor(mobjinfo_t *info)
 {
@@ -628,39 +658,29 @@ static void link_actor(mobjinfo_t *info)
 			i += states[i].frame - 1;
 			continue;
 		}
-		if(states[i].action == A_NoBlocking)
+		if(states[i].action == ACTFIX_NoBlocking)
 		{
 			// very special handling for this function
 			if(!states[i].extra)
 				states[i].extra = droplist;
 			else
 				states[i].extra = NULL;
+			states[i].action = A_NoBlocking;
 		}
-		if(states[i].action == A_JumpIfCloser)
+		if(states[i].action == ACTFIX_JumpIfCloser)
 		{
 			// very special handling for this function
-			int32_t idx;
 			arg_jump_distance_t *extra = states[i].extra;
-			if(extra->state & STATE_CUSTOM_TARGET)
-			{
-				// jump to custom state
-				uint32_t dst_name_idx = (extra->state >> 16) & 0x0FFF;
-				idx = custom_state_by_name(custom_state[dst_name_idx].wame, STATE_CUSTOM_SOURCE);
-				if(idx < 0)
-					extra->state = 0;
-				else
-					extra->state = state_by_offset(custom_state[idx].state & 0x00FFFFFF, 0);
-			} else
-			if(extra->state & STATE_ANIMATION_TARGET)
-			{
-				// jump to animation label
-				uint32_t anim_idx = (extra->state >> 16) & 0x0FFF;
-				extra->state = *((uint32_t*)(((void*)info) + actor_anim_list[anim_idx].offset));
-			} else
-			{
-				// relative offset
-				extra->state = state_by_offset(i, extra->state);
-			}
+			extra->state = link_state_jump(info, extra->state, i);
+			states[i].action = A_JumpIfCloser;
+		}
+		if(states[i].action == ACTFIX_Jump)
+		{
+			// very special handling for this function
+			arg_jump_random_t *extra = states[i].extra;
+			for(int j = 0; j < extra->count; j++)
+				extra->state[j] = link_state_jump(info, extra->state[j], i);
+			states[i].action = A_Jump;
 		}
 		if(states[i].nextstate & STATE_CUSTOM_TARGET)
 		{
@@ -1079,7 +1099,7 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 						prob = 255;
 				}
 #ifdef debug_printf
-				doom_printf("%u\n", prob);
+				debug_printf("%u\n", prob);
 #endif
 				// 'amount' is not supported
 				int aidx = decorate_get_actor(tp_clean_string(dropname));
@@ -1712,6 +1732,9 @@ void decorate_init(int enabled)
 			// monster speed
 			mobjinfo[i].speed <<= FRACBITS;
 		}
+		// projectiles
+		if(mobjinfo[i].flags & MF_MISSILE)
+			mobjinfo[i].flags |= MF_RANDOMIZE;
 		// set spawnid
 		mobjinfo[i].spawnid = doom_spawn_id[i];
 		// fix sounds

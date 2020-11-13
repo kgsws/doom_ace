@@ -878,6 +878,12 @@ typedef struct
 } dpmi_regs_t;
 
 //
+// extra special variables
+extern fixed_t *viewx;
+extern fixed_t *viewy;
+extern fixed_t *viewz;
+
+//
 // Doom Engine Functions
 // Since Doom uses different calling conventions, most functions have to use special GCC attribute.
 // Even then functions with more than two arguments need another workaround. This is done in 'asm.S'.
@@ -958,6 +964,14 @@ void R_DrawPlayerSprites();
 void R_ExecuteSetViewSize();
 void R_InitLightTables();
 void R_InitSkyMap();
+angle_t R_PointToAngle(fixed_t,fixed_t) __attribute((regparm(2)));
+
+static inline angle_t R_PointToAngle2(fixed_t x0, fixed_t y0, fixed_t x1, fixed_t y1)
+{
+	*viewx = x0;
+	*viewy = y0;
+	return R_PointToAngle(x1, y1);
+}
 
 // p_ stuff
 void P_SpawnSpecials();
@@ -973,6 +987,7 @@ void P_RemoveThinker(thinker_t*) __attribute((regparm(2)));
 int P_ChangeSector(sector_t*,int) __attribute((regparm(2)));
 void P_SpawnPuff(fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
 uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
+void P_ExplodeMissile(mobj_t*) __attribute((regparm(2)));
 
 // p_ height search
 fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2)));
@@ -980,4 +995,13 @@ fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2)));
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));
 #define FixedMul(a,b)	(((uint64_t)(a) * (uint64_t)(b)) >> FRACBITS)
+
+static inline fixed_t P_AproxDistance(fixed_t dx, fixed_t dy)
+{
+	dx = abs(dx);
+	dy = abs(dy);
+	if(dx < dy)
+		return dx + dy - (dx >> 1);
+	return dx + dy - (dy >> 1);
+}
 

@@ -236,6 +236,10 @@ static hook_t hook_list[] =
 	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&storage_vissprites},
 	{0x0002D0A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&storage_drawsegs},
 	{0x000323E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&storage_zlight},
+	//
+	{0x00039540, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewx},
+	{0x00039544, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewy},
+	{0x00039548, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewz},
 	// render function pointers // TODO: remove
 	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
 	{0x0003900C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&basecolfunc},
@@ -544,6 +548,10 @@ uint32_t *viewwidth;
 
 thinker_t *thinkercap;
 void *ptr_MobjThinker;
+
+fixed_t *viewx;
+fixed_t *viewy;
+fixed_t *viewz;
 
 // progress bar info
 static uint32_t pbar_step;

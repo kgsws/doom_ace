@@ -313,6 +313,8 @@ static code_ptr_t codeptr_list_ace[] =
 {
 	{"a_noblocking", A_NoBlocking, arg_NoBlocking},
 	{"a_fall", A_NoBlocking, NULL},
+	{"a_spawnprojectile", A_SpawnProjectile, arg_SpawnProjectile},
+	{"a_jumpifcloser", A_JumpIfCloser, arg_JumpIfCloser},
 	// terminator
 	{NULL}
 };
@@ -381,7 +383,7 @@ static uint32_t last_sprite_idx;
 static uint32_t custom_state_idx;
 
 // find actor by name
-static int32_t decorate_get_actor(uint8_t *name)
+int32_t decorate_get_actor(uint8_t *name)
 {
 	// TODO: include built-in names
 	uint32_t idx = 0;
@@ -521,7 +523,7 @@ static void custom_state_add(uint8_t *name, uint8_t *end, uint32_t num)
 }
 
 // add custom state reference
-static uint32_t custom_state_find(uint8_t *name, uint8_t *end)
+uint32_t decorate_custom_state_find(uint8_t *name, uint8_t *end)
 {
 	custom_state_list_t *custom_state = storage_vissprites;
 	int32_t i;
@@ -536,7 +538,7 @@ static uint32_t custom_state_find(uint8_t *name, uint8_t *end)
 	{
 		uint8_t *dst = (uint8_t*)wame;
 
-		for(i = 0; i < CUSTOM_STATE_MAX_NAME && name < end; i++, dst++, name++)
+		for(i = 0; i < CUSTOM_STATE_MAX_NAME && name < end && *name; i++, dst++, name++)
 			*dst = *name;
 		for(; i < CUSTOM_STATE_MAX_NAME; i++, dst++)
 			*dst = 0;
@@ -564,6 +566,54 @@ static uint32_t custom_state_find(uint8_t *name, uint8_t *end)
 	return i;
 }
 
+// find animation state marker
+uint32_t decorate_animation_state_find(uint8_t *name, uint8_t *end)
+{
+	actor_animation_t *anim = actor_anim_list;
+	while(1)
+	{
+		if(tp_ncompare_skip(name, end, anim->match))
+			break;
+		anim++;
+		if(!anim->match)
+		{
+			*end = 0;
+			actor_name[actor_name_len] = 0;
+			I_Error("[ACE] DECORATE: actor '%s' invalid jump label '%s'", actor_name, name);
+		}
+	}
+	return ((anim - actor_anim_list) << 16) | STATE_ANIMATION_TARGET;
+}
+
+// get state by relative offset
+static uint32_t state_by_offset(uint32_t state, uint32_t offset)
+{
+	uint32_t last_state = decorate_state_idx;
+	while(1)
+	{
+		if(state >= last_state)
+		{
+			actor_name[actor_name_len] = 0;
+			I_Error("[ACE] DECORATE: actor '%s' invalid state destination", actor_name);
+		}
+
+		if(states[state].sprite == 0xFFFF)
+		{
+			// skip state storage
+			// this is the reason this function exist
+			state += states[state].frame;
+			continue;
+		} else
+		{
+			if(!offset)
+				return state;
+			offset--;
+		}
+
+		state++;
+	}
+}
+
 // link everything
 static void link_actor(mobjinfo_t *info)
 {
@@ -586,6 +636,32 @@ static void link_actor(mobjinfo_t *info)
 			else
 				states[i].extra = NULL;
 		}
+		if(states[i].action == A_JumpIfCloser)
+		{
+			// very special handling for this function
+			int32_t idx;
+			arg_jump_distance_t *extra = states[i].extra;
+			if(extra->state & STATE_CUSTOM_TARGET)
+			{
+				// jump to custom state
+				uint32_t dst_name_idx = (extra->state >> 16) & 0x0FFF;
+				idx = custom_state_by_name(custom_state[dst_name_idx].wame, STATE_CUSTOM_SOURCE);
+				if(idx < 0)
+					extra->state = 0;
+				else
+					extra->state = state_by_offset(custom_state[idx].state & 0x00FFFFFF, 0);
+			} else
+			if(extra->state & STATE_ANIMATION_TARGET)
+			{
+				// jump to animation label
+				uint32_t anim_idx = (extra->state >> 16) & 0x0FFF;
+				extra->state = *((uint32_t*)(((void*)info) + actor_anim_list[anim_idx].offset));
+			} else
+			{
+				// relative offset
+				extra->state = state_by_offset(i, extra->state);
+			}
+		}
 		if(states[i].nextstate & STATE_CUSTOM_TARGET)
 		{
 			// parse custom state destination
@@ -601,28 +677,18 @@ static void link_actor(mobjinfo_t *info)
 			} else
 			{
 				// found, recalculate destination
-				states[i].nextstate = (states[i].nextstate & 0xFFFF) + (custom_state[idx].state & 0x00FFFFFF);
-				if(states[i].nextstate >= last_state)
-				{
-					actor_name[actor_name_len] = 0;
-					I_Error("[ACE] DECORATE: actor '%s' invalid state destination", actor_name);
-				}
+				states[i].nextstate = state_by_offset(custom_state[idx].state & 0x00FFFFFF, states[i].nextstate & 0xFFFF);
 			}
 		} else
 		if(states[i].nextstate & STATE_ANIMATION_TARGET)
 		{
 			// parse label state destination
-			// TODO: this will be removed when 'animations' are in
+			// TODO: change this to check-only when 'animations' are in
 			uint32_t anim_idx = (states[i].nextstate >> 16) & 0x0FFF;
 			uint32_t state = *((uint32_t*)(((void*)info) + actor_anim_list[anim_idx].offset));
 
 			// recalculate destination
-			states[i].nextstate = state + (states[i].nextstate & 0xFFFF);
-			if(states[i].nextstate >= last_state)
-			{
-				actor_name[actor_name_len] = 0;
-				I_Error("[ACE] DECORATE: actor '%s' invalid state destination", actor_name);
-			}
+			states[i].nextstate = state_by_offset(state, states[i].nextstate & 0xFFFF);
 		}
 	}
 }
@@ -688,7 +754,7 @@ static state_t *decorate_get_state()
 	return ret;
 }
 
-static void *decorate_get_storage(uint32_t size)
+void *decorate_get_storage(uint32_t size)
 {
 	// allocate memory in 'states'
 	void *ret;
@@ -1067,8 +1133,6 @@ bad_states:
 
 				while(1)
 				{
-					actor_animation_t *anim;
-
 					// skip WS
 					ptr = tp_skip_wsc(ptr, end);
 					if(ptr == end)
@@ -1106,7 +1170,7 @@ bad_states:
 							// engine states
 							lstate = decorate_state_idx;
 							tmp[-1] = ' ';
-							anim = actor_anim_list;
+							actor_animation_t *anim = actor_anim_list;
 							while(1)
 							{
 								if(tp_ncompare_skip(ptr, end, anim->match))
@@ -1173,24 +1237,11 @@ bad_states:
 						if(*ptr == '_')
 						{
 							// custom label
-							base = custom_state_find(ptr + 1, tmp);
+							base = decorate_custom_state_find(ptr + 1, tmp);
 						} else
 						{
 							// find requested label
-							anim = actor_anim_list;
-							while(1)
-							{
-								if(tp_ncompare_skip(ptr, end, anim->match))
-									break;
-								anim++;
-								if(!anim->match)
-								{
-									*tmp = 0;
-									actor_name[actor_name_len] = 0;
-									I_Error("[ACE] DECORATE: actor '%s' invalid goto label '%s'", actor_name, ptr);
-								}
-							}
-							base = ((anim - actor_anim_list) << 16) | STATE_ANIMATION_TARGET;
+							base = decorate_animation_state_find(ptr, end);
 						}
 						// skip WS
 						ptr = tp_skip_wsc(tmp, end);
@@ -1301,7 +1352,7 @@ bad_states:
 								func = codeptr_parse(codeptr_list_ace, ptr, tmp);
 							if(!func)
 							{
-								*tmp = 0;
+								*tp_func_name_end = 0;
 								actor_name[actor_name_len] = 0;
 								I_Error("[ACE] DECORATE: actor '%s' codepointer '%s' error", actor_name, ptr);
 							}

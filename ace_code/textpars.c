@@ -250,6 +250,8 @@ uint8_t *tp_ncompare_skip(uint8_t *src, uint8_t *eof, uint8_t *templ)
 
 		if(!*templ)
 		{
+			if(tmp == 0)
+				return src;
 			if(tmp == ' ')
 				return src;
 			if(tmp == '\t')

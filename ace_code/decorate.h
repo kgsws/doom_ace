@@ -18,6 +18,11 @@ void decorate_init(int enabled);
 void decorate_count_actors(uint8_t *start, uint8_t *end);
 void decorate_parse(uint8_t *start, uint8_t *end);
 
+int32_t decorate_get_actor(uint8_t *name);
+uint32_t decorate_custom_state_find(uint8_t *name, uint8_t *end);
+uint32_t decorate_animation_state_find(uint8_t *name, uint8_t *end);
+void *decorate_get_storage(uint32_t size);
+
 // hooks
 uint32_t enemy_chase_move(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
 

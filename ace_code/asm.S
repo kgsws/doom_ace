@@ -396,6 +396,18 @@ P_FindLowestCeilingSurrounding:
 G_ExitLevel:
 	.byte	0xE9
 	.4byte	0x00020D40
+////////////////////////////////// R_PointToAngle
+.section .text.R_PointToAngle
+.global R_PointToAngle
+R_PointToAngle:
+	.byte	0xE9
+	.4byte	0x00035510
+////////////////////////////////// P_ExplodeMissile
+.section .text.P_ExplodeMissile
+.global P_ExplodeMissile
+P_ExplodeMissile:
+	.byte	0xE9
+	.4byte	0x00030F00
 ////////////////////////////////// FixedDiv
 .section .text.FixedDiv
 .global FixedDiv

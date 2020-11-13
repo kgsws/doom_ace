@@ -6,16 +6,17 @@
 #include "action.h"
 #include "decorate.h"
 
-#define ARG_PARSE_DEBUG
+//#define ARG_PARSE_DEBUG
 
 enum
 {
 	ARGTYPE_TERMINATOR,
 	ARGTYPE_BOOLEAN,
-	ARGTYPE_INT32,
+	ARGTYPE_INT32, // TODO
 	ARGTYPE_FIXED,
 	ARGTYPE_ACTOR,
-	ARGTYPE_FLAGLIST,
+	ARGTYPE_STATE,
+	ARGTYPE_FLAGLIST, // TODO
 	//
 	ARGFLAG_OPTIONAL
 };
@@ -101,15 +102,51 @@ set_defaults:
 				{
 					arg = tp_ncompare_skip(arg, end, kw_false);
 					if(!arg)
-					{
-						tp_kw_is_func = 0;
-						return 1;
-					}
+						goto end_fail;
 					list->result = 0;
 				} else
 				{
 					list->result = 1;
 					arg = tmp;
+				}
+			break;
+			case ARGTYPE_ACTOR:
+				tmp = tp_get_string(arg, end);
+				if(!tmp)
+					goto end_fail;
+				list->result = decorate_get_actor(tp_clean_string(arg));
+				arg = tmp;
+			break;
+			case ARGTYPE_FIXED:
+				arg = tp_get_fixed(arg, end, &list->result);
+				if(arg == end)
+					goto end_fail;
+				if(!arg)
+					goto end_fail;
+			break;
+			case ARGTYPE_STATE:
+				if(*arg == '"')
+				{
+					uint8_t *txt;
+					tmp = tp_get_string(arg, end);
+					if(!tmp)
+						goto end_fail;
+
+					txt = tp_clean_string(arg);
+
+					if(*txt == '_')
+						list->result = decorate_custom_state_find(txt + 1, tmp);
+					else
+						list->result = decorate_animation_state_find(txt, tmp);
+
+					arg = tmp;
+				} else
+				{
+					arg = tp_get_uint(arg, end, &list->result);
+					if(!arg)
+						goto end_fail;
+					if(!list->result)
+						goto end_fail;
 				}
 			break;
 		}
@@ -129,6 +166,7 @@ set_defaults:
 		{
 			if(list->type == ARGTYPE_TERMINATOR)
 				return 1;
+			arg++;
 		}
 	}
 
@@ -143,7 +181,68 @@ end_eof:
 		goto set_defaults;
 
 	return 1;
+
+end_fail:
+	tp_kw_is_func = 0;
+	return 1;
 }
+
+//
+// helpers
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle)
+{
+	int dist;
+
+	if(mo->info->seesound)
+		S_StartSound(mo, mo->info->seesound);
+
+	mo->target = source;
+	mo->tracer = target;
+	mo->angle = angle;
+
+	angle >>= ANGLETOFINESHIFT;
+	mo->momx = FixedMul(mo->info->speed, finecosine[angle]);
+	mo->momy = FixedMul(mo->info->speed, finesine[angle]);
+
+	dist = P_AproxDistance(target->x - source->x, target->y - source->y);
+	dist /= mo->info->speed;
+	if(dist < 0)
+		dist = 1;
+
+	mo->momz = (target->z - source->z) / dist;
+
+	if(mo->tics > 0)
+	{
+		mo->tics -= P_Random() & 3;
+		if(mo->tics <= 0)
+			mo->tics = 1;
+	}
+
+	mo->x += mo->momx >> 1;
+	mo->y += mo->momy >> 1;
+	mo->z += mo->momz >> 1;
+
+	if(!P_TryMove(mo, mo->x, mo->y))
+	{
+		if(mo->flags & MF_SHOOTABLE)
+			P_DamageMobj(mo, NULL, NULL, 10000);
+		else
+			P_ExplodeMissile(mo);
+	}
+}
+
+//
+// A_DoNothing
+
+void A_DoNothing(mobj_t *mo)
+{
+	// yep ...
+}
+
+//
+// A_NoBlocking
 
 void *arg_NoBlocking(void *func, uint8_t *arg, uint8_t *end)
 {
@@ -180,5 +279,122 @@ void A_NoBlocking(mobj_t *mo)
 		item->momy = 2*FRACUNIT - (P_Random() << 9);
 		item->momz = (3 << 15) + 2*(P_Random() << 9);
 	}
+}
+
+//
+// A_SpawnProjectile
+
+typedef struct
+{
+	uint32_t actor;
+	fixed_t height;
+	fixed_t offset;
+	fixed_t angle;
+} __attribute__((packed)) arg_spawn_projectile_t;
+
+static argtype_t arg_spawn_projectile[] =
+{
+	{ARGTYPE_ACTOR, 0, NULL},
+	{ARGTYPE_FIXED, ARGFLAG_OPTIONAL, NULL, 32 << FRACBITS},
+	{ARGTYPE_FIXED, ARGFLAG_OPTIONAL, NULL, 0},
+	{ARGTYPE_FIXED, ARGFLAG_OPTIONAL, NULL, 0},
+	// terminator
+	{ARGTYPE_TERMINATOR}
+};
+
+void *arg_SpawnProjectile(void *func, uint8_t *arg, uint8_t *end)
+{
+	arg_spawn_projectile_t *info;
+
+	if(parse_args(arg_spawn_projectile, arg, end))
+		return NULL;
+
+	if(arg_spawn_projectile[0].result == (uint32_t)-1)
+		return A_DoNothing;
+
+	info = decorate_get_storage(sizeof(arg_spawn_projectile_t));
+	info->actor = arg_spawn_projectile[0].result;
+	info->height = arg_spawn_projectile[1].result;
+	info->offset = arg_spawn_projectile[2].result;
+	info->angle = arg_spawn_projectile[3].result;
+
+	func_extra_data = info;
+
+	return A_SpawnProjectile;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_SpawnProjectile(mobj_t *mo)
+{
+	angle_t angle;
+	fixed_t x, y;
+	mobj_t *item, *target;
+	arg_spawn_projectile_t *info = mo->state->extra;
+
+	target = mo->target;
+
+	x = mo->x;
+	y = mo->y;
+	if(info->offset)
+	{
+		angle_t a = mo->angle >> ANGLETOFINESHIFT;
+		x += FixedMul(info->offset, finesine[a]);
+		y += FixedMul(info->offset, finecosine[a]);
+	}
+
+	angle = R_PointToAngle2(x, y, target->x, target->y);
+
+	angle += info->angle;
+
+	if(target->flags & MF_SHADOW)
+		angle += (P_Random() - P_Random()) << 20;
+
+	item = P_SpawnMobj(x, y, mo->z + info->height, info->actor);
+	missile_stuff(item, mo, mo->target, angle);
+}
+
+//
+// A_JumpIfCloser
+
+static argtype_t arg_jump_distance[] =
+{
+	{ARGTYPE_FIXED, 0, NULL},
+	{ARGTYPE_STATE, 0, NULL},
+	{ARGTYPE_BOOLEAN, ARGFLAG_OPTIONAL, NULL, 0},
+	// terminator
+	{ARGTYPE_TERMINATOR}
+};
+
+void *arg_JumpIfCloser(void *func, uint8_t *arg, uint8_t *end)
+{
+	arg_jump_distance_t *info;
+
+	if(parse_args(arg_jump_distance, arg, end))
+		return NULL;
+
+	info = decorate_get_storage(sizeof(arg_spawn_projectile_t));
+	info->distance = arg_jump_distance[0].result;
+	info->state = arg_jump_distance[1].result;
+	info->noz = arg_jump_distance[2].result;
+
+	func_extra_data = info;
+
+	return A_JumpIfCloser;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIfCloser(mobj_t *mo)
+{
+	fixed_t distance;
+	arg_jump_distance_t *info = mo->state->extra;
+
+	distance = P_AproxDistance(mo->target->x - mo->x, mo->target->y - mo->y);
+	if(!info->noz)
+		distance = P_AproxDistance(mo->target->z - mo->z, distance);
+
+	if(distance >= info->distance)
+		return;
+
+	P_SetMobjState(mo, info->state);
 }
 

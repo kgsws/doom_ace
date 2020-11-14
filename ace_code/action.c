@@ -529,9 +529,6 @@ static argtype_t arg_jump_random[] =
 	{ARGTYPE_STATE, ARGFLAG_OPTIONAL, NULL, 0xFFFFFFFF},
 	{ARGTYPE_STATE, ARGFLAG_OPTIONAL, NULL, 0xFFFFFFFF},
 	{ARGTYPE_STATE, ARGFLAG_OPTIONAL, NULL, 0xFFFFFFFF},
-	{ARGTYPE_STATE, ARGFLAG_OPTIONAL, NULL, 0xFFFFFFFF},
-	{ARGTYPE_STATE, ARGFLAG_OPTIONAL, NULL, 0xFFFFFFFF},
-	{ARGTYPE_STATE, ARGFLAG_OPTIONAL, NULL, 0xFFFFFFFF},
 	// terminator
 	{ARGTYPE_TERMINATOR}
 };
@@ -547,7 +544,7 @@ void *arg_Jump(void *func, uint8_t *arg, uint8_t *end)
 	info = decorate_get_storage(sizeof(arg_jump_random_t));
 	info->count = 0;
 	info->chance = arg_jump_random[0].result;
-	for(i = 0; i < 8; i++)
+	for(i = 0; i < 5; i++)
 	{
 		uint32_t st = arg_jump_random[i+1].result;
 		if(st == 0xFFFFFFFF)

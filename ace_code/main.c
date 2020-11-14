@@ -1169,7 +1169,6 @@ void do_loader()
 	{
 		// allocate new memory
 		ptr_visplanes = Z_Malloc(cfg_max_visplane * sizeof(visplane_t), PU_STATIC, NULL);
-		memset(ptr_visplanes, 0, cfg_max_visplane * sizeof(visplane_t)); // this is required
 		// update values in hooks
 		for(int i = 0; i <= 4; i++)
 			hook_visplane[i].value = (uint32_t)ptr_visplanes;
@@ -1177,6 +1176,11 @@ void do_loader()
 			hook_visplane[i].value = cfg_max_visplane;
 		// install hooks
 		utils_install_hooks(hook_visplane);
+	} else
+	{
+		// this is here for 'memset' later
+		ptr_visplanes = storage_visplanes;
+		cfg_max_visplane = 128;
 	}
 
 	// vissprite limit
@@ -1387,6 +1391,9 @@ void do_loader()
 	pbar_set(idx);
 	pbar_patch->width = 0;
 	pbar_set(idx);
+
+	// this is required
+	memset(ptr_visplanes, 0, cfg_max_visplane * sizeof(visplane_t));
 
 	// eable disk icon
 	*grmode = 1;

@@ -1,96 +1,180 @@
-# Arbitrary code execution in DOOM 2
-This is an example of exploit for original DOS doom save game file.
+# ACE ENGINE
+This is a doom engine for unmodified DOS Doom 2.
+Initial execution is achieved using map exploit. No patching required.
+Engine is then started using following command:
+`doom2 -file file.wad -warp 1`
 
-## Version
-This example only works in version 1.9 Doom 2.
+## DOS Version
+This engine only works in version 1.9 Doom 2.
 That is, no The Ultimate Doom, no The Final Doom or Anthology.
 
 (Why is there so many different 1.9 versions?)
 
-## Example
-Example in provided in `savegame/doomsav0.dsg` is a simple snake game.
+## Files
+Directory 'wads' contains various test releases.
 
-- it's a snake!
-- disables wipe while running
-- unloads itself on ESC key
-- invert the function of 'run key' (you can use run key to slow down now)
-
-## Possibilities
-This exploit has full access to the game code. It allows way more advanced modifications than dehacked.
+- acetest.wad is latest released testing version
+- demo.wad is latest released testing map with engine included
 
 ## Technical info
 
+### Custom mods
+There are two possible ways to add ACE ENGINE into your mods.
+
+#### Copy all the lumps
+Simple solution, just copy everything starting at `ACE_CODE` up to `ACE_END` **to the end of your WAD**. Including these.
+Everything between these markers are ignored by the engine. Do not place your custom graphics here.
+This is solution for WADs that do not break PWAD lump limit.
+https://doomwiki.org/wiki/PWAD_size_limit
+
+#### WAD in WAD
+Simple to execute but harder to edit. If you need more lumps and do not want to split your mod into multiple WADs.
+Get ACE ENGINE WAD and create single new lump called `ACE_WAD`, outside of markers mentioned above.
+Import your entire WAD as raw data into `ACE_WAD`.
+Your WAD can have much more lumps inside.
+Note: If you have modified `PLAYPAL`, it must be included too.
+
+#### Develompent
+For simple testing, before you include `ACE_WAD`, you can name your wad as `ace_wad.lmp` and start the game with following command:
+`doom2 -file ace.wad ace_wad.lmp -warp 1`
+
+### Custom engine graphics
+While most of the lumps between `ACE_CODE` and `ACE_END` are ignored, there are a few engine specific.
+
+#### TITLEPIC
+This is getting displayed when exploit is not triggered. If someone runs your mod without `-warp 1`.
+Any other `TITLEPIC` outside `ACE_CODE` and `ACE_END` will work as intented.
+
+#### _LOADING
+Full screen loading background. Where progress bar is at 0%.
+Smaller resolution would result in a mess. And offsets should be zero.
+There is no information about progress bar location.
+
+#### _LOADBAR
+Loading progress bar. This is graphics for the progress bar. It is gradually displayed as progress moves.
+This patch can have any size, even fullscreen. Use patch offsets to position it where you want your progress bar.
+Progress bar is always drawn from left to right.
+
+#### _NOFLAT
+This is texture for "unknown flat texture".
+
+#### _NOTEX
+This is texture for "unknown wall texture".
+
+### Source ports
+While it is possible for this exploit to coexist with source ports, it won't work out of the box.
+Source ports would have to ignore every single lump between `ACE_CODE` and `ACE_END` markers.
+Also, source ports would have to implement `WAD in WAD` solution mentioned above.
+
+### DECORATE
+ACE ENGINE implements a limited subset of DECORATE. This subset is compatible with ZDoom.
+While parser is different and likely allows stuff that is broken in ZDoom, there is always specific coding-style that should work the same in ZDoom and ACE ENGINE.
+Never request feature suport in ZDoom if something works in ACE ENGINE but not in ZDoom. You should always fix your DECORATE so it works in both.
+
+#### What does not work
+- expressions
+- `replaces` for built-in class replacement
+- `inheritance`, you always have to write your actors from the scratch
+- "archvile frames" - frames can only be `A` to `Z`
+- special sprite names, such as `####`
+- and probably much more
+
+#### Supported properties
+Only properties included it this list are supported. Any unknown property will cause an error.
+
+- `SpawnID`
+- `Health`
+- `ReactionTime`
+- `PainChance`
+- `Damage`
+- `Speed`
+- `Radius`
+- `Height`
+- `Mass`
+- `ActiveSound`
+- `AttackSound`
+- `DeathSound`
+- `PainSound`
+- `SeeSound`
+- `Obituary` contents are ignored
+- `HitObituary` contents are ignored
+- `DropItem` without `amount` parameter
+- `Monster` flag combo
+- `Projectile` flag combo
+
+#### supported flags
+- `special`
+- `solid`
+- `shootable`
+- `nosector`
+- `noblockmap`
+- `ambush`
+- `justhit`
+- `justattacked`
+- `spawnceiling`
+- `nogravity`
+- `dropoff`
+- `pickup`
+- `noclip`
+- `slidesonwalls`
+- `float`
+- `teleport`
+- `missile`
+- `dropped`
+- `shadow`
+- `noblood`
+- `corpse`
+- `countkill`
+- `countitem`
+- `skullfly`
+- `notdmatch`
+- `noteleport`
+- `ismonster`
+- `boss`
+- `seekermissile`
+- `floorclip` ignored
+
+#### states
+List of supported engine states:
+
+- `spawn`
+- `see`
+- `pain`
+- `melee`
+- `missile`
+- `death`
+- `xdeath`
+- `raise`
+
+Custom states are supported in specific way and in limited amount.
+Every custom state must start with `_` (underscore) character.
+Custom names can have only up to 16 characters, not counting first underscore.
+
+#### action pointers
+List of supported action pointers:
+Many original moster attacks are supported but those are not listed.
+
+- `A_Look`
+- `A_Chase` no parameters
+- `A_Pain`
+- `A_Fall`
+- `A_Scream`
+- `A_XScream`
+- `A_PlayerScream`
+- `A_FaceTarget` no parameters
+
+More action pointers:
+
+- `A_NoBlocking` with parameters
+- `A_SpawnProjectile` with most parameters (`ptr` is not supported and flag `CMF_BADPITCH` is not supported)
+- `A_JumpIfCloser` with parameters
+- `A_Jump` with up to 5 different jump destinations
+
+### Sounds
+Currently no new sounds are supported. All sounds in DECORATE have to be specified by lump name, like `dspistol`.
+For ZDoom compatibility you have to include your own SNDINFO.
+In future, sound table will likely be generated from SNDINFO in very limited way - only 8 characters and logical name same as lump name.
+
 ### Exploit
-Exploit uses PSPR code pointer to run the code present in save game file. First instruction run is the first byte in the file.
-
-### Bug
-Function `P_UnArchivePlayers` does no bounds checking on player sprite state. Therefore, by modifying saved `player_t` structure it is possible to interpret any memory offset as animation frames.
-
-### Action pointer
-State number stored in `player_t` is only used as an reference since it has already been executed prior to saving the game. Thus, its action code pointer will not be executed.
-However, this state is used as an lookup for for the next state. Action pointer of next state, if set, will be executed.
-
-### Memory
-Doom HEAP is allocated at random location. Therefore, it is not possible to know the state number of allocated save data buffer.
-
-However, function `P_UnArchivePlayers` always copies saved `player_t` structure to `players[0]` variable, which has known location. Furthermore, this location has known offset from `states[NUMSTATES]` array.
-
-States 3112 to 3119 are located in memory we control.
-
-### More memory
-Doom CODE and DATA is also allocated at random location. The only possible fixed location is video RAM. This would require custom PWAD with executable code hidden in graphics (like STDISK or STBAR).
-
-#### Doom 2-loaders
-While, The Ultimate Doom is compiled with memory map where state number 3191 action pointer overlaps `savebuffer` variable, Doom 2 does not.
-Therefore, we need another nice entry point.
-Fortunately, variable `sectors` happens to be usable as action pointer for frame 3283. Furthermore, most of the values that end up here are stored in savegame itself!
-
-This is not for free though, `sectors` is not copied from saved game directly but processed a bit. First two 32bit values are loaded and shifted by 16 bits to the left from 16bit value.
-This means that first two bytes will always end up as 0x00 0x00.
-Fortunately, this translates to the opcode `add	%al,(%eax)` and sice `eax` contains valid address, we can execute it.
-To simplify things i made pre-loader that just jumps to actual save buffer so i can use loader i have for The Ultimate Doom, with minimal modifications of course.
-
-```
-_start:
-floorheight:
-	add	%al,(%eax)	// 0x00 0x00 (forced by the engine - not present in savegame)
-	jmp	ceilingheight + 2
-ceilingheight:
-	add	%al,(%eax)	// 0x00 0x00 (forced by the engine - not present in savegame)
-it_starts_here: // 12B available
-	mov	(%esp),%eax	// read CODE pointer // 0x0013d095
-	mov	0x001311a4-0x0013d095(%eax),%eax	// get savebuffer variable location
-	jmp	*(%eax)	// and jump to its destination
-```
-(Yes, this code is stored in sector 0. And only 1 byte was left unused.)
-
-While save game buffer is freed using `Z_Free` before it can be executed, there is nothing that would overwrite it before code execution happens.
-Any persistent code would have to be copied somewhere else though.
-
-#### Other versions
-There are way more entry points - if you use custom PWAD. Many lumps are cached before game (status bar, etc ...).
-Many of these pointers are available as a state action. Each Doom version has different possibilities.
-Code can be executed directly from any such lump.
-
-### Loader
-Provided loader is only supposed to load main code from freed savegame to memory it allocates.
-
-### Binaries
-There is currently only one example and that is SNAKE! game.
-
-#### Loading custom code
-You have to modify provided example savegame file.
-
-- loader starts at offset 0x0CFA
-- if you do not need to modify the loader, game starts at 0x0DDF
-
-### Future
-This allows for far advanced Doom mods than dehacked alone ever allowed.
-It is possible to load savegame when game start if specified in command line parameters. Mods could provide exploited savegame to be used with it.
-https://www.doomworld.com/forum/topic/117123-dos-doom-code-execution/
-
-## Credits
-Special thanks to `Randy87` for uploading their map files way back. This made it much quicker.
-
-https://www.doomworld.com/forum/topic/86380-exe-hacking/?tab=comments#comment-1567318
+TODO
 

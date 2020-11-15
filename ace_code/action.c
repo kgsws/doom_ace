@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "textpars.h"
 #include "action.h"
+#include "mobj.h"
 #include "decorate.h"
 
 //#define ARG_PARSE_DEBUG
@@ -515,7 +516,7 @@ void A_JumpIfCloser(mobj_t *mo)
 	if(distance >= info->distance)
 		return;
 
-	P_SetMobjState(mo, info->state);
+	P_ChangeMobjState(mo, info->state);
 }
 
 //
@@ -570,6 +571,6 @@ void A_Jump(mobj_t *mo)
 
 	idx = P_Random() % info->count;
 
-	P_SetMobjState(mo, info->state[idx]);
+	P_ChangeMobjState(mo, info->state[idx]);
 }
 

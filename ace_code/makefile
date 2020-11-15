@@ -1,5 +1,5 @@
 program=ace_code
-OBJ = asm.o main.o utils.o stbar.o map.o generic.o render.o hitscan.o textpars.o decorate.o sound.o action.o
+OBJ = asm.o main.o utils.o stbar.o map.o generic.o render.o hitscan.o textpars.o decorate.o sound.o action.o mobj.o
 CC=gcc -m32 -march=i386
 OPT=-O2 -g0
 BOTH=--static-pie

@@ -7,6 +7,7 @@
 
 int32_t *la_damage;
 
+#if 0
 __attribute((regparm(2),no_caller_saved_registers))
 void hitscan_HitMobj(mobj_t *mo, fixed_t x)
 {
@@ -67,4 +68,4 @@ void hitscan_HitMobj(mobj_t *mo, fixed_t x)
 		}
 	}
 }
-
+#endif

@@ -23,6 +23,8 @@ uint32_t decorate_custom_state_find(uint8_t *name, uint8_t *end);
 uint32_t decorate_animation_state_find(uint8_t *name, uint8_t *end);
 void *decorate_get_storage(uint32_t size);
 
+uint32_t decorate_get_animation_state(uint32_t);
+
 // hooks
 uint32_t enemy_chase_move(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
 

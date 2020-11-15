@@ -336,7 +336,11 @@ typedef struct
 	uint16_t sprite;
 	void *extra;
 	int32_t tics;
-	void *action;
+	union
+	{
+		void *action;
+		void (*acp)(struct mobj_s*) __attribute((regparm(2)));
+	};
 	uint32_t nextstate;
 	int32_t misc1;
 	int32_t misc2;
@@ -510,6 +514,7 @@ typedef struct subsector_s
 #define	MF_BOSS		0x10000000	// also used in hooks!
 #define MF_SEEKERMISSILE	0x20000000
 #define MF_RANDOMIZE	0x40000000	// TODO: implement everywhere (projectiles only)
+#define MF_NOTARGET	0x80000000	// TODO: replace MT_VILE check in P_DamageMobj
 
 // new flags
 #define	MFN_INACTIVE	0x01
@@ -575,7 +580,7 @@ typedef struct mobj_s
 	struct mobj_s *tracer;
 	mapthing_t spawnpoint;
 	uint16_t spawnz;
-	uint8_t unused; // reserved
+	uint8_t animation;
 	uint8_t tid;
 	uint8_t special;
 	uint8_t arg0;
@@ -598,6 +603,7 @@ typedef struct mobj_s
 // render
 
 #define FF_FULLBRIGHT	0x8000
+#define FF_FRAMEMASK	0x7FFF
 
 #define LIGHTLEVELS	16
 #define LIGHTSEGSHIFT	4
@@ -980,7 +986,7 @@ void P_SpawnSpecials();
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
 void P_DamageMobj(mobj_t*, mobj_t*, mobj_t*, int) __attribute((regparm(2)));
-void P_SetMobjState(mobj_t*,int) __attribute((regparm(2)));
+void P_RemoveMobj(mobj_t*) __attribute((regparm(2)));
 void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2)));
 void P_TouchSpecialThing(mobj_t*, mobj_t*) __attribute((regparm(2)));
 void P_ChangeSwitchTexture(line_t*,int) __attribute((regparm(2)));
@@ -989,7 +995,6 @@ void P_RemoveThinker(thinker_t*) __attribute((regparm(2)));
 int P_ChangeSector(sector_t*,int) __attribute((regparm(2)));
 void P_SpawnPuff(fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
 uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
-void P_ExplodeMissile(mobj_t*) __attribute((regparm(2)));
 
 // p_ height search
 fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2)));

@@ -7,6 +7,7 @@
 #include "textpars.h"
 #include "decorate.h"
 #include "action.h"
+#include "mobj.h"
 
 // extra
 #include "d_actornames.h"
@@ -17,6 +18,10 @@
 // TODO: stuff to fix
 // P_MovePlayer - &states[S_PLAY] // p_user.c
 // A_WeaponReady - &states[S_PLAY_ATK1] // p_pspr.c
+// other weapon stuff in p_pspr.c
+// P_DamageMobj - rewrite and remove existing hooks
+// P_KillMobj - merge into new P_DamageMobj and remove existing hooks
+// special sprite "####" "#" and frame
 
 typedef struct
 {
@@ -95,7 +100,7 @@ typedef struct
 typedef struct
 {
 	uint8_t *match;
-	uint32_t offset; // in mobjinfo_t structure
+	uint32_t extra;
 } actor_animation_t;
 
 typedef struct code_ptr_s
@@ -238,14 +243,14 @@ static actor_flag_t actor_flag_list[] =
 // all names must be lowercase
 static actor_animation_t actor_anim_list[] =
 {
-	{"spawn", offsetof(mobjinfo_t, spawnstate)},
-	{"see", offsetof(mobjinfo_t, seestate)},
-	{"pain", offsetof(mobjinfo_t, painstate)},
-	{"melee", offsetof(mobjinfo_t, meleestate)},
-	{"missile", offsetof(mobjinfo_t, missilestate)},
-	{"death", offsetof(mobjinfo_t, deathstate)},
-	{"xdeath", offsetof(mobjinfo_t, xdeathstate)},
-	{"raise", offsetof(mobjinfo_t, raisestate)},
+	{"spawn", 0},
+	{"see", 0},
+	{"pain", 0},
+	{"melee", 0},
+	{"missile", 0},
+	{"death", 0},
+	{"xdeath", 0},
+	{"raise", 0},
 	// terminator
 	{NULL}
 };
@@ -635,7 +640,8 @@ static uint32_t link_state_jump(mobjinfo_t *info, uint32_t state, uint32_t from)
 	{
 		// jump to animation label
 		uint32_t anim_idx = (state >> 16) & 0x0FFF;
-		state = *((uint32_t*)(((void*)info) + actor_anim_list[anim_idx].offset));
+		state = *P_GetAnimPtr(anim_idx, info);
+		state = MOBJ_ANIM_STATE(anim_idx, state);
 	} else
 	{
 		// relative offset
@@ -703,12 +709,12 @@ static void link_actor(mobjinfo_t *info)
 		if(states[i].nextstate & STATE_ANIMATION_TARGET)
 		{
 			// parse label state destination
-			// TODO: change this to check-only when 'animations' are in
 			uint32_t anim_idx = (states[i].nextstate >> 16) & 0x0FFF;
-			uint32_t state = *((uint32_t*)(((void*)info) + actor_anim_list[anim_idx].offset));
+			uint32_t state = *P_GetAnimPtr(anim_idx, info);
 
 			// recalculate destination
-			states[i].nextstate = state_by_offset(state, states[i].nextstate & 0xFFFF);
+			state = state_by_offset(state, states[i].nextstate & 0xFFFF);
+			states[i].nextstate = MOBJ_ANIM_STATE(anim_idx, state);
 		}
 	}
 }
@@ -1205,7 +1211,7 @@ bad_states:
 							}
 							tmp[-1] = ':';
 							astate = ((anim - actor_anim_list) << 16) | STATE_ANIMATION_TARGET;
-							*((uint32_t*)(((void*)info) + anim->offset)) = decorate_state_idx;
+							*P_GetAnimPtr(anim - actor_anim_list, info) = decorate_state_idx;
 						}
 #ifdef debug_printf
 						tmp[-1] = 0;
@@ -1721,6 +1727,7 @@ void decorate_init(int enabled)
 	mobjinfo[18].flags |= MF_ISMONSTER; // lost soul
 	mobjinfo[19].flags |= MF_BOSS; // big spider
 	mobjinfo[21].flags |= MF_BOSS; // cyberdemon
+	mobjinfo[3].flags |= MF_NOTARGET; // archvile
 
 	for(int i = 0; i < NUMMOBJTYPES; i++)
 	{
@@ -1741,10 +1748,6 @@ void decorate_init(int enabled)
 		mobjinfo[i].attacksound = old->attacksound;
 		mobjinfo[i].deathsound = old->deathsound;
 		mobjinfo[i].activesound = old->activesound;
-		// DEBUG SOUNDS
-		mobjinfo[i].__free__0 = 666;
-		mobjinfo[i].__free__1 = 667;
-		mobjinfo[i].__free__2 = 668;
 	}
 }
 

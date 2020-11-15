@@ -10,6 +10,7 @@
 #include "render.h"
 #include "hitscan.h"
 #include "sound.h"
+#include "mobj.h"
 #include "decorate.h"
 
 // progres bar task weight
@@ -305,9 +306,9 @@ static hook_t hook_list[] =
 	hitscan.c
 *******************/
 	// custom mobj hit handling
-	{0x0002bb30, CODE_HOOK | HOOK_UINT32, 0x24148b}, // 'mov (%esp),%edx'
-	{0x0002BB33, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hitscan_HitMobj},
-	{0x0002bb38, CODE_HOOK | HOOK_UINT32, 0x18EB}, // 'jmp'
+//	{0x0002bb30, CODE_HOOK | HOOK_UINT32, 0x24148b}, // 'mov (%esp),%edx'
+//	{0x0002BB33, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hitscan_HitMobj},
+//	{0x0002bb38, CODE_HOOK | HOOK_UINT32, 0x18EB}, // 'jmp'
 /*******************
 	decorate.c
 *******************/
@@ -315,6 +316,52 @@ static hook_t hook_list[] =
 	{0x000271cc, CODE_HOOK | HOOK_UINT16, 0xc889}, // 'mov %ecx,%eax'
 	{0x000271ce, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)enemy_chase_move},
 	{0x000271d3, CODE_HOOK | HOOK_UINT16, 0x24eb}, // 'jmp'
+/*******************
+	mobj.c
+*******************/
+	// replace call to 'P_SetMobjState' with custom version
+	{0x000314f1, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)P_SetMobjState}, // P_MobjThinker
+	// replace every (required) 'P_SetMobjState' with new animation system
+	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909001b2}, // A_Look
+	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_Look
+	{0x0002782a, CODE_HOOK | HOOK_UINT32, 0x909000b2}, // A_Chase
+	{0x0002782d, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_Chase
+	{0x0002789d, CODE_HOOK | HOOK_UINT32, 0x909003b2}, // A_Chase
+	{0x000278a0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_Chase
+	{0x000278dd, CODE_HOOK | HOOK_UINT32, 0x909004b2}, // A_Chase
+	{0x000278e0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_Chase
+	{0x00027b90, CODE_HOOK | HOOK_UINT32, 0x909001b2}, // A_CPosRefire
+	{0x00027b93, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_CPosRefire
+	{0x00027bd0, CODE_HOOK | HOOK_UINT32, 0x909001b2}, // A_SpidRefire
+	{0x00027bd3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_SpidRefire
+	{0x000282ff, CODE_HOOK | HOOK_UINT32, 0x909007b2}, // A_VileChase
+	{0x00028202, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_VileChase
+	{0x00028e15, CODE_HOOK | HOOK_UINT32, 0x909001b2}, // A_SpawnFly
+	{0x00028e18, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_SpawnFly
+	{0x0002a3c8, CODE_HOOK | HOOK_UINT16, 0xd889}, // P_KillMobj - custom check
+	{0x0002a3ca, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_kill_animation}, // P_KillMobj - custom check
+	{0x0002a3cf, CODE_HOOK | HOOK_UINT16, 0x3ceb}, // P_KillMobj - custom check
+	{0x0002a6d7, CODE_HOOK | HOOK_UINT32, 0x909002b2}, // P_DamageMobj
+	{0x0002a6da, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_DamageMobj
+	{0x0002a73e, CODE_HOOK | HOOK_UINT16, 0x01b2}, // P_DamageMobj
+	{0x0002a742, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_DamageMobj
+	{0x0002af2f, CODE_HOOK | HOOK_UINT32, 0x909000b2}, // PIT_CheckThing
+	{0x0002af32, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // PIT_CheckThing
+		// TODO: PIT_ChangeSector - gibs
+		// TODO: A_WeaponReady - player
+		// TODO: P_FireWeapon - player
+		// TODO: A_GunFlash - player
+		// TODO: A_FirePistol - player
+		// TODO: A_FireShotgun - player
+		// TODO: A_FireShotgun2 - player
+		// TODO: A_FireCGun - player
+	{0x00030f9b, CODE_HOOK | HOOK_UINT32, 0x909000b2}, // P_XYMovement
+	{0x00030f9e, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_XYMovement
+		// TODO: P_XYMovement - player
+		// TODO: puff & blood
+		// TODO: P_MovePlayer
+	// replace every call to 'P_ExplodeMissile'
+	{0x00030f00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)P_ExplodeMissile}, // TODO
 /*******************
 	render.c
 *******************/

@@ -351,12 +351,6 @@ P_SetThingPosition:
 P_UnsetThingPosition:
 	.byte	0xE9
 	.4byte	0x0002C3B0
-////////////////////////////////// P_SetMobjState
-.section .text.P_SetMobjState
-.global P_SetMobjState
-P_SetMobjState:
-	.byte	0xE9
-	.4byte	0x00030EA0
 ////////////////////////////////// P_PlayerInSpecialSector
 .section .text.P_PlayerInSpecialSector
 .global P_PlayerInSpecialSector
@@ -411,12 +405,12 @@ G_ExitLevel:
 R_PointToAngle:
 	.byte	0xE9
 	.4byte	0x00035510
-////////////////////////////////// P_ExplodeMissile
-.section .text.P_ExplodeMissile
-.global P_ExplodeMissile
-P_ExplodeMissile:
+////////////////////////////////// P_RemoveMobj
+.section .text.P_RemoveMobj
+.global P_RemoveMobj
+P_RemoveMobj:
 	.byte	0xE9
-	.4byte	0x00030F00
+	.4byte	0x00031660
 ////////////////////////////////// FixedDiv
 .section .text.FixedDiv
 .global FixedDiv

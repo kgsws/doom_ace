@@ -168,6 +168,11 @@ static uint8_t patch_start_sound[] =
 	16,
 	0x0f, 0xb7, 0xd2, 0x83, 0xfa, 0x01, 0x0f, 0x8c, 0x1b, 0x02, 0x00, 0x00, 0x89, 0xd7, 0xeb, 0x08
 };
+static uint8_t patch_xymovement[] =
+{
+	13,
+	0x80, 0xbb, 0x9c, 0x00, 0x00, 0x00, 0x01, 0x75, 0x22, 0xb2, 0x00, 0x89, 0xd8
+};
 
 // all the hooks for ACE engine
 static hook_t hook_list[] =
@@ -341,10 +346,10 @@ static hook_t hook_list[] =
 	{0x0002a3c8, CODE_HOOK | HOOK_UINT16, 0xd889}, // P_KillMobj - custom check
 	{0x0002a3ca, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_kill_animation}, // P_KillMobj - custom check
 	{0x0002a3cf, CODE_HOOK | HOOK_UINT16, 0x3ceb}, // P_KillMobj - custom check
-	{0x0002a6d7, CODE_HOOK | HOOK_UINT32, 0x909002b2}, // P_DamageMobj
-	{0x0002a6da, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_DamageMobj
-	{0x0002a73e, CODE_HOOK | HOOK_UINT16, 0x01b2}, // P_DamageMobj
-	{0x0002a742, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_DamageMobj
+	{0x0002a6d7, CODE_HOOK | HOOK_UINT32, 0x909002b2}, // P_DamageMobj - will be replaced
+	{0x0002a6da, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_DamageMobj - will be replaced
+	{0x0002a73e, CODE_HOOK | HOOK_UINT16, 0x01b2}, // P_DamageMobj - will be replaced
+	{0x0002a742, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_DamageMobj - will be replaced
 	{0x0002af2f, CODE_HOOK | HOOK_UINT32, 0x909000b2}, // PIT_CheckThing
 	{0x0002af32, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // PIT_CheckThing
 		// TODO: PIT_ChangeSector - gibs
@@ -355,11 +360,16 @@ static hook_t hook_list[] =
 		// TODO: A_FireShotgun - player
 		// TODO: A_FireShotgun2 - player
 		// TODO: A_FireCGun - player
-	{0x00030f9b, CODE_HOOK | HOOK_UINT32, 0x909000b2}, // P_XYMovement
-	{0x00030f9e, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_XYMovement
-		// TODO: P_XYMovement - player
+	{0x00030f9b, CODE_HOOK | HOOK_UINT32, 0x909000b2}, // P_XYMovement - SKULLFLY
+	{0x00030f9e, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_XYMovement - SKULLFLY
+	{0x0003117a, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_xymovement}, // P_XYMovement - player
+	{0x00031187, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // P_XYMovement - player
+	{0x0003118c, CODE_HOOK | HOOK_UINT16, 0x17EB}, // P_XYMovement - player
 		// TODO: puff & blood
-		// TODO: P_MovePlayer
+	{0x0003324b, CODE_HOOK | HOOK_UINT32, 0x009cb880}, // P_MovePlayer
+	{0x0003324e, CODE_HOOK | HOOK_UINT32, 0x00000000}, // P_MovePlayer
+	{0x00033255, CODE_HOOK | HOOK_UINT8, 0x01}, // P_MovePlayer
+	{0x0003325a, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)P_SetMobjAnimation}, // P_MovePlayer
 	// replace every call to 'P_ExplodeMissile'
 	{0x00030f00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)P_ExplodeMissile}, // TODO
 /*******************

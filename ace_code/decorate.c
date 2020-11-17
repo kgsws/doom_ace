@@ -16,7 +16,6 @@
 //#define debug_printf	doom_printf
 
 // TODO: stuff to fix
-// P_MovePlayer - &states[S_PLAY] // p_user.c
 // A_WeaponReady - &states[S_PLAY_ATK1] // p_pspr.c
 // other weapon stuff in p_pspr.c
 // P_DamageMobj - rewrite and remove existing hooks
@@ -339,10 +338,9 @@ static hook_t hook_update_tables[] =
 	{0x0001cb7e, CODE_HOOK | HOOK_UINT32, 0}, // F_CastTicker
 	{0x0001cbaa, CODE_HOOK | HOOK_UINT32, 0}, // F_CastTicker
 	{0x0001cc1b, CODE_HOOK | HOOK_UINT32, 0}, // F_CastTicker
-	{0x0002a72f, CODE_HOOK | HOOK_UINT32, 0}, // P_DamageMobj // TODO: animation
+	{0x0002a72f, CODE_HOOK | HOOK_UINT32, 0}, // P_DamageMobj - will be replaced
 	{0x0002d062, CODE_HOOK | HOOK_UINT32, 0}, // P_SetPsprite
 	{0x00030ec0, CODE_HOOK | HOOK_UINT32, 0}, // P_SetMobjState
-	{0x0003117f, CODE_HOOK | HOOK_UINT32, 0}, // P_XYMovement // TODO: animation
 	{0x000315d9, CODE_HOOK | HOOK_UINT32, 0}, // P_SpawnMobj
 	{0x0002daf3, CODE_HOOK | HOOK_UINT32, 0x5B0}, // A_FireCGun
 	// mobjinfo
@@ -1749,6 +1747,14 @@ void decorate_init(int enabled)
 		mobjinfo[i].deathsound = old->deathsound;
 		mobjinfo[i].activesound = old->activesound;
 	}
+
+	// fix player animations for new animation system
+	// this could be done for monsters too, but it seems unnecessary
+	states[154].nextstate = MOBJ_ANIM_STATE(MOANIM_SPAWN, 0);
+	states[157].nextstate = MOBJ_ANIM_STATE(MOANIM_SPAWN, 0);
+
+	// add player melee state - this one is used with 'gun flash'
+	mobjinfo[0].meleestate = 155;
 }
 
 //

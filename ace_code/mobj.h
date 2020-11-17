@@ -5,7 +5,7 @@
 #define KEEP_SPRITE_OF_FRAME	0x7FFF
 
 // animation destination state
-#define MOBJ_ANIM_STATE(anim,offset)	((((anim)+1) << 24) | offset)
+#define MOBJ_ANIM_STATE(anim,state)	((((anim)+1) << 24) | state)
 
 // animation list
 // care, raw numbers are used in hooks

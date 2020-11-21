@@ -237,6 +237,9 @@ void map_ShootSpecialLine(mobj_t *mo, line_t *ln)
 __attribute((regparm(2),no_caller_saved_registers))
 void map_ItemPickup(mobj_t *item, mobj_t *mo)
 {
+	if(mo->health <= 0)
+		return;
+
 	if(item->type < NUMMOBJTYPES)
 	{
 		// original Doom code
@@ -246,9 +249,15 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 		if(item->thinker.function != (void*)-1)
 			// item was not removed (not picked up)
 			return;
+	} else
+	{
+		// TODO: DECORATE items
+		if(mo->player - players == *displayplayer && item->info->pickupsound)
+			S_StartSound(NULL, item->info->pickupsound);
+		// TODO: item respawn
+		mo->player->bonuscount += 6;
+		P_RemoveMobj(item);
 	}
-
-	// TODO: decorate items
 
 	if(item->special)
 	{

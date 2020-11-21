@@ -67,11 +67,12 @@ rel_arg4_end:
 	// clear .bss
 	// TODO: better code
 	xor	%eax,%eax
-	mov	$_bss_start,%ebx
-	add	%esi,%ebx
+	mov	$(_bss_start-4),%ebx
 	mov	$_size_of_bss,%ecx
+	add	%esi,%ebx
 bss_loop:
-	mov	%ax,(%ebx)
+	mov	%al,(%ebx)
+	inc	%ebx
 	dec	%ecx
 	jnz	bss_loop
 

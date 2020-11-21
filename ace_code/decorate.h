@@ -7,6 +7,7 @@ extern state_t *states;
 
 extern uint32_t decorate_playerclass_count;
 extern uint32_t decorate_weapon_count;
+extern uint32_t decorate_inventory_count;
 
 extern uint8_t *actor_names_ptr;
 extern uint32_t decorate_num_mobjinfo;

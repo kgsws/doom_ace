@@ -220,7 +220,7 @@ enum
 	am_noammo	// Unlimited for chainsaw / fist.	
 };
 
-typedef struct
+typedef struct player_s
 {
 	struct mobj_s *mo;
 	uint32_t playerstate;
@@ -309,7 +309,8 @@ typedef struct
 	uint16_t seesound;
 	uint16_t attacksound;
 	uint32_t reactiontime;
-	uint32_t __free__0;
+	uint16_t bouncesound;
+	uint16_t pickupsound;
 	uint32_t painstate;
 	uint16_t painchance;
 	uint16_t activesound;
@@ -325,7 +326,7 @@ typedef struct
 	uint32_t height;
 	uint32_t mass;
 	int32_t damage;
-	uint32_t __free__2;
+	uint32_t __free__2; // most likely flags2
 	uint32_t flags;
 	uint32_t raisestate;
 } mobjinfo_t;

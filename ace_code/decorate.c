@@ -149,7 +149,8 @@ static mobjinfo_t info_default_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.__free__0 = 0,
+	.bouncesound = 0,
+	.pickupsound = 0,
 	.painstate = 0,
 	.painchance = 0,
 	.activesound = 0,
@@ -180,7 +181,8 @@ static mobjinfo_t info_playerpawn_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.__free__0 = 0,
+	.bouncesound = 0,
+	.pickupsound = 0,
 	.painstate = 0,
 	.painchance = 255,
 	.activesound = 0,
@@ -201,6 +203,69 @@ static mobjinfo_t info_playerpawn_actor =
 	.raisestate = 0,
 };
 
+static mobjinfo_t info_doomweapon_actor =
+{
+	.doomednum = -1,
+	.spawnid = 0,
+	.spawnstate = 0,
+	.spawnhealth = 1000,
+	.seestate = 0,
+	.seesound = 0,
+	.attacksound = 0,
+	.reactiontime = 8,
+	.bouncesound = 0,
+	.pickupsound = sfx_wpnup,
+	.painstate = 0,
+	.painchance = 0,
+	.activesound = 0,
+	.painsound = 0,
+	.deathsound = 0,
+	.meleestate = 0,
+	.missilestate = 0,
+	.deathstate = 0,
+	.xdeathstate = 0,
+	.__free__1 = 0,
+	.speed = 0,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.damage = 0,
+	.__free__2 = 0,
+	.flags = MF_SPECIAL,
+	.raisestate = 0,
+};
+
+static mobjinfo_t info_inventory_actor =
+{
+	.doomednum = -1,
+	.spawnid = 0,
+	.spawnstate = 0,
+	.spawnhealth = 1000,
+	.seestate = 0,
+	.seesound = 0,
+	.attacksound = 0,
+	.reactiontime = 8,
+	.bouncesound = 0,
+	.pickupsound = sfx_itemup,
+	.painstate = 0,
+	.painchance = 0,
+	.activesound = 0,
+	.painsound = 0,
+	.deathsound = 0,
+	.meleestate = 0,
+	.missilestate = 0,
+	.deathstate = 0,
+	.xdeathstate = 0,
+	.__free__1 = 0,
+	.speed = 0,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.damage = 0,
+	.__free__2 = 0,
+	.flags = MF_SPECIAL,
+	.raisestate = 0,
+};
 
 // these are all valid actor properties
 // all names must be lowercase
@@ -298,6 +363,8 @@ static actor_parent_t actor_parent_list[] =
 {
 	{"", &info_default_actor}, // default
 	{"PlayerPawn", &info_playerpawn_actor, &decorate_playerclass_count},
+	{"DoomWeapon", &info_doomweapon_actor, &decorate_weapon_count},
+	{"FakeInventory", &info_inventory_actor, &decorate_inventory_count},
 	// terminator
 	{NULL}
 };
@@ -421,6 +488,7 @@ static state_t *state_storage;
 
 uint32_t decorate_playerclass_count;
 uint32_t decorate_weapon_count;
+uint32_t decorate_inventory_count;
 
 // extra data for codepointers
 static arg_droplist_t *droplist;
@@ -1615,6 +1683,8 @@ static void decorate_process(uint8_t *start, uint8_t *end, uint8_t* (*cb)(uint8_
 #endif
 			// find parent name
 			actor_parent = get_actor_parent(ptr, tmp);
+			if(actor_parent->count)
+				*actor_parent->count = *actor_parent->count + 1;
 
 			// skip ws
 			ptr = tp_skip_wsc(tmp, end);
@@ -1690,6 +1760,7 @@ void decorate_prepare()
 		{
 			tab->match = tab->match + ace_segment;
 			tab->template = (void*)tab->template + ace_segment;
+			tab->count = (void*)tab->count + ace_segment;
 			tab++;
 		}
 	}

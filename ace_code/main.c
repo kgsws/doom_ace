@@ -420,6 +420,9 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// use 'MF_SLIDE' flag for movement in 'P_XYMovement'
+	{0x0003104e, CODE_HOOK | HOOK_UINT32, 0x206941f6},
+	{0x00031052, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// disable saw sounds
 	{0x0002d319, CODE_HOOK | HOOK_UINT16, 0x18EB}, // A_WeaponReady
 	{0x0002d131, CODE_HOOK | HOOK_UINT16, 0x10EB}, // P_BringUpWeapon

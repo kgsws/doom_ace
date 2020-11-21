@@ -495,7 +495,7 @@ typedef struct subsector_s
 #define MF_DROPOFF	0x400
 #define MF_PICKUP	0x800
 #define MF_NOCLIP	0x1000
-#define MF_SLIDE	0x2000
+#define MF_SLIDE	0x2000	// used in hook
 #define MF_FLOAT	0x4000
 #define MF_TELEPORT	0x8000
 #define MF_MISSILE	0x10000

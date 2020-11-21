@@ -102,6 +102,13 @@ typedef struct
 	uint32_t extra;
 } actor_animation_t;
 
+typedef struct
+{
+	uint8_t *match;
+	mobjinfo_t *template;
+	uint32_t *count;
+} actor_parent_t;
+
 typedef struct code_ptr_s
 {
 	uint8_t *match;
@@ -162,6 +169,38 @@ static mobjinfo_t info_default_actor =
 	.flags = 0,
 	.raisestate = 0,
 };
+
+static mobjinfo_t info_playerpawn_actor =
+{
+	.doomednum = -1,
+	.spawnid = 0,
+	.spawnstate = 0,
+	.spawnhealth = 100,
+	.seestate = 0,
+	.seesound = 0,
+	.attacksound = 0,
+	.reactiontime = 8,
+	.__free__0 = 0,
+	.painstate = 0,
+	.painchance = 255,
+	.activesound = 0,
+	.painsound = sfx_plpain,
+	.deathsound = 0,
+	.meleestate = 0,
+	.missilestate = 0,
+	.deathstate = 0,
+	.xdeathstate = 0,
+	.__free__1 = 0,
+	.speed = 1 << FRACBITS,
+	.radius = 16 << FRACBITS,
+	.height = 56 << FRACBITS,
+	.mass = 100,
+	.damage = 0,
+	.__free__2 = 0,
+	.flags = MF_SOLID | MF_SHOOTABLE | MF_DROPOFF | MF_PICKUP | MF_NOTDMATCH | MF_SLIDE, // FRIENDLY, TELESTOMP
+	.raisestate = 0,
+};
+
 
 // these are all valid actor properties
 // all names must be lowercase
@@ -250,6 +289,15 @@ static actor_animation_t actor_anim_list[] =
 	{"death", 0},
 	{"xdeath", 0},
 	{"raise", 0},
+	// terminator
+	{NULL}
+};
+
+// these are only supported parent classes
+static actor_parent_t actor_parent_list[] =
+{
+	{"", &info_default_actor}, // default
+	{"PlayerPawn", &info_playerpawn_actor, &decorate_playerclass_count},
 	// terminator
 	{NULL}
 };
@@ -364,13 +412,15 @@ void *func_extra_data;
 static uint32_t decorate_state_idx;
 static uint8_t *actor_name;
 static uint32_t actor_name_len;
-static uint8_t *actor_parent;
-static uint32_t actor_parent_len;
+static actor_parent_t *actor_parent;
 static uint32_t actor_ednum;
 static uint32_t actor_first_state;
 static uint32_t state_storage_free;
 static void *state_storage_ptr;
 static state_t *state_storage;
+
+uint32_t decorate_playerclass_count;
+uint32_t decorate_weapon_count;
 
 // extra data for codepointers
 static arg_droplist_t *droplist;
@@ -390,7 +440,6 @@ static uint32_t custom_state_idx;
 // find actor by name
 int32_t decorate_get_actor(uint8_t *name)
 {
-	// TODO: include built-in names
 	uint32_t idx = 0;
 	uint8_t *match = storage_drawsegs;
 
@@ -420,6 +469,39 @@ int32_t decorate_get_actor(uint8_t *name)
 	}
 
 	return -1;
+}
+
+// find actor parent
+actor_parent_t *get_actor_parent(uint8_t *name, uint8_t *end)
+{
+	actor_parent_t *list = actor_parent_list;
+
+	while(list->match)
+	{
+		uint8_t *ptr = name;
+		uint8_t *match = list->match;
+
+		while(1)
+		{
+			if(*match != *ptr)
+				break;
+			ptr++;
+			match++;
+			if(ptr == end)
+			{
+				if(!*match)
+					return list;
+				else
+					break;
+			}
+		}
+		list++;
+	}
+
+	// not found
+	*end = 0;
+	actor_name[actor_name_len] = 0;
+	I_Error("[ACE] DECORATE: actor '%s' unsupported parent class '%s'", actor_name, name);
 }
 
 // relocate code pointer list
@@ -893,8 +975,8 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 
 	// get actor mobjinfo
 	info = decorate_new_actor();
-	// TODO: get default by parent
-	*info = info_default_actor;
+	// use default by parent
+	*info = *actor_parent->template;
 	// set ednum
 	info->doomednum = actor_ednum;
 
@@ -1531,15 +1613,15 @@ static void decorate_process(uint8_t *start, uint8_t *end, uint8_t* (*cb)(uint8_
 			debug_printf("with parent '%s' ", ptr);
 			*tmp = backup;
 #endif
-			// TODO: check supported parent names
-			actor_parent = ptr;
-			actor_parent_len = tmp - ptr;
+			// find parent name
+			actor_parent = get_actor_parent(ptr, tmp);
 
 			// skip ws
 			ptr = tp_skip_wsc(tmp, end);
 			if(ptr == end)
 				goto end_eof;
-		}
+		} else
+			actor_parent = actor_parent_list;
 
 		// default 'doomednum'
 		actor_ednum = 0xFFFFFFFF;
@@ -1600,6 +1682,17 @@ void decorate_prepare()
 	// setup original doom actor names
 	memcpy(storage_drawsegs, doom_actor_names, sizeof(doom_actor_names)-1);
 	actor_names_ptr = storage_drawsegs + (sizeof(doom_actor_names)-1);
+
+	// relocate early tables
+	{
+		actor_parent_t *tab = actor_parent_list;
+		while(tab->match)
+		{
+			tab->match = tab->match + ace_segment;
+			tab->template = (void*)tab->template + ace_segment;
+			tab++;
+		}
+	}
 }
 
 // few required things
@@ -1722,6 +1815,7 @@ void decorate_init(int enabled)
 
 	// fix all mobjtypes
 
+	mobjinfo[0].flags |= MF_SLIDE; // player
 	mobjinfo[18].flags |= MF_ISMONSTER; // lost soul
 	mobjinfo[19].flags |= MF_BOSS; // big spider
 	mobjinfo[21].flags |= MF_BOSS; // cyberdemon

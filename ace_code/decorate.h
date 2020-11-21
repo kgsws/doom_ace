@@ -5,6 +5,9 @@ extern weaponinfo_t *weaponinfo;
 extern mobjinfo_t *mobjinfo;
 extern state_t *states;
 
+extern uint32_t decorate_playerclass_count;
+extern uint32_t decorate_weapon_count;
+
 extern uint8_t *actor_names_ptr;
 extern uint32_t decorate_num_mobjinfo;
 extern uint32_t decorate_mobjinfo_idx;

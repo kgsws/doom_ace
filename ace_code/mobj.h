@@ -32,8 +32,11 @@ void P_SetMobjAnimation(mobj_t *mo, uint8_t anim) __attribute((regparm(2),no_cal
 
 void P_ExplodeMissile(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
+void set_player_viewheight(fixed_t wh) __attribute((regparm(2),no_caller_saved_registers));
+
 // hooks
 void mobj_kill_animation(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void mobj_spawn_init(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // state changes in codeptr
 // could even be new animation code

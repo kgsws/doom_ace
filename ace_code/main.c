@@ -420,6 +420,9 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// support for 'MF2_TELESTOMP' in 'PIT_StompThing'
+	{0x0002abc7, CODE_HOOK | HOOK_UINT32, 0x00a483f6},
+	{0x0002abcb, CODE_HOOK | HOOK_UINT32, 0x75020000},
 	// use 'MF_SLIDE' flag for movement in 'P_XYMovement'
 	{0x0003104e, CODE_HOOK | HOOK_UINT32, 0x206941f6},
 	{0x00031052, CODE_HOOK | HOOK_SET_NOPS, 3},
@@ -450,9 +453,10 @@ static hook_t hook_list[] =
 	{0x0002a6be, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_painchance}, // P_DamageMobj
 	// disable sfx_id check in 'S_StartSoundAtVolume', patch uint16_t sfx_id
 	{0x0003f13e, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_start_sound},
-	// change mobj_t size - add extra space for new stuff
+	// change mobj_t - add extra space for new stuff in 'P_SpawnMobj'
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for Z_Malloc
-	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)}, // for memset
+	{0x00031569, CODE_HOOK | HOOK_UINT16, 0xEA89}, // intialization
+	{0x0003156e, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)mobj_spawn_init}, // intialization
 	// allow textures > 64k
 	{0x00033f07, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 	// disable "drawseg overflow" error in 'R_DrawPlanes'

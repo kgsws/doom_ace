@@ -219,13 +219,6 @@ void render_spriteColormap(mobj_t *mo, vissprite_t *vis)
 		return;
 	}
 
-	if(mo->new_flags & MFN_COLORHACK)
-	{
-		// color hack for demo
-		vis->colormap = *colormaps + (1 + 32 * 10) * 256;
-		return;
-	}
-
 	if(*fixedcolormap)
 	{
 		vis->colormap = *fixedcolormap;

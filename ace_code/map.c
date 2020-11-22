@@ -516,7 +516,7 @@ void map_LoadThings(int lump)
 		if(mt->flags & MTF_INACTIVE)
 		{
 			// TODO
-			mo->new_flags |= MFN_INACTIVE;
+			mo->flags2 |= MF2_INACTIVE;
 			if(mo->flags & MF_SHOOTABLE)
 			{
 				mo->flags |= MF_NOBLOOD; // this is a hack to disable blood
@@ -529,10 +529,6 @@ void map_LoadThings(int lump)
 			if(mo->tics > 0)
 				mo->tics = 1 + (P_Random() % mo->tics);
 		}
-
-		// color hack for demo
-		if(mt->flags & MTF_STANDSTILL)
-			mo->new_flags |= MFN_COLORHACK;
 
 		// place special & flags
 		mo->special = mt->special;
@@ -959,7 +955,7 @@ void activate_special(line_t *ln, mobj_t *mo, int side)
 					if(tt->tid != ln->tag)
 						continue;
 
-					if(!(tt->new_flags & MFN_INACTIVE))
+					if(!(tt->flags2 & MF2_INACTIVE))
 						continue;
 
 					if(tt->flags & MF_SHOOTABLE)

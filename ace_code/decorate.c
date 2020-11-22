@@ -160,13 +160,13 @@ static mobjinfo_t info_default_actor =
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.__free__1 = 0,
+	.extra = 0xFFFFFFFF,
 	.speed = 0,
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
 	.damage = 0,
-	.__free__2 = 0,
+	.flags2 = 0,
 	.flags = 0,
 	.raisestate = 0,
 };
@@ -192,14 +192,14 @@ static mobjinfo_t info_playerpawn_actor =
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.__free__1 = 0,
+	.extra = 0xFFFFFFFF,
 	.speed = 1 << FRACBITS,
 	.radius = 16 << FRACBITS,
 	.height = 56 << FRACBITS,
 	.mass = 100,
 	.damage = 0,
-	.__free__2 = 0,
-	.flags = MF_SOLID | MF_SHOOTABLE | MF_DROPOFF | MF_PICKUP | MF_NOTDMATCH | MF_SLIDE, // FRIENDLY, TELESTOMP
+	.flags2 = MF2_TELESTOMP, // FRIENDLY
+	.flags = MF_SOLID | MF_SHOOTABLE | MF_DROPOFF | MF_PICKUP | MF_NOTDMATCH | MF_SLIDE,
 	.raisestate = 0,
 };
 
@@ -224,13 +224,13 @@ static mobjinfo_t info_doomweapon_actor =
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.__free__1 = 0,
+	.extra = 0xFFFFFFFF,
 	.speed = 0,
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
 	.damage = 0,
-	.__free__2 = 0,
+	.flags2 = 0,
 	.flags = MF_SPECIAL,
 	.raisestate = 0,
 };
@@ -256,13 +256,13 @@ static mobjinfo_t info_inventory_actor =
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.__free__1 = 0,
+	.extra = 0xFFFFFFFF,
 	.speed = 0,
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
 	.damage = 0,
-	.__free__2 = 0,
+	.flags2 = 0,
 	.flags = MF_SPECIAL,
 	.raisestate = 0,
 };
@@ -306,7 +306,7 @@ static actor_property_t actor_prop_list[] =
 // all names must be lowercase
 static actor_flag_t actor_flag_list[] =
 {
-	// supported flags
+	// flags
 	{"special", MF_SPECIAL},
 	{"solid", MF_SOLID},
 	{"shootable", MF_SHOOTABLE},
@@ -336,8 +336,13 @@ static actor_flag_t actor_flag_list[] =
 	{"ismonster", MF_ISMONSTER},
 	{"boss", MF_BOSS},
 	{"seekermissile", MF_SEEKERMISSILE},
-	// ignored flags
+	{"randomize", MF_RANDOMIZE},
+	{"notarget", MF_NOTARGET},
+	// ignored flags - bust be before flags2
 	{"floorclip", 0},
+	// flags2
+	{"dormant", MF2_INACTIVE},
+	{"telestomp", MF2_TELESTOMP},
 	// terminator
 	{NULL}
 };
@@ -1083,6 +1088,7 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 		// check for flags
 		if(*ptr == '+' || *ptr == '-')
 		{
+			uint32_t *fdst = &info->flags;
 			register uint8_t mode = *ptr++;
 			if(ptr == end)
 				goto end_eof;
@@ -1092,6 +1098,8 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 			{
 				if(tp_ncompare_skip(ptr, end, flag->match))
 					break;
+				if(!flag->flags) // this is a marker to switch to flags2
+					fdst = &info->flags2;
 				flag++;
 				if(!flag->match)
 				{
@@ -1102,9 +1110,9 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 			}
 
 			if(mode == '+')
-				info->flags |= flag->flags;
+				*fdst |= flag->flags;
 			else
-				info->flags &= ~flag->flags;
+				*fdst &= ~flag->flags;
 
 			ptr = tmp;
 #ifdef debug_printf
@@ -1911,7 +1919,12 @@ void decorate_init(int enabled)
 		mobjinfo[i].attacksound = old->attacksound;
 		mobjinfo[i].deathsound = old->deathsound;
 		mobjinfo[i].activesound = old->activesound;
+		// clear new stuff
+		mobjinfo[i].flags2 = 0;
 	}
+
+	// extra flags
+	mobjinfo[0].flags2 = MF2_TELESTOMP; // player
 
 	// fix player animations for new animation system
 	// this could be done for monsters too, but it seems unnecessary

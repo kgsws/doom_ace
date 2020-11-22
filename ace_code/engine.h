@@ -221,7 +221,7 @@ enum
 };
 
 typedef struct player_s
-{
+{ // modified
 	struct mobj_s *mo;
 	uint32_t playerstate;
 	ticcmd_t cmd;
@@ -235,7 +235,10 @@ typedef struct player_s
 	int powers[NUMPOWERS];
 	uint32_t cards[NUMCARDS];
 	uint32_t backpack;
-	int frags[MAXPLAYERS];
+	uint32_t __free_0;
+	uint32_t __free_1;
+	uint32_t __free_2;
+	uint32_t __free_3;
 	uint32_t readyweapon;
 	uint32_t pendingweapon;
 	uint32_t weaponowned[NUMWEAPONS];
@@ -320,13 +323,13 @@ typedef struct
 	uint32_t missilestate;
 	uint32_t deathstate;
 	uint32_t xdeathstate;
-	uint32_t __free__1;
+	uint32_t extra;
 	int32_t speed;
 	uint32_t radius;
 	uint32_t height;
 	uint32_t mass;
 	int32_t damage;
-	uint32_t __free__2; // most likely flags2
+	uint32_t flags2;
 	uint32_t flags;
 	uint32_t raisestate;
 } mobjinfo_t;
@@ -518,8 +521,9 @@ typedef struct subsector_s
 #define MF_NOTARGET	0x80000000	// TODO: replace MT_VILE check in P_DamageMobj
 
 // new flags
-#define	MFN_INACTIVE	0x01
-#define MFN_COLORHACK	0x02 // just testing
+#define	MF2_INACTIVE	0x00000001
+#define MF2_TELESTOMP	0x00000002	// used in hooks!
+
 
 typedef struct
 {	// [kg] fun stuff
@@ -596,9 +600,9 @@ typedef struct mobj_s
 		};
 		uint32_t args;
 	};
+	uint32_t flags2;
 	void *translation;
-	uint32_t new_flags;
-} __attribute__((packed)) mobj_t;
+} __attribute__((packed)) mobj_t; // must be divisible by 4
 
 //
 // render

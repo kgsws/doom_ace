@@ -1,9 +1,21 @@
 // kgsws' Doom ACE
 // MOBJ stuff.
 #include "engine.h"
+#include "utils.h"
 #include "defs.h"
 #include "mobj.h"
 #include "decorate.h"
+
+// custom viewheight for player classes
+static hook_t hook_list_viewheight[] =
+{
+	{0x00031227, CODE_HOOK | HOOK_UINT32},
+	{0x00033088, CODE_HOOK | HOOK_UINT32},
+	{0x000330ee, CODE_HOOK | HOOK_UINT32},
+	{0x000330f7, CODE_HOOK | HOOK_UINT32},
+	{0x00033101, CODE_HOOK | HOOK_UINT32},
+	{0x0003310d, CODE_HOOK | HOOK_UINT32},
+};
 
 // animation state offsets in mobjinfo_t
 static uint32_t anim_state_base[] =
@@ -124,8 +136,19 @@ void P_ExplodeMissile(mobj_t *mo)
 		S_StartSound(mo, mo->info->deathsound);
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+void set_player_viewheight(fixed_t wh)
+{
+	uint32_t i;
+	for(i = 0; i < 4; i++)
+		hook_list_viewheight[i].value = wh;
+	for(; i < 6; i++)
+		hook_list_viewheight[i].value = wh / 2;
+	utils_install_hooks(hook_list_viewheight);
+}
+
 //
-// changes
+// hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
 void mobj_kill_animation(mobj_t *mo)
@@ -143,5 +166,21 @@ void mobj_kill_animation(mobj_t *mo)
 		if(mo->tics <= 0)
 			mo->tics = 1;
 	}
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void mobj_spawn_init(mobj_t *mo, uint32_t type)
+{
+	// clear memory
+	{
+		uint32_t count = sizeof(mobj_t) / sizeof(uint32_t);
+		uint32_t *ptr = (uint32_t*)mo;
+		do
+		{
+			*ptr++ = 0;
+		} while(--count);
+	}
+	// copy new values
+	mo->flags2 = mobjinfo[type].flags2;
 }
 

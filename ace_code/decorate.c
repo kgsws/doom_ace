@@ -22,6 +22,11 @@
 // P_KillMobj - merge into new P_DamageMobj and remove existing hooks
 // special sprite "####" "#" and frame
 
+#define ATTR_MASK_DEFAULT	0x0001
+#define ATTR_MASK_INVENTORY	0x0002
+#define ATTR_MASK_WEAPON	0x0004
+#define ATTR_MASK_PLAYECLASS	0x0008
+
 typedef struct
 {
 	uint32_t sprite;
@@ -86,8 +91,9 @@ typedef struct
 {
 	uint8_t *match;
 	uint8_t type;
+	uint8_t attr_mask;
 	uint8_t flags;
-	uint32_t offset; // in mobjinfo_t structure
+	uint32_t offset;
 } actor_property_t;
 
 typedef struct
@@ -105,8 +111,10 @@ typedef struct
 typedef struct
 {
 	uint8_t *match;
-	mobjinfo_t *template;
 	uint32_t *count;
+	mobjinfo_t *template;
+	void *extra_template;
+	uint8_t attr_mask;
 } actor_parent_t;
 
 typedef struct code_ptr_s
@@ -150,7 +158,7 @@ static mobjinfo_t info_default_actor =
 	.attacksound = 0,
 	.reactiontime = 8,
 	.bouncesound = 0,
-	.pickupsound = 0,
+	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 0,
 	.activesound = 0,
@@ -160,7 +168,7 @@ static mobjinfo_t info_default_actor =
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.extra = 0xFFFFFFFF,
+	.extra = NULL,
 	.speed = 0,
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
@@ -182,7 +190,7 @@ static mobjinfo_t info_playerpawn_actor =
 	.attacksound = 0,
 	.reactiontime = 8,
 	.bouncesound = 0,
-	.pickupsound = 0,
+	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 255,
 	.activesound = 0,
@@ -192,7 +200,7 @@ static mobjinfo_t info_playerpawn_actor =
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.extra = 0xFFFFFFFF,
+	.extra = NULL,
 	.speed = 1 << FRACBITS,
 	.radius = 16 << FRACBITS,
 	.height = 56 << FRACBITS,
@@ -214,7 +222,7 @@ static mobjinfo_t info_doomweapon_actor =
 	.attacksound = 0,
 	.reactiontime = 8,
 	.bouncesound = 0,
-	.pickupsound = sfx_wpnup,
+	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 0,
 	.activesound = 0,
@@ -224,7 +232,7 @@ static mobjinfo_t info_doomweapon_actor =
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.extra = 0xFFFFFFFF,
+	.extra = NULL,
 	.speed = 0,
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
@@ -246,7 +254,7 @@ static mobjinfo_t info_inventory_actor =
 	.attacksound = 0,
 	.reactiontime = 8,
 	.bouncesound = 0,
-	.pickupsound = sfx_itemup,
+	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 0,
 	.activesound = 0,
@@ -256,7 +264,7 @@ static mobjinfo_t info_inventory_actor =
 	.missilestate = 0,
 	.deathstate = 0,
 	.xdeathstate = 0,
-	.extra = 0xFFFFFFFF,
+	.extra = NULL,
 	.speed = 0,
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
@@ -267,37 +275,54 @@ static mobjinfo_t info_inventory_actor =
 	.raisestate = 0,
 };
 
+//
+// default extra info
+static dextra_inventory_t extra_fakeinv =
+{
+	.type = DECORATE_EXTRA_INVENTORY,
+	.maxcount = 0,
+	.itemcount = 0,
+	.pickupsound = sfx_itemup,
+	.usesound = 0,
+	.state = 0,
+	.message = NULL
+};
+
 // these are all valid actor properties
 // all names must be lowercase
 static actor_property_t actor_prop_list[] =
 {
 	//
-	{"spawnid", PROPTYPE_INT16, 0, offsetof(mobjinfo_t, spawnid)}, // default 0
+	{"spawnid", PROPTYPE_INT16, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, spawnid)},
 	//
-	{"health", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, spawnhealth)}, // default 1000
-	{"reactiontime", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, reactiontime)}, // default 8
-	{"painchance", PROPTYPE_INT16, 0, offsetof(mobjinfo_t, painchance)}, // default 0
-	{"damage", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, damage)}, // default 0
-	{"speed", PROPTYPE_FIXED, 0, offsetof(mobjinfo_t, speed)}, // default 0
+	{"health", PROPTYPE_INT32, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, spawnhealth)},
+	{"reactiontime", PROPTYPE_INT32, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, reactiontime)},
+	{"painchance", PROPTYPE_INT16, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, painchance)},
+	{"damage", PROPTYPE_INT32, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, damage)},
+	{"speed", PROPTYPE_FIXED, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, speed)},
 	//
-	{"radius", PROPTYPE_FIXED, 0, offsetof(mobjinfo_t, radius)}, // default 20
-	{"height", PROPTYPE_FIXED, 0, offsetof(mobjinfo_t, height)}, // default 16
-	{"mass", PROPTYPE_INT32, 0, offsetof(mobjinfo_t, mass)}, // default 100
+	{"radius", PROPTYPE_FIXED, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, radius)},
+	{"height", PROPTYPE_FIXED, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, height)},
+	{"mass", PROPTYPE_INT32, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, mass)},
 	//
-	{"activesound", PROPTYPE_SOUND, 0, offsetof(mobjinfo_t, activesound)},
-	{"attacksound", PROPTYPE_SOUND, 0, offsetof(mobjinfo_t, attacksound)},
-	{"deathsound", PROPTYPE_SOUND, 0, offsetof(mobjinfo_t, deathsound)},
-	{"painsound", PROPTYPE_SOUND, 0, offsetof(mobjinfo_t, painsound)},
-	{"seesound", PROPTYPE_SOUND, 0, offsetof(mobjinfo_t, seesound)},
+	{"activesound", PROPTYPE_SOUND, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, activesound)},
+	{"attacksound", PROPTYPE_SOUND, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, attacksound)},
+	{"deathsound", PROPTYPE_SOUND, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, deathsound)},
+	{"painsound", PROPTYPE_SOUND, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, painsound)},
+	{"seesound", PROPTYPE_SOUND, ATTR_MASK_DEFAULT, 0, offsetof(mobjinfo_t, seesound)},
 	//
-	{"monster", PROPTYPE_FLAGCOMBO, 0, MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID | MF_ISMONSTER},
-	{"projectile", PROPTYPE_FLAGCOMBO, 0, MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE | MF_NOTELEPORT},
-	{"states", PROPTYPE_STATES, 0, 0},
+	{"monster", PROPTYPE_FLAGCOMBO, ATTR_MASK_DEFAULT, 0, MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID | MF_ISMONSTER},
+	{"projectile", PROPTYPE_FLAGCOMBO, ATTR_MASK_DEFAULT, 0, MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE | MF_NOTELEPORT},
+	{"states", PROPTYPE_STATES, ATTR_MASK_DEFAULT, 0, 0},
 	//
-	{"obituary", PROPTYPE_STRING, PROPFLAG_IGNORED, 0},
-	{"hitobituary", PROPTYPE_STRING, PROPFLAG_IGNORED, 0},
+	{"obituary", PROPTYPE_STRING, ATTR_MASK_DEFAULT, PROPFLAG_IGNORED, 0},
+	{"hitobituary", PROPTYPE_STRING, ATTR_MASK_DEFAULT, PROPFLAG_IGNORED, 0},
 	//
-	{"dropitem", PROPTYPE_DROPLIST, 0, 0},
+	{"dropitem", PROPTYPE_DROPLIST, ATTR_MASK_DEFAULT, 0, 0},
+	//
+	{"inventory.pickupsound", PROPTYPE_SOUND, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, pickupsound)},
+	{"inventory.usesound", PROPTYPE_SOUND, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, usesound)},
+	{"inventory.pickupmessage", PROPTYPE_STRING, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, message)},
 	// terminator
 	{NULL}
 };
@@ -340,6 +365,7 @@ static actor_flag_t actor_flag_list[] =
 	{"notarget", MF_NOTARGET},
 	// ignored flags - bust be before flags2
 	{"floorclip", 0},
+	{"noskin", 0},
 	// flags2
 	{"dormant", MF2_INACTIVE},
 	{"telestomp", MF2_TELESTOMP},
@@ -366,10 +392,10 @@ static actor_animation_t actor_anim_list[] =
 // these are only supported parent classes
 static actor_parent_t actor_parent_list[] =
 {
-	{"", &info_default_actor}, // default
-	{"PlayerPawn", &info_playerpawn_actor, &decorate_playerclass_count},
-	{"DoomWeapon", &info_doomweapon_actor, &decorate_weapon_count},
-	{"FakeInventory", &info_inventory_actor, &decorate_inventory_count},
+	{"", NULL, &info_default_actor, NULL, ATTR_MASK_DEFAULT}, // default
+	{"PlayerPawn", &decorate_playerclass_count, &info_playerpawn_actor, NULL, ATTR_MASK_DEFAULT | ATTR_MASK_PLAYECLASS},
+	{"DoomWeapon", &decorate_weapon_count, &info_doomweapon_actor, NULL, ATTR_MASK_DEFAULT | ATTR_MASK_WEAPON},
+	{"FakeInventory", &decorate_inventory_count, &info_inventory_actor, &extra_fakeinv, ATTR_MASK_DEFAULT | ATTR_MASK_INVENTORY},
 	// terminator
 	{NULL}
 };
@@ -498,6 +524,15 @@ uint32_t decorate_inventory_count;
 // extra data for codepointers
 static arg_droplist_t *droplist;
 static uint32_t *droplist_next;
+
+// extra data for mobjinfo
+static void *extra_info_memory[DECORATE_NUM_EXTRA];
+static uint32_t extra_info_size[DECORATE_NUM_EXTRA] =
+{
+	sizeof(dextra_inventory_t),
+	4, // TODO
+	4, // TODO
+};
 
 #define MAX_SPRITES	(STORAGE_ZLIGHT/4)
 uint32_t decorate_num_sprites;
@@ -1050,6 +1085,14 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 	info = decorate_new_actor();
 	// use default by parent
 	*info = *actor_parent->template;
+	// use extra info
+	if(actor_parent->extra_template)
+	{
+		uint16_t type = *((uint16_t*)actor_parent->extra_template);
+		uint32_t idx = *actor_parent->count - 1;
+		info->extra = extra_info_memory[type] + idx * extra_info_size[type];
+		memcpy(info->extra, actor_parent->extra_template, extra_info_size[type]);
+	}
 	// set ednum
 	info->doomednum = actor_ednum;
 
@@ -1120,11 +1163,13 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 #endif
 		} else
 		{
+			void *prop_base;
+
 			// find this property
 			actor_property_t *prop = actor_prop_list;
 			while(1)
 			{
-				if(tp_ncompare_skip(ptr, end, prop->match))
+				if(prop->attr_mask & actor_parent->attr_mask && tp_ncompare_skip(ptr, end, prop->match))
 					break;
 				prop++;
 				if(!prop->match)
@@ -1134,6 +1179,12 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 					I_Error("[ACE] DECORATE: actor '%s' unknown property '%s'", actor_name, ptr);
 				}
 			}
+
+			// get base pointer
+			if(prop->attr_mask != ATTR_MASK_DEFAULT)
+				prop_base = info->extra;
+			else
+				prop_base = info;
 
 			// skip WS
 			ptr = tp_skip_wsc(tmp, end);
@@ -1173,13 +1224,13 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 				switch(prop->type)
 				{
 					case PROPTYPE_INT32:
-						*((uint32_t*)(((void*)info) + prop->offset)) = val;
+						*((uint32_t*)(prop_base + prop->offset)) = val;
 					break;
 					case PROPTYPE_INT16:
-						*((uint16_t*)(((void*)info) + prop->offset)) = val;
+						*((uint16_t*)(prop_base + prop->offset)) = val;
 					break;
 					case PROPTYPE_INT8:
-						*((uint8_t*)(((void*)info) + prop->offset)) = val;
+						*((uint8_t*)(prop_base + prop->offset)) = val;
 					break;
 				}
 #ifdef debug_printf
@@ -1200,7 +1251,7 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 					I_Error("[ACE] DECORATE: actor '%s' invalid number for property '%s'", actor_name, prop->match);
 				}
 
-				*((fixed_t*)(((void*)info) + prop->offset)) = val;
+				*((fixed_t*)(prop_base + prop->offset)) = val;
 #ifdef debug_printf
 				debug_printf("%d. (fixed_t)\n", val >> FRACBITS);
 #endif
@@ -1600,7 +1651,20 @@ bad_states:
 					{
 						case PROPTYPE_SOUND:
 							// sound in sndtab
-							*((uint16_t*)(((void*)info) + prop->offset)) = sound_get_id(tp_clean_string(ptr));
+							*((uint16_t*)(prop_base + prop->offset)) = sound_get_id(tp_clean_string(ptr));
+						break;
+						case PROPTYPE_STRING:
+							// string that has to be allocated
+							tp_clean_string(ptr);
+							if(tp_string_len)
+							{
+								uint8_t *aloc = decorate_get_storage(tp_string_len + 1);
+								*((uint8_t**)(prop_base + prop->offset)) = aloc;
+								memcpy(aloc, ptr, tp_string_len);
+								aloc[tp_string_len] = 0;
+							} else
+								// empty
+								*((uint32_t*)(prop_base + prop->offset)) = 0;
 						break;
 					}
 				}
@@ -1746,11 +1810,17 @@ end_ok:
 
 void decorate_count_actors(uint8_t *start, uint8_t *end)
 {
+	decorate_playerclass_count = 0;
+	decorate_weapon_count = 0;
+	decorate_inventory_count = 0;
 	decorate_process(start, end, decparse_count);
 }
 
 void decorate_parse(uint8_t *start, uint8_t *end)
 {
+	decorate_playerclass_count = 0;
+	decorate_weapon_count = 0;
+	decorate_inventory_count = 0;
 	decorate_process(start, end, decparse_full);
 }
 
@@ -1767,8 +1837,10 @@ void decorate_prepare()
 		while(tab->match)
 		{
 			tab->match = tab->match + ace_segment;
-			tab->template = (void*)tab->template + ace_segment;
 			tab->count = (void*)tab->count + ace_segment;
+			tab->template = (void*)tab->template + ace_segment;
+			if(tab->extra_template)
+				tab->extra_template = tab->extra_template + ace_segment;
 			tab++;
 		}
 	}
@@ -1801,6 +1873,20 @@ void decorate_init(int enabled)
 		state_t *st;
 		old_state_t *os;
 		uint32_t count;
+
+		{
+			actor_parent_t *tab = actor_parent_list;
+			while(tab->match)
+			{
+				if(tab->extra_template)
+				{
+					uint32_t slot = *((uint16_t*)tab->extra_template); // .type
+					if(!extra_info_memory[slot])
+						extra_info_memory[slot] = Z_Malloc(*tab->count * extra_info_size[slot], PU_STATIC, NULL);
+				}
+				tab++;
+			}
+		}
 
 		weaponinfo = e_weaponinfo; // TODO
 		mobjinfo = Z_Malloc(decorate_num_mobjinfo * sizeof(mobjinfo_t), PU_STATIC, NULL);
@@ -1933,6 +2019,12 @@ void decorate_init(int enabled)
 
 	// add player melee state - this one is used with 'gun flash'
 	mobjinfo[0].meleestate = 155;
+}
+
+//
+// this is only used for custom player classes
+void decorate_keyconf(uint8_t *start, uint8_t *end)
+{
 }
 
 //

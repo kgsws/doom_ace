@@ -250,13 +250,26 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 			// item was not removed (not picked up)
 			return;
 	} else
+	if(item->info->extra && *((uint16_t*)item->info->extra) == DECORATE_EXTRA_INVENTORY)
 	{
+		dextra_inventory_t *inv = item->info->extra;
 		// TODO: DECORATE items
-		if(mo->player - players == *displayplayer && item->info->pickupsound)
-			S_StartSound(NULL, item->info->pickupsound);
+
+		// pickup sound
+		if(mo->player - players == *displayplayer && inv->pickupsound)
+			S_StartSound(NULL, inv->pickupsound);
+		// pickup message
+		if(inv->message)
+			mo->player->message = inv->message;
+
 		// TODO: item respawn
 		mo->player->bonuscount += 6;
 		P_RemoveMobj(item);
+	} else
+	{
+		// this is wrong
+		item->flags &= ~MF_SPECIAL;
+		return;
 	}
 
 	if(item->special)

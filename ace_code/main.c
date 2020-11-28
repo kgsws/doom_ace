@@ -143,11 +143,6 @@ static uint8_t patch_spawnplayermissile_sound[] =
 	13,
 	0x0f, 0xb7, 0x43, 0x10, 0x85, 0xc0, 0x74, 0x0a, 0x92, 0x90, 0x90, 0x90, 0x90
 };
-static uint8_t patch_explodemissile_sound[] =
-{
-	11,
-	0x0f, 0xb7, 0x50, 0x26, 0x85, 0xd2, 0x74, 0x08, 0x89, 0xd8, 0x90
-};
 static uint8_t patch_a_pain_sound[] =
 {
 	9,
@@ -371,7 +366,7 @@ static hook_t hook_list[] =
 	{0x00033255, CODE_HOOK | HOOK_UINT8, 0x01}, // P_MovePlayer
 	{0x0003325a, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)P_SetMobjAnimation}, // P_MovePlayer
 	// replace every call to 'P_ExplodeMissile'
-	{0x00030f00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)P_ExplodeMissile}, // TODO
+	{0x00030f00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)P_ExplodeMissile}, // TODO: collisions, bounce
 /*******************
 	render.c
 *******************/
@@ -441,7 +436,6 @@ static hook_t hook_list[] =
 	{0x00027888, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_a_chase_attacksound}, // A_Chase
 	{0x00031c83, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_spawnmissile_sound}, // P_SpawnMissile
 	{0x00031dd3, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_spawnplayermissile_sound}, // P_SpawnPlayerMissile
-	{0x00030f4a, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_explodemissile_sound}, // P_ExplodeMissile
 	{0x000288a5, CODE_HOOK | HOOK_BUF8_ACE, (uint32_t)patch_a_pain_sound}, // A_Pain
 	{0x0002882b, CODE_HOOK | HOOK_MOVE_OFFSET, HOOK_MOVE_VAL(0x49,1)}, // A_Scream
 	{0x00028828, CODE_HOOK | HOOK_UINT32, 0x2652b70f},  // A_Scream
@@ -1416,6 +1410,14 @@ void do_loader()
 				W_ReadLump(lmp, storage_visplanes);
 				decorate_parse(storage_visplanes, storage_visplanes + lumpinfo[lmp].size);
 			}
+		}
+
+		// KEYCONF for new playerclasses
+		tmp = W_CheckNumForName("KEYCONF");
+		if(tmp != 0xFFFFFFFF)
+		{
+			W_ReadLump(tmp, storage_visplanes);
+			decorate_keyconf(storage_visplanes, storage_visplanes + lumpinfo[tmp].size);
 		}
 	} else
 		decorate_init(0);

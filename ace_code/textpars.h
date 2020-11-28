@@ -4,6 +4,7 @@
 extern int tp_nl_is_ws;
 extern int tp_kw_is_func;
 extern uint8_t *tp_func_name_end;
+extern uint32_t tp_string_len;
 
 uint8_t *tp_clean_string(uint8_t *src);
 uint8_t *tp_skip_section_full(uint8_t *start, uint8_t *end, uint8_t *mark, uint8_t **err);

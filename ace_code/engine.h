@@ -313,7 +313,7 @@ typedef struct
 	uint16_t attacksound;
 	uint32_t reactiontime;
 	uint16_t bouncesound;
-	uint16_t pickupsound;
+	uint16_t __free__0;
 	uint32_t painstate;
 	uint16_t painchance;
 	uint16_t activesound;
@@ -323,7 +323,7 @@ typedef struct
 	uint32_t missilestate;
 	uint32_t deathstate;
 	uint32_t xdeathstate;
-	uint32_t extra;
+	void *extra;
 	int32_t speed;
 	uint32_t radius;
 	uint32_t height;

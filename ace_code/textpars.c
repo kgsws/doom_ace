@@ -7,6 +7,7 @@
 int tp_nl_is_ws; // newline is whitespace
 int tp_kw_is_func; // keyword search in function arguments
 uint8_t *tp_func_name_end; // for 'tp_get_function'
+uint32_t tp_string_len; // length after 'tp_clean_string'
 
 // cleanup already valid string
 // destructive!
@@ -15,6 +16,8 @@ uint8_t *tp_clean_string(uint8_t *str)
 	int escaped = 0;
 	uint8_t *src = str + 1;
 	uint8_t *dst = str;
+
+	tp_string_len = 0;
 
 	while(1)
 	{
@@ -32,6 +35,7 @@ uint8_t *tp_clean_string(uint8_t *str)
 			continue;
 		}
 
+		tp_string_len++;
 		*dst++ = tmp;
 	}
 	*dst = 0;

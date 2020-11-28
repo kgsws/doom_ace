@@ -316,9 +316,21 @@ static hook_t hook_list[] =
 	{0x000271cc, CODE_HOOK | HOOK_UINT16, 0xc889}, // 'mov %ecx,%eax'
 	{0x000271ce, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)enemy_chase_move},
 	{0x000271d3, CODE_HOOK | HOOK_UINT16, 0x24eb}, // 'jmp'
+	// update 'A_VileChase' to support 'fixed_t'
+	{0x00028118, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)vile_chase_move},
+	{0x0002811d, CODE_HOOK | HOOK_UINT16, 0x2aeb}, // 'jmp'
+	{0x0002B948, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viletryx},
 /*******************
 	mobj.c
 *******************/
+	// skip 'G_PlayerReborn'
+	{0x0003182d, CODE_HOOK | HOOK_UINT8, 0xeb}, // P_SpawnPlayer
+	// disable 'PST_LIVE' change
+	{0x0003188c, CODE_HOOK | HOOK_SET_NOPS, 7}, // P_SpawnPlayer
+	// disable 'give keys in deathmatch'
+	{0x000318e6, CODE_HOOK | HOOK_UINT8, 0xeb}, // P_SpawnPlayer
+	// replace call to 'P_SetupPsprites' with custom version
+	{0x000318db, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)mobj_player_init}, // P_SpawnPlayer
 	// replace call to 'P_SetMobjState' with custom version
 	{0x000314f1, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)P_SetMobjState}, // P_MobjThinker
 	// replace every (required) 'P_SetMobjState' with new animation system
@@ -334,7 +346,7 @@ static hook_t hook_list[] =
 	{0x00027b93, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_CPosRefire
 	{0x00027bd0, CODE_HOOK | HOOK_UINT32, 0x909001b2}, // A_SpidRefire
 	{0x00027bd3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_SpidRefire
-	{0x000282ff, CODE_HOOK | HOOK_UINT32, 0x909007b2}, // A_VileChase
+	{0x000281ff, CODE_HOOK | HOOK_UINT32, 0x909007b2}, // A_VileChase
 	{0x00028202, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_VileChase
 	{0x00028e15, CODE_HOOK | HOOK_UINT32, 0x909001b2}, // A_SpawnFly
 	{0x00028e18, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_SetMobjAnimation}, // A_SpawnFly
@@ -410,7 +422,7 @@ static hook_t hook_list[] =
 	{0x00036654, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_planeLight},
 	// sky colormap
 	{0x00036584, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)render_skyColormap},
-	// disable player translation mobj flags // TODO: apply new translation
+	// disable player translation mobj flags
 	{0x00031859, CODE_HOOK | HOOK_UINT8, 0xEB}, // 'jmp'
 /*******************
 	enhancements

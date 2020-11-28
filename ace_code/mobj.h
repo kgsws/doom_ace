@@ -37,6 +37,7 @@ void set_player_viewheight(fixed_t wh) __attribute((regparm(2),no_caller_saved_r
 // hooks
 void mobj_kill_animation(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void mobj_spawn_init(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void mobj_player_init(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // state changes in codeptr
 // could even be new animation code

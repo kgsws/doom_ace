@@ -20,6 +20,22 @@ typedef struct
 	uint8_t *message;
 } __attribute__((packed)) dextra_inventory_t;
 
+typedef struct dextra_playerclass_s
+{
+	uint16_t type;
+	fixed_t viewheight;
+	fixed_t attackz;
+	fixed_t oofspeed;
+	fixed_t jumpz;
+	uint32_t maxhealth;
+	uint8_t spawnclass; // 0 to 3
+//	Player.ColorRange
+//	Player.MorphWeapon
+//	Player.WeaponSlot
+//	Player.StartItem
+//	uint8_t *name;
+} __attribute__((packed)) dextra_playerclass_t;
+
 extern weaponinfo_t *weaponinfo;
 extern mobjinfo_t *mobjinfo;
 extern state_t *states;
@@ -35,6 +51,8 @@ extern uint32_t decorate_mobjinfo_idx;
 extern uint32_t decorate_num_sprites;
 
 extern void *func_extra_data;
+
+extern fixed_t *viletryx;
 
 void decorate_prepare();
 void decorate_init(int enabled);
@@ -52,4 +70,5 @@ uint32_t decorate_get_animation_state(uint32_t);
 
 // hooks
 uint32_t enemy_chase_move(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
+fixed_t vile_chase_move(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
 

@@ -157,7 +157,6 @@ static mobjinfo_t info_default_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.bouncesound = 0,
 	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 0,
@@ -189,7 +188,6 @@ static mobjinfo_t info_playerpawn_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.bouncesound = 0,
 	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 255,
@@ -221,7 +219,6 @@ static mobjinfo_t info_doomweapon_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.bouncesound = 0,
 	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 0,
@@ -253,7 +250,6 @@ static mobjinfo_t info_inventory_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.bouncesound = 0,
 	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 0,
@@ -286,6 +282,30 @@ static dextra_inventory_t extra_fakeinv =
 	.usesound = 0,
 	.state = 0,
 	.message = NULL
+};
+
+static dextra_playerclass_t extra_playercl =
+{
+	.type = DECORATE_EXTRA_PLAYERCLASS,
+	.viewheight = 41 << FRACBITS,
+	.attackz = 32 << FRACBITS,
+	.oofspeed = 12 << FRACBITS,
+	.jumpz = 8 << FRACBITS,
+	.maxhealth = 100,
+	.spawnclass = 0
+};
+
+//
+// some defaults
+static dextra_playerclass_t playerclass_doomplayer =
+{
+	.type = DECORATE_EXTRA_PLAYERCLASS,
+	.viewheight = 41 << FRACBITS,
+	.attackz = 32 << FRACBITS,
+	.oofspeed = 12 << FRACBITS,
+	.jumpz = 0 << FRACBITS,
+	.maxhealth = 100,
+	.spawnclass = 0
 };
 
 // these are all valid actor properties
@@ -323,6 +343,14 @@ static actor_property_t actor_prop_list[] =
 	{"inventory.pickupsound", PROPTYPE_SOUND, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, pickupsound)},
 	{"inventory.usesound", PROPTYPE_SOUND, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, usesound)},
 	{"inventory.pickupmessage", PROPTYPE_STRING, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, message)},
+	//
+	{"player.attackzoffset", PROPTYPE_FIXED, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, attackz)},
+	{"player.viewheight", PROPTYPE_FIXED, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, viewheight)},
+	{"player.gruntspeed", PROPTYPE_FIXED, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, oofspeed)},
+	{"player.jumpz", PROPTYPE_FIXED, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, jumpz)},
+	{"player.maxhealth", PROPTYPE_INT32, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, maxhealth)},
+	{"player.spawnclass", PROPTYPE_INT32, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, spawnclass)},
+	{"player.soundclass", PROPTYPE_INT32, ATTR_MASK_PLAYECLASS, PROPFLAG_IGNORED, 0},
 	// terminator
 	{NULL}
 };
@@ -393,7 +421,7 @@ static actor_animation_t actor_anim_list[] =
 static actor_parent_t actor_parent_list[] =
 {
 	{"", NULL, &info_default_actor, NULL, ATTR_MASK_DEFAULT}, // default
-	{"PlayerPawn", &decorate_playerclass_count, &info_playerpawn_actor, NULL, ATTR_MASK_DEFAULT | ATTR_MASK_PLAYECLASS},
+	{"PlayerPawn", &decorate_playerclass_count, &info_playerpawn_actor, &extra_playercl, ATTR_MASK_DEFAULT | ATTR_MASK_PLAYECLASS},
 	{"DoomWeapon", &decorate_weapon_count, &info_doomweapon_actor, NULL, ATTR_MASK_DEFAULT | ATTR_MASK_WEAPON},
 	{"FakeInventory", &decorate_inventory_count, &info_inventory_actor, &extra_fakeinv, ATTR_MASK_DEFAULT | ATTR_MASK_INVENTORY},
 	// terminator
@@ -530,9 +558,12 @@ static void *extra_info_memory[DECORATE_NUM_EXTRA];
 static uint32_t extra_info_size[DECORATE_NUM_EXTRA] =
 {
 	sizeof(dextra_inventory_t),
-	4, // TODO
+	sizeof(dextra_playerclass_t),
 	4, // TODO
 };
+
+// for hooks
+fixed_t *viletryx;
 
 #define MAX_SPRITES	(STORAGE_ZLIGHT/4)
 uint32_t decorate_num_sprites;
@@ -2007,10 +2038,12 @@ void decorate_init(int enabled)
 		mobjinfo[i].activesound = old->activesound;
 		// clear new stuff
 		mobjinfo[i].flags2 = 0;
+		mobjinfo[i].extra = NULL;
 	}
 
-	// extra flags
-	mobjinfo[0].flags2 = MF2_TELESTOMP; // player
+	// extra player stuff
+	mobjinfo[0].flags2 = MF2_TELESTOMP;
+	mobjinfo[0].extra = &playerclass_doomplayer;
 
 	// fix player animations for new animation system
 	// this could be done for monsters too, but it seems unnecessary
@@ -2038,5 +2071,12 @@ uint32_t enemy_chase_move(mobj_t *mo)
 	x = mo->x + FixedMul(mo->info->speed, move_speed[mo->movedir]);
 	y = mo->y + FixedMul(mo->info->speed, move_speed[mo->movedir + 6]);
 	return P_TryMove(mo, x, y);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+fixed_t vile_chase_move(mobj_t *mo)
+{
+	*viletryx = mo->x + FixedMul(mo->info->speed, move_speed[mo->movedir]);
+	return mo->y + FixedMul(mo->info->speed, move_speed[mo->movedir + 6]);
 }
 

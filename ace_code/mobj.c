@@ -184,3 +184,73 @@ void mobj_spawn_init(mobj_t *mo, uint32_t type)
 	mo->flags2 = mobjinfo[type].flags2;
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+void mobj_player_init(player_t *pl)
+{
+	dextra_playerclass_t *pc = pl->class;
+	mobj_t *mo = pl->mo;
+	static uint16_t maxammo[] = {200, 50, 300, 50}; // TODO: remove
+
+	*displayplayer = *consoleplayer;
+
+	if(pl->playerstate == PST_REBORN)
+	{
+		// major cleanup // TODO: keep kill/item/secret stats
+		memset(pl, 0, sizeof(player_t));
+		pl->mo = mo;
+
+		// setup player class
+		pc = mobjinfo[0].extra; // TODO: custom player class
+		pl->class = pc;
+
+		// pre-setup
+		pl->usedown = 1;
+		pl->attackdown = 1;
+		pl->health = pc->maxhealth;
+
+		// reset inventory // TODO: major rewrite
+		pl->weaponowned[wp_fist] = 1;
+		pl->weaponowned[wp_pistol] = 1;
+		pl->ammo[am_clip] = 50;
+		pl->readyweapon = wp_pistol;
+		pl->pendingweapon = wp_pistol;
+		for(uint32_t i = 0; i < NUMAMMO; i++)
+			pl->maxammo[i] = maxammo[i];
+	}
+
+	// initialize player
+	pl->playerstate = PST_LIVE;
+	pl->viewheight = pc->viewheight;
+	set_player_viewheight(pc->viewheight);
+
+	// initialize mobj
+	mo->health = pl->health;
+	// TODO: apply translation
+
+	// fix player->mo to use correct player class
+	{
+		uint32_t type = 0; // TODO
+		mobjinfo_t *info = mobjinfo + type;
+		state_t *st = states + info->spawnstate;
+
+		mo->type = type;
+		mo->info = info;
+		mo->radius = info->radius;
+		mo->height = info->height;
+		mo->flags = info->flags;
+		mo->flags2 = info->flags2;
+		mo->state = st;
+		mo->tics = st->tics;
+		mo->sprite = st->sprite;
+		mo->frame = st->frame;
+	}
+
+	// init weapon
+	P_SetupPsprites(pl); // TODO: custom
+
+	// extra stuff
+	if(*deathmatch)
+		for(uint32_t i = 0; i < NUMCARDS; i++)
+			pl->cards[i] = 1; // TODO: rewrite
+}
+

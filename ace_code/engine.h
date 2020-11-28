@@ -173,7 +173,7 @@ enum
 };
 
 enum
-{
+{ // TODO: remove
 	wp_fist,
 	wp_pistol,
 	wp_shotgun,
@@ -238,7 +238,7 @@ typedef struct player_s
 	uint32_t __free_0;
 	uint32_t __free_1;
 	uint32_t __free_2;
-	uint32_t __free_3;
+	struct dextra_playerclass_s *class;
 	uint32_t readyweapon;
 	uint32_t pendingweapon;
 	uint32_t weaponowned[NUMWEAPONS];
@@ -312,8 +312,7 @@ typedef struct
 	uint16_t seesound;
 	uint16_t attacksound;
 	uint32_t reactiontime;
-	uint16_t bouncesound;
-	uint16_t __free__0;
+	uint32_t __free__0;
 	uint32_t painstate;
 	uint16_t painchance;
 	uint16_t activesound;
@@ -920,6 +919,7 @@ void medusa_cache_fix();
 
 // to be removed
 void P_InitSwitchList();
+void P_SetupPsprites(player_t*) __attribute((regparm(2)));
 
 // stuff
 void I_SetPalette(void*) __attribute((regparm(2)));

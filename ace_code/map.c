@@ -7,6 +7,7 @@
 #include "generic.h"
 #include "render.h"
 #include "decorate.h"
+#include "mobj.h"
 
 void bad_map_warning(); // asm.S
 
@@ -128,6 +129,8 @@ static hook_t map_disable_reject[] = // TODO: fix sight check
 	// terminator
 	{0}
 };
+
+static uint16_t class_flags[] = {0x00E0, 0x0020, 0x0040, 0x0080};
 
 void map_init()
 {
@@ -435,10 +438,22 @@ void map_LoadThings(int lump)
 	new_mapthing_t *mt;
 	void *buff;
 	int count, idx;
+	uint16_t cflags;
 
 	buff = W_CacheLumpNum(lump, PU_STATIC);
 	count = W_LumpLength(lump) / sizeof(new_mapthing_t);
 	mt = buff;
+
+	{
+		dextra_playerclass_t *pc;
+
+		if(players[*consoleplayer].class)
+			pc = players[*consoleplayer].class;
+		else
+			pc = mobjinfo[player_class].extra;
+
+		cflags = class_flags[pc->spawnclass];
+	}
 
 	for(int i = 0; i < count; i++, mt++)
 	{
@@ -480,6 +495,9 @@ void map_LoadThings(int lump)
 		} else
 		{
 			if(!(mt->flags & MTF_SINGLE))
+				continue;
+			// class check
+			if(!(mt->flags & cflags))
 				continue;
 		}
 

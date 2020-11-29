@@ -75,7 +75,7 @@ Never request feature suport in ZDoom if something works in ACE ENGINE but not i
 - expressions
 - `replaces` for built-in class replacement
 - `inheritance`, you always have to write your actors from the scratch
- - there are few basic classes that can be used for special types that require this
+  - there are few basic classes that can be used for special types that require this
 - "archvile frames" - frames can only be `A` to `Z`
 - special sprite names, such as `####`
 - and probably much more
@@ -99,13 +99,13 @@ Only properties included it this list are supported. Any unknown property will c
 - `Height`
 - `Mass`
 - `ActiveSound`
- - also `use fail` for `PlayerPawn`
+  - also `use fail` for `PlayerPawn`
 - `AttackSound`
 - `DeathSound`
 - `PainSound`
- - also used for `PlayerPawn`
+  - also used for `PlayerPawn`
 - `SeeSound`
- - also `land` for `PlayerPawn`
+  - also `land` for `PlayerPawn`
 - `Obituary` contents are ignored
 - `HitObituary` contents are ignored
 - `DropItem` without `amount` parameter
@@ -120,15 +120,15 @@ Properties for `FakeInventory`:
 Properties for `PlayerPawn`:
 
 - `Player.AttackZOffset`
- - will not work with original action pointers
+  - will not work with original action pointers
 - `Player.ViewHeight`
 - `Player.JumpZ`
- - there is no `jump` key, yet
+  - there is no `jump` key, yet
 - `Player.MaxHealth`
 - `Player.SpawnClass`
- - only numeric variant can be used (0 to 3)
+  - only numeric variant can be used (0 to 3)
 - `Player.SoundClass`
- - ignored; only present for ZDoom compatibility; use sounds listed above
+  - ignored; only present for ZDoom compatibility; use sounds listed above
 
 #### supported flags
 - `special`

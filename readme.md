@@ -75,11 +75,18 @@ Never request feature suport in ZDoom if something works in ACE ENGINE but not i
 - expressions
 - `replaces` for built-in class replacement
 - `inheritance`, you always have to write your actors from the scratch
+ - there are few basic classes that can be used for special types that require this
 - "archvile frames" - frames can only be `A` to `Z`
 - special sprite names, such as `####`
 - and probably much more
 
-#### Supported properties
+#### inheritance
+Only special ZDoom actors can be used as a base for new actors.
+
+- `FakeInventory`
+- `PlayerPawn`
+
+#### supported properties
 Only properties included it this list are supported. Any unknown property will cause an error.
 
 - `SpawnID`
@@ -92,15 +99,36 @@ Only properties included it this list are supported. Any unknown property will c
 - `Height`
 - `Mass`
 - `ActiveSound`
+ - also `use fail` for `PlayerPawn`
 - `AttackSound`
 - `DeathSound`
 - `PainSound`
+ - also used for `PlayerPawn`
 - `SeeSound`
+ - also `land` for `PlayerPawn`
 - `Obituary` contents are ignored
 - `HitObituary` contents are ignored
 - `DropItem` without `amount` parameter
 - `Monster` flag combo
 - `Projectile` flag combo
+
+Properties for `FakeInventory`:
+
+- `Inventory.PickupSound`
+- `Inventory.PickupMessage`
+
+Properties for `PlayerPawn`:
+
+- `Player.AttackZOffset`
+ - will not work with original action pointers
+- `Player.ViewHeight`
+- `Player.JumpZ`
+ - there is no `jump` key, yet
+- `Player.MaxHealth`
+- `Player.SpawnClass`
+ - only numeric variant can be used (0 to 3)
+- `Player.SoundClass`
+ - ignored; only present for ZDoom compatibility; use sounds listed above
 
 #### supported flags
 - `special`
@@ -132,7 +160,12 @@ Only properties included it this list are supported. Any unknown property will c
 - `ismonster`
 - `boss`
 - `seekermissile`
+- `randomize`
+- `notarget`
 - `floorclip` ignored
+- `noskin` ignored
+- `dormant`
+- `telestomp`
 
 #### states
 List of supported engine states:

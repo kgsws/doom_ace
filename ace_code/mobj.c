@@ -6,6 +6,9 @@
 #include "mobj.h"
 #include "decorate.h"
 
+// current player class // TODO: from menu? multiplayer?
+uint16_t player_class = 0;
+
 // custom viewheight for player classes
 static hook_t hook_list_viewheight[] =
 {
@@ -200,7 +203,7 @@ void mobj_player_init(player_t *pl)
 		pl->mo = mo;
 
 		// setup player class
-		pc = mobjinfo[0].extra; // TODO: custom player class
+		pc = mobjinfo[player_class].extra;
 		pl->class = pc;
 
 		// pre-setup
@@ -224,17 +227,17 @@ void mobj_player_init(player_t *pl)
 	set_player_viewheight(pc->viewheight);
 
 	// initialize mobj
-	mo->health = pl->health;
 	// TODO: apply translation
 
 	// fix player->mo to use correct player class
 	{
-		uint32_t type = 0; // TODO
+		uint32_t type = pl->class->motype;
 		mobjinfo_t *info = mobjinfo + type;
 		state_t *st = states + info->spawnstate;
 
 		mo->type = type;
 		mo->info = info;
+		mo->health = info->spawnhealth;
 		mo->radius = info->radius;
 		mo->height = info->height;
 		mo->flags = info->flags;
@@ -252,5 +255,21 @@ void mobj_player_init(player_t *pl)
 	if(*deathmatch)
 		for(uint32_t i = 0; i < NUMCARDS; i++)
 			pl->cards[i] = 1; // TODO: rewrite
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void mobj_use_fail(mobj_t *mo)
+{
+	if(mo->info->activesound)
+		S_StartSound(mo, mo->info->activesound);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void player_land(mobj_t *mo)
+{
+	// fall damage can be added here
+
+	if(mo->info->seesound)
+		S_StartSound(mo, mo->info->seesound);	
 }
 

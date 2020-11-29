@@ -25,7 +25,7 @@
 #define ATTR_MASK_DEFAULT	0x0001
 #define ATTR_MASK_INVENTORY	0x0002
 #define ATTR_MASK_WEAPON	0x0004
-#define ATTR_MASK_PLAYECLASS	0x0008
+#define ATTR_MASK_PLAYERCLASS	0x0008
 
 typedef struct
 {
@@ -136,13 +136,17 @@ typedef struct
 
 // keywords
 static uint8_t mark_section[] = {'{', '}'};
-static uint8_t kw_actor[] = {'a', 'c', 't', 'o', 'r', 0};
-static uint8_t kw_goto[] = {'g', 'o', 't', 'o', 0};
-static uint8_t kw_loop[] = {'l', 'o', 'o', 'p', 0};
-static uint8_t kw_stop[] = {'s', 't', 'o', 'p', 0};
-static uint8_t kw_wait[] = {'w', 'a', 'i', 't', 0};
-static uint8_t kw_fail[] = {'f', 'a', 'i', 'l', 0};
-static uint8_t kw_bright[] = {'b', 'r', 'i', 'g', 'h', 't', 0};
+static uint8_t kw_actor[] = "actor";
+static uint8_t kw_goto[] = "goto";
+static uint8_t kw_loop[] = "loop";
+static uint8_t kw_stop[] = "stop";
+static uint8_t kw_wait[] = "wait";
+static uint8_t kw_fail[] = "fail";
+static uint8_t kw_bright[] = "bright";
+
+static uint8_t kw_clearplayerclasses[] = "clearplayerclasses";
+static uint8_t kw_addplayerclass[] = "addplayerclass";
+
 static uint8_t kw_null_sprite[] = {'T', 'N', 'T', '1'}; // not used in parser
 
 //
@@ -185,15 +189,15 @@ static mobjinfo_t info_playerpawn_actor =
 	.spawnstate = 0,
 	.spawnhealth = 100,
 	.seestate = 0,
-	.seesound = 0,
+	.seesound = sfx_oof,
 	.attacksound = 0,
 	.reactiontime = 8,
 	.__free__0 = 0,
 	.painstate = 0,
 	.painchance = 255,
-	.activesound = 0,
+	.activesound = sfx_noway,
 	.painsound = sfx_plpain,
-	.deathsound = 0,
+	.deathsound = sfx_pldeth,
 	.meleestate = 0,
 	.missilestate = 0,
 	.deathstate = 0,
@@ -287,9 +291,10 @@ static dextra_inventory_t extra_fakeinv =
 static dextra_playerclass_t extra_playercl =
 {
 	.type = DECORATE_EXTRA_PLAYERCLASS,
+	.motype = 0,
+	.menuidx = -1,
 	.viewheight = 41 << FRACBITS,
 	.attackz = 32 << FRACBITS,
-	.oofspeed = 12 << FRACBITS,
 	.jumpz = 8 << FRACBITS,
 	.maxhealth = 100,
 	.spawnclass = 0
@@ -300,9 +305,10 @@ static dextra_playerclass_t extra_playercl =
 static dextra_playerclass_t playerclass_doomplayer =
 {
 	.type = DECORATE_EXTRA_PLAYERCLASS,
+	.motype = 0,
+	.menuidx = 0,
 	.viewheight = 41 << FRACBITS,
 	.attackz = 32 << FRACBITS,
-	.oofspeed = 12 << FRACBITS,
 	.jumpz = 0 << FRACBITS,
 	.maxhealth = 100,
 	.spawnclass = 0
@@ -344,13 +350,12 @@ static actor_property_t actor_prop_list[] =
 	{"inventory.usesound", PROPTYPE_SOUND, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, usesound)},
 	{"inventory.pickupmessage", PROPTYPE_STRING, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, message)},
 	//
-	{"player.attackzoffset", PROPTYPE_FIXED, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, attackz)},
-	{"player.viewheight", PROPTYPE_FIXED, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, viewheight)},
-	{"player.gruntspeed", PROPTYPE_FIXED, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, oofspeed)},
-	{"player.jumpz", PROPTYPE_FIXED, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, jumpz)},
-	{"player.maxhealth", PROPTYPE_INT32, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, maxhealth)},
-	{"player.spawnclass", PROPTYPE_INT32, ATTR_MASK_PLAYECLASS, 0, offsetof(dextra_playerclass_t, spawnclass)},
-	{"player.soundclass", PROPTYPE_INT32, ATTR_MASK_PLAYECLASS, PROPFLAG_IGNORED, 0},
+	{"player.attackzoffset", PROPTYPE_FIXED, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, attackz)},
+	{"player.viewheight", PROPTYPE_FIXED, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, viewheight)},
+	{"player.jumpz", PROPTYPE_FIXED, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, jumpz)},
+	{"player.maxhealth", PROPTYPE_INT32, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, maxhealth)},
+	{"player.spawnclass", PROPTYPE_INT32, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, spawnclass)},
+	{"player.soundclass", PROPTYPE_INT32, ATTR_MASK_PLAYERCLASS, PROPFLAG_IGNORED, 0},
 	// terminator
 	{NULL}
 };
@@ -421,7 +426,7 @@ static actor_animation_t actor_anim_list[] =
 static actor_parent_t actor_parent_list[] =
 {
 	{"", NULL, &info_default_actor, NULL, ATTR_MASK_DEFAULT}, // default
-	{"PlayerPawn", &decorate_playerclass_count, &info_playerpawn_actor, &extra_playercl, ATTR_MASK_DEFAULT | ATTR_MASK_PLAYECLASS},
+	{"PlayerPawn", &decorate_playerclass_count, &info_playerpawn_actor, &extra_playercl, ATTR_MASK_DEFAULT | ATTR_MASK_PLAYERCLASS},
 	{"DoomWeapon", &decorate_weapon_count, &info_doomweapon_actor, NULL, ATTR_MASK_DEFAULT | ATTR_MASK_WEAPON},
 	{"FakeInventory", &decorate_inventory_count, &info_inventory_actor, &extra_fakeinv, ATTR_MASK_DEFAULT | ATTR_MASK_INVENTORY},
 	// terminator
@@ -874,6 +879,14 @@ static void link_actor(mobjinfo_t *info)
 {
 	custom_state_list_t *custom_state = storage_vissprites;
 	uint32_t last_state = decorate_state_idx;
+
+	// playerclass
+	if(info->extra && *((uint16_t*)info->extra) == DECORATE_EXTRA_PLAYERCLASS)
+	{
+		// store mobj type too
+		dextra_playerclass_t *pc = info->extra;
+		pc->motype = info - mobjinfo;
+	}
 
 	// go trough every single added state
 	for(uint32_t i = actor_first_state; i < last_state; i++)
@@ -2044,6 +2057,8 @@ void decorate_init(int enabled)
 	// extra player stuff
 	mobjinfo[0].flags2 = MF2_TELESTOMP;
 	mobjinfo[0].extra = &playerclass_doomplayer;
+	mobjinfo[0].activesound = sfx_noway; // use fail
+	mobjinfo[0].seesound = sfx_oof; // when falling
 
 	// fix player animations for new animation system
 	// this could be done for monsters too, but it seems unnecessary
@@ -2056,8 +2071,88 @@ void decorate_init(int enabled)
 
 //
 // this is only used for custom player classes
-void decorate_keyconf(uint8_t *start, uint8_t *end)
+void decorate_keyconf(uint8_t *ptr, uint8_t *end)
 {
+	uint8_t *tmp;
+	uint32_t class_idx = 1; // starts with DoomPlayer
+	uint16_t first_class = 0; // TODO: remove
+
+	tp_nl_is_ws = 1;
+	tp_kw_is_func = 0;
+
+	while(1)
+	{
+		// skip WS
+		ptr = tp_skip_wsc(ptr, end);
+		if(ptr == end)
+			break;
+
+		// check keywords
+		tmp = tp_ncompare_skip(ptr, end, kw_clearplayerclasses);
+		if(tmp)
+		{
+			// remove all classes from the menu
+			dextra_playerclass_t *pc = extra_info_memory[DECORATE_EXTRA_PLAYERCLASS];
+
+			for(uint32_t i = 0; i < decorate_playerclass_count; i++, pc++)
+				pc->menuidx = -1;
+
+			first_class = 0xFFFF; // TODO: remove
+			class_idx = 0;
+			ptr = tmp;
+			continue;
+		}
+
+		tmp = tp_ncompare_skip(ptr, end, kw_addplayerclass);
+		if(tmp)
+		{
+			int32_t idx;
+
+			// skip WS
+			tp_nl_is_ws = 0;
+			ptr = tp_skip_wsc(tmp, end);
+			if(ptr == end)
+				I_Error("[ACE] KEYCONF: invalid 'addplayerclass'");
+
+			// get player class actor
+			tmp = tp_get_keyword(ptr, end);
+			if(tmp == ptr)
+				I_Error("[ACE] KEYCONF: invalid 'addplayerclass'");
+
+			// find this actor
+			*tmp = 0;
+			idx = decorate_get_actor(ptr);
+
+			// add player class to the menu
+			if(idx < 0 || !mobjinfo[idx].extra || *((uint16_t*)mobjinfo[idx].extra) != DECORATE_EXTRA_PLAYERCLASS)
+				I_Error("[ACE] KEYCONF: actor '%s' is not PlayerPawn", tmp);
+
+			// TODO: remove
+			if(first_class == 0xFFFF)
+				first_class = idx;
+
+			*tmp = '\n';
+			class_idx++;
+			ptr = tmp;
+			tp_nl_is_ws = 1;
+			continue;
+		}
+
+		tmp = tp_get_keyword(ptr, end);
+		if(!tmp)
+			break;
+
+		*tmp = 0;
+		I_Error("[ACE] KEYCONF: unknown keyword %s", ptr);
+	}
+
+	// check
+	if(!class_idx)
+		I_Error("[ACE] KEYCONF: no player classes defined");
+
+	// TODO: remove when player class menu is in
+	// since there is no menu yet, pick first player class
+	player_class = first_class;
 }
 
 //

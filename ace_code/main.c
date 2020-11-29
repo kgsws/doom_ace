@@ -323,6 +323,8 @@ static hook_t hook_list[] =
 /*******************
 	mobj.c
 *******************/
+	// disable 'frags' in 'player_t'
+	{0x00020083, CODE_HOOK | HOOK_SET_NOPS, 5}, // G_DoLoadLevel
 	// skip 'G_PlayerReborn'
 	{0x0003182d, CODE_HOOK | HOOK_UINT8, 0xeb}, // P_SpawnPlayer
 	// disable 'PST_LIVE' change
@@ -427,6 +429,10 @@ static hook_t hook_list[] =
 /*******************
 	enhancements
 *******************/
+	// support for custom 'land' sound and fall damage
+	{0x000312f7, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)player_land}, // P_ZMovement
+	// support for custom 'use fail' sound
+	{0x0002bccb, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)mobj_use_fail}, // PTR_UseTraverse
 	// support for 'MF2_TELESTOMP' in 'PIT_StompThing'
 	{0x0002abc7, CODE_HOOK | HOOK_UINT32, 0x00a483f6},
 	{0x0002abcb, CODE_HOOK | HOOK_UINT32, 0x75020000},
@@ -1428,6 +1434,8 @@ void do_loader()
 		tmp = W_CheckNumForName("KEYCONF");
 		if(tmp != 0xFFFFFFFF)
 		{
+			if(lumpinfo[tmp].size > STORAGE_VISPLANES)
+					I_Error("[ACE] KEYCONF is too big %d / %d", lumpinfo[tmp].size, STORAGE_VISPLANES);
 			W_ReadLump(tmp, storage_visplanes);
 			decorate_keyconf(storage_visplanes, storage_visplanes + lumpinfo[tmp].size);
 		}

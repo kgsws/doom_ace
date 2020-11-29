@@ -23,9 +23,10 @@ typedef struct
 typedef struct dextra_playerclass_s
 {
 	uint16_t type;
+	uint16_t motype;
+	int16_t menuidx;
 	fixed_t viewheight;
 	fixed_t attackz;
-	fixed_t oofspeed;
 	fixed_t jumpz;
 	uint32_t maxhealth;
 	uint8_t spawnclass; // 0 to 3

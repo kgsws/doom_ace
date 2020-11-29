@@ -283,6 +283,10 @@ uint8_t *tp_ncompare_skip(uint8_t *src, uint8_t *eof, uint8_t *templ)
 		src++;
 		templ++;
 	}
+
+	if(!*templ)
+		return src;
+
 	return NULL;
 }
 
@@ -371,7 +375,7 @@ uint8_t *tp_get_string(uint8_t *start, uint8_t *end)
 // returns skipped keyword
 uint8_t *tp_get_keyword(uint8_t *start, uint8_t *end)
 {
-	while(1)
+	while(start < end)
 	{
 		register uint8_t tmp = *start;
 		if(tmp == ' ')
@@ -383,8 +387,6 @@ uint8_t *tp_get_keyword(uint8_t *start, uint8_t *end)
 		if(tmp == '\r')
 			break;
 		start++;
-		if(start == end)
-			return NULL;
 	}
 	return start;
 }

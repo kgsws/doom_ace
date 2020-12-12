@@ -6,6 +6,9 @@
 #include "mobj.h"
 #include "decorate.h"
 
+// mobj ID
+uint32_t mobj_id;
+
 // current player class // TODO: from menu? multiplayer?
 uint16_t player_class = 0;
 
@@ -33,16 +36,65 @@ static uint32_t anim_state_base[] =
 	offsetof(mobjinfo_t, raisestate)
 };
 
+// animation state offsets in mobjinfo_t->extrainfo
+static uint32_t anim_state_extra[] =
+{
+	offsetof(mobj_extra_info_t, state_heal),
+	offsetof(mobj_extra_info_t, state_death_fire),
+	offsetof(mobj_extra_info_t, state_death_ice),
+	offsetof(mobj_extra_info_t, state_death_disintegrate),
+};
+
+// animation state offsets in mobjinfo_t->extra for inventory
+static uint32_t anim_state_inventory[] =
+{
+	offsetof(dextra_inventory_t, state_pickup),
+	offsetof(dextra_inventory_t, state_use)
+};
+
+// animation state offsets in mobjinfo_t->extra for weapon
+static uint32_t anim_state_weapon[] =
+{
+	offsetof(dextra_weapon_t, ready_state),
+	offsetof(dextra_weapon_t, deselect_state),
+	offsetof(dextra_weapon_t, select_state),
+	offsetof(dextra_weapon_t, fire1_state),
+	offsetof(dextra_weapon_t, fire2_state),
+	offsetof(dextra_weapon_t, hold1_state),
+	offsetof(dextra_weapon_t, hold2_state),
+	offsetof(dextra_weapon_t, flash1_state),
+	offsetof(dextra_weapon_t, flash2_state),
+	offsetof(dextra_weapon_t, deadlow_state)
+};
+
 // this will find state slot for requested animation ID
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t *P_GetAnimPtr(uint8_t anim, mobjinfo_t *info)
 {
 	static uint32_t zero_ptr;
 
-	if(anim <= MOANIM_RAISE)
+	if(anim < MOANIM_HEAL)
 		return (void*)info + anim_state_base[anim];
 
-	// TODO: extra states
+	if(anim < INANIM_PICKUP)
+	{
+		// extra states
+		if(info->extrainfo)
+			return (void*)info->extrainfo + anim_state_extra[anim - MOANIM_HEAL];
+	} else
+	if(anim < WEANIM_READY)
+	{
+		// inventory states
+		if(info->extra && info->extra->type == DECORATE_EXTRA_INVENTORY && info->extra->inventory.flags & INVFLAG_IS_CUSTOM)
+			return (void*)info->extra + anim_state_inventory[anim - INANIM_PICKUP];
+	} else
+	if(anim < MOBJ_ANIM_COUNT)
+	{
+		// weapon states
+		if(info->extra && info->extra->type == DECORATE_EXTRA_WEAPON)
+			return (void*)info->extra + anim_state_weapon[anim - WEANIM_READY];
+	}
+
 	zero_ptr = 0;
 	return &zero_ptr;
 }
@@ -58,7 +110,6 @@ void P_SetMobjAnimation(mobj_t *mo, uint8_t anim)
 
 	// translate animation ID
 	state = *P_GetAnimPtr(anim, mo->info);
-doom_printf("set anim %u = state %u\n", anim, state);
 	// set new state
 	P_SetMobjState(mo, state);
 }
@@ -85,7 +136,6 @@ uint32_t P_SetMobjState(mobj_t *mo, uint32_t state)
 			mo->animation = (state >> 24) - 1;
 			// actual state number
 			state &= 0xFFFFFF;
-doom_printf("new anim %u for %p\n", mo->animation, mo);
 		}
 
 		// set new state
@@ -183,6 +233,8 @@ void mobj_spawn_init(mobj_t *mo, uint32_t type)
 			*ptr++ = 0;
 		} while(--count);
 	}
+	// assign ID
+	mo->id = mobj_id++;
 	// copy new values
 	mo->flags2 = mobjinfo[type].flags2;
 }
@@ -203,7 +255,7 @@ void mobj_player_init(player_t *pl)
 		pl->mo = mo;
 
 		// setup player class
-		pc = mobjinfo[player_class].extra;
+		pc = &mobjinfo[player_class].extra->playerclass;
 		pl->class = pc;
 
 		// pre-setup

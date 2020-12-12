@@ -240,10 +240,14 @@ void map_ShootSpecialLine(mobj_t *mo, line_t *ln)
 __attribute((regparm(2),no_caller_saved_registers))
 void map_ItemPickup(mobj_t *item, mobj_t *mo)
 {
+	uint16_t sound = 0;
+	uint32_t remove = 0;
+	void *message = NULL;
+
 	if(mo->health <= 0)
 		return;
 
-	if(item->type < NUMMOBJTYPES)
+	if(!item->info->extra)
 	{
 		// original Doom code
 		item->dehacked_sprite = item->sprite - 1;
@@ -253,26 +257,22 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 			// item was not removed (not picked up)
 			return;
 	} else
-	if(item->info->extra && *((uint16_t*)item->info->extra) == DECORATE_EXTRA_INVENTORY)
+	switch(item->info->extra->type) // TODO: DECORATE items
 	{
-		dextra_inventory_t *inv = item->info->extra;
-		// TODO: DECORATE items
-
-		// pickup sound
-		if(mo->player - players == *displayplayer && inv->pickupsound)
-			S_StartSound(NULL, inv->pickupsound);
-		// pickup message
-		if(inv->message)
-			mo->player->message = inv->message;
-
-		// TODO: item respawn
-		mo->player->bonuscount += 6;
-		P_RemoveMobj(item);
-	} else
-	{
-		// this is wrong
-		item->flags &= ~MF_SPECIAL;
-		return;
+		case DECORATE_EXTRA_INVENTORY:
+			remove = item->info->extra->flags | 0x80000000;
+			sound = item->info->extra->inventory.pickupsound;
+			message = item->info->extra->inventory.message;
+		break;
+		case DECORATE_EXTRA_WEAPON:
+			remove = item->info->extra->flags | 0x80000000;
+			sound = item->info->extra->weapon.pickupsound;
+			message = item->info->extra->weapon.message;
+		break;
+		default:
+			// this is wrong
+			item->flags &= ~MF_SPECIAL;
+			return;
 	}
 
 	if(item->special)
@@ -281,6 +281,20 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 		fakeline.tag = item->arg0;
 		fakeline.specialdata = (void*)item->args;
 		activate_special(&fakeline, mo, 0);
+	}
+
+	if(message)
+		mo->player->message = message;
+
+	if(sound && mo->player - players == *displayplayer)
+		S_StartSound(NULL, sound);
+
+	if(remove)
+	{
+		// TODO: item respawn
+		if(!(remove & INVFLAG_NO_SCREEN_FLASH))
+			mo->player->bonuscount += 6;
+		P_RemoveMobj(item);
 	}
 }
 
@@ -450,7 +464,7 @@ void map_LoadThings(int lump)
 		if(players[*consoleplayer].class)
 			pc = players[*consoleplayer].class;
 		else
-			pc = mobjinfo[player_class].extra;
+			pc = &mobjinfo[player_class].extra->playerclass;
 
 		cflags = class_flags[pc->spawnclass];
 	}

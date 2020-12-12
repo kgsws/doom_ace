@@ -9,6 +9,7 @@
 
 // animation list
 // care, raw numbers are used in hooks
+// keep in sync with decorate.c 'actor_anim_list'
 enum
 {
 	// original
@@ -21,6 +22,26 @@ enum
 	MOANIM_XDEATH,
 	MOANIM_RAISE,
 	// extra
+	MOANIM_HEAL,
+	MOANIM_DEATH_FIRE,
+	MOANIM_DEATH_ICE,
+	MOANIM_DEATH_DISINTEGRATE,
+	// inventory
+	INANIM_PICKUP,
+	INANIM_USE,
+	// weapons
+	WEANIM_READY,
+	WEANIM_DESELECT,
+	WEANIM_SELECT,
+	WEANIM_FIRE1,
+	WEANIM_FIRE2,
+	WEANIM_HOLD1,
+	WEANIM_HOLD2,
+	WEANIM_FLASH1,
+	WEANIM_FLASH2,
+	WEANIM_DEADLOW,
+	//
+	MOBJ_ANIM_COUNT
 };
 
 extern uint16_t player_class;

@@ -1,28 +1,35 @@
 // kgsws' Doom ACE
 //
 
+#define INVFLAG_NO_SCREEN_FLASH	0x0001
+#define INVFLAG_IS_CUSTOM	0x8000	// CustomInventory
+
 enum
 {
 	DECORATE_EXTRA_INVENTORY,
 	DECORATE_EXTRA_PLAYERCLASS,
 	DECORATE_EXTRA_WEAPON,
+	DECORATE_EXTRA_AMMO,
 	DECORATE_NUM_EXTRA
 };
 
 typedef struct
 {
 	uint16_t type;
+	uint16_t flags;
 	uint16_t maxcount;
-	uint16_t itemcount;
+	uint16_t pickupcount;
 	uint16_t pickupsound;
 	uint16_t usesound;
-	uint32_t state;
+	uint32_t state_pickup;
+	uint32_t state_use;
 	uint8_t *message;
 } __attribute__((packed)) dextra_inventory_t;
 
 typedef struct dextra_playerclass_s
 {
 	uint16_t type;
+	uint16_t flags;
 	uint16_t motype;
 	int16_t menuidx;
 	fixed_t viewheight;
@@ -36,6 +43,45 @@ typedef struct dextra_playerclass_s
 //	Player.StartItem
 //	uint8_t *name;
 } __attribute__((packed)) dextra_playerclass_t;
+
+typedef struct
+{
+	uint16_t type;
+	uint16_t flags;
+	uint16_t motype;
+	uint16_t ammotype[2];
+	uint16_t ammogive[2];
+	uint16_t ammouse[2];
+	uint16_t pickupsound;
+	uint16_t upsound;
+	uint16_t readysound;
+	uint16_t kickback;
+	uint16_t selection;
+	uint32_t ready_state;
+	uint32_t deselect_state;
+	uint32_t select_state;
+	uint32_t fire1_state;
+	uint32_t fire2_state;
+	uint32_t hold1_state;
+	uint32_t hold2_state;
+	uint32_t flash1_state;
+	uint32_t flash2_state;
+	uint32_t deadlow_state;
+	uint8_t *message;
+} __attribute__((packed)) dextra_weapon_t;
+
+typedef union decorate_extra_info_u
+{
+	struct
+	{
+		uint16_t type;
+		uint16_t flags;
+	};
+	dextra_inventory_t inventory;
+	dextra_playerclass_t playerclass;
+	dextra_weapon_t weapon;
+} decorate_extra_info_t;
+
 
 extern weaponinfo_t *weaponinfo;
 extern mobjinfo_t *mobjinfo;

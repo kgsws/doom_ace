@@ -303,6 +303,14 @@ typedef struct
 #define NUMSTATES	967
 
 typedef struct
+{ // extra mobjinfo
+	uint32_t state_heal; // TODO: fix A_VileChase
+	uint32_t state_death_fire;
+	uint32_t state_death_ice;
+	uint32_t state_death_disintegrate;
+} mobj_extra_info_t;
+
+typedef struct
 { // modified
 	int16_t doomednum;
 	uint16_t spawnid;
@@ -312,7 +320,7 @@ typedef struct
 	uint16_t seesound;
 	uint16_t attacksound;
 	uint32_t reactiontime;
-	uint32_t __free__0;
+	mobj_extra_info_t *extrainfo;
 	uint32_t painstate;
 	uint16_t painchance;
 	uint16_t activesound;
@@ -322,7 +330,7 @@ typedef struct
 	uint32_t missilestate;
 	uint32_t deathstate;
 	uint32_t xdeathstate;
-	void *extra;
+	union decorate_extra_info_u *extra;
 	int32_t speed;
 	uint32_t radius;
 	uint32_t height;
@@ -599,6 +607,7 @@ typedef struct mobj_s
 		};
 		uint32_t args;
 	};
+	uint32_t id;
 	uint32_t flags2;
 	void *translation;
 } __attribute__((packed)) mobj_t; // must be divisible by 4

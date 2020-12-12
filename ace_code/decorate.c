@@ -100,13 +100,14 @@ typedef struct
 {
 	uint8_t *match;
 	uint32_t flags;
-} actor_flag_t;
+	uint8_t extra;
+} __attribute__((packed)) actor_flag_t;
 
 typedef struct
 {
 	uint8_t *match;
-	uint32_t extra;
-} actor_animation_t;
+	uint8_t extra;
+} __attribute__((packed)) actor_animation_t;
 
 typedef struct
 {
@@ -161,7 +162,7 @@ static mobjinfo_t info_default_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.__free__0 = 0,
+	.extrainfo = NULL,
 	.painstate = 0,
 	.painchance = 0,
 	.activesound = 0,
@@ -192,7 +193,7 @@ static mobjinfo_t info_playerpawn_actor =
 	.seesound = sfx_oof,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.__free__0 = 0,
+	.extrainfo = NULL,
 	.painstate = 0,
 	.painchance = 255,
 	.activesound = sfx_noway,
@@ -223,7 +224,7 @@ static mobjinfo_t info_doomweapon_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.__free__0 = 0,
+	.extrainfo = NULL,
 	.painstate = 0,
 	.painchance = 0,
 	.activesound = 0,
@@ -254,7 +255,7 @@ static mobjinfo_t info_inventory_actor =
 	.seesound = 0,
 	.attacksound = 0,
 	.reactiontime = 8,
-	.__free__0 = 0,
+	.extrainfo = NULL,
 	.painstate = 0,
 	.painchance = 0,
 	.activesound = 0,
@@ -280,17 +281,18 @@ static mobjinfo_t info_inventory_actor =
 static dextra_inventory_t extra_fakeinv =
 {
 	.type = DECORATE_EXTRA_INVENTORY,
+	.flags = 0,
 	.maxcount = 0,
-	.itemcount = 0,
+	.pickupcount = 0,
 	.pickupsound = sfx_itemup,
 	.usesound = 0,
-	.state = 0,
 	.message = NULL
 };
 
 static dextra_playerclass_t extra_playercl =
 {
 	.type = DECORATE_EXTRA_PLAYERCLASS,
+	.flags = 0,
 	.motype = 0,
 	.menuidx = -1,
 	.viewheight = 41 << FRACBITS,
@@ -300,11 +302,27 @@ static dextra_playerclass_t extra_playercl =
 	.spawnclass = 0
 };
 
+static dextra_weapon_t extra_doomweapon =
+{
+	.type = DECORATE_EXTRA_WEAPON,
+	.flags = 0,
+	.motype = 0,
+	.ammotype = {0xFFFF, 0xFFFF},
+	.ammogive = {0, 0},
+	.ammouse = {0, 0},
+	.pickupsound = sfx_wpnup,
+	.upsound = 0,
+	.readysound = 0,
+	.kickback = 100,
+	.selection = 0xFFFF
+};
+
 //
 // some defaults
 static dextra_playerclass_t playerclass_doomplayer =
 {
 	.type = DECORATE_EXTRA_PLAYERCLASS,
+	.flags = 0,
 	.motype = 0,
 	.menuidx = 0,
 	.viewheight = 41 << FRACBITS,
@@ -349,6 +367,14 @@ static actor_property_t actor_prop_list[] =
 	{"inventory.pickupsound", PROPTYPE_SOUND, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, pickupsound)},
 	{"inventory.usesound", PROPTYPE_SOUND, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, usesound)},
 	{"inventory.pickupmessage", PROPTYPE_STRING, ATTR_MASK_INVENTORY, 0, offsetof(dextra_inventory_t, message)},
+	//
+	{"inventory.pickupsound", PROPTYPE_SOUND, ATTR_MASK_WEAPON, 0, offsetof(dextra_weapon_t, pickupsound)},
+	{"inventory.pickupmessage", PROPTYPE_STRING, ATTR_MASK_WEAPON, 0, offsetof(dextra_weapon_t, message)},
+	{"weapon.upsound", PROPTYPE_SOUND, ATTR_MASK_WEAPON, 0, offsetof(dextra_weapon_t, upsound)},
+	{"weapon.readysound", PROPTYPE_SOUND, ATTR_MASK_WEAPON, 0, offsetof(dextra_weapon_t, readysound)},
+	{"weapon.kickback", PROPTYPE_INT16, ATTR_MASK_WEAPON, 0, offsetof(dextra_weapon_t, readysound)},
+	{"weapon.selectionorder", PROPTYPE_INT16, ATTR_MASK_WEAPON, 0, offsetof(dextra_weapon_t, selection)},
+	{"weapon.selectionorder", PROPTYPE_INT16, ATTR_MASK_WEAPON, 0, offsetof(dextra_weapon_t, selection)},
 	//
 	{"player.attackzoffset", PROPTYPE_FIXED, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, attackz)},
 	{"player.viewheight", PROPTYPE_FIXED, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, viewheight)},
@@ -396,12 +422,14 @@ static actor_flag_t actor_flag_list[] =
 	{"seekermissile", MF_SEEKERMISSILE},
 	{"randomize", MF_RANDOMIZE},
 	{"notarget", MF_NOTARGET},
-	// ignored flags - bust be before flags2
+	// flags2
+	{"dormant", MF2_INACTIVE, 1},
+	{"telestomp", MF2_TELESTOMP, 1},
+	// ignored flags
 	{"floorclip", 0},
 	{"noskin", 0},
-	// flags2
-	{"dormant", MF2_INACTIVE},
-	{"telestomp", MF2_TELESTOMP},
+	// inventory flags
+	{"inventory.noscreenflash", INVFLAG_NO_SCREEN_FLASH, 2},
 	// terminator
 	{NULL}
 };
@@ -410,6 +438,7 @@ static actor_flag_t actor_flag_list[] =
 // all names must be lowercase
 static actor_animation_t actor_anim_list[] =
 {
+	// base
 	{"spawn", 0},
 	{"see", 0},
 	{"pain", 0},
@@ -418,6 +447,25 @@ static actor_animation_t actor_anim_list[] =
 	{"death", 0},
 	{"xdeath", 0},
 	{"raise", 0},
+	// extra
+	{"heal", 1},
+	{"death.fire", 1},
+	{"death.ice", 1},
+	{"death.disintegrate", 1},
+	// inventory
+	{"pickup", 0},
+	{"use", 0},
+	// weapon
+	{"ready", 0},
+	{"deselect", 0},
+	{"select", 0},
+	{"fire", 0},
+	{"altfire", 0},
+	{"hold", 0},
+	{"althold", 0},
+	{"flash", 0},
+	{"altflash", 0},
+	{"deadlowered", 0},
 	// terminator
 	{NULL}
 };
@@ -427,7 +475,7 @@ static actor_parent_t actor_parent_list[] =
 {
 	{"", NULL, &info_default_actor, NULL, ATTR_MASK_DEFAULT}, // default
 	{"PlayerPawn", &decorate_playerclass_count, &info_playerpawn_actor, &extra_playercl, ATTR_MASK_DEFAULT | ATTR_MASK_PLAYERCLASS},
-	{"DoomWeapon", &decorate_weapon_count, &info_doomweapon_actor, NULL, ATTR_MASK_DEFAULT | ATTR_MASK_WEAPON},
+	{"DoomWeapon", &decorate_weapon_count, &info_doomweapon_actor, &extra_doomweapon, ATTR_MASK_DEFAULT | ATTR_MASK_WEAPON},
 	{"FakeInventory", &decorate_inventory_count, &info_inventory_actor, &extra_fakeinv, ATTR_MASK_DEFAULT | ATTR_MASK_INVENTORY},
 	// terminator
 	{NULL}
@@ -564,7 +612,7 @@ static uint32_t extra_info_size[DECORATE_NUM_EXTRA] =
 {
 	sizeof(dextra_inventory_t),
 	sizeof(dextra_playerclass_t),
-	4, // TODO
+	sizeof(dextra_weapon_t),
 };
 
 // for hooks
@@ -880,12 +928,27 @@ static void link_actor(mobjinfo_t *info)
 	custom_state_list_t *custom_state = storage_vissprites;
 	uint32_t last_state = decorate_state_idx;
 
-	// playerclass
-	if(info->extra && *((uint16_t*)info->extra) == DECORATE_EXTRA_PLAYERCLASS)
+	// extra info
+	if(info->extra)
 	{
-		// store mobj type too
-		dextra_playerclass_t *pc = info->extra;
-		pc->motype = info - mobjinfo;
+		switch(info->extra->type)
+		{
+			case DECORATE_EXTRA_PLAYERCLASS:
+				// store mobj type too
+				info->extra->playerclass.motype = info - mobjinfo;
+				// limit spawnclass
+				if(info->extra->playerclass.spawnclass > 3)
+					info->extra->playerclass.spawnclass = 0;
+			break;
+			case DECORATE_EXTRA_WEAPON:
+				info->extra->weapon.motype = info - mobjinfo;
+				// disable ammo use if no ammo is defined
+				if(info->extra->weapon.ammotype[0] == 0xFFFF)
+					info->extra->weapon.ammouse[0] = 0;
+				if(info->extra->weapon.ammotype[1] == 0xFFFF)
+					info->extra->weapon.ammouse[1] = 0;
+			break;
+		}
 	}
 
 	// go trough every single added state
@@ -1175,7 +1238,7 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 		// check for flags
 		if(*ptr == '+' || *ptr == '-')
 		{
-			uint32_t *fdst = &info->flags;
+			uint32_t *fdst;
 			register uint8_t mode = *ptr++;
 			if(ptr == end)
 				goto end_eof;
@@ -1185,15 +1248,30 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 			{
 				if(tp_ncompare_skip(ptr, end, flag->match))
 					break;
-				if(!flag->flags) // this is a marker to switch to flags2
-					fdst = &info->flags2;
 				flag++;
 				if(!flag->match)
 				{
 					actor_name[actor_name_len] = 0;
 					*tmp = 0;
+unknown_flag:
 					I_Error("[ACE] DECORATE: actor '%s' unknown flag '%s'", actor_name, ptr);
 				}
+			}
+
+			switch(flag->extra)
+			{
+				case 0:
+					fdst = &info->flags;
+				break;
+				case 1:
+					fdst = &info->flags2;
+				break;
+				case 2:
+					if(!info->extra)
+						goto unknown_flag;
+					// 32bit access is not an issue for flag changes
+					fdst = (void*)&info->extra->flags;
+				break;
 			}
 
 			if(mode == '+')
@@ -1461,6 +1539,9 @@ bad_states:
 								}
 							}
 							tmp[-1] = ':';
+							if(anim->extra && !info->extrainfo)
+								// allocate extra info
+								info->extrainfo = decorate_get_storage(sizeof(mobj_extra_info_t));
 							astate = ((anim - actor_anim_list) << 16) | STATE_ANIMATION_TARGET;
 							*P_GetAnimPtr(anim - actor_anim_list, info) = decorate_state_idx;
 						}
@@ -1948,7 +2029,6 @@ void decorate_init(int enabled)
 		{
 			st->frame = os->frame;
 			st->sprite = os->sprite + 1; // sprite[0] is always invisible
-			st->extra = NULL;
 			st->tics = os->tics;
 			st->action = os->action;
 			st->nextstate = os->nextstate;
@@ -2017,7 +2097,6 @@ void decorate_init(int enabled)
 		do
 		{
 			os->sprite = ((os->sprite + 1) << 16) | os->frame;
-			os->frame = 0; // this is *extra
 			os++;
 		} while(--count);
 	}
@@ -2052,11 +2131,12 @@ void decorate_init(int enabled)
 		// clear new stuff
 		mobjinfo[i].flags2 = 0;
 		mobjinfo[i].extra = NULL;
+		mobjinfo[i].extrainfo = NULL;
 	}
 
 	// extra player stuff
 	mobjinfo[0].flags2 = MF2_TELESTOMP;
-	mobjinfo[0].extra = &playerclass_doomplayer;
+	mobjinfo[0].extra = (void*)&playerclass_doomplayer;
 	mobjinfo[0].activesound = sfx_noway; // use fail
 	mobjinfo[0].seesound = sfx_oof; // when falling
 

@@ -46,4 +46,15 @@ typedef struct
 void *arg_Jump(void*, uint8_t*, uint8_t*);
 void A_Jump(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
+//
+// A_Raise (weapon)
+void A_Raise(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+// A_Lower (weapon)
+void A_Lower(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+// A_WeaponReady
+void A_WeaponReady(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 

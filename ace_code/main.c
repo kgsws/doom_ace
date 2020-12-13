@@ -12,6 +12,7 @@
 #include "sound.h"
 #include "mobj.h"
 #include "decorate.h"
+#include "weapon.h"
 
 // progres bar task weight
 #define PBAR_FLR_SPR	32	// flats / sprite processing
@@ -320,6 +321,14 @@ static hook_t hook_list[] =
 	{0x00028118, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)vile_chase_move},
 	{0x0002811d, CODE_HOOK | HOOK_UINT16, 0x2aeb}, // 'jmp'
 	{0x0002B948, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viletryx},
+/*******************
+	weapon.c
+*******************/
+	// replace weapon tick logic
+	{0x00033279, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)weapon_tick}, // P_DeathThink
+	{0x000334a5, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)weapon_tick}, // P_PlayerThink
+	// replace weapon disable on death
+	{0x0002a388, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)weapon_drop}, // TODO: remove when new P_KillMobj is added
 /*******************
 	mobj.c
 *******************/

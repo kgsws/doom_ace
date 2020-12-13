@@ -5,6 +5,7 @@
 #include "defs.h"
 #include "mobj.h"
 #include "decorate.h"
+#include "weapon.h"
 
 // mobj ID
 uint32_t mobj_id;
@@ -244,7 +245,6 @@ void mobj_player_init(player_t *pl)
 {
 	dextra_playerclass_t *pc = pl->class;
 	mobj_t *mo = pl->mo;
-	static uint16_t maxammo[] = {200, 50, 300, 50}; // TODO: remove
 
 	*displayplayer = *consoleplayer;
 
@@ -264,13 +264,8 @@ void mobj_player_init(player_t *pl)
 		pl->health = pc->maxhealth;
 
 		// reset inventory // TODO: major rewrite
-		pl->weaponowned[wp_fist] = 1;
-		pl->weaponowned[wp_pistol] = 1;
-		pl->ammo[am_clip] = 50;
-		pl->readyweapon = wp_pistol;
-		pl->pendingweapon = wp_pistol;
-		for(uint32_t i = 0; i < NUMAMMO; i++)
-			pl->maxammo[i] = maxammo[i];
+		pl->weaponowned[0] = 1;
+		pl->readyweapon = 0;
 	}
 
 	// initialize player
@@ -301,7 +296,7 @@ void mobj_player_init(player_t *pl)
 	}
 
 	// init weapon
-	P_SetupPsprites(pl); // TODO: custom
+	weapon_setup(pl);
 
 	// extra stuff
 	if(*deathmatch)

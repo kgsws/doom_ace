@@ -428,13 +428,39 @@ static actor_flag_t actor_flag_list[] =
 	// ignored flags
 	{"floorclip", 0},
 	{"noskin", 0},
-	// inventory flags
+	// inventory and weapon flags
 	{"inventory.noscreenflash", INVFLAG_NO_SCREEN_FLASH, 2},
+	{"inventory.quiet", INVFLAG_QUIET, 2},
+	{"inventory.alwayspickup", INVFLAG_ALWAYSPICKUP, 2},
+	{"inventory.ignoreskill", INVFLAG_IGNORESKILL, 2},
+	// inventory flags
+	{"inventory.autoactivate", INVFLAG_ACTIVATE, 2},
+	{"inventory.invbar", INVFLAG_INVBAR, 2},
+	{"inventory.hubpower", INVFLAG_HUBPOWER, 2},
+	{"inventory.persistentpower", INVFLAG_PERSISTENT, 2},
+	{"inventory.keepdepleted", INVFLAG_KEEPDEPLETED, 2},
+	// weapon flags
+	{"weapon.noautofire", WPNFLAG_NOAUTOFIRE, 2},
+	{"weapon.dontbob", WPNFLAG_DONTBOB, 2},
+	{"weapon.noalert", WPNFLAG_NOALERT, 2},
+	{"weapon.ammo_optional", WPNFLAG_AMMO_OPTIONAL, 2},
+	{"weapon.alt_ammo_optional", WPNFLAG_ALT_AMMO_OPTIONAL, 2},
+	{"weapon.ammo_checkboth", WPNFLAG_AMMO_CHECKBOTH, 2},
+	{"weapon.primary_uses_both", WPNFLAG_PRIMARY_USES_BOTH, 2},
+	{"weapon.alt_uses_both", WPNFLAG_ALT_USES_BOTH, 2},
+	{"weapon.noautoaim", WPNFLAG_NOAUTOAIM, 2},
+	{"weapon.meleeweapon", 0, 0}, // ignored
+	{"weapon.wimpy_weapon", 0, 0}, // ignored
+	{"weapon.explosive", 0, 0}, // ignored
+	{"weapon.meleeweapon", 0, 0}, // ignored
+	{"weapon.bfg", 0, 0}, // ignored
+	{"weapon.no_auto_switch", 0, 0}, // ignored
 	// terminator
 	{NULL}
 };
 
 // these are all valid actor animations
+// keep in sync with enum in mobj.h
 // all names must be lowercase
 static actor_animation_t actor_anim_list[] =
 {
@@ -548,6 +574,10 @@ static code_ptr_t codeptr_list_ace[] =
 	{"a_spawnprojectile", A_SpawnProjectile, arg_SpawnProjectile},
 	{"a_jumpifcloser", A_JumpIfCloser, arg_JumpIfCloser},
 	{"a_jump", A_Jump, arg_Jump},
+	// weapons
+	{"a_raise", A_Raise, NULL}, // TODO: speed
+	{"a_lower", A_Lower, NULL}, // TODO: speed
+	{"a_weaponready", A_WeaponReady, NULL}, // TODO: flags
 	// terminator
 	{NULL}
 };
@@ -579,7 +609,6 @@ static hook_t hook_update_tables[] =
 };
 
 // actual pointers
-weaponinfo_t *weaponinfo;
 mobjinfo_t *mobjinfo;
 state_t *states;
 
@@ -607,7 +636,7 @@ static arg_droplist_t *droplist;
 static uint32_t *droplist_next;
 
 // extra data for mobjinfo
-static void *extra_info_memory[DECORATE_NUM_EXTRA];
+void *decorate_extra_info[DECORATE_NUM_EXTRA];
 static uint32_t extra_info_size[DECORATE_NUM_EXTRA] =
 {
 	sizeof(dextra_inventory_t),
@@ -1197,7 +1226,7 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 	{
 		uint16_t type = *((uint16_t*)actor_parent->extra_template);
 		uint32_t idx = *actor_parent->count - 1;
-		info->extra = extra_info_memory[type] + idx * extra_info_size[type];
+		info->extra = decorate_extra_info[type] + idx * extra_info_size[type];
 		memcpy(info->extra, actor_parent->extra_template, extra_info_size[type]);
 	}
 	// set ednum
@@ -2006,14 +2035,13 @@ void decorate_init(int enabled)
 				if(tab->extra_template)
 				{
 					uint32_t slot = *((uint16_t*)tab->extra_template); // .type
-					if(!extra_info_memory[slot])
-						extra_info_memory[slot] = Z_Malloc(*tab->count * extra_info_size[slot], PU_STATIC, NULL);
+					if(!decorate_extra_info[slot])
+						decorate_extra_info[slot] = Z_Malloc(*tab->count * extra_info_size[slot], PU_STATIC, NULL);
 				}
 				tab++;
 			}
 		}
 
-		weaponinfo = e_weaponinfo; // TODO
 		mobjinfo = Z_Malloc(decorate_num_mobjinfo * sizeof(mobjinfo_t), PU_STATIC, NULL);
 		states = Z_Malloc(NUMSTATES * sizeof(state_t), PU_STATIC, NULL); // must be last, will get enlarged
 
@@ -2087,7 +2115,6 @@ void decorate_init(int enabled)
 		// use original pointers
 		states = e_states;
 		mobjinfo = e_mobjinfo;
-		weaponinfo = e_weaponinfo;
 
 		// update original states
 		// compensate for changes 'sprite' and 'frame' in 'mobj_t' and 'state_t'
@@ -2100,6 +2127,9 @@ void decorate_init(int enabled)
 			os++;
 		} while(--count);
 	}
+
+	// state 0 is invisible
+	states[0].sprite = 0;
 
 	// fix all mobjtypes
 
@@ -2172,7 +2202,7 @@ void decorate_keyconf(uint8_t *ptr, uint8_t *end)
 		if(tmp)
 		{
 			// remove all classes from the menu
-			dextra_playerclass_t *pc = extra_info_memory[DECORATE_EXTRA_PLAYERCLASS];
+			dextra_playerclass_t *pc = decorate_extra_info[DECORATE_EXTRA_PLAYERCLASS];
 
 			for(uint32_t i = 0; i < decorate_playerclass_count; i++, pc++)
 				pc->menuidx = -1;

@@ -283,16 +283,19 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 		activate_special(&fakeline, mo, 0);
 	}
 
-	if(message)
-		mo->player->message = message;
+	if(!(remove & INVFLAG_QUIET))
+	{
+		if(message)
+			mo->player->message = message;
 
-	if(sound && mo->player - players == *displayplayer)
-		S_StartSound(NULL, sound);
+		if(sound && mo->player - players == *displayplayer)
+			S_StartSound(NULL, sound);
+	}
 
 	if(remove)
 	{
 		// TODO: item respawn
-		if(!(remove & INVFLAG_NO_SCREEN_FLASH))
+		if(!(remove & (INVFLAG_QUIET | INVFLAG_NO_SCREEN_FLASH)))
 			mo->player->bonuscount += 6;
 		P_RemoveMobj(item);
 	}

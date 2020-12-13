@@ -7,6 +7,7 @@
 #include "action.h"
 #include "mobj.h"
 #include "decorate.h"
+#include "weapon.h"
 
 //#define ARG_PARSE_DEBUG
 
@@ -516,7 +517,10 @@ void A_JumpIfCloser(mobj_t *mo)
 	if(distance >= info->distance)
 		return;
 
-	P_ChangeMobjState(mo, info->state);
+	if(weapon_now)
+		weapon_change_state(info->state);
+	else
+		P_ChangeMobjState(mo, info->state);
 }
 
 //
@@ -571,6 +575,82 @@ void A_Jump(mobj_t *mo)
 
 	idx = P_Random() % info->count;
 
-	P_ChangeMobjState(mo, info->state[idx]);
+	if(weapon_now)
+		weapon_change_state(info->state[idx]);
+	else
+		P_ChangeMobjState(mo, info->state[idx]);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Raise(mobj_t *mo)
+{
+	if(!weapon_now)
+		return;
+
+	weapon_ps->sy -= WEAPONRAISE;
+
+	if(weapon_ps->sy > WEAPONTOP)
+		return;
+
+	weapon_set_sprite(mo->player, 0, weapon_now->ready_state);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Lower(mobj_t *mo)
+{
+	player_t *pl;
+
+	if(!weapon_now)
+		return;
+
+	weapon_ps->sy += WEAPONRAISE;
+
+	if(weapon_ps->sy < WEAPONBOTTOM)
+		return;
+
+	pl = mo->player;
+
+	if(pl->playerstate == PST_DEAD)
+	{
+		weapon_ps->sy = WEAPONBOTTOM;
+		if(weapon_now->deadlow_state)
+			weapon_set_sprite(pl, 0, weapon_now->deadlow_state);
+		else
+			weapon_ps->tics = -1;
+		return;
+	}
+
+	weapon_setup(pl);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_WeaponReady(mobj_t *mo)
+{
+	player_t *pl;
+
+	if(!weapon_now)
+		return;
+
+	pl = mo->player;
+
+	// mobj animation
+	if(mo->animation == MOANIM_MELEE || mo->animation == MOANIM_MISSILE)
+		P_SetMobjAnimation(mo, MOANIM_SPAWN);
+
+	// ready sound
+	if(weapon_now->readysound && weapon_ps->state - states == weapon_now->ready_state)
+		S_StartSound(mo, weapon_now->readysound);
+
+	// check for change
+
+	// check for fire
+
+	// movebob
+	{
+		int angle = (128 * *leveltime) & FINEMASK;
+		weapon_ps->sx = FRACUNIT + FixedMul(pl->bob, finecosine[angle]);
+		angle &= (FINEANGLES / 2) - 1;
+		weapon_ps->sy = WEAPONTOP + FixedMul(pl->bob, finesine[angle]);
+	}
 }
 

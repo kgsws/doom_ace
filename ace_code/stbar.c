@@ -73,14 +73,14 @@ void stbar_draw(player_t *pl)
 		stbar_big_number_r(stbar_ar_x, stbar_y, pl->armorpoints, 3);
 		V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, *tallpercent);
 	}
-
+/*
 	if(pl->readyweapon < NUMWEAPONS)
 	{
 		uint32_t ammo = weaponinfo[pl->readyweapon].ammo;
 		if(ammo < NUMAMMO)
 			stbar_big_number_r(SCREENWIDTH - 4, stbar_y, pl->ammo[ammo], 4);
 	}
-
+*/
 	// TODO: keys
 }
 

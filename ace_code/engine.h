@@ -153,7 +153,7 @@ typedef struct
 
 typedef struct
 {
-	uint32_t state;
+	struct state_s *state;
 	int tics;
 	fixed_t	sx;
 	fixed_t	sy;
@@ -164,6 +164,10 @@ typedef struct
 
 #define	NUMPSPRITES	2
 #define MAXPLAYERS	4
+
+#define WEAPONBOTTOM	(128 << FRACBITS)
+#define WEAPONTOP	(32 << FRACBITS)
+#define WEAPONRAISE	(6 << FRACBITS)
 
 enum
 {
@@ -241,7 +245,8 @@ typedef struct player_s
 	struct dextra_playerclass_s *class;
 	uint32_t readyweapon;
 	uint32_t pendingweapon;
-	uint32_t weaponowned[NUMWEAPONS];
+	uint32_t weaponowned[4]; // now a bit fields; up to 128 weapons
+	uint32_t __free_3[5];
 	int ammo[NUMAMMO];
 	int maxammo[NUMAMMO];
 	int attackdown;
@@ -341,7 +346,7 @@ typedef struct
 	uint32_t raisestate;
 } mobjinfo_t;
 
-typedef struct
+typedef struct state_s
 { // modified
 	uint16_t frame;
 	uint16_t sprite;
@@ -928,7 +933,6 @@ void medusa_cache_fix();
 
 // to be removed
 void P_InitSwitchList();
-void P_SetupPsprites(player_t*) __attribute((regparm(2)));
 
 // stuff
 void I_SetPalette(void*) __attribute((regparm(2)));

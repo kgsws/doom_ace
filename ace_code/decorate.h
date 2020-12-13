@@ -1,8 +1,28 @@
 // kgsws' Doom ACE
 //
 
+// shared flags
 #define INVFLAG_NO_SCREEN_FLASH	0x0001
-#define INVFLAG_IS_CUSTOM	0x8000	// CustomInventory
+#define INVFLAG_QUIET	0x0002
+#define INVFLAG_ALWAYSPICKUP	0x0004
+#define INVFLAG_IGNORESKILL	0x0008	// ammo doubling
+// inventory flags
+#define INVFLAG_IS_CUSTOM	0x0080	// CustomInventory
+#define INVFLAG_ACTIVATE	0x0100
+#define INVFLAG_INVBAR	0x0200
+#define INVFLAG_HUBPOWER	0x0400	// powerup giver?
+#define INVFLAG_PERSISTENT	0x8000	// powerup giver?
+#define INVFLAG_KEEPDEPLETED	0x1000
+// weapon flags
+#define WPNFLAG_NOAUTOAIM	0x0080
+#define WPNFLAG_NOAUTOFIRE	0x0100
+#define WPNFLAG_DONTBOB	0x0200
+#define WPNFLAG_NOALERT	0x0400
+#define WPNFLAG_AMMO_OPTIONAL	0x0800
+#define WPNFLAG_ALT_AMMO_OPTIONAL	0x1000
+#define WPNFLAG_AMMO_CHECKBOTH	0x2000
+#define WPNFLAG_PRIMARY_USES_BOTH	0x4000
+#define WPNFLAG_ALT_USES_BOTH	0x8000
 
 enum
 {
@@ -83,7 +103,6 @@ typedef union decorate_extra_info_u
 } decorate_extra_info_t;
 
 
-extern weaponinfo_t *weaponinfo;
 extern mobjinfo_t *mobjinfo;
 extern state_t *states;
 
@@ -100,6 +119,8 @@ extern uint32_t decorate_num_sprites;
 extern void *func_extra_data;
 
 extern fixed_t *viletryx;
+
+extern void *decorate_extra_info[DECORATE_NUM_EXTRA];
 
 void decorate_prepare();
 void decorate_init(int enabled);

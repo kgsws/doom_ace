@@ -418,12 +418,6 @@ P_RemoveMobj:
 FixedDiv:
 	.byte	0xE9
 	.4byte	0x0001D180
-////////////////////////////////// P_SetupPsprites
-.section .text.P_SetupPsprites
-.global P_SetupPsprites
-P_SetupPsprites:
-	.byte	0xE9
-	.4byte	0x0002DC30
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:

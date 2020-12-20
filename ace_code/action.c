@@ -592,7 +592,7 @@ void A_Raise(mobj_t *mo)
 	if(weapon_ps->sy > WEAPONTOP)
 		return;
 
-	weapon_set_sprite(mo->player, 0, weapon_now->ready_state);
+	weapon_change_state(weapon_now->ready_state);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -614,7 +614,7 @@ void A_Lower(mobj_t *mo)
 	{
 		weapon_ps->sy = WEAPONBOTTOM;
 		if(weapon_now->deadlow_state)
-			weapon_set_sprite(pl, 0, weapon_now->deadlow_state);
+			weapon_change_state(weapon_now->deadlow_state);
 		else
 			weapon_ps->tics = -1;
 		return;
@@ -642,15 +642,95 @@ void A_WeaponReady(mobj_t *mo)
 		S_StartSound(mo, weapon_now->readysound);
 
 	// check for change
+	if(pl->pendingweapon != 0xFFFF)
+	{
+		weapon_change_state(weapon_now->deselect_state);
+		return;
+	}
 
 	// check for fire
+	if(pl->cmd.buttons & BT_ATTACK && weapon_now->fire1_state)
+	{
+		if(!pl->attackdown || !(weapon_now->flags & WPNFLAG_NOAUTOFIRE))
+		{
+			pl->attackdown = 1;
+			weapon_fire(pl, 0);
+			return;
+		}
+	} else
+		pl->attackdown = 0;
 
 	// movebob
+	if(weapon_now->flags & WPNFLAG_DONTBOB)
+	{
+		weapon_ps->sx = 0;
+		weapon_ps->sy = WEAPONTOP;
+	} else
 	{
 		int angle = (128 * *leveltime) & FINEMASK;
 		weapon_ps->sx = FRACUNIT + FixedMul(pl->bob, finecosine[angle]);
 		angle &= (FINEANGLES / 2) - 1;
 		weapon_ps->sy = WEAPONTOP + FixedMul(pl->bob, finesine[angle]);
 	}
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_ReFire(mobj_t *mo)
+{
+	player_t *pl;
+
+	if(!weapon_now)
+		return;
+
+	pl = mo->player;
+
+	if(pl->pendingweapon != 0xFFFF)
+		return;
+
+	if(pl->playerstate != PST_LIVE)
+		return;
+
+	if(pl->cmd.buttons & BT_ATTACK) // TODO: check both
+	{
+		pl->refire++;
+		weapon_fire(pl, -1);
+		return;
+	}
+
+	pl->refire = 0;
+	// TODO: original code was checking ammo here
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_GunFlash(mobj_t *mo)
+{
+	if(!weapon_now)
+		return;
+
+	weapon_set_sprite(mo->player, 1, weapon_flash_state);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Light0(mobj_t *mo)
+{
+	if(!weapon_now)
+		return;
+	mo->player->extralight = 0;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Light1(mobj_t *mo)
+{
+	if(!weapon_now)
+		return;
+	mo->player->extralight = 1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Light2(mobj_t *mo)
+{
+	if(!weapon_now)
+		return;
+	mo->player->extralight = 2;
 }
 

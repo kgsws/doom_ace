@@ -8,6 +8,7 @@
 #include "render.h"
 #include "decorate.h"
 #include "mobj.h"
+#include "weapon.h"
 
 void bad_map_warning(); // asm.S
 
@@ -265,22 +266,17 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 			message = item->info->extra->inventory.message;
 		break;
 		case DECORATE_EXTRA_WEAPON:
-			remove = item->info->extra->flags | 0x80000000;
-			sound = item->info->extra->weapon.pickupsound;
-			message = item->info->extra->weapon.message;
+			if(weapon_pickup(item, mo))
+			{
+				remove = item->info->extra->flags | 0x80000000;
+				sound = item->info->extra->weapon.pickupsound;
+				message = item->info->extra->weapon.message;
+			}
 		break;
 		default:
 			// this is wrong
 			item->flags &= ~MF_SPECIAL;
 			return;
-	}
-
-	if(item->special)
-	{
-		fakeline.special = item->special;
-		fakeline.tag = item->arg0;
-		fakeline.specialdata = (void*)item->args;
-		activate_special(&fakeline, mo, 0);
 	}
 
 	if(!(remove & INVFLAG_QUIET))
@@ -298,6 +294,14 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 		if(!(remove & (INVFLAG_QUIET | INVFLAG_NO_SCREEN_FLASH)))
 			mo->player->bonuscount += 6;
 		P_RemoveMobj(item);
+
+		if(item->special)
+		{
+			fakeline.special = item->special;
+			fakeline.tag = item->arg0;
+			fakeline.specialdata = (void*)item->args;
+			activate_special(&fakeline, mo, 0);
+		}
 	}
 }
 

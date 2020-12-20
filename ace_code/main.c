@@ -177,7 +177,6 @@ static hook_t hook_list[] =
 	common
 ******************/
 	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
-	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&e_weaponinfo},
 	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&e_mobjinfo},
 	{0x00015A28, DATA_HOOK | HOOK_IMPORT, (uint32_t)&e_states},
 	//
@@ -595,7 +594,6 @@ static hook_t hook_vissprite[] =
 //
 // imported variables
 player_t *players;
-weaponinfo_t *e_weaponinfo;
 mobjinfo_t *e_mobjinfo;
 state_t *e_states;
 

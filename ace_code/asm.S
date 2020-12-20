@@ -412,6 +412,12 @@ R_PointToAngle:
 P_RemoveMobj:
 	.byte	0xE9
 	.4byte	0x00031660
+////////////////////////////////// P_NoiseAlert
+.section .text.P_NoiseAlert
+.global P_NoiseAlert
+P_NoiseAlert:
+	.byte	0xE9
+	.4byte	0x00027020
 ////////////////////////////////// FixedDiv
 .section .text.FixedDiv
 .global FixedDiv

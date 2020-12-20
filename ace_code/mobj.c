@@ -264,8 +264,8 @@ void mobj_player_init(player_t *pl)
 		pl->health = pc->maxhealth;
 
 		// reset inventory // TODO: major rewrite
-		pl->weaponowned[0] = 1;
-		pl->readyweapon = 0;
+		pl->weaponowned[0] = 3;
+		pl->pendingweapon = 1;
 	}
 
 	// initialize player

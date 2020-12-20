@@ -16,8 +16,7 @@
 //#define debug_printf	doom_printf
 
 // TODO: stuff to fix
-// A_WeaponReady - &states[S_PLAY_ATK1] // p_pspr.c
-// other weapon stuff in p_pspr.c
+// weapon selection from ticcmd
 // P_DamageMobj - rewrite and remove existing hooks
 // P_KillMobj - merge into new P_DamageMobj and remove existing hooks
 // special sprite "####" "#" and frame
@@ -135,6 +134,13 @@ typedef struct
 	uint32_t state;
 } custom_state_list_t;
 
+typedef struct
+{
+	uint32_t state;
+	void *ptr;
+	void *extra;
+} wpn_codefix_t;
+
 // keywords
 static uint8_t mark_section[] = {'{', '}'};
 static uint8_t kw_actor[] = "actor";
@@ -149,6 +155,282 @@ static uint8_t kw_clearplayerclasses[] = "clearplayerclasses";
 static uint8_t kw_addplayerclass[] = "addplayerclass";
 
 static uint8_t kw_null_sprite[] = {'T', 'N', 'T', '1'}; // not used in parser
+
+//
+// new weapon info
+static uint8_t wpn_info_idx[NUMWEAPONS] =
+{
+	0xFF,	// fist - no actor
+	0xFF,	// pistol - no actor
+	77,	// shotgun
+	73,	// chaingun
+	75,	// rocket launcher
+	76,	// plasma rifle
+	72,	// BFG
+	74,	// chainsaw
+	78,	// super shotgun
+};
+
+static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
+{
+	{	// (0) FIST
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = 0,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF},
+		.ammogive = {0, 0},
+		.ammouse = {0, 0},
+		.pickupsound = sfx_wpnup,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 2,
+		.deselect_state = 3,
+		.select_state = 4,
+		.fire1_state = 5,
+		.flash1_state = 0,
+		.message = NULL
+	},
+	{	// (1) PISTOL
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = 0,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF}, // TODO
+		.ammogive = {0, 0}, // TODO
+		.ammouse = {0, 0}, // TODO
+		.pickupsound = sfx_wpnup,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 10,
+		.deselect_state = 11,
+		.select_state = 12,
+		.fire1_state = 13,
+		.flash1_state = 17,
+		.message = NULL
+	},
+	{	// (2) SHOTGUN
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = 0,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF}, // TODO
+		.ammogive = {0, 0}, // TODO
+		.ammouse = {0, 0}, // TODO
+		.pickupsound = sfx_wpnup,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 18,
+		.deselect_state = 19,
+		.select_state = 20,
+		.fire1_state = 21,
+		.flash1_state = 30,
+		.message = (void*)0x00023104
+	},
+	{	// (3) CHAINGUN
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = 0,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF}, // TODO
+		.ammogive = {0, 0}, // TODO
+		.ammouse = {0, 0}, // TODO
+		.pickupsound = sfx_wpnup,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 49,
+		.deselect_state = 50,
+		.select_state = 51,
+		.fire1_state = 52,
+		.flash1_state = 55,
+		.message = (void*)0x00023094
+	},
+	{	// (4) ROCKET LAUNCHER
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = WPNFLAG_NOAUTOFIRE,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF}, // TODO
+		.ammogive = {0, 0}, // TODO
+		.ammouse = {0, 0}, // TODO
+		.pickupsound = sfx_wpnup,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 57,
+		.deselect_state = 58,
+		.select_state = 59,
+		.fire1_state = 60,
+		.flash1_state = 63,
+		.message = (void*)0x000230CC
+	},
+	{	// (5) PLASMA RIFLE
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = 0,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF}, // TODO
+		.ammogive = {0, 0}, // TODO
+		.ammouse = {0, 0}, // TODO
+		.pickupsound = sfx_wpnup,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 74,
+		.deselect_state = 75,
+		.select_state = 76,
+		.fire1_state = 77,
+		.flash1_state = 79,
+		.message = (void*)0x000230EC
+	},
+	{	// (6) BFG
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = WPNFLAG_NOAUTOFIRE,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF}, // TODO
+		.ammogive = {0, 0}, // TODO
+		.ammouse = {0, 0}, // TODO
+		.pickupsound = sfx_wpnup,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 81,
+		.deselect_state = 82,
+		.select_state = 83,
+		.fire1_state = 84,
+		.flash1_state = 88,
+		.message = (void*)0x00023074
+	},
+	{	// (7) CHAINSAW
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = 0,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF},
+		.ammogive = {0, 0},
+		.ammouse = {0, 0},
+		.pickupsound = sfx_wpnup,
+		.upsound = sfx_sawup,
+		.readysound = sfx_sawidl,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 67,
+		.deselect_state = 69,
+		.select_state = 70,
+		.fire1_state = 71,
+		.flash1_state = 0,
+		.message = (void*)0x000230AC
+	},
+	{	// (8) SUPER SHOTGUN
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = 0,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF}, // TODO
+		.ammogive = {0, 0}, // TODO
+		.ammouse = {0, 0}, // TODO
+		.pickupsound = sfx_wpnup,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF, // TODO
+		.ready_state = 32,
+		.deselect_state = 33,
+		.select_state = 34,
+		.fire1_state = 35,
+		.flash1_state = 47,
+		.message = (void*)0x0002311C
+	},
+};
+
+static wpn_codefix_t wpn_codefix[] =
+{
+	// (0) FIST
+	{2, A_WeaponReady},
+	{3, A_Lower},
+	{4, A_Raise},
+	{6, A_NoBlocking}, // TODO
+	{9, A_ReFire},
+	// (1) PISTOL
+	{10, A_WeaponReady},
+	{11, A_Lower},
+	{12, A_Raise},
+	{14, A_GunFlash}, // TODO
+	{16, A_ReFire},
+	{17, A_Light1},
+	// (2) SHOTGUN
+	{18, A_WeaponReady},
+	{19, A_Lower},
+	{20, A_Raise},
+	{22, A_GunFlash}, // TODO
+	{29, A_ReFire},
+	{30, A_Light1},
+	{31, A_Light2},
+	// (3) CHAINGUN
+	{49, A_WeaponReady},
+	{50, A_Lower},
+	{51, A_Raise},
+	{52, A_GunFlash}, // TODO
+	{53, A_NoBlocking}, // TODO
+	{54, A_ReFire},
+	{55, A_Light1},
+	{56, A_Light2},
+	// (4) ROCKET LAUNCHER
+	{57, A_WeaponReady},
+	{58, A_Lower},
+	{59, A_Raise},
+	{60, A_GunFlash},
+	{61, A_NoBlocking}, // TODO
+	{62, A_ReFire},
+	{63, A_Light1},
+	{65, A_Light2},
+	{66, A_Light2},
+	// (5) PLASMA RIFLE
+	{74, A_WeaponReady},
+	{75, A_Lower},
+	{76, A_Raise},
+	{77, A_GunFlash}, // TODO
+	{78, A_ReFire},
+	{79, A_Light1},
+	{80, A_Light1},
+	// (6) BFG
+	{81, A_WeaponReady},
+	{82, A_Lower},
+	{83, A_Raise},
+	{84, A_NoBlocking}, // sound
+	{85, A_GunFlash},
+	{86, A_NoBlocking}, // TODO
+	{87, A_ReFire},
+	{88, A_Light1},
+	{89, A_Light2},
+	// (7) CHAINSAW
+	{67, A_WeaponReady},
+	{68, A_WeaponReady},
+	{69, A_Lower},
+	{70, A_Raise},
+	{71, A_GunFlash}, // TODO
+	{72, A_NoBlocking}, // TODO
+	{73, A_ReFire},
+	// (8) SUPER SHOTGUN
+	{32, A_WeaponReady},
+	{33, A_Lower},
+	{34, A_Raise},
+	{36, A_GunFlash}, // TODO
+	{38, A_NoBlocking}, // A_CheckReload
+	{39, A_NoBlocking}, // sound
+	{41, A_NoBlocking}, // sound
+	{43, A_NoBlocking}, // sound
+	{44, A_ReFire},
+	{47, A_Light1},
+	{48, A_Light2},
+	// LIGHT DONE
+	{1, A_Light0},
+	// terminator
+	{0}
+};
 
 //
 // default mobjinfo
@@ -578,6 +860,11 @@ static code_ptr_t codeptr_list_ace[] =
 	{"a_raise", A_Raise, NULL}, // TODO: speed
 	{"a_lower", A_Lower, NULL}, // TODO: speed
 	{"a_weaponready", A_WeaponReady, NULL}, // TODO: flags
+	{"a_refire", A_ReFire, NULL},
+	{"a_gunflash", A_GunFlash, NULL}, // TODO: flags
+	{"a_light0", A_Light0, NULL},
+	{"a_light1", A_Light1, NULL},
+	{"a_light2", A_Light2, NULL},
 	// terminator
 	{NULL}
 };
@@ -1965,7 +2252,7 @@ end_ok:
 void decorate_count_actors(uint8_t *start, uint8_t *end)
 {
 	decorate_playerclass_count = 0;
-	decorate_weapon_count = 0;
+	decorate_weapon_count = NUMWEAPONS;	// also count original weapons
 	decorate_inventory_count = 0;
 	decorate_process(start, end, decparse_count);
 }
@@ -1973,7 +2260,7 @@ void decorate_count_actors(uint8_t *start, uint8_t *end)
 void decorate_parse(uint8_t *start, uint8_t *end)
 {
 	decorate_playerclass_count = 0;
-	decorate_weapon_count = 0;
+	decorate_weapon_count = NUMWEAPONS;	// also count original weapons
 	decorate_inventory_count = 0;
 	decorate_process(start, end, decparse_full);
 }
@@ -2139,7 +2426,7 @@ void decorate_init(int enabled)
 	mobjinfo[21].flags |= MF_BOSS; // cyberdemon
 	mobjinfo[3].flags |= MF_NOTARGET; // archvile
 
-	for(int i = 0; i < NUMMOBJTYPES; i++)
+	for(uint32_t i = 0; i < NUMMOBJTYPES; i++)
 	{
 		old_mobjinfo_t *old = (old_mobjinfo_t*)(mobjinfo + i);
 		// monsters
@@ -2169,14 +2456,43 @@ void decorate_init(int enabled)
 	mobjinfo[0].extra = (void*)&playerclass_doomplayer;
 	mobjinfo[0].activesound = sfx_noway; // use fail
 	mobjinfo[0].seesound = sfx_oof; // when falling
+	mobjinfo[0].meleestate = 155; // add melee state - this one is used with 'gun flash'
 
 	// fix player animations for new animation system
 	// this could be done for monsters too, but it seems unnecessary
 	states[154].nextstate = MOBJ_ANIM_STATE(MOANIM_SPAWN, 0);
 	states[157].nextstate = MOBJ_ANIM_STATE(MOANIM_SPAWN, 0);
 
-	// add player melee state - this one is used with 'gun flash'
-	mobjinfo[0].meleestate = 155;
+	// generate original weapons
+	for(uint32_t i = 0; i < NUMWEAPONS; i++)
+	{
+		dextra_weapon_t *wpn = decorate_extra_info[DECORATE_EXTRA_WEAPON];
+		wpn += i;
+		memcpy(wpn, wpn_info_extra + i, sizeof(dextra_weapon_t));
+		if(wpn->message)
+			wpn->message = wpn->message + doom_data_segment;
+		if(wpn_info_idx[i] < 0xFF)
+		{
+			mobjinfo[wpn_info_idx[i]].extra = (void*)wpn;
+			wpn->motype = wpn_info_idx[i];
+		}
+	}
+
+	// replace original weapon codeptrs
+	{
+		wpn_codefix_t *fix = wpn_codefix;
+		while(fix->state)
+		{
+			states[fix->state].action = fix->ptr + ace_segment;
+			fix++;
+		}
+	}
+	// chaingun flash state
+	states[55].nextstate = 56;
+	states[56].tics = 4;
+	// super shotgun flash state
+	states[47].tics = 4;
+	states[48].tics = 3;
 }
 
 //

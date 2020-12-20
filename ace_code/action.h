@@ -55,6 +55,21 @@ void A_Raise(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void A_Lower(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 //
-// A_WeaponReady
+// A_WeaponReady (weapon)
 void A_WeaponReady(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+// A_ReFire (weapon)
+void A_ReFire(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+// A_GunFlash (weapon)
+void A_GunFlash(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+// A_LightX (weapon)
+void A_Light0(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void A_Light1(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void A_Light2(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
 

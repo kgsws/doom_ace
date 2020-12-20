@@ -9,6 +9,20 @@
 
 dextra_weapon_t *weapon_now;
 pspdef_t *weapon_ps;
+uint32_t weapon_refire_state;
+uint32_t weapon_flash_state;
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t weapon_pickup(mobj_t *item, mobj_t *mo)
+{
+	dextra_weapon_t *wpbase = decorate_extra_info[DECORATE_EXTRA_WEAPON];
+	dextra_weapon_t *wp = &item->info->extra->weapon;
+
+	// select this weapon
+	mo->player->pendingweapon = wp - wpbase;
+
+	return 1; // OK
+}
 
 __attribute((regparm(2),no_caller_saved_registers))
 void weapon_set_sprite(player_t *pl, uint32_t slot, uint32_t state)
@@ -36,7 +50,7 @@ void weapon_set_sprite(player_t *pl, uint32_t slot, uint32_t state)
 		{
 			// state was chagned in codepointer
 			// passed state is not a pointer
-			state = sp->state - states;
+			state = (uint32_t)sp->state;
 		} else
 		{
 			// check for ending
@@ -55,13 +69,14 @@ void weapon_setup(player_t *pl)
 	if(!pl->mo)
 		return;
 
-	if(pl->pendingweapon == 0xFFFF)
-		pl->pendingweapon = pl->readyweapon;
+	if(pl->pendingweapon != 0xFFFF)
+	{
+		pl->readyweapon = pl->pendingweapon;
+		pl->pendingweapon = 0xFFFF;
+	}
 
 	wp = decorate_extra_info[DECORATE_EXTRA_WEAPON];
-	wp += pl->pendingweapon;
-
-	pl->pendingweapon = 0xFFFF;
+	wp += pl->readyweapon;
 
 	if(wp->upsound)
 		S_StartSound(pl->mo, wp->upsound);
@@ -106,5 +121,43 @@ void weapon_drop(player_t *pl)
 	weapon_set_sprite(pl, 0, weapon_now->deselect_state);
 	weapon_set_sprite(pl, 1, 0);
 	weapon_now = NULL;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void weapon_fire(player_t *pl, int32_t type)
+{
+	uint32_t fire_state;
+
+	// TODO: check ammo
+
+	if(type < 0)
+		fire_state = weapon_refire_state;
+	else
+	{
+		if(type)
+		{
+			fire_state = weapon_now->fire2_state;
+			weapon_flash_state = weapon_now->flash2_state;
+			if(weapon_now->hold2_state)
+				weapon_refire_state = weapon_now->hold2_state;
+			else
+				weapon_refire_state = fire_state;
+		} else
+		{
+			fire_state = weapon_now->fire1_state;
+			weapon_flash_state = weapon_now->flash1_state;
+			if(weapon_now->hold1_state)
+				weapon_refire_state = weapon_now->hold1_state;
+			else
+				weapon_refire_state = fire_state;
+		}
+	}
+
+	P_SetMobjAnimation(pl->mo, MOANIM_MISSILE);
+
+	weapon_change_state(fire_state);
+
+	if(!(weapon_now->flags & WPNFLAG_NOALERT))
+		P_NoiseAlert(pl->mo, pl->mo);
 }
 

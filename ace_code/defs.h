@@ -7,7 +7,6 @@ typedef struct
 } player_class_t;
 
 extern player_t *players;
-extern weaponinfo_t *e_weaponinfo;
 extern mobjinfo_t *e_mobjinfo;
 extern state_t *e_states;
 

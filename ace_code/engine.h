@@ -22,7 +22,6 @@
 
 typedef int32_t fixed_t;
 typedef uint32_t angle_t;
-typedef uint8_t byte;
 
 //
 // tables
@@ -121,14 +120,17 @@ typedef struct
 //
 // tics
 
+#define BT_ATTACK	1
+#define BT_USE	2
+
 typedef struct
 {
-	char	forwardmove;
-	char	sidemove;
-	short	angleturn;
-	short	consistancy;
-	byte	chatchar;
-	byte	buttons;
+	char forwardmove;
+	char sidemove;
+	short angleturn;
+	short consistancy;
+	uint8_t chatchar;
+	uint8_t buttons;
 } ticcmd_t;
 
 typedef struct thinker_s
@@ -140,16 +142,6 @@ typedef struct thinker_s
 
 //
 // weapons
-
-typedef struct
-{
-	uint32_t ammo;
-	uint32_t upstate;
-	uint32_t downstate;
-	uint32_t readystate;
-	uint32_t atkstate;
-	uint32_t flashstate;
-} weaponinfo_t;
 
 typedef struct
 {
@@ -165,6 +157,8 @@ typedef struct
 #define	NUMPSPRITES	2
 #define MAXPLAYERS	4
 
+#define NUMWEAPONS	9	// original
+
 #define WEAPONBOTTOM	(128 << FRACBITS)
 #define WEAPONTOP	(32 << FRACBITS)
 #define WEAPONRAISE	(6 << FRACBITS)
@@ -174,22 +168,6 @@ enum
 	PST_LIVE,
 	PST_DEAD,
 	PST_REBORN
-};
-
-enum
-{ // TODO: remove
-	wp_fist,
-	wp_pistol,
-	wp_shotgun,
-	wp_chaingun,
-	wp_missile,
-	wp_plasma,
-	wp_bfg,
-	wp_chainsaw,
-	wp_supershotgun,
-	NUMWEAPONS,
-	// No pending weapon change.
-	wp_nochange
 };
 
 enum
@@ -1013,6 +991,7 @@ void P_RemoveThinker(thinker_t*) __attribute((regparm(2)));
 int P_ChangeSector(sector_t*,int) __attribute((regparm(2)));
 void P_SpawnPuff(fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
 uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
+void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2)));
 
 // p_ height search
 fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2)));

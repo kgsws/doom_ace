@@ -44,6 +44,8 @@ extern uint32_t *viewwidth;
 extern thinker_t *thinkercap;
 extern void *ptr_MobjThinker;
 
+extern mobj_t **linetarget;
+
 // storage (always temporary)
 #define STORAGE_VISPLANES	(128*sizeof(visplane_t))
 #define STORAGE_VISSPRITES	(128*sizeof(vissprite_t))

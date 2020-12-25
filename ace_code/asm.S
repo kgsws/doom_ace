@@ -64,6 +64,19 @@ rel_arg4_loop:
 	jmp	rel_arg4_loop
 rel_arg4_end:
 
+	// relocate arg5 table
+	lea	__reloc_code_arg5(%esi),%eax
+	lea	__reloc_code_arg5_end(%esi),%edx
+rel_arg5_loop:
+	cmp	%edx,%eax
+	jge	rel_arg5_end
+	add	%ebx,16(%eax)	// add CODE base to the address
+	add	$20,%eax	// 20 bytes
+	sub	%eax,-4(%eax)
+	add	$3,%eax	// 3 bytes (23 total)
+	jmp	rel_arg5_loop
+rel_arg5_end:
+
 	// clear .bss
 	// TODO: better code
 	xor	%eax,%eax
@@ -605,6 +618,31 @@ P_DamageMobj:
 ////////////////////////////////// end
 .section .text.__reloc_code_arg4_end
 __reloc_code_arg4_end:
+////////////////////////////////////////////////////////
+
+//
+// Relocation table for functions with 5 arguments.
+// Similar to 'arg3' but 5th argument is placed at correct location on the stack.
+.section .text.__reloc_code_arg5
+__reloc_code_arg5:
+////////////////////////////////// P_LineAttack
+.section .text.P_LineAttack
+.global P_LineAttack
+P_LineAttack:
+	push	%ebx
+	push	%ecx
+	mov	20(%esp),%ecx
+	push	%ecx
+	mov	16(%esp),%ebx
+	mov	20(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x0002BC20
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// end
+.section .text.__reloc_code_arg5_end
+__reloc_code_arg5_end:
 ////////////////////////////////////////////////////////
 
 //

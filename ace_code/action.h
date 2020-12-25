@@ -72,4 +72,11 @@ void A_Light0(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void A_Light1(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void A_Light2(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
+//
+// A_Saw (weapon)
+void A_Saw(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+// A_Punch (weapon)
+void A_Punch(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 

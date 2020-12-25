@@ -4,10 +4,12 @@
 #include "utils.h"
 #include "defs.h"
 #include "render.h"
+#include "mobj.h"
+#include "hitscan.h"
 
 int32_t *la_damage;
+mobj_t *hitscan_mobj;
 
-#if 0
 __attribute((regparm(2),no_caller_saved_registers))
 void hitscan_HitMobj(mobj_t *mo, fixed_t x)
 {
@@ -20,6 +22,8 @@ void hitscan_HitMobj(mobj_t *mo, fixed_t x)
 		y = iy;
 		z = iz;
 	}
+
+	hitscan_mobj = mo;
 
 	if(mo->flags & MF_NOBLOOD)
 	{
@@ -41,31 +45,6 @@ void hitscan_HitMobj(mobj_t *mo, fixed_t x)
 		else
 		if(*la_damage < 12)
 			P_SetMobjState(th, 91);
-
-		// hardcoded blood hack for demo
-		// this is not a complete solution
-		// crusher spawns blood too
-		// crushed things turn into blood
-		switch(mo->type)
-		{
-			case 17:
-			case 15:
-				// green
-				th->translation = render_get_translation(2);
-			break;
-			case 14:
-				// blue
-				th->translation = render_get_translation(3);
-			break;
-			case 18:
-				// fire?
-				th->translation = render_get_translation(4);
-			break;
-			case 13:
-				// desaturated
-				th->translation = render_get_translation(1);
-			break;
-		}
 	}
 }
-#endif
+

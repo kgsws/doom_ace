@@ -231,6 +231,7 @@ static hook_t hook_list[] =
 	{0x00031490, CODE_HOOK | HOOK_IMPORT, (uint32_t)&ptr_MobjThinker},
 	{0x00074FE0, DATA_HOOK | HOOK_READ32, (uint32_t)&mainzone},
 	//
+	{0x0002B9F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&linetarget},
 	{0x0002B9B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&la_damage},
 	//
 	{0x0003A1E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&storage_visplanes},
@@ -306,9 +307,9 @@ static hook_t hook_list[] =
 	hitscan.c
 *******************/
 	// custom mobj hit handling
-//	{0x0002bb30, CODE_HOOK | HOOK_UINT32, 0x24148b}, // 'mov (%esp),%edx'
-//	{0x0002BB33, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hitscan_HitMobj},
-//	{0x0002bb38, CODE_HOOK | HOOK_UINT32, 0x18EB}, // 'jmp'
+	{0x0002bb30, CODE_HOOK | HOOK_UINT32, 0x24148b}, // 'mov (%esp),%edx'
+	{0x0002BB33, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hitscan_HitMobj},
+	{0x0002bb38, CODE_HOOK | HOOK_UINT32, 0x18EB}, // 'jmp'
 /*******************
 	decorate.c
 *******************/
@@ -631,6 +632,8 @@ uint32_t *viewwidth;
 
 thinker_t *thinkercap;
 void *ptr_MobjThinker;
+
+mobj_t **linetarget;
 
 fixed_t *viewx;
 fixed_t *viewy;

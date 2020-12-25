@@ -116,6 +116,17 @@ void P_SetMobjAnimation(mobj_t *mo, uint8_t anim)
 }
 
 //
+// new player aiming
+__attribute((regparm(2),no_caller_saved_registers))
+fixed_t player_attack_aim(mobj_t *mo, angle_t *angle, fixed_t range)
+{
+	// TODO: mouseaim; optional autoaim
+	if(angle)
+		*angle = mo->angle;
+	return 0;
+}
+
+//
 // replacements
 
 __attribute((regparm(2),no_caller_saved_registers))

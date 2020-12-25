@@ -352,7 +352,7 @@ static wpn_codefix_t wpn_codefix[] =
 	{2, A_WeaponReady},
 	{3, A_Lower},
 	{4, A_Raise},
-	{6, A_NoBlocking}, // TODO
+	{6, A_Punch},
 	{9, A_ReFire},
 	// (1) PISTOL
 	{10, A_WeaponReady},
@@ -411,8 +411,8 @@ static wpn_codefix_t wpn_codefix[] =
 	{68, A_WeaponReady},
 	{69, A_Lower},
 	{70, A_Raise},
-	{71, A_GunFlash}, // TODO
-	{72, A_NoBlocking}, // TODO
+	{71, A_Saw},
+	{72, A_Saw},
 	{73, A_ReFire},
 	// (8) SUPER SHOTGUN
 	{32, A_WeaponReady},

@@ -8,6 +8,7 @@
 #include "mobj.h"
 #include "decorate.h"
 #include "weapon.h"
+#include "hitscan.h"
 
 //#define ARG_PARSE_DEBUG
 
@@ -581,6 +582,9 @@ void A_Jump(mobj_t *mo)
 		P_ChangeMobjState(mo, info->state[idx]);
 }
 
+//
+// basic weapon stuff
+
 __attribute((regparm(2),no_caller_saved_registers))
 void A_Raise(mobj_t *mo)
 {
@@ -685,10 +689,10 @@ void A_ReFire(mobj_t *mo)
 	pl = mo->player;
 
 	if(pl->pendingweapon != 0xFFFF)
-		return;
+		goto skip;
 
 	if(pl->playerstate != PST_LIVE)
-		return;
+		goto skip;
 
 	if(pl->cmd.buttons & BT_ATTACK) // TODO: check both
 	{
@@ -697,6 +701,7 @@ void A_ReFire(mobj_t *mo)
 		return;
 	}
 
+skip:
 	pl->refire = 0;
 	// TODO: original code was checking ammo here
 }
@@ -732,5 +737,86 @@ void A_Light2(mobj_t *mo)
 	if(!weapon_now)
 		return;
 	mo->player->extralight = 2;
+}
+
+//
+// A_Saw
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Saw(mobj_t *mo)
+{
+	uint32_t damage;
+	angle_t angle;
+	fixed_t slope;
+
+	if(!weapon_now)
+		return;
+
+	// TODO: ammo
+
+	damage = 2 * (P_Random() % 10 + 1);
+	angle = mo->angle;
+	angle += (P_Random() - P_Random()) << 18;
+	slope = player_attack_aim(mo, NULL, MELEERANGE+1);
+
+	hitscan_mobj = NULL;
+	P_LineAttack(mo, angle, MELEERANGE+1, slope, damage);
+	if(!hitscan_mobj)
+	{
+		S_StartSound(mo, sfx_sawful);
+		return;
+	}
+
+	S_StartSound(mo, sfx_sawhit);
+
+	angle = R_PointToAngle2(mo->x, mo->y, hitscan_mobj->x, hitscan_mobj->y);
+	if(angle - mo->angle > ANG180)
+	{
+		if(angle - mo->angle < -ANG90/20)
+			mo->angle = angle + ANG90/21;
+		else
+			mo->angle -= ANG90/20;
+	} else
+	{
+		if(angle - mo->angle > ANG90/20)
+			mo->angle = angle - ANG90/21;
+		else
+			mo->angle += ANG90/20;
+	}
+
+	mo->flags |= MF_JUSTATTACKED;
+}
+
+//
+// A_Punch
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Punch(mobj_t *mo)
+{
+	uint32_t damage;
+	angle_t angle;
+	fixed_t slope;
+
+	if(!weapon_now)
+		return;
+
+	// TODO: ammo
+
+	damage = 2 * (P_Random() % 10 + 1);
+	if(mo->player->powers[pw_strength])
+		damage *= 10;
+
+	angle = mo->angle;
+	angle += (P_Random() - P_Random()) << 18;
+	slope = player_attack_aim(mo, NULL, MELEERANGE);
+
+	hitscan_mobj = NULL;
+	P_LineAttack(mo, angle, MELEERANGE, slope, damage);
+	if(!hitscan_mobj)
+		return;
+
+	S_StartSound(mo, sfx_punch);
+
+	mo->angle = R_PointToAngle2(mo->x, mo->y, hitscan_mobj->x, hitscan_mobj->y);
 }
 

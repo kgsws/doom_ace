@@ -17,6 +17,7 @@ enum
 	ARGTYPE_TERMINATOR,
 	ARGTYPE_BOOLEAN,
 	ARGTYPE_INT32,
+	ARGTYPE_SOUND,
 	ARGTYPE_ENUM,
 	ARGTYPE_FIXED,
 	ARGTYPE_ACTOR,
@@ -121,6 +122,9 @@ set_defaults:
 					goto end_fail;
 				if(!arg)
 					goto end_fail;
+			break;
+			case ARGTYPE_SOUND:
+				// TODO
 			break;
 			case ARGTYPE_ENUM:
 				// TODO
@@ -583,6 +587,41 @@ void A_Jump(mobj_t *mo)
 }
 
 //
+// A_PlaySound
+
+static argtype_t arg_playsound[] =
+{
+	{ARGTYPE_SOUND, 0, NULL},
+	// terminator
+	{ARGTYPE_TERMINATOR}
+};
+
+void *arg_PlaySound(void *func, uint8_t *arg, uint8_t *end)
+{
+	int i;
+
+	if(parse_args(arg_playsound, arg, end))
+		return NULL;
+
+	func_extra_data = (void*)arg_playsound[0].result;
+
+	return A_PlaySound;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_PlaySound(mobj_t *mo)
+{
+	uint32_t idx;
+
+	if(weapon_now)
+		idx = (uint32_t)weapon_ps->state->extra;
+	else
+		idx = (uint32_t)mo->state->extra;
+
+	S_StartSound(mo, idx);
+}
+
+//
 // basic weapon stuff
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -713,6 +752,8 @@ void A_GunFlash(mobj_t *mo)
 		return;
 
 	weapon_set_sprite(mo->player, 1, weapon_flash_state);
+	if(mo->info->meleestate)
+		P_SetMobjAnimation(mo, MOANIM_MELEE);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -818,5 +859,42 @@ void A_Punch(mobj_t *mo)
 	S_StartSound(mo, sfx_punch);
 
 	mo->angle = R_PointToAngle2(mo->x, mo->y, hitscan_mobj->x, hitscan_mobj->y);
+}
+
+//
+// A_DoomBullets
+__attribute((regparm(2),no_caller_saved_registers))
+void A_DoomBullets(mobj_t *mo)
+{
+	// non-decorate implementation for demo compatibility
+	arg_doom_bullet_t *extra = weapon_ps->state->extra;
+	angle_t angle;
+	fixed_t slope;
+	int32_t refire;
+
+	if(!weapon_now)
+		return;
+
+	// TODO: ammo
+
+	S_StartSound(mo, extra->sound);
+	if(extra->flags & 1)
+		A_GunFlash(mo);
+
+	slope = player_attack_aim(mo, &angle, MISSILERANGE);
+
+	refire = mo->player->refire | (extra->flags & 2);
+	for(uint32_t i = 0; i < extra->count; i++)
+	{
+		int32_t dd = 5 * (P_Random() % 3 + 1);
+		angle_t aa = angle;
+		fixed_t ss = slope;
+
+		if(refire)
+			aa += (P_Random() - P_Random()) << extra->hs;
+		if(extra->vs)
+			ss += (P_Random() - P_Random()) << extra->vs;
+		P_LineAttack(mo, aa, MISSILERANGE, ss, dd);
+	}
 }
 

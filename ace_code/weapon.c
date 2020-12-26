@@ -15,11 +15,18 @@ uint32_t weapon_flash_state;
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t weapon_pickup(mobj_t *item, mobj_t *mo)
 {
+	player_t *pl = mo->player;
 	dextra_weapon_t *wpbase = decorate_extra_info[DECORATE_EXTRA_WEAPON];
 	dextra_weapon_t *wp = &item->info->extra->weapon;
+	uint32_t idx = wp - wpbase;
+	uint32_t sub = 1 << (idx & 31);
 
 	// select this weapon
-	mo->player->pendingweapon = wp - wpbase;
+	if(!(pl->weaponowned[idx >> 5] & sub))
+		pl->pendingweapon = idx;
+
+	// owned now
+	pl->weaponowned[idx >> 5] |= sub;
 
 	return 1; // OK
 }

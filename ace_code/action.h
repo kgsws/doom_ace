@@ -47,6 +47,11 @@ void *arg_Jump(void*, uint8_t*, uint8_t*);
 void A_Jump(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 //
+// A_PlaySound
+void *arg_PlaySound(void *func, uint8_t *arg, uint8_t *end);
+void A_PlaySound(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
 // A_Raise (weapon)
 void A_Raise(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
@@ -79,4 +84,15 @@ void A_Saw(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 //
 // A_Punch (weapon)
 void A_Punch(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+// A_DoomBullets (weapon)
+typedef struct
+{
+	uint16_t sound;
+	uint8_t count;
+	uint8_t flags;
+	uint8_t hs, vs;
+} __attribute__((packed)) arg_doom_bullet_t;
+void A_DoomBullets(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 

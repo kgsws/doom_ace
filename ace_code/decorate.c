@@ -316,7 +316,7 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 		.pickupsound = sfx_wpnup,
 		.upsound = sfx_sawup,
 		.readysound = sfx_sawidl,
-		.kickback = 100,
+		.kickback = 0,
 		.selection = 0xFFFF, // TODO
 		.ready_state = 67,
 		.deselect_state = 69,
@@ -346,6 +346,42 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 	},
 };
 
+static arg_doom_bullet_t wpn_arg_pistol =
+{
+	.sound = sfx_pistol,
+	.count = 1,
+	.flags = 1,
+	.hs = 18,
+	.vs = 0
+};
+
+static arg_doom_bullet_t wpn_arg_shotgun =
+{
+	.sound = sfx_shotgn,
+	.count = 7,
+	.flags = 3,
+	.hs = 18,
+	.vs = 0
+};
+
+static arg_doom_bullet_t wpn_arg_chgn =
+{
+	.sound = sfx_pistol,
+	.count = 1,
+	.flags = 0,
+	.hs = 18,
+	.vs = 0
+};
+
+static arg_doom_bullet_t wpn_arg_shotgun2 =
+{
+	.sound = sfx_dshtgn,
+	.count = 20,
+	.flags = 3,
+	.hs = 19,
+	.vs = 5
+};
+
 static wpn_codefix_t wpn_codefix[] =
 {
 	// (0) FIST
@@ -358,14 +394,14 @@ static wpn_codefix_t wpn_codefix[] =
 	{10, A_WeaponReady},
 	{11, A_Lower},
 	{12, A_Raise},
-	{14, A_GunFlash}, // TODO
+	{14, A_DoomBullets, &wpn_arg_pistol},
 	{16, A_ReFire},
 	{17, A_Light1},
 	// (2) SHOTGUN
 	{18, A_WeaponReady},
 	{19, A_Lower},
 	{20, A_Raise},
-	{22, A_GunFlash}, // TODO
+	{22, A_DoomBullets, &wpn_arg_shotgun},
 	{29, A_ReFire},
 	{30, A_Light1},
 	{31, A_Light2},
@@ -373,8 +409,8 @@ static wpn_codefix_t wpn_codefix[] =
 	{49, A_WeaponReady},
 	{50, A_Lower},
 	{51, A_Raise},
-	{52, A_GunFlash}, // TODO
-	{53, A_NoBlocking}, // TODO
+	{52, A_DoomBullets, &wpn_arg_pistol},
+	{53, A_DoomBullets, &wpn_arg_chgn},
 	{54, A_ReFire},
 	{55, A_Light1},
 	{56, A_Light2},
@@ -400,7 +436,7 @@ static wpn_codefix_t wpn_codefix[] =
 	{81, A_WeaponReady},
 	{82, A_Lower},
 	{83, A_Raise},
-	{84, A_NoBlocking}, // sound
+	{84 | 0x80000000, A_PlaySound, (void*)sfx_bfg},
 	{85, A_GunFlash},
 	{86, A_NoBlocking}, // TODO
 	{87, A_ReFire},
@@ -418,11 +454,11 @@ static wpn_codefix_t wpn_codefix[] =
 	{32, A_WeaponReady},
 	{33, A_Lower},
 	{34, A_Raise},
-	{36, A_GunFlash}, // TODO
+	{36, A_DoomBullets, &wpn_arg_shotgun2},
 	{38, A_NoBlocking}, // A_CheckReload
-	{39, A_NoBlocking}, // sound
-	{41, A_NoBlocking}, // sound
-	{43, A_NoBlocking}, // sound
+	{39 | 0x80000000, A_PlaySound, (void*)sfx_dbopn},
+	{41 | 0x80000000, A_PlaySound, (void*)sfx_dbload},
+	{43 | 0x80000000, A_PlaySound, (void*)sfx_dbcls},
 	{44, A_ReFire},
 	{47, A_Light1},
 	{48, A_Light2},
@@ -856,6 +892,7 @@ static code_ptr_t codeptr_list_ace[] =
 	{"a_spawnprojectile", A_SpawnProjectile, arg_SpawnProjectile},
 	{"a_jumpifcloser", A_JumpIfCloser, arg_JumpIfCloser},
 	{"a_jump", A_Jump, arg_Jump},
+	{"a_playsound", A_PlaySound, arg_PlaySound},
 	// weapons
 	{"a_raise", A_Raise, NULL}, // TODO: speed
 	{"a_lower", A_Lower, NULL}, // TODO: speed
@@ -865,6 +902,8 @@ static code_ptr_t codeptr_list_ace[] =
 	{"a_light0", A_Light0, NULL},
 	{"a_light1", A_Light1, NULL},
 	{"a_light2", A_Light2, NULL},
+	{"a_punch", A_Punch, NULL},
+	{"a_saw", A_Saw, NULL}, // TODO: stuff
 	// terminator
 	{NULL}
 };
@@ -2483,7 +2522,13 @@ void decorate_init(int enabled)
 		wpn_codefix_t *fix = wpn_codefix;
 		while(fix->state)
 		{
-			states[fix->state].action = fix->ptr + ace_segment;
+			uint32_t idx = fix->state & 0x7FFFFFFF;
+			states[idx].action = fix->ptr + ace_segment;
+			if(fix->state & 0x80000000)
+				states[idx].extra = fix->extra;
+			else
+			if(fix->extra)
+				states[idx].extra = fix->extra + ace_segment;
 			fix++;
 		}
 	}

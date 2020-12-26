@@ -9,6 +9,7 @@
 #include "decorate.h"
 #include "weapon.h"
 #include "hitscan.h"
+#include "sound.h"
 
 //#define ARG_PARSE_DEBUG
 
@@ -124,7 +125,13 @@ set_defaults:
 					goto end_fail;
 			break;
 			case ARGTYPE_SOUND:
-				// TODO
+			{
+				uint8_t *tmp = tp_get_string(arg, end);
+				if(!tmp)
+					goto end_fail;
+				list->result = sound_get_id(tp_clean_string(arg));
+				arg = tmp;
+			}
 			break;
 			case ARGTYPE_ENUM:
 				// TODO

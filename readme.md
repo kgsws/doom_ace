@@ -85,6 +85,7 @@ Only special ZDoom actors can be used as a base for new actors.
 
 - `FakeInventory`
 - `PlayerPawn`
+- `DoomWeapon`
 
 #### supported properties
 Only properties included it this list are supported. Any unknown property will cause an error.
@@ -120,7 +121,7 @@ Properties for `FakeInventory`:
 Properties for `PlayerPawn`:
 
 - `Player.AttackZOffset`
-  - will not work with original action pointers
+  - will not work with original weapons
 - `Player.ViewHeight`
 - `Player.JumpZ`
   - there is no `jump` key, yet
@@ -170,14 +171,18 @@ Properties for `PlayerPawn`:
 #### states
 List of supported engine states:
 
-- `spawn`
-- `see`
-- `pain`
-- `melee`
-- `missile`
-- `death`
-- `xdeath`
-- `raise`
+- `Spawn`
+- `See`
+- `Pain`
+- `Melee`
+- `Missile`
+- `Death`
+- `XDeath`
+- `Raise`
+- `Heal`
+- `Death.Fire`
+- `Death.Ice`
+- `Death.Disintegrate`
 
 Custom states are supported in specific way and in limited amount.
 Every custom state must start with `_` (underscore) character.
@@ -202,6 +207,18 @@ More action pointers:
 - `A_SpawnProjectile` with most parameters (`ptr` is not supported and flag `CMF_BADPITCH` is not supported)
 - `A_JumpIfCloser` with parameters
 - `A_Jump` with up to 5 different jump destinations
+- `A_PlaySound` with only 1st parameter
+
+Weapon action pointers:
+
+- `A_Raise` no parameters
+- `A_Lower` no parameters
+- `A_WeaponReady` no parameters
+- `A_ReFire` no parameters
+- `A_GunFlash` no parameters
+- `A_Light0`
+- `A_Light1`
+- `A_Light2`
 
 ### Sounds
 Currently no new sounds are supported. All sounds in DECORATE have to be specified by lump name, like `dspistol`.

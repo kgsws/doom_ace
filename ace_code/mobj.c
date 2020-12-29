@@ -121,9 +121,33 @@ __attribute((regparm(2),no_caller_saved_registers))
 fixed_t player_attack_aim(mobj_t *mo, angle_t *angle, fixed_t range)
 {
 	// TODO: mouseaim; optional autoaim
+	fixed_t slope;
+	angle_t a;
+
+	a = mo->angle;
+	slope = P_AimLineAttack(mo, a, AIMRANGE);
+
 	if(angle)
-		*angle = mo->angle;
-	return 0;
+	{
+		if(!*linetarget)
+		{
+			a += 1 << 26;
+			slope = P_AimLineAttack(mo, a, AIMRANGE);
+			if(!*linetarget)
+			{
+				a -= 2 << 26;
+				slope = P_AimLineAttack(mo, a, AIMRANGE);
+				if(!*linetarget)
+				{
+					a = mo->angle;
+					slope = 0;
+				}
+			}
+		}
+		*angle = a;
+	}
+
+	return slope;
 }
 
 //

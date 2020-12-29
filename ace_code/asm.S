@@ -517,6 +517,16 @@ P_TryMove:
 	.4byte	0x0002B200
 	pop	%ebx
 	ret
+////////////////////////////////// P_AimLineAttack
+.section .text.P_AimLineAttack
+.global P_AimLineAttack
+P_AimLineAttack:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002BB80
+	pop	%ebx
+	ret
 ////////////////////////////////// P_SpawnPuff
 .section .text.P_SpawnPuff
 .global P_SpawnPuff

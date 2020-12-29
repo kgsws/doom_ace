@@ -219,6 +219,7 @@ Weapon action pointers:
 - `A_Light0`
 - `A_Light1`
 - `A_Light2`
+- `A_FireProjectile` no `FPF_AIMATANGLE` flag
 
 ### Sounds
 Currently no new sounds are supported. All sounds in DECORATE have to be specified by lump name, like `dspistol`.

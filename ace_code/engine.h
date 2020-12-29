@@ -166,6 +166,7 @@ typedef struct
 #define USERANGE	(64 << FRACBITS)
 #define MELEERANGE	(64 << FRACBITS)
 #define MISSILERANGE	(2048 << FRACBITS)
+#define AIMRANGE	(1024 << FRACBITS)
 
 enum
 {
@@ -997,6 +998,7 @@ void P_SpawnPuff(fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
 uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
 void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2)));
 void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,int32_t) __attribute((regparm(2)));
+fixed_t P_AimLineAttack(mobj_t*,angle_t,fixed_t) __attribute((regparm(2)));
 
 // p_ height search
 fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2)));

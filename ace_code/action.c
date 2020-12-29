@@ -1017,7 +1017,7 @@ void A_FireProjectile(mobj_t *mo)
 	}
 
 	item = P_SpawnMobj(x, y, mo->z + mo->player->class->attackz + info->height, info->actor);
-	item->momz = -slope; // TODO: check
+	item->momz = FixedMul(item->info->speed, slope);
 	missile_stuff(item, mo, NULL, angle);
 	if(item->flags & MF_SEEKERMISSILE)
 	{

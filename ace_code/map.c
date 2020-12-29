@@ -363,8 +363,15 @@ bail_out:
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t map_get_spawn_type(uint32_t ednum)
 {
+	// map item spawn for old map format
 	// scan backwards
 	uint32_t idx = decorate_num_mobjinfo - 1;
+
+	if(*demoplayback) // TODO: check version
+		idx = NUMMOBJTYPES - 1;
+	else
+		idx = decorate_num_mobjinfo - 1;
+
 	do
 	{
 		if(mobjinfo[idx].doomednum == ednum)

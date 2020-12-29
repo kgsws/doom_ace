@@ -290,8 +290,16 @@ void mobj_player_init(player_t *pl)
 		pl->mo = mo;
 
 		// setup player class
-		pc = &mobjinfo[player_class].extra->playerclass;
-		pl->class = pc;
+		if(*demoplayback) // TODO: check version
+		{
+			// old doom demo - always MT_PLAYER
+			pc = &mobjinfo[0].extra->playerclass;
+			pl->class = pc;
+		} else
+		{
+			pc = &mobjinfo[player_class].extra->playerclass;
+			pl->class = pc;
+		}
 
 		// pre-setup
 		pl->usedown = 1;

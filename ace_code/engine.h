@@ -955,13 +955,12 @@ void V_DrawPatch(int x, int y, int zero, patch_t *patch) __attribute((regparm(2)
 
 // g_game.c
 void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(2)));
+void G_ExitLevel();
+void G_DoPlayDemo();
 
 // p_mobj.c
 mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, uint32_t type) __attribute((regparm(2)));
 void P_SpawnPlayer(void *mt) __attribute((regparm(2)));
-
-// g_game.c
-void G_ExitLevel();
 
 // render
 void R_GenerateLookup(int) __attribute((regparm(2)));

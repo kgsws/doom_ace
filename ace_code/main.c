@@ -13,6 +13,7 @@
 #include "mobj.h"
 #include "decorate.h"
 #include "weapon.h"
+#include "demo.h"
 
 // progres bar task weight
 #define PBAR_FLR_SPR	32	// flats / sprite processing
@@ -198,6 +199,7 @@ static hook_t hook_list[] =
 	{0x0002B3E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameskill},
 	{0x0002B3FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatch},
 	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
+	{0x0002B3E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&demoplayback},
 	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
 	{0x0002B3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gametic},
 	{0x0002B3D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalitems},
@@ -321,6 +323,11 @@ static hook_t hook_list[] =
 	{0x00028118, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)vile_chase_move},
 	{0x0002811d, CODE_HOOK | HOOK_UINT16, 0x2aeb}, // 'jmp'
 	{0x0002B948, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viletryx},
+/*******************
+	demo.c
+*******************/
+	// custom G_DoPlayDemo
+	{0x0002052A, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)demo_start},
 /*******************
 	weapon.c
 *******************/
@@ -617,6 +624,7 @@ uint32_t *displayplayer;
 uint32_t *gamemap;
 uint32_t *gameepisode;
 uint32_t *gameskill;
+uint32_t *demoplayback;
 uint32_t *netgame;
 uint32_t *deathmatch;
 uint32_t *gametic;

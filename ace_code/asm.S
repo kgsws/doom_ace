@@ -431,6 +431,12 @@ P_RemoveMobj:
 P_NoiseAlert:
 	.byte	0xE9
 	.4byte	0x00027020
+////////////////////////////////// G_DoPlayDemo
+.section .text.G_DoPlayDemo
+.global G_DoPlayDemo
+G_DoPlayDemo:
+	.byte	0xE9
+	.4byte	0x00021AD0
 ////////////////////////////////// FixedDiv
 .section .text.FixedDiv
 .global FixedDiv

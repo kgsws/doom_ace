@@ -96,3 +96,21 @@ typedef struct
 } __attribute__((packed)) arg_doom_bullet_t;
 void A_DoomBullets(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
+//
+// A_DoomPlasma (weapon)
+void A_DoomPlasma(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+// A_FireProjectile (weapon)
+typedef struct
+{
+	uint32_t actor;
+	fixed_t angle;
+	uint32_t flags;
+	fixed_t offset;
+	fixed_t height;
+	fixed_t pitch;
+} __attribute__((packed)) arg_fire_projectile_t;
+void *arg_FireProjectile(void*, uint8_t*, uint8_t*);
+void A_FireProjectile(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+

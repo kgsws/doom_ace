@@ -382,6 +382,21 @@ static arg_doom_bullet_t wpn_arg_shotgun2 =
 	.vs = 5
 };
 
+static arg_fire_projectile_t wpn_arg_rl =
+{
+	.actor = 33
+};
+
+static arg_fire_projectile_t wpn_arg_plasma =
+{
+	.actor = 34
+};
+
+static arg_fire_projectile_t wpn_arg_bfg =
+{
+	.actor = 35
+};
+
 static wpn_codefix_t wpn_codefix[] =
 {
 	// (0) FIST
@@ -419,7 +434,7 @@ static wpn_codefix_t wpn_codefix[] =
 	{58, A_Lower},
 	{59, A_Raise},
 	{60, A_GunFlash},
-	{61, A_NoBlocking}, // TODO
+	{61, A_FireProjectile, &wpn_arg_rl},
 	{62, A_ReFire},
 	{63, A_Light1},
 	{65, A_Light2},
@@ -428,7 +443,7 @@ static wpn_codefix_t wpn_codefix[] =
 	{74, A_WeaponReady},
 	{75, A_Lower},
 	{76, A_Raise},
-	{77, A_GunFlash}, // TODO
+	{77, A_DoomPlasma, &wpn_arg_plasma},
 	{78, A_ReFire},
 	{79, A_Light1},
 	{80, A_Light1},
@@ -438,7 +453,7 @@ static wpn_codefix_t wpn_codefix[] =
 	{83, A_Raise},
 	{84 | 0x80000000, A_PlaySound, (void*)sfx_bfg},
 	{85, A_GunFlash},
-	{86, A_NoBlocking}, // TODO
+	{86, A_FireProjectile, &wpn_arg_bfg},
 	{87, A_ReFire},
 	{88, A_Light1},
 	{89, A_Light2},
@@ -904,6 +919,7 @@ static code_ptr_t codeptr_list_ace[] =
 	{"a_light2", A_Light2, NULL},
 	{"a_punch", A_Punch, NULL},
 	{"a_saw", A_Saw, NULL}, // TODO: stuff
+	{"a_fireprojectile", A_FireProjectile, arg_FireProjectile},
 	// terminator
 	{NULL}
 };
@@ -2489,6 +2505,9 @@ void decorate_init(int enabled)
 		mobjinfo[i].extra = NULL;
 		mobjinfo[i].extrainfo = NULL;
 	}
+
+	// zombieman is fullbright when attacking
+	states[185].frame |= FF_FULLBRIGHT;
 
 	// extra player stuff
 	mobjinfo[0].flags2 = MF2_TELESTOMP;

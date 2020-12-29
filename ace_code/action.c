@@ -403,7 +403,7 @@ void *arg_SpawnProjectile(void *func, uint8_t *arg, uint8_t *end)
 	info->offset = arg_spawn_projectile[2].result;
 	info->angle = arg_spawn_projectile[3].result;
 	info->flags = arg_spawn_projectile[4].result;
-	info->pitch = arg_spawn_projectile[5].result; // TODO
+	info->pitch = arg_spawn_projectile[5].result;
 
 	if(info->angle >= 360 << FRACBITS)
 		info->angle = 0;
@@ -755,10 +755,17 @@ skip:
 __attribute((regparm(2),no_caller_saved_registers))
 void A_GunFlash(mobj_t *mo)
 {
+	pspdef_t *old_ps;
+
 	if(!weapon_now)
 		return;
 
+	old_ps = weapon_ps;
+
 	weapon_set_sprite(mo->player, 1, weapon_flash_state);
+
+	weapon_ps = old_ps;
+
 	if(mo->info->meleestate)
 		P_SetMobjAnimation(mo, MOANIM_MELEE);
 }
@@ -874,13 +881,15 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_DoomBullets(mobj_t *mo)
 {
 	// non-decorate implementation for demo compatibility
-	arg_doom_bullet_t *extra = weapon_ps->state->extra;
+	arg_doom_bullet_t *extra;
 	angle_t angle;
 	fixed_t slope;
 	int32_t refire;
 
 	if(!weapon_now)
 		return;
+
+	extra = weapon_ps->state->extra;
 
 	// TODO: ammo
 
@@ -902,6 +911,117 @@ void A_DoomBullets(mobj_t *mo)
 		if(extra->vs)
 			ss += (P_Random() - P_Random()) << extra->vs;
 		P_LineAttack(mo, aa, MISSILERANGE, ss, dd);
+	}
+}
+
+//
+// A_DoomPlasma
+__attribute((regparm(2),no_caller_saved_registers))
+void A_DoomPlasma(mobj_t *mo)
+{
+	pspdef_t *old_ps = weapon_ps;
+	weapon_set_sprite(mo->player, 1, weapon_flash_state + (P_Random() & 1));
+	weapon_ps = old_ps;
+	A_FireProjectile(mo);
+}
+
+//
+// A_FireProjectile
+
+#define FPF_TRANSFERTRANSLATION	1
+#define FPF_NOAUTOAIM	2
+#define FPF__USEAMMO	0x80000000
+static argflag_t arg_fire_projectile_flags[] =
+{
+	{"fpf_transfertranslation", FPF_TRANSFERTRANSLATION},
+	{"fpf_noautoaim", FPF_NOAUTOAIM},
+	// terminator
+	{NULL}
+};
+
+static argtype_t arg_fire_projectile[] =
+{
+	{ARGTYPE_ACTOR, 0, NULL},
+	{ARGTYPE_FIXED, ARGFLAG_OPTIONAL, NULL, 0},
+	{ARGTYPE_BOOLEAN, ARGFLAG_OPTIONAL, NULL, 1},
+	{ARGTYPE_FIXED, ARGFLAG_OPTIONAL, NULL, 0},
+	{ARGTYPE_FIXED, ARGFLAG_OPTIONAL, NULL, 0},
+	{ARGTYPE_FLAGLIST, ARGFLAG_OPTIONAL, arg_fire_projectile_flags, 0},
+	{ARGTYPE_FIXED, ARGFLAG_OPTIONAL, NULL, 0},
+	// terminator
+	{ARGTYPE_TERMINATOR}
+};
+
+void *arg_FireProjectile(void *func, uint8_t *arg, uint8_t *end)
+{
+	arg_fire_projectile_t *info;
+
+	if(parse_args(arg_fire_projectile, arg, end))
+		return NULL;
+
+	if(arg_fire_projectile[0].result == (uint32_t)-1)
+		return A_DoNothing;
+
+	info = decorate_get_storage(sizeof(arg_fire_projectile_t));
+	info->actor = arg_fire_projectile[0].result;
+	info->angle = arg_fire_projectile[1].result;
+	info->offset = arg_fire_projectile[3].result;
+	info->height = arg_fire_projectile[4].result;
+	info->flags = arg_fire_projectile[5].result;
+	info->pitch = arg_fire_projectile[6].result;
+
+	if(arg_fire_projectile[2].result)
+		info->flags |= FPF__USEAMMO;
+
+	if(info->angle >= 360 << FRACBITS)
+		info->angle = 0;
+	info->angle = (11930464 * (uint64_t)info->angle) >> 16;
+
+	func_extra_data = info;
+
+	return A_FireProjectile;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_FireProjectile(mobj_t *mo)
+{
+	angle_t angle;
+	fixed_t slope;
+	arg_fire_projectile_t *info;
+	mobj_t *item;
+	fixed_t x, y, z;
+
+	if(!weapon_now)
+		return;
+
+	info = weapon_ps->state->extra;
+
+	// TODO: ammo
+
+	if(info->flags & FPF_NOAUTOAIM)
+	{
+		slope = 0; // TODO
+		angle = mo->angle;
+	} else
+		slope = player_attack_aim(mo, &angle, MISSILERANGE);
+
+	angle += info->angle;
+	x = mo->x;
+	y = mo->y;
+
+	if(info->offset)
+	{
+		angle_t a = angle >> ANGLETOFINESHIFT;
+		x += FixedMul(info->offset, finesine[a]);
+		y += FixedMul(info->offset, finecosine[a]);
+	}
+
+	item = P_SpawnMobj(x, y, mo->z + mo->player->class->attackz + info->height, info->actor);
+	item->momz = -slope; // TODO: check
+	missile_stuff(item, mo, NULL, angle);
+	if(item->flags & MF_SEEKERMISSILE)
+	{
+		// TODO
 	}
 }
 

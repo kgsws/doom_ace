@@ -1,6 +1,9 @@
 // kgsws' Doom ACE
 //
 
+#define WPN_NUMSLOTS	10	// weapon slots, keys '0' to '9'
+#define WPN_PERSLOT	8	// max weapons per single slot
+
 // shared flags
 #define INVFLAG_NO_SCREEN_FLASH	0x0001
 #define INVFLAG_QUIET	0x0002
@@ -57,9 +60,9 @@ typedef struct dextra_playerclass_s
 	fixed_t jumpz;
 	uint32_t maxhealth;
 	uint8_t spawnclass; // 0 to 3
+	uint8_t weaponslot[WPN_NUMSLOTS][WPN_PERSLOT];
 //	Player.ColorRange
 //	Player.MorphWeapon
-//	Player.WeaponSlot
 //	Player.StartItem
 //	uint8_t *name;
 } __attribute__((packed)) dextra_playerclass_t;

@@ -795,6 +795,15 @@ void A_Light2(mobj_t *mo)
 }
 
 //
+// A_CheckReload
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_CheckReload(mobj_t *mo)
+{
+	// TODO: when AMMO is in
+}
+
+//
 // A_Saw
 
 __attribute((regparm(2),no_caller_saved_registers))

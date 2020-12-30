@@ -78,6 +78,10 @@ void A_Light1(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void A_Light2(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 //
+// A_CheckReload (weapon)
+void A_CheckReload(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
 // A_Saw (weapon)
 void A_Saw(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 

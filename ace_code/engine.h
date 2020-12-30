@@ -124,12 +124,12 @@ typedef struct
 #define BT_USE	2
 
 typedef struct
-{
+{ // modified
 	char forwardmove;
 	char sidemove;
 	short angleturn;
 	short consistancy;
-	uint8_t chatchar;
+	uint8_t weaponchange;
 	uint8_t buttons;
 } ticcmd_t;
 
@@ -157,7 +157,7 @@ typedef struct
 #define	NUMPSPRITES	2
 #define MAXPLAYERS	4
 
-#define NUMWEAPONS	9	// original
+#define NUMWEAPONS	10	// includes original weapons and new 'no weapon'
 
 #define WEAPONBOTTOM	(128 << FRACBITS)
 #define WEAPONTOP	(32 << FRACBITS)

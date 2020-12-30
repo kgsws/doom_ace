@@ -194,6 +194,7 @@ static hook_t hook_list[] =
 	//
 	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
 	{0x0002B3D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&displayplayer},
+	{0x0002A880, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamekeydown},
 	{0x0002B3E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemap},
 	{0x0002B3F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameepisode},
 	{0x0002B3E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameskill},
@@ -336,6 +337,13 @@ static hook_t hook_list[] =
 	{0x000334a5, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)weapon_tick}, // P_PlayerThink
 	// replace weapon disable on death
 	{0x0002a388, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)weapon_drop}, // TODO: remove when new P_KillMobj is added
+	// disable original weapon change and use 'chatchar' for weapon changes
+	{0x0001fd82, CODE_HOOK | HOOK_RELADDR_ACE, (uint32_t)weapon_ticcmd_set},
+	{0x0001fdee, CODE_HOOK | HOOK_UINT16, 0x37EB}, // 'jmp'
+	{0x0003b795, CODE_HOOK | HOOK_UINT16, 0xE990}, // HU_Ticker
+	// new pending weapon code from ticcmd
+	{0x000333ef, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)weapon_ticcmd_parse},
+	{0x000333f4, CODE_HOOK | HOOK_UINT32, 0x7EEB9090}, // 'jmp'
 /*******************
 	mobj.c
 *******************/
@@ -542,8 +550,6 @@ static hook_t hook_list[] =
 	// DEBUG STUFF TO BE REMOVED OR FIXED
 	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix (textures, flats, states)
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
-	{0x00031a0a, CODE_HOOK | HOOK_UINT32, 0xeb66e983}, // allow unknown map thing (old map format)
-	{0x00031a0e, CODE_HOOK | HOOK_UINT8, 0x17}, // allow unknown map thing (old map format)
 	{0x0002fc27, CODE_HOOK | HOOK_UINT16, 0x10EB}, // disable unknown sector error
 //	{0x00022370, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OATRSKY"}, // Eviternity hack for testing
 //	{0x00022378, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY01"}, // Eviternity hack for testing
@@ -620,6 +626,8 @@ uint32_t *skyflatnum;
 
 uint32_t *consoleplayer;
 uint32_t *displayplayer;
+
+uint32_t *gamekeydown;
 
 uint32_t *gamemap;
 uint32_t *gameepisode;

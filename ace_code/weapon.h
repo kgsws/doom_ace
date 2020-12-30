@@ -14,6 +14,8 @@ void weapon_fire(player_t *pl, int32_t type) __attribute((regparm(2),no_caller_s
 
 // hooks
 void weapon_tick(player_t *pl) __attribute((regparm(2),no_caller_saved_registers));
+uint8_t weapon_ticcmd_set() __attribute((regparm(2),no_caller_saved_registers));
+void weapon_ticcmd_parse() __attribute((regparm(2),no_caller_saved_registers));
 
 // state changes in codeptr
 // could even be new animation code

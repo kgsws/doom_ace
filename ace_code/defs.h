@@ -25,6 +25,8 @@ extern uint32_t *skyflatnum;
 extern uint32_t *consoleplayer;
 extern uint32_t *displayplayer;
 
+extern uint32_t *gamekeydown;
+
 extern uint32_t *gamemap;
 extern uint32_t *gameepisode;
 extern uint32_t *gameskill;

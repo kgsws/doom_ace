@@ -21,6 +21,8 @@ uint32_t weapon_pickup(mobj_t *item, mobj_t *mo)
 	uint32_t idx = wp - wpbase;
 	uint32_t sub = 1 << (idx & 31);
 
+	// TODO: ammo check
+
 	// select this weapon
 	if(!(pl->weaponowned[idx >> 5] & sub))
 		pl->pendingweapon = idx;
@@ -166,5 +168,91 @@ void weapon_fire(player_t *pl, int32_t type)
 
 	if(!(weapon_now->flags & WPNFLAG_NOALERT))
 		P_NoiseAlert(pl->mo, pl->mo);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint8_t weapon_ticcmd_set()
+{
+	for(uint32_t i = 0; i < WPN_NUMSLOTS; i++)
+	{
+		if(gamekeydown[i + '0'])
+		{
+			// check this slot
+			player_t *pl = players + *consoleplayer;
+			uint8_t *slot = pl->class->weaponslot[i];
+			uint8_t pick = 0;
+			uint8_t first = 0;
+
+			for(uint32_t j = 0; j < WPN_PERSLOT; j++)
+			{
+				uint8_t idx = slot[j];
+				if(!idx)
+					break;
+				if(!(pl->weaponowned[idx >> 5] & (1 << (idx & 31))))
+					continue;
+				if(!first && idx != pl->readyweapon)
+					first = idx;
+				if(pick)
+				{
+					if(idx == pl->readyweapon)
+						pick = 0;
+				} else
+				if(idx != pl->readyweapon)
+					pick = idx;
+			}
+			if(!pick)
+				pick = first;
+			if(pick && pick != pl->readyweapon)
+				return pick;
+		}
+	}
+	return 0;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void weapon_ticcmd_parse()
+{
+	register ticcmd_t *cmd asm("ebx");
+	player_t *pl;
+	uint32_t idx;
+	uint32_t sub;
+
+	pl = (player_t*)((uint8_t*)cmd - offsetof(player_t, cmd));
+
+	if(*demoplayback) // TODO: check version
+	{
+		if(!(cmd->buttons & 4))
+			return;
+
+		idx = (cmd->buttons >> 3) & 0b111;
+		idx++; // skip 'no weapon'
+
+		if(	idx == 1 &&
+			pl->weaponowned[0] & (1 << 8) &&
+			!(pl->readyweapon != 8 && pl->powers[pw_strength])
+		)
+			idx = 8;
+
+		if(	idx = 3 &&
+			pl->weaponowned[0] & (1 << 9) &&
+			pl->readyweapon != 9
+		)
+			idx = 9;
+	} else
+	{
+		if(!cmd->weaponchange)
+			return;
+		idx = cmd->weaponchange;
+	}
+
+	sub = 1 << (idx & 31);
+
+	if(!(pl->weaponowned[idx >> 5] & sub))
+		return;
+
+	if(idx == pl->readyweapon)
+		return;
+
+	pl->pendingweapon = idx;
 }
 

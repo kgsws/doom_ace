@@ -160,6 +160,7 @@ static uint8_t kw_null_sprite[] = {'T', 'N', 'T', '1'}; // not used in parser
 // new weapon info
 static uint8_t wpn_info_idx[NUMWEAPONS] =
 {
+	0xFF,	// 'no weapon'
 	0xFF,	// fist - no actor
 	0xFF,	// pistol - no actor
 	77,	// shotgun
@@ -173,6 +174,25 @@ static uint8_t wpn_info_idx[NUMWEAPONS] =
 
 static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 {
+	{	// ACE engine 'no weapon'
+		.type = DECORATE_EXTRA_WEAPON,
+		.flags = 0,
+		.motype = 0,
+		.ammotype = {0xFFFF, 0xFFFF},
+		.ammogive = {0, 0},
+		.ammouse = {0, 0},
+		.pickupsound = 0,
+		.upsound = 0,
+		.readysound = 0,
+		.kickback = 100,
+		.selection = 0xFFFF,
+		.ready_state = 887,
+		.deselect_state = 892,
+		.select_state = 893,
+		.fire1_state = 0,
+		.flash1_state = 0,
+		.message = NULL
+	},
 	{	// (0) FIST
 		.type = DECORATE_EXTRA_WEAPON,
 		.flags = 0,
@@ -470,7 +490,7 @@ static wpn_codefix_t wpn_codefix[] =
 	{33, A_Lower},
 	{34, A_Raise},
 	{36, A_DoomBullets, &wpn_arg_shotgun2},
-	{38, A_NoBlocking}, // A_CheckReload
+	{38, A_CheckReload},
 	{39 | 0x80000000, A_PlaySound, (void*)sfx_dbopn},
 	{41 | 0x80000000, A_PlaySound, (void*)sfx_dbload},
 	{43 | 0x80000000, A_PlaySound, (void*)sfx_dbcls},
@@ -662,7 +682,15 @@ static dextra_playerclass_t playerclass_doomplayer =
 	.attackz = 32 << FRACBITS,
 	.jumpz = 0 << FRACBITS,
 	.maxhealth = 100,
-	.spawnclass = 0
+	.spawnclass = 0,
+	.weaponslot[1] = {8, 1},
+	.weaponslot[2] = {2},
+	.weaponslot[3] = {9, 3},
+	.weaponslot[4] = {4},
+	.weaponslot[5] = {5},
+	.weaponslot[6] = {6},
+	.weaponslot[7] = {7},
+	.weaponslot[8] = {8},
 };
 
 // these are all valid actor properties
@@ -917,6 +945,7 @@ static code_ptr_t codeptr_list_ace[] =
 	{"a_light0", A_Light0, NULL},
 	{"a_light1", A_Light1, NULL},
 	{"a_light2", A_Light2, NULL},
+	{"a_checkreload", A_CheckReload, NULL},
 	{"a_punch", A_Punch, NULL},
 	{"a_saw", A_Saw, NULL}, // TODO: stuff
 	{"a_fireprojectile", A_FireProjectile, arg_FireProjectile},
@@ -2551,6 +2580,19 @@ void decorate_init(int enabled)
 			fix++;
 		}
 	}
+	// 'no weapon' states
+	states[887].sprite = 0;
+	states[887].nextstate = 887;
+	states[887].tics = 1;
+	states[887].action = A_WeaponReady;
+	states[892].sprite = 0;
+	states[892].nextstate = 892;
+	states[892].tics = 0;
+	states[892].action = A_Lower;
+	states[893].sprite = 0;
+	states[893].nextstate = 893;
+	states[893].tics = 0;
+	states[893].action = A_Raise;
 	// chaingun flash state
 	states[55].nextstate = 56;
 	states[56].tics = 4;

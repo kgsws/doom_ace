@@ -371,7 +371,7 @@ uint8_t *tp_get_string(uint8_t *start, uint8_t *end)
 	return NULL;
 }
 
-// get keyword (text until whitespace)
+// get keyword (text until whitespace, or special characters)
 // returns skipped keyword
 uint8_t *tp_get_keyword(uint8_t *start, uint8_t *end)
 {
@@ -385,6 +385,10 @@ uint8_t *tp_get_keyword(uint8_t *start, uint8_t *end)
 		if(tmp == '\n')
 			break;
 		if(tmp == '\r')
+			break;
+		if(tmp == '/')
+			break;
+		if(tmp == ',')
 			break;
 		start++;
 	}

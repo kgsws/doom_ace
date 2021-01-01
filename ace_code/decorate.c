@@ -76,6 +76,10 @@ enum
 	PROPTYPE_FLAGCOMBO,
 	// drop item list
 	PROPTYPE_DROPLIST,
+	// player class weapon slot
+	PROPTYPE_WEAPONSLOT,
+	// player class start items
+	PROPTYPE_STARTLIST,
 	// state definitions
 	PROPTYPE_STATES,
 	// sound special
@@ -693,6 +697,17 @@ static dextra_playerclass_t playerclass_doomplayer =
 	.weaponslot[8] = {8},
 };
 
+static player_startlist_t startlist_doomplayer =
+{
+	// TODO: clip ammo
+	.count = 1,
+	.itemcombo =
+	{
+		{1},
+		{1}
+	}
+};
+
 // these are all valid actor properties
 // all names must be lowercase
 static actor_property_t actor_prop_list[] =
@@ -742,7 +757,10 @@ static actor_property_t actor_prop_list[] =
 	{"player.jumpz", PROPTYPE_FIXED, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, jumpz)},
 	{"player.maxhealth", PROPTYPE_INT32, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, maxhealth)},
 	{"player.spawnclass", PROPTYPE_INT32, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, spawnclass)},
+	{"player.weaponslot", PROPTYPE_WEAPONSLOT, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, weaponslot)},
+	{"player.startitem", PROPTYPE_STARTLIST, ATTR_MASK_PLAYERCLASS, 0, offsetof(dextra_playerclass_t, startitems)},
 	{"player.soundclass", PROPTYPE_INT32, ATTR_MASK_PLAYERCLASS, PROPFLAG_IGNORED, 0},
+	{"player.displayname", PROPTYPE_STRING, ATTR_MASK_PLAYERCLASS, PROPFLAG_IGNORED, 0},
 	// terminator
 	{NULL}
 };
@@ -1005,6 +1023,8 @@ uint32_t decorate_inventory_count;
 // extra data for codepointers
 static arg_droplist_t *droplist;
 static uint32_t *droplist_next;
+static player_startlist_t *startlist;
+static list_itemcombo_t *startlist_next;
 
 // extra data for mobjinfo
 void *decorate_extra_info[DECORATE_NUM_EXTRA];
@@ -1606,6 +1626,7 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 	// reset some stuff
 	actor_first_state = decorate_state_idx;
 	droplist = NULL;
+	startlist = NULL;
 
 	ptr++; // skip '{'
 
@@ -1830,7 +1851,7 @@ unknown_flag:
 						actor_name[actor_name_len] = 0;
 						I_Error("[ACE] DECORATE: actor '%s' invalid integer for property '%s'", actor_name, prop->match);
 					}
-					if(prob < 255)
+					if(prob > 255)
 						prob = 255;
 				}
 #ifdef debug_printf
@@ -1859,6 +1880,170 @@ unknown_flag:
 						*droplist_next = aidx | (prob << 24);
 						droplist_next++;
 						droplist->count++;
+					}
+				}
+			} else
+			if(prop->type == PROPTYPE_WEAPONSLOT)
+			{
+				uint32_t slot;
+
+				// parse number
+				ptr = tp_get_uint(ptr, end, &slot);
+				if(ptr == end)
+					goto end_eof;
+				if(!ptr || slot >= WPN_NUMSLOTS)
+				{
+					actor_name[actor_name_len] = 0;
+					I_Error("[ACE] DECORATE: actor '%s' invalid integer for property '%s'", actor_name, prop->match);
+				}
+
+				// skip WS
+				ptr = tp_skip_wsc(ptr, end);
+				if(ptr == end)
+					goto end_eof;
+
+				// must get comma
+				if(*ptr != ',')
+				{
+					actor_name[actor_name_len] = 0;
+					I_Error("[ACE] DECORATE: actor '%s' incomplete property '%s'", actor_name, prop->match);
+				}
+
+				while(1)
+				{
+					uint8_t bk;
+
+					// skip WS
+					ptr = tp_skip_wsc(ptr + 1, end);
+					if(ptr == end)
+						goto end_eof;
+
+					// must get actor name
+					tmp = tp_get_keyword(ptr, end);
+					if(tmp == end || tmp == ptr)
+					{
+						actor_name[actor_name_len] = 0;
+						I_Error("[ACE] DECORATE: actor '%s' invalid string for property '%s'", actor_name, prop->match);
+					}
+
+					bk = *tmp;
+					*tmp = 0;
+
+					int aidx = decorate_get_actor(ptr);
+					if(aidx < 0)
+					{
+						// original weapons without actors
+						if(!strcmp(ptr, "Fist"))
+							aidx = 1;
+						else
+						if(!strcmp(ptr, "Pistol"))
+							aidx = 2;
+					} else
+					if(mobjinfo[aidx].extra && mobjinfo[aidx].extra->type == DECORATE_EXTRA_WEAPON)
+						aidx = (dextra_weapon_t*)mobjinfo[aidx].extra - (dextra_weapon_t*)decorate_extra_info[DECORATE_EXTRA_WEAPON];
+
+					if(aidx >= 0)
+					{
+						uint8_t *sl = info->extra->playerclass.weaponslot[slot];
+						// new weapons are inserted
+						for(uint32_t i = WPN_PERSLOT-1; i > 0; i--)
+							sl[i] = sl[i-1];
+						sl[0] = aidx;
+					}
+
+					*tmp = bk;
+
+					// skip WS
+					ptr = tp_skip_wsc(tmp, end);
+					if(ptr == end)
+						goto end_eof;
+
+					// check for next
+					if(*ptr != ',')
+						break;
+				}
+			} else
+			if(prop->type == PROPTYPE_STARTLIST)
+			{
+				uint8_t *iname;
+				uint32_t count = 1;
+				void *extra;
+
+				// item name
+				tmp = tp_get_string(ptr, end);
+				if(!tmp)
+				{
+					actor_name[actor_name_len] = 0;
+					I_Error("[ACE] DECORATE: actor '%s' invalid string for property '%s'", actor_name, prop->match);
+				}
+				iname = ptr;
+
+				// skip WS
+				ptr = tp_skip_wsc(tmp, end);
+				if(ptr == end)
+					goto end_eof;
+
+				// optional count
+				if(*ptr == ',')
+				{
+					ptr++;
+					if(ptr == end)
+						goto end_eof;
+					// skip WS
+					ptr = tp_skip_wsc(ptr, end);
+					if(ptr == end)
+						goto end_eof;
+					// parse number
+					ptr = tp_get_uint(ptr, end, &count);
+					if(ptr == end)
+						goto end_eof;
+					if(!ptr || !tp_is_ws_next(ptr, end, 1))
+					{
+						actor_name[actor_name_len] = 0;
+						I_Error("[ACE] DECORATE: actor '%s' invalid integer for property '%s'", actor_name, prop->match);
+					}
+					if(count > 65535)
+						count = 65535;
+				}
+
+				// add to the list
+				iname = tp_clean_string(iname);
+				int aidx = decorate_get_actor(iname);
+				if(aidx < 0)
+				{
+					// original weapons without actors
+					if(!strcmp(iname, "Fist"))
+						extra = decorate_extra_info[DECORATE_EXTRA_WEAPON] + sizeof(dextra_weapon_t) * 1;
+					else
+					if(!strcmp(iname, "Pistol"))
+						extra = decorate_extra_info[DECORATE_EXTRA_WEAPON] + sizeof(dextra_weapon_t) * 2;
+				} else
+					extra = mobjinfo[aidx].extra;
+
+				if(extra)
+				{
+					if(!startlist)
+					{
+						// new startlist
+						startlist = decorate_get_storage(sizeof(player_startlist_t) + sizeof(list_itemcombo_t));
+						startlist->count = 0; // this means 1
+						startlist->itemcombo[0].extra = extra;
+						startlist->itemcombo[0].count = count;
+						startlist_next = startlist->itemcombo + 1;
+						info->extra->playerclass.startitems = startlist;
+					} else
+					{
+						// add entry to existing list
+						if(decorate_get_storage(sizeof(list_itemcombo_t)) != startlist_next)
+						{
+							// list is not contiguous
+							actor_name[actor_name_len] = 0;
+							I_Error("[ACE] DECORATE: actor '%s' StartItem list was split", actor_name);
+						}
+						startlist_next->extra = extra;
+						startlist_next->count = count;
+						startlist_next++;
+						startlist->count++;
 					}
 				}
 			} else
@@ -2544,6 +2729,9 @@ void decorate_init(int enabled)
 	mobjinfo[0].activesound = sfx_noway; // use fail
 	mobjinfo[0].seesound = sfx_oof; // when falling
 	mobjinfo[0].meleestate = 155; // add melee state - this one is used with 'gun flash'
+	playerclass_doomplayer.startitems = &startlist_doomplayer;
+	startlist_doomplayer.itemcombo[0].extra = decorate_extra_info[DECORATE_EXTRA_WEAPON] + sizeof(dextra_weapon_t) * 2;
+	startlist_doomplayer.itemcombo[1].extra = decorate_extra_info[DECORATE_EXTRA_WEAPON] + sizeof(dextra_weapon_t) * 1;
 
 	// fix player animations for new animation system
 	// this could be done for monsters too, but it seems unnecessary

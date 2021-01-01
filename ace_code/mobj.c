@@ -125,18 +125,18 @@ fixed_t player_attack_aim(mobj_t *mo, angle_t *angle, fixed_t range)
 	angle_t a;
 
 	a = mo->angle;
-	slope = P_AimLineAttack(mo, a, AIMRANGE);
+	slope = P_AimLineAttack(mo, a, range);
 
 	if(angle)
 	{
 		if(!*linetarget)
 		{
 			a += 1 << 26;
-			slope = P_AimLineAttack(mo, a, AIMRANGE);
+			slope = P_AimLineAttack(mo, a, range);
 			if(!*linetarget)
 			{
 				a -= 2 << 26;
-				slope = P_AimLineAttack(mo, a, AIMRANGE);
+				slope = P_AimLineAttack(mo, a, range);
 				if(!*linetarget)
 				{
 					a = mo->angle;
@@ -285,6 +285,8 @@ void mobj_player_init(player_t *pl)
 
 	if(pl->playerstate == PST_REBORN)
 	{
+		player_startlist_t *sl;
+
 		// major cleanup // TODO: keep kill/item/secret stats
 		memset(pl, 0, sizeof(player_t));
 		pl->mo = mo;
@@ -306,9 +308,28 @@ void mobj_player_init(player_t *pl)
 		pl->attackdown = 1;
 		pl->health = pc->maxhealth;
 
-		// reset inventory // TODO: major rewrite
-		pl->weaponowned[0] = 0b110;
-		pl->pendingweapon = 2;
+		// reset inventory
+		sl = pc->startitems;
+		if(sl)
+		{
+			for(uint32_t i = 0; i < sl->count+1; i++)
+			{
+				switch(sl->itemcombo[i].extra->type)
+				{
+					case DECORATE_EXTRA_WEAPON:
+					{
+						// get weapon index
+						int idx = &sl->itemcombo[i].extra->weapon - (dextra_weapon_t*)decorate_extra_info[DECORATE_EXTRA_WEAPON];
+						// add to inventory
+						pl->weaponowned[idx >> 5] |= 1 << (idx & 31);
+						// set as default
+						if(!pl->pendingweapon)
+							pl->pendingweapon = idx;
+					}
+					break;
+				}
+			}
+		}
 	}
 
 	// initialize player

@@ -449,9 +449,9 @@ void A_SpawnProjectile(mobj_t *mo)
 
 	if(info->offset)
 	{
-		angle_t a = aaa >> ANGLETOFINESHIFT;
-		x += FixedMul(info->offset, finesine[a]);
-		y += FixedMul(info->offset, finecosine[a]);
+		angle_t a = (aaa - ANG90) >> ANGLETOFINESHIFT;
+		x += FixedMul(info->offset, finecosine[a]);
+		y += FixedMul(info->offset, finesine[a]);
 	}
 
 	if((info->flags & (CMF_AIMOFFSET|CMF_AIMDIRECTION)) == 0)
@@ -906,13 +906,13 @@ void A_DoomBullets(mobj_t *mo)
 	if(extra->flags & 1)
 		A_GunFlash(mo);
 
-	slope = player_attack_aim(mo, &angle, MISSILERANGE);
+	slope = player_attack_aim(mo, &angle, AIMRANGE);
 
 	refire = mo->player->refire | (extra->flags & 2);
 	for(uint32_t i = 0; i < extra->count; i++)
 	{
 		int32_t dd = 5 * (P_Random() % 3 + 1);
-		angle_t aa = angle;
+		angle_t aa = mo->angle;
 		fixed_t ss = slope;
 
 		if(refire)
@@ -1012,18 +1012,19 @@ void A_FireProjectile(mobj_t *mo)
 		slope = 0; // TODO
 		angle = mo->angle;
 	} else
-		slope = player_attack_aim(mo, &angle, MISSILERANGE);
+		slope = player_attack_aim(mo, &angle, AIMRANGE);
 
-	angle += info->angle;
 	x = mo->x;
 	y = mo->y;
 
 	if(info->offset)
 	{
-		angle_t a = angle >> ANGLETOFINESHIFT;
-		x += FixedMul(info->offset, finesine[a]);
-		y += FixedMul(info->offset, finecosine[a]);
+		angle_t a = (angle - ANG90) >> ANGLETOFINESHIFT;
+		x += FixedMul(info->offset, finecosine[a]);
+		y += FixedMul(info->offset, finesine[a]);
 	}
+
+	angle += info->angle;
 
 	item = P_SpawnMobj(x, y, mo->z + mo->player->class->attackz + info->height, info->actor);
 	item->momz = FixedMul(item->info->speed, slope);

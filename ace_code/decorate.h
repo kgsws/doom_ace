@@ -38,6 +38,18 @@ enum
 
 typedef struct
 {
+	uint16_t count;
+	union decorate_extra_info_u *extra;
+} __attribute__((packed)) list_itemcombo_t;
+
+typedef struct
+{
+	uint8_t count;
+	list_itemcombo_t itemcombo[];
+} __attribute__((packed)) player_startlist_t;
+
+typedef struct
+{
 	uint16_t type;
 	uint16_t flags;
 	uint16_t maxcount;
@@ -61,9 +73,9 @@ typedef struct dextra_playerclass_s
 	uint32_t maxhealth;
 	uint8_t spawnclass; // 0 to 3
 	uint8_t weaponslot[WPN_NUMSLOTS][WPN_PERSLOT];
+	player_startlist_t *startitems;
 //	Player.ColorRange
 //	Player.MorphWeapon
-//	Player.StartItem
 //	uint8_t *name;
 } __attribute__((packed)) dextra_playerclass_t;
 
@@ -104,7 +116,6 @@ typedef union decorate_extra_info_u
 	dextra_playerclass_t playerclass;
 	dextra_weapon_t weapon;
 } decorate_extra_info_t;
-
 
 extern mobjinfo_t *mobjinfo;
 extern state_t *states;

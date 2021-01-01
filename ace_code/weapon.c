@@ -219,6 +219,8 @@ void weapon_ticcmd_parse()
 
 	pl = (player_t*)((uint8_t*)cmd - offsetof(player_t, cmd));
 
+	// TODO: do not change when morphed
+
 	if(*demoplayback) // TODO: check version
 	{
 		if(!(cmd->buttons & 4))
@@ -233,7 +235,7 @@ void weapon_ticcmd_parse()
 		)
 			idx = 8;
 
-		if(	idx = 3 &&
+		if(	idx == 3 &&
 			pl->weaponowned[0] & (1 << 9) &&
 			pl->readyweapon != 9
 		)
@@ -243,6 +245,7 @@ void weapon_ticcmd_parse()
 		if(!cmd->weaponchange)
 			return;
 		idx = cmd->weaponchange;
+		// TODO: do not change to weapon not present in player slots
 	}
 
 	sub = 1 << (idx & 31);

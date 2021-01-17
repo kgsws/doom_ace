@@ -551,6 +551,7 @@ static hook_t hook_list[] =
 	{0x00034780, CODE_HOOK | HOOK_UINT8, 0xC3}, // disable 'R_PrecacheLevel'; TODO: fix (textures, flats, states)
 	{0x0002fc8b, CODE_HOOK | HOOK_UINT8, 0xEB}, // disable animations; TODO: rewrite 'P_UpdateSpecials'
 	{0x0002fc27, CODE_HOOK | HOOK_UINT16, 0x10EB}, // disable unknown sector error
+	{0x0003a503, CODE_HOOK | HOOK_UINT16, 0x20EB}, // disable ammo in stbar; TODO: use new ammo system
 //	{0x00022370, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OATRSKY"}, // Eviternity hack for testing
 //	{0x00022378, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY01"}, // Eviternity hack for testing
 //	{0x00022368, DATA_HOOK | HOOK_CSTR_ACE, (uint32_t)"OSKY25"}, // Eviternity hack for testing

@@ -59,6 +59,9 @@ void stbar_init()
 
 void stbar_draw(player_t *pl)
 {
+	dextra_weapon_t *weapon;
+	dextra_ammo_t *ammo;
+
 	if(*screenblocks < 11)
 		return;
 
@@ -73,14 +76,21 @@ void stbar_draw(player_t *pl)
 		stbar_big_number_r(stbar_ar_x, stbar_y, pl->armorpoints, 3);
 		V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, *tallpercent);
 	}
-/*
-	if(pl->readyweapon < NUMWEAPONS)
+
+	weapon = decorate_extra_info[DECORATE_EXTRA_WEAPON];
+	weapon += pl->readyweapon;
+
+	if(weapon->ammotype[0] != 0xFFFF)
 	{
-		uint32_t ammo = weaponinfo[pl->readyweapon].ammo;
-		if(ammo < NUMAMMO)
-			stbar_big_number_r(SCREENWIDTH - 4, stbar_y, pl->ammo[ammo], 4);
+		ammo = &mobjinfo[weapon->ammotype[0]].extra->ammo;
+		stbar_big_number_r(SCREENWIDTH - 4, stbar_y, pl->ammo[ammo->idx], -4);
 	}
-*/
+	if(weapon->ammotype[1] != 0xFFFF)
+	{
+		ammo = &mobjinfo[weapon->ammotype[1]].extra->ammo;
+		stbar_big_number_r(SCREENWIDTH - 4, stbar_y - tallnum_height, pl->ammo[ammo->idx], -4);
+	}
+
 	// TODO: keys
 }
 

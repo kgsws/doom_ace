@@ -704,11 +704,14 @@ void A_WeaponReady(mobj_t *mo)
 		if(!pl->attackdown || !(weapon_now->flags & WPNFLAG_NOAUTOFIRE))
 		{
 			pl->attackdown = 1;
-			weapon_fire(pl, 0);
+			if(!weapon_fire(pl, 0))
+				goto skip;
 			return;
 		}
 	} else
 		pl->attackdown = 0;
+
+skip:
 
 	// movebob
 	if(weapon_now->flags & WPNFLAG_DONTBOB)
@@ -743,13 +746,16 @@ void A_ReFire(mobj_t *mo)
 	if(pl->cmd.buttons & BT_ATTACK) // TODO: check both
 	{
 		pl->refire++;
-		weapon_fire(pl, -1);
+		if(!weapon_fire(pl, -1))
+			goto skip;
 		return;
 	}
 
 skip:
 	pl->refire = 0;
-	// TODO: original code was checking ammo here
+
+	if(!weapon_check_ammo(mo->player, weapon_now, weapon_fire_type))
+		weapon_pick_usable(mo->player);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -800,7 +806,11 @@ void A_Light2(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_CheckReload(mobj_t *mo)
 {
-	// TODO: when AMMO is in
+	if(!weapon_now)
+		return;
+
+	if(!weapon_check_ammo(mo->player, weapon_now, weapon_fire_type))
+		weapon_pick_usable(mo->player);
 }
 
 //
@@ -816,7 +826,8 @@ void A_Saw(mobj_t *mo)
 	if(!weapon_now)
 		return;
 
-	// TODO: ammo
+	if(!weapon_check_ammo(mo->player, weapon_now, weapon_fire_type | WPN_AMMO_CHECK_AND_USE))
+		return;
 
 	damage = 2 * (P_Random() % 10 + 1);
 	angle = mo->angle;
@@ -898,9 +909,10 @@ void A_DoomBullets(mobj_t *mo)
 	if(!weapon_now)
 		return;
 
-	extra = weapon_ps->state->extra;
+	if(!weapon_check_ammo(mo->player, weapon_now, weapon_fire_type | WPN_AMMO_CHECK_AND_USE))
+		return;
 
-	// TODO: ammo
+	extra = weapon_ps->state->extra;
 
 	S_StartSound(mo, extra->sound);
 	if(extra->flags & 1)
@@ -1003,9 +1015,10 @@ void A_FireProjectile(mobj_t *mo)
 	if(!weapon_now)
 		return;
 
-	info = weapon_ps->state->extra;
+	if(!weapon_check_ammo(mo->player, weapon_now, weapon_fire_type | WPN_AMMO_CHECK_AND_USE))
+		return;
 
-	// TODO: ammo
+	info = weapon_ps->state->extra;
 
 	if(info->flags & FPF_NOAUTOAIM)
 	{

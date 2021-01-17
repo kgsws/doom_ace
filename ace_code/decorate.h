@@ -105,6 +105,18 @@ typedef struct
 	uint8_t *message;
 } __attribute__((packed)) dextra_weapon_t;
 
+typedef struct
+{
+	uint16_t type;
+	uint16_t flags;
+	uint16_t pickupsound;
+	uint16_t idx; // actual ammo type number
+	uint16_t max[2]; // normal, backpack
+	uint16_t give;
+	uint8_t *message;
+} __attribute__((packed)) dextra_ammo_t;
+
+
 typedef union decorate_extra_info_u
 {
 	struct
@@ -115,6 +127,7 @@ typedef union decorate_extra_info_u
 	dextra_inventory_t inventory;
 	dextra_playerclass_t playerclass;
 	dextra_weapon_t weapon;
+	dextra_ammo_t ammo;
 } decorate_extra_info_t;
 
 extern mobjinfo_t *mobjinfo;
@@ -123,6 +136,7 @@ extern state_t *states;
 extern uint32_t decorate_playerclass_count;
 extern uint32_t decorate_weapon_count;
 extern uint32_t decorate_inventory_count;
+extern uint32_t decorate_ammo_count;
 
 extern uint8_t *actor_names_ptr;
 extern uint32_t decorate_num_mobjinfo;

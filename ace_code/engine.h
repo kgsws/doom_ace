@@ -158,6 +158,8 @@ typedef struct
 #define MAXPLAYERS	4
 
 #define NUMWEAPONS	10	// includes original weapons and new 'no weapon'
+#define NUMAMMO		4
+#define MAX_AMMO_TYPES	24	// limited by space in player_t
 
 #define WEAPONBOTTOM	(128 << FRACBITS)
 #define WEAPONTOP	(32 << FRACBITS)
@@ -197,16 +199,6 @@ enum
 	NUMCARDS
 };
 
-enum
-{
-	am_clip,	// Pistol / chaingun ammo.
-	am_shell,	// Shotgun / double barreled shotgun.
-	am_cell,	// Plasma rifle, BFG.
-	am_misl,	// Missile launcher.
-	NUMAMMO,
-	am_noammo	// Unlimited for chainsaw / fist.	
-};
-
 typedef struct player_s
 { // modified
 	struct mobj_s *mo;
@@ -229,9 +221,8 @@ typedef struct player_s
 	uint32_t readyweapon;
 	uint32_t pendingweapon;
 	uint32_t weaponowned[4]; // now a bit fields; up to 128 weapons
-	uint32_t __free_3[5];
-	int ammo[NUMAMMO];
-	int maxammo[NUMAMMO];
+	uint32_t __free_3;
+	uint16_t ammo[MAX_AMMO_TYPES];
 	int attackdown;
 	int usedown;
 	int cheats;

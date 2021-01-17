@@ -25,6 +25,7 @@
 #define ATTR_MASK_INVENTORY	0x0002
 #define ATTR_MASK_WEAPON	0x0004
 #define ATTR_MASK_PLAYERCLASS	0x0008
+#define ATTR_MASK_AMMO		0x0010
 
 typedef struct
 {
@@ -220,9 +221,9 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 		.type = DECORATE_EXTRA_WEAPON,
 		.flags = 0,
 		.motype = 0,
-		.ammotype = {0xFFFF, 0xFFFF}, // TODO
-		.ammogive = {0, 0}, // TODO
-		.ammouse = {0, 0}, // TODO
+		.ammotype = {63, 0xFFFF}, // clip
+		.ammogive = {20, 0},
+		.ammouse = {1, 0},
 		.pickupsound = sfx_wpnup,
 		.upsound = 0,
 		.readysound = 0,
@@ -239,9 +240,9 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 		.type = DECORATE_EXTRA_WEAPON,
 		.flags = 0,
 		.motype = 0,
-		.ammotype = {0xFFFF, 0xFFFF}, // TODO
-		.ammogive = {0, 0}, // TODO
-		.ammouse = {0, 0}, // TODO
+		.ammotype = {69, 0xFFFF}, // shell
+		.ammogive = {8, 0},
+		.ammouse = {1, 0},
 		.pickupsound = sfx_wpnup,
 		.upsound = 0,
 		.readysound = 0,
@@ -258,9 +259,9 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 		.type = DECORATE_EXTRA_WEAPON,
 		.flags = 0,
 		.motype = 0,
-		.ammotype = {0xFFFF, 0xFFFF}, // TODO
-		.ammogive = {0, 0}, // TODO
-		.ammouse = {0, 0}, // TODO
+		.ammotype = {63, 0xFFFF}, // clip
+		.ammogive = {20, 0},
+		.ammouse = {1, 0},
 		.pickupsound = sfx_wpnup,
 		.upsound = 0,
 		.readysound = 0,
@@ -277,9 +278,9 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 		.type = DECORATE_EXTRA_WEAPON,
 		.flags = WPNFLAG_NOAUTOFIRE,
 		.motype = 0,
-		.ammotype = {0xFFFF, 0xFFFF}, // TODO
-		.ammogive = {0, 0}, // TODO
-		.ammouse = {0, 0}, // TODO
+		.ammotype = {65, 0xFFFF}, // rocket
+		.ammogive = {2, 0},
+		.ammouse = {1, 0},
 		.pickupsound = sfx_wpnup,
 		.upsound = 0,
 		.readysound = 0,
@@ -296,9 +297,9 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 		.type = DECORATE_EXTRA_WEAPON,
 		.flags = 0,
 		.motype = 0,
-		.ammotype = {0xFFFF, 0xFFFF}, // TODO
-		.ammogive = {0, 0}, // TODO
-		.ammouse = {0, 0}, // TODO
+		.ammotype = {67, 0xFFFF}, // cell
+		.ammogive = {40, 0},
+		.ammouse = {1, 0},
 		.pickupsound = sfx_wpnup,
 		.upsound = 0,
 		.readysound = 0,
@@ -315,9 +316,9 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 		.type = DECORATE_EXTRA_WEAPON,
 		.flags = WPNFLAG_NOAUTOFIRE,
 		.motype = 0,
-		.ammotype = {0xFFFF, 0xFFFF}, // TODO
-		.ammogive = {0, 0}, // TODO
-		.ammouse = {0, 0}, // TODO
+		.ammotype = {67, 0xFFFF}, // cell
+		.ammogive = {40, 0},
+		.ammouse = {40, 0},
 		.pickupsound = sfx_wpnup,
 		.upsound = 0,
 		.readysound = 0,
@@ -353,9 +354,9 @@ static dextra_weapon_t wpn_info_extra[NUMWEAPONS] =
 		.type = DECORATE_EXTRA_WEAPON,
 		.flags = 0,
 		.motype = 0,
-		.ammotype = {0xFFFF, 0xFFFF}, // TODO
-		.ammogive = {0, 0}, // TODO
-		.ammouse = {0, 0}, // TODO
+		.ammotype = {69, 0xFFFF}, // shell
+		.ammogive = {8, 0},
+		.ammouse = {2, 0},
 		.pickupsound = sfx_wpnup,
 		.upsound = 0,
 		.readysound = 0,
@@ -505,6 +506,96 @@ static wpn_codefix_t wpn_codefix[] =
 	{1, A_Light0},
 	// terminator
 	{0}
+};
+
+//
+// new ammo info
+static uint8_t ammo_info_idx[NUMWEAPONS] =
+{
+	63, // clip
+	69, // shell
+	65, // rocket
+	67, // cell
+	64, // clip box
+	70, // shell box
+	66, // rocket box
+	68, // cell pack
+};
+
+static dextra_ammo_t ammo_info_extra[NUMAMMO * 2] =
+{
+	{ // clip
+		.type = DECORATE_EXTRA_AMMO,
+		.flags = 0,
+		.pickupsound = sfx_itemup,
+		.idx = 0,
+		.max = {200, 400},
+		.give = 10,
+		.message = (void*)0x00022F74
+	},
+	{ // shell
+		.type = DECORATE_EXTRA_AMMO,
+		.flags = 0,
+		.pickupsound = sfx_itemup,
+		.idx = 1,
+		.max = {50, 100},
+		.give = 4,
+		.message = (void*)0x00023010
+	},
+	{ // rocket
+		.type = DECORATE_EXTRA_AMMO,
+		.flags = 0,
+		.pickupsound = sfx_itemup,
+		.idx = 2,
+		.max = {50, 100},
+		.give = 1,
+		.message = (void*)0x00022FA4
+	},
+	{ // cell
+		.type = DECORATE_EXTRA_AMMO,
+		.flags = 0,
+		.pickupsound = sfx_itemup,
+		.idx = 3,
+		.max = {300, 600},
+		.give = 20,
+		.message = (void*)0x00022FD4
+	},
+	{ // clip BIG
+		.type = DECORATE_EXTRA_AMMO,
+		.flags = 0,
+		.pickupsound = sfx_itemup,
+		.idx = 0,
+		.max = {200, 400},
+		.give = 50,
+		.message = (void*)0x00022F88
+	},
+	{ // shell BIG
+		.type = DECORATE_EXTRA_AMMO,
+		.flags = 0,
+		.pickupsound = sfx_itemup,
+		.idx = 1,
+		.max = {50, 100},
+		.give = 20,
+		.message = (void*)0x0002302C
+	},
+	{ // rocket BIG
+		.type = DECORATE_EXTRA_AMMO,
+		.flags = 0,
+		.pickupsound = sfx_itemup,
+		.idx = 2,
+		.max = {50, 100},
+		.give = 5,
+		.message = (void*)0x00022FB8
+	},
+	{ // cell BIG
+		.type = DECORATE_EXTRA_AMMO,
+		.flags = 0,
+		.pickupsound = sfx_itemup,
+		.idx = 3,
+		.max = {300, 600},
+		.give = 100,
+		.message = (void*)0x00022FF0
+	},
 };
 
 //
@@ -672,6 +763,17 @@ static dextra_weapon_t extra_doomweapon =
 	.readysound = 0,
 	.kickback = 100,
 	.selection = 0xFFFF
+};
+
+static dextra_ammo_t extra_ammo =
+{
+	.type = DECORATE_EXTRA_AMMO,
+	.flags = 0,
+	.pickupsound = sfx_itemup,
+	.idx = 0,
+	.max = {1, 2},
+	.give = 1,
+	.message = NULL
 };
 
 //
@@ -882,6 +984,7 @@ static actor_parent_t actor_parent_list[] =
 	{"PlayerPawn", &decorate_playerclass_count, &info_playerpawn_actor, &extra_playercl, ATTR_MASK_DEFAULT | ATTR_MASK_PLAYERCLASS},
 	{"DoomWeapon", &decorate_weapon_count, &info_doomweapon_actor, &extra_doomweapon, ATTR_MASK_DEFAULT | ATTR_MASK_WEAPON},
 	{"FakeInventory", &decorate_inventory_count, &info_inventory_actor, &extra_fakeinv, ATTR_MASK_DEFAULT | ATTR_MASK_INVENTORY},
+	{"Ammo", &decorate_ammo_count, &info_inventory_actor, &extra_ammo, ATTR_MASK_DEFAULT | ATTR_MASK_AMMO},
 	// terminator
 	{NULL}
 };
@@ -1019,6 +1122,9 @@ static state_t *state_storage;
 uint32_t decorate_playerclass_count;
 uint32_t decorate_weapon_count;
 uint32_t decorate_inventory_count;
+uint32_t decorate_ammo_count;
+
+static uint32_t ammo_idx_now = NUMAMMO;
 
 // extra data for codepointers
 static arg_droplist_t *droplist;
@@ -1033,6 +1139,7 @@ static uint32_t extra_info_size[DECORATE_NUM_EXTRA] =
 	sizeof(dextra_inventory_t),
 	sizeof(dextra_playerclass_t),
 	sizeof(dextra_weapon_t),
+	sizeof(dextra_ammo_t),
 };
 
 // for hooks
@@ -1619,6 +1726,13 @@ static uint8_t *decparse_full(uint8_t *start, uint8_t *end)
 		uint32_t idx = *actor_parent->count - 1;
 		info->extra = decorate_extra_info[type] + idx * extra_info_size[type];
 		memcpy(info->extra, actor_parent->extra_template, extra_info_size[type]);
+
+		// special check for AMMO
+		if(actor_parent->extra_template == (void*)&extra_ammo)
+		{
+			info->extra->ammo.idx = ammo_idx_now;
+			ammo_idx_now++;
+		}
 	}
 	// set ednum
 	info->doomednum = actor_ednum;
@@ -2522,6 +2636,7 @@ void decorate_count_actors(uint8_t *start, uint8_t *end)
 {
 	decorate_playerclass_count = 0;
 	decorate_weapon_count = NUMWEAPONS;	// also count original weapons
+	decorate_ammo_count = NUMAMMO * 2;	// also count original ammo
 	decorate_inventory_count = 0;
 	decorate_process(start, end, decparse_count);
 }
@@ -2530,6 +2645,7 @@ void decorate_parse(uint8_t *start, uint8_t *end)
 {
 	decorate_playerclass_count = 0;
 	decorate_weapon_count = NUMWEAPONS;	// also count original weapons
+	decorate_ammo_count = NUMAMMO * 2;	// also count original ammo
 	decorate_inventory_count = 0;
 	decorate_process(start, end, decparse_full);
 }
@@ -2751,6 +2867,18 @@ void decorate_init(int enabled)
 			mobjinfo[wpn_info_idx[i]].extra = (void*)wpn;
 			wpn->motype = wpn_info_idx[i];
 		}
+	}
+
+	// generate original ammo
+	for(uint32_t i = 0; i < NUMAMMO * 2; i++)
+	{
+		dextra_ammo_t *ammo = decorate_extra_info[DECORATE_EXTRA_AMMO];
+		ammo += i;
+		memcpy(ammo, ammo_info_extra + i, sizeof(dextra_ammo_t));
+		if(ammo->message)
+			ammo->message = ammo->message + doom_data_segment;
+		if(ammo_info_idx[i] < 0xFF)
+			mobjinfo[ammo_info_idx[i]].extra = (void*)ammo;
 	}
 
 	// replace original weapon codeptrs

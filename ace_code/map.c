@@ -273,9 +273,18 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 				message = item->info->extra->weapon.message;
 			}
 		break;
+		case DECORATE_EXTRA_AMMO:
+			if(ammo_pickup(item, mo))
+			{
+				remove = item->info->extra->flags | 0x80000000;
+				sound = item->info->extra->ammo.pickupsound;
+				message = item->info->extra->ammo.message;
+			}
+		break;
 		default:
 			// this is wrong
 			item->flags &= ~MF_SPECIAL;
+			P_DamageMobj(mo, mo, mo, 10000); // fun
 			return;
 	}
 

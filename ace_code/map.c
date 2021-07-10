@@ -245,6 +245,8 @@ void map_ItemPickup(mobj_t *item, mobj_t *mo)
 	uint32_t remove = 0;
 	void *message = NULL;
 
+	// TODO: height check
+
 	if(mo->health <= 0)
 		return;
 

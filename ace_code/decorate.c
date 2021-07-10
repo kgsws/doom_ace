@@ -930,7 +930,6 @@ static actor_flag_t actor_flag_list[] =
 	{"weapon.primary_uses_both", WPNFLAG_PRIMARY_USES_BOTH, 2},
 	{"weapon.alt_uses_both", WPNFLAG_ALT_USES_BOTH, 2},
 	{"weapon.noautoaim", WPNFLAG_NOAUTOAIM, 2},
-	{"weapon.meleeweapon", 0, 0}, // ignored
 	{"weapon.wimpy_weapon", 0, 0}, // ignored
 	{"weapon.explosive", 0, 0}, // ignored
 	{"weapon.meleeweapon", 0, 0}, // ignored

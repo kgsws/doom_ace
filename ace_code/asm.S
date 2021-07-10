@@ -80,7 +80,7 @@ rel_arg5_end:
 	// clear .bss
 	// TODO: better code
 	xor	%eax,%eax
-	mov	$(_bss_start-4),%ebx
+	mov	$(_bss_start),%ebx
 	mov	$_size_of_bss,%ecx
 	add	%esi,%ebx
 bss_loop:
@@ -90,7 +90,9 @@ bss_loop:
 	jnz	bss_loop
 
 	// run custom code
+	push	%esi
 	call	ace_init
+	pop	%esi
 
 	// restore registers
 	pop	%ebp

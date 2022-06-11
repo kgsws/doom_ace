@@ -17,6 +17,10 @@
 // - run the code
 
 _start:
+	// get core pointer
+	mov	(%esp),%eax
+	mov	0x001311a4-0x0013d095(%eax),%eax
+
 	// backup everything needed
 	push	%ebx
 	push	%ecx
@@ -26,11 +30,15 @@ _start:
 	push	%ebp
 
 	// get _start base
-	mov	(%eax),%esi
-	add	$(3322-TEXT_START),%esi	// ESI will always point to local base
+	call	start_base
+start_base:
+	pop	%esi
+	add	$((_start-start_base)-TEXT_START),%esi	// ESI will always point to local base
+
 	// get DATA base
 	sub	$0x2B3C4,%eax
 	push	%eax
+
 	// get CODE base
 	mov	28(%esp),%eax
 	sub	$0x2D095,%eax
@@ -45,6 +53,26 @@ _start:
 	mov	$reloc_data_start,%ebx
 	mov	$((reloc_data_end-reloc_data_start)/4),%edx
 	call	do_reloc
+
+	// allocate memory for payload and its .bss
+	mov	payload_is_here(%esi),%eax
+	add	(payload_is_here+4)(%esi),%eax
+	mov	$1,%edx	// PU_STATIC
+	xor	%ebx,%ebx // NULL
+	call	*Z_Malloc(%esi)
+
+	// copy the payload
+	push	%eax
+	lea	(payload_is_here+4)(%esi),%ecx
+	mov	payload_is_here(%esi),%ebx
+	add	%eax,%ebx
+copy_loop:
+	mov	(%ecx),%edx
+	mov	%edx,(%eax)
+	add	$4,%ecx
+	add	$4,%eax
+	cmp	%ebx,%eax
+	jl	copy_loop
 
 	// force title screen
 	mov	gamestate(%esi),%eax
@@ -61,25 +89,7 @@ _start:
 	mov	$9999,%edx	// and everything else
 	call	*Z_FreeTags(%esi)
 
-	// allocate memory for payload and its .bss
-	mov	payload_is_here(%esi),%eax
-	add	-(3346-TEXT_START)(%esi),%eax // almost savegame size (this won't be used anyway)
-	mov	$1,%edx	// PU_STATIC
-	xor	%ebx,%ebx // NULL
-	call	*Z_Malloc(%esi)
-
-	// copy the payload
-	push	%eax
-	lea	payload_is_here(%esi),%ecx
-	mov	-(3346-TEXT_START)(%esi),%ebx
-	add	%eax,%ebx
-copy_loop:
-	mov	(%ecx),%edx
-	mov	%edx,(%eax)
-	add	$4,%ecx
-	add	$4,%eax
-	cmp	%ebx,%eax
-	jl	copy_loop
+	// prepare to launch
 	pop	%eax
 
 	// pass relocation info
@@ -139,18 +149,10 @@ wipegamestate:
 //
 reloc_data_end:
 
-payload_is_here:
 // present at the end of loader
-// this part is in compiled 'snake' binary
-/*
-	// .bss size
-	.4byte	8
-	// continue
-	pop	%ebp
-	pop	%edi
-	pop	%esi
-	pop	%edx
-	pop	%ecx
-	pop	%ebx
-	ret
-*/
+payload_is_here:
+//	.text size
+//	.4byte	0
+//	.bss size
+//	.4byte	0
+

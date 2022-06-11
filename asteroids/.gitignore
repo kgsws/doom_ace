@@ -1,0 +1,6 @@
+game
+game.bin
+*.o
+*.flac
+*.xcf
+

@@ -6,7 +6,7 @@ This code only works in Doom 2 version 1.9.
 That is, no The Ultimate Doom, no The Final Doom, no Anthology.
 The same version is distributed with SHAREWARE.
 
-(Why is there so many different 1.9 versions?)
+(Why are there so many different 1.9 versions?)
 
 ## How to run this
 Generated binary is called ACE. It has to be provided as a command line parameter to the game as response file.
@@ -19,10 +19,10 @@ Code is split into three distinct parts.
 ### Exploit
 This file is used as a `response file` and a `config file` at the same time.
 
-### ACE Code
+### Code
 TODO
 
-### ACE Engine
+### Engine
 TODO
 
 ## Exploit

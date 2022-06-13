@@ -17,7 +17,6 @@ enum
 	HOOK_CSTR_ACE,	// replace cstring from ACE segment
 	HOOK_CSTR_DOOM,	// replace cstring from Doom DATA segment
 	HOOK_BUF8_ACE,	// replace buffer from ACE segment
-	HOOK_ABSADDR_ACE, // replace 32bit pointer destination to ACE segment
 	HOOK_ABSADDR_CODE, // replace 32bit pointer destination to Doom CODE segment
 	HOOK_ABSADDR_DATA, // replace 32bit pointer destination to Doom DATA segment
 	HOOK_MOVE_OFFSET, // move block by offset
@@ -28,9 +27,8 @@ enum
 	HOOK_READ16,	// get value of 16bit variable
 	HOOK_READ32,	// get value of 32bit variable
 	// address is referenced to
-	CODE_HOOK = 0x00000000,
+	CODE_HOOK = 0x40000000,
 	DATA_HOOK = 0x80000000,
-	ACE_HOOK = 0xC0000000,
 };
 
 #define HOOK_MOVE_VAL(size,offset)	(((size) << 16) | ((offset) & 0xFFFF))
@@ -44,15 +42,12 @@ typedef struct
 
 #define relocate_addr_code(x)	((uint32_t)(x)+doom_code_segment)
 #define relocate_addr_data(x)	((uint32_t)(x)+doom_data_segment)
-#define relocate_addr_ace(x)	((uint32_t)(x)+ace_segment)
 #define relocate_ptr_code(x)	((void*)((uint32_t)(x)+doom_code_segment))
 #define relocate_ptr_data(x)	((void*)((uint32_t)(x)+doom_data_segment))
-#define relocate_ptr_ace(x)	((void*)((uint32_t)(x)+ace_segment))
 
 extern uint32_t doom_code_segment;
 extern uint32_t doom_data_segment;
-extern uint32_t ace_segment;
 
 void utils_init();
 void utils_install_hooks(const hook_t *table, uint32_t count);
-void utils_fix_parray(uint32_t *table, uint32_t count);
+

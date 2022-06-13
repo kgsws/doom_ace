@@ -14,50 +14,72 @@ ENTRY(_start)
 SEARCH_DIR("=/usr/local/lib/i386-linux-gnu"); SEARCH_DIR("=/lib/i386-linux-gnu"); SEARCH_DIR("=/usr/lib/i386-linux-gnu"); SEARCH_DIR("=/usr/lib/x86_64-linux-gnu32"); SEARCH_DIR("=/usr/local/lib32"); SEARCH_DIR("=/lib32"); SEARCH_DIR("=/usr/lib32"); SEARCH_DIR("=/usr/lib/x86_64-linux-gnu"); SEARCH_DIR("=/usr/local/lib"); SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib"); SEARCH_DIR("=/usr/i386-linux-gnu/lib32"); SEARCH_DIR("=/usr/x86_64-linux-gnu/lib32"); SEARCH_DIR("=/usr/i386-linux-gnu/lib");
 SECTIONS
 {
-  /* [kg] these are only sections we need */
-  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0)); . = SEGMENT_START("text-segment", 0) + 0x1000;
-  .text           :
-  {
-    *(.text.unlikely .text.*_unlikely .text.unlikely.*)
-    *(.text.exit .text.exit.*)
-    *(.text.startup .text.startup.*)
-    *(.text.hot .text.hot.*)
-    *(.text .stub .text.* .gnu.linkonce.t.*)
-    /* .gnu.warning sections are handled specially by elf32.em.  */
-    *(.gnu.warning)
-  }
-  . = ALIGN(32);
+	/* [kg] these are only sections we need */
+	PROVIDE (__executable_start = SEGMENT_START("text-segment", 0)); . = SEGMENT_START("text-segment", 0) + 0x1000;
+	.text           :
+	{
+		*(.text.unlikely .text.*_unlikely .text.unlikely.*)
+		*(.text.exit .text.exit.*)
+		*(.text.startup .text.startup.*)
+		*(.text.hot .text.hot.*)
+		*(.text .stub .text.* .gnu.linkonce.t.*)
+		*(.gnu.warning)
+	}
+	. = ALIGN(32);
 
-  .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) }
-  . = ALIGN(32);
+	_reloc_start = .;
+	.rel.dyn        :
+	{
+		*(.rel.init)
+		*(.rel.text .rel.text.* .rel.gnu.linkonce.t.*)
+		*(.rel.fini)
+		*(.rel.rodata .rel.rodata.* .rel.gnu.linkonce.r.*)
+		*(.rel.data.rel.ro .rel.data.rel.ro.* .rel.gnu.linkonce.d.rel.ro.*)
+		*(.rel.data .rel.data.* .rel.gnu.linkonce.d.*)
+		*(.rel.tdata .rel.tdata.* .rel.gnu.linkonce.td.*)
+		*(.rel.tbss .rel.tbss.* .rel.gnu.linkonce.tb.*)
+		*(.rel.ctors)
+		*(.rel.dtors)
+		*(.rel.got)
+		*(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)
+		*(.rel.ifunc)
+	}
+	_reloc_end = .;
+	. = ALIGN(32);
 
-  _hooks_start = .;
-  .hooks           :
-  {
-    KEEP(*(.hooks))
-    *(.hooks .hooks.* .gnu.linkonce.r.*)
-  }
-  _hooks_end = .;
+	_hooks_start = .;
+	.hooks          :
+	{
+		KEEP(*(.hooks))
+		*(.hooks .hooks.* .gnu.linkonce.r.*)
+	}
+	_hooks_end = .;
+	. = ALIGN(32);
 
-  . = ALIGN(32);
-  .data           :
-  {
-    *(.data .data.* .gnu.linkonce.d.*)
-    SORT(CONSTRUCTORS)
-  }
-  . = ALIGN(32);
+	.rodata         :
+	{
+		*(.rodata .rodata.* .gnu.linkonce.r.*)
+	}
+	. = ALIGN(32);
 
-  _bss_start = .;
-  .bss            :
-  {
-   *(.dynbss)
-   *(.bss .bss.* .gnu.linkonce.b.*)
-   *(COMMON)
-  }
-  _bss_end = .;
-  _size_of_bss = _bss_end - _bss_start;
+	.data           :
+	{
+		*(.data .data.* .gnu.linkonce.d.*)
+		SORT(CONSTRUCTORS)
+	}
+	. = ALIGN(32);
 
-  /* [kg] we do not care about any of these */
+	_bss_start = .;
+	.bss            :
+	{
+		*(.dynbss)
+		*(.bss .bss.* .gnu.linkonce.b.*)
+		*(COMMON)
+	}
+	_bss_end = .;
+	_size_of_bss = _bss_end - _bss_start;
+
+	/* [kg] we do not care about any of these */
 
   . = SEGMENT_START("rodata-segment", ALIGN(CONSTANT (MAXPAGESIZE)) + (. & (CONSTANT (MAXPAGESIZE) - 1)));
 
@@ -70,22 +92,6 @@ SECTIONS
   .gnu.version    : { *(.gnu.version) }
   .gnu.version_d  : { *(.gnu.version_d) }
   .gnu.version_r  : { *(.gnu.version_r) }
-  .rel.dyn        :
-    {
-      *(.rel.init)
-      *(.rel.text .rel.text.* .rel.gnu.linkonce.t.*)
-      *(.rel.fini)
-      *(.rel.rodata .rel.rodata.* .rel.gnu.linkonce.r.*)
-      *(.rel.data.rel.ro .rel.data.rel.ro.* .rel.gnu.linkonce.d.rel.ro.*)
-      *(.rel.data .rel.data.* .rel.gnu.linkonce.d.*)
-      *(.rel.tdata .rel.tdata.* .rel.gnu.linkonce.td.*)
-      *(.rel.tbss .rel.tbss.* .rel.gnu.linkonce.tb.*)
-      *(.rel.ctors)
-      *(.rel.dtors)
-      *(.rel.got)
-      *(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)
-      *(.rel.ifunc)
-    }
   .rel.plt        :
     {
       *(.rel.plt)
@@ -184,7 +190,6 @@ SECTIONS
     KEEP (*(.dtors))
   }
   .jcr            : { KEEP (*(.jcr)) }
-  .data.rel.ro : { *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*) *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*) }
   .dynamic        : { *(.dynamic) }
   .got            : { *(.got) *(.igot) }
   . = DATA_SEGMENT_RELRO_END (SIZEOF (.got.plt) >= 12 ? 12 : 0, .);

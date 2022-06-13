@@ -7,6 +7,31 @@ int32_t *myargc;
 void ***myargv;
 uint8_t **wadfiles;
 
+static const hook_t htest[] =
+{
+	// invert 'run key' function (auto run)
+	{0X0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},
+	// skip part of loading
+	{0x0001E4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0001E70C},
+	// some variables
+	{0x0002B6F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&myargc},
+	{0x0002B6F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&myargv},
+	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles}
+};
+
+
+const uint32_t test_ro[] =
+{
+	(uint32_t)"text pokus",
+	(uint32_t)"pokus text",
+};
+
+uint32_t test_rw[] =
+{
+	(uint32_t)"pokus text",
+	(uint32_t)"text pokus",
+};
+
 //
 // MAIN
 
@@ -51,6 +76,12 @@ uint32_t ace_main()
 			break;
 		}
 	}
+
+	// TEST
+	for(uint32_t i = 0; i < 2; i++)
+		doom_printf("%u = %p %p\n", i, test_rw[i], test_ro[i]);
+	for(uint32_t i = 0; i < 5; i++)
+		doom_printf("%u = %p %p\n", i, htest[i].addr, htest[i].value);
 
 	// continue loading Doom
 }

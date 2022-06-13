@@ -24,13 +24,10 @@ void utils_install_hooks(const hook_t *table, uint32_t count)
 	{
 		uint32_t addr = table->addr;
 
-		if(table->type & 0x80000000)
-		{
-			if(table->type & 0x40000000)
-				addr += ace_segment;
-			else
-				addr += doom_data_segment;
-		} else
+		if(table->type & DATA_HOOK)
+			addr += doom_data_segment;
+		else
+		if(table->type & CODE_HOOK)
 			addr += doom_code_segment;
 
 		switch(table->type & 0xFFFF)
@@ -45,7 +42,7 @@ void utils_install_hooks(const hook_t *table, uint32_t count)
 				addr++; // fall trough
 			case HOOK_RELADDR_ACE:
 reladdr_ace:
-				*((uint32_t*)(addr)) = (table->value + ace_segment) - (addr + 4);
+				*((uint32_t*)(addr)) = table->value - (addr + 4);
 			break;
 			case HOOK_CALL_DOOM:
 				*((uint8_t*)addr) = 0xE8;
@@ -68,16 +65,13 @@ reladdr_doom:
 				*((uint32_t*)addr) = table->value;
 			break;
 			case HOOK_CSTR_ACE:
-				strcpy((char*)addr, (char*)(table->value + ace_segment));
+				strcpy((char*)addr, (char*)table->value);
 			break;
 			case HOOK_CSTR_DOOM:
 				strcpy((char*)addr, (char*)(table->value + doom_data_segment));
 			break;
 			case HOOK_BUF8_ACE:
-				memcpy((char*)addr, (char*)(table->value + ace_segment + 1), *((uint8_t*)(table->value + ace_segment)));
-			break;
-			case HOOK_ABSADDR_ACE:
-				*((uint32_t*)addr) = table->value + ace_segment;
+				memcpy((char*)addr, (char*)(table->value + 1), *((uint8_t*)table->value));
 			break;
 			case HOOK_ABSADDR_CODE:
 				*((uint32_t*)addr) = table->value + doom_code_segment;
@@ -107,31 +101,22 @@ reladdr_doom:
 			break;
 			// these modify ACE memory
 			case HOOK_IMPORT:
-				*((uint32_t*)(table->value + ace_segment)) = addr;
+				*((uint32_t*)(table->value)) = addr;
 			break;
 			case HOOK_READ8:
-				*((uint8_t*)(table->value + ace_segment)) = *((uint8_t*)addr);
+				*((uint8_t*)(table->value)) = *((uint8_t*)addr);
 			break;
 			case HOOK_READ16:
-				*((uint16_t*)(table->value + ace_segment)) = *((uint16_t*)addr);
+				*((uint16_t*)(table->value)) = *((uint16_t*)addr);
 			break;
 			case HOOK_READ32:
-				*((uint32_t*)(table->value + ace_segment)) = *((uint32_t*)addr);
+				*((uint32_t*)(table->value)) = *((uint32_t*)addr);
 			break;
 		}
 
 		table++;
 		count--;
 	} while(count && table->addr);
-}
-
-void utils_fix_parray(uint32_t *table, uint32_t count)
-{
-	do
-	{
-		*table += ace_segment;
-		table++;
-	} while(--count);
 }
 
 char *strcpy(char *dst, const char *src)

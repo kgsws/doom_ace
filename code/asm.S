@@ -15,7 +15,6 @@ _start:
 
 	// get ACE base
 	sub	$0x1000,%eax	// compensate for VMA offset (set in linker script)
-	mov	%eax,ace_segment(%eax)
 
 	// get CODE base
 	mov	%esi,doom_code_segment(%eax)
@@ -23,29 +22,42 @@ _start:
 	// get DATA base
 	mov	%edi,doom_data_segment(%eax)
 
-	// prepare relocation
-	mov	%esi, %ebx
-	mov	%eax, %esi
+	// relocate ACE
+	// this takes data from ELF
+	// this is only handles one type of relocation
+	mov	%eax, %ecx
+	lea	_reloc_start(%eax),%ebx
+	lea	_reloc_end(%eax),%edx
+rel_ace_loop:
+	cmp	%edx,%ebx
+	jge	rel_ace_end
+	mov	(%ebx),%eax
+	add	%ecx,(%ecx,%eax,1)
+	add	$8,%ebx
+	jmp	rel_ace_loop
+rel_ace_end:
+	// everything after this point was relocated
+	// everything from ACE should be accessible directly
 
 	// relocate 012 table
-	lea	__reloc_code_012(%esi),%eax
-	lea	__reloc_code_012_end(%esi),%edx
+	mov	$__reloc_code_012,%eax
+	mov	$__reloc_code_012_end,%edx
 rel_012_loop:
 	cmp	%edx,%eax
 	jge	rel_012_end
-	add	%ebx,1(%eax)	// add CODE base to the address
+	add	%esi,1(%eax)	// add CODE base to the address
 	add	$5,%eax	// each entry is 5 bytes long
 	sub	%eax,-4(%eax)
 	jmp	rel_012_loop
 rel_012_end:
 
 	// relocate arg3 table
-	lea	__reloc_code_arg3(%esi),%eax
-	lea	__reloc_code_arg3_end(%esi),%edx
+	mov	$__reloc_code_arg3,%eax
+	mov	$__reloc_code_arg3_end,%edx
 rel_arg3_loop:
 	cmp	%edx,%eax
 	jge	rel_arg3_end
-	add	%ebx,6(%eax)	// add CODE base to the address
+	add	%esi,6(%eax)	// add CODE base to the address
 	add	$10,%eax	// 10 bytes
 	sub	%eax,-4(%eax)
 	add	$2,%eax	// 2 bytes (12 total)
@@ -53,12 +65,12 @@ rel_arg3_loop:
 rel_arg3_end:
 
 	// relocate arg4 table
-	lea	__reloc_code_arg4(%esi),%eax
-	lea	__reloc_code_arg4_end(%esi),%edx
+	mov	$__reloc_code_arg4,%eax
+	mov	$__reloc_code_arg4_end,%edx
 rel_arg4_loop:
 	cmp	%edx,%eax
 	jge	rel_arg4_end
-	add	%ebx,11(%eax)	// add CODE base to the address
+	add	%esi,11(%eax)	// add CODE base to the address
 	add	$15,%eax	// 15 bytes
 	sub	%eax,-4(%eax)
 	add	$3,%eax	// 3 bytes (18 total)
@@ -66,12 +78,12 @@ rel_arg4_loop:
 rel_arg4_end:
 
 	// relocate arg5 table
-	lea	__reloc_code_arg5(%esi),%eax
-	lea	__reloc_code_arg5_end(%esi),%edx
+	mov	$__reloc_code_arg5,%eax
+	mov	$__reloc_code_arg5_end,%edx
 rel_arg5_loop:
 	cmp	%edx,%eax
 	jge	rel_arg5_end
-	add	%ebx,16(%eax)	// add CODE base to the address
+	add	%esi,16(%eax)	// add CODE base to the address
 	add	$20,%eax	// 20 bytes
 	sub	%eax,-4(%eax)
 	add	$3,%eax	// 3 bytes (23 total)
@@ -79,8 +91,8 @@ rel_arg5_loop:
 rel_arg5_end:
 
 	// clear .bss
-	lea	_bss_start(%esi),%ebx
-	lea	_bss_end(%esi),%edx
+	mov	$_bss_start,%ebx
+	mov	$_bss_end,%edx
 	xor	%eax,%eax
 bss_loop:
 	cmp	%edx,%ebx
@@ -94,8 +106,8 @@ bss_end:
 	call	ace_main
 
 	// continue loading Doom
-	mov	doom_code_segment(%esi),%eax
-	lea	0x1e4ac(%eax),%eax
+	mov	doom_code_segment,%eax
+	add	$0x1e4ac,%eax
 	jmp	*%eax
 
 	// exit
@@ -259,8 +271,4 @@ doom_code_segment:
 .global doom_data_segment
 doom_data_segment:
 	.4byte	0
-.global ace_segment
-ace_segment:
-	.4byte	0
-
 

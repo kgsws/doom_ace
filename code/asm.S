@@ -14,20 +14,19 @@ _start:
 	// loader already backed-up all registers
 
 	// get ACE base
-	sub	$0x1000,%eax	// compensate for VMA offset (set in linker script)
+	sub	$0x1000,%ecx	// compensate for VMA offset (set in linker script)
 
 	// get CODE base
-	mov	%esi,doom_code_segment(%eax)
+	mov	%esi,doom_code_segment(%ecx)
 
 	// get DATA base
-	mov	%edi,doom_data_segment(%eax)
+	mov	%edi,doom_data_segment(%ecx)
 
 	// relocate ACE
 	// this takes data from ELF
 	// this is only handles one type of relocation
-	mov	%eax, %ecx
-	lea	_reloc_start(%eax),%ebx
-	lea	_reloc_end(%eax),%edx
+	lea	_reloc_start(%ecx),%ebx
+	lea	_reloc_end(%ecx),%edx
 rel_ace_loop:
 	cmp	%edx,%ebx
 	jge	rel_ace_end

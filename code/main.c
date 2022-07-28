@@ -54,25 +54,13 @@ uint32_t ace_main()
 	// install hooks
 	utils_init();
 
-	// fix arguments
+	// remove first '-config'
 	for(uint32_t i = 0; i < *myargc; i++)
 	{
 		uint32_t *tmp = myargv[0][i];
-		if(*tmp == 0x00584148)
+		if(*tmp == 0x6e6f632d)
 		{
-			myargv[0] += i;
-			*myargc -= i;
-			break;
-		}
-	}
-
-	// remove bogus WAD file
-	for(uint32_t i = 0; wadfiles[i]; i++)
-	{
-		uint32_t *tmp = (uint32_t*)wadfiles[i];
-		if(*tmp == 0x28423129)
-		{
-			wadfiles[i] = NULL;
+			*tmp = 0;
 			break;
 		}
 	}

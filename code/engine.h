@@ -402,16 +402,27 @@ typedef struct mobj_s
 // Since Doom uses different calling conventions, most functions have to use special GCC attribute.
 // Even then functions with more than two arguments need another workaround. This is done in 'asm.S'.
 
+#define O_RDONLY	0
+#define O_WRONLY	1
+#define O_RDWR	2
+#define	O_CREAT	0x20
+#define O_TRUNC	0x40
+#define O_BINARY	0x200
+
+#define open(n,f,...)	doom_open(n, (f) | O_BINARY, __VA_ARGS__)
+
 void dos_exit() __attribute((regparm(2)));
 // Variadic functions require no attributes.
 void I_Error(uint8_t*, ...);
 int doom_sprintf(uint8_t*, const uint8_t*, ...);
 int doom_printf(const uint8_t*, ...);
+int doom_open(const uint8_t *, uint32_t, ...);
 
 // SDK
+void close(int) __attribute((regparm(2)));
 int write(int,void*,uint32_t) __attribute((regparm(2)));
 int read(int,void*,uint32_t) __attribute((regparm(2)));
-int lseek(int,uint32_t,int) __attribute((regparm(2)));
+int lseek(int,int,int) __attribute((regparm(2)));
 void doom_free(void*) __attribute((regparm(2)));
 void *doom_malloc(uint32_t) __attribute((regparm(2)));
 

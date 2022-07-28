@@ -5,16 +5,20 @@
 .section .text
 .global _start
 
+// store .bss size at the top of binary
+	.4byte	_size_of_bss
+
 //
 // Entry point
-// %eax - entry point address
+// (%esp) - entry point address
 // %esi - CODE segment base
 // %edi - DATA segment base
 _start:
 	// loader already backed-up all registers
 
 	// get ACE base
-	sub	$0x1000,%ecx	// compensate for VMA offset (set in linker script)
+	mov	(%esp),%ecx
+	sub	$0x1004,%ecx	// compensate for VMA offset (set in linker script) and bss_size
 
 	// get CODE base
 	mov	%esi,doom_code_segment(%ecx)
@@ -121,6 +125,18 @@ dos_exit:
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012
 __reloc_code_012:
+////////////////////////////////// doom_open
+.section .text.doom_open
+.global doom_open
+doom_open:
+	.byte	0xE9
+	.4byte	0x00040691
+////////////////////////////////// close
+.section .text.close
+.global close
+close:
+	.byte	0xE9
+	.4byte	0x00040902
 ////////////////////////////////// doom_printf
 .section .text.doom_printf
 .global doom_printf

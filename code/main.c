@@ -1,75 +1,38 @@
-// kgsws' Doom ACE
-#include "engine.h"
+// kgsws' ACE Engine
+////
+#include "sdk.h"
 #include "utils.h"
 
 // variables
-int32_t *myargc;
-void ***myargv;
-uint8_t **wadfiles;
+uint8_t **destscreen;
 
-static const hook_t htest[] =
+//
+// EXAMPLE
+
+void hook_I_FinishUpdate()
 {
-	// invert 'run key' function (auto run)
-	{0X0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},
-	// skip part of loading
-	{0x0001E4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0001E70C},
-	// some variables
-	{0x0002B6F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&myargc},
-	{0x0002B6F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&myargv},
-	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles}
-};
+	// get current framebuffer
+	uint8_t *dst = *destscreen;
 
+	// add 'crosshair'
+	dst[100 * 80 + 40] = 231;
 
-const uint32_t test_ro[] =
-{
-	(uint32_t)"text pokus",
-	(uint32_t)"pokus text",
-};
-
-uint32_t test_rw[] =
-{
-	(uint32_t)"pokus text",
-	(uint32_t)"text pokus",
-};
+	// run the original function
+	I_FinishUpdate();
+}
 
 //
 // MAIN
 
 uint32_t ace_main()
 {
-	// LOGO
-	// generated at 'https://patorjk.com/software/taag/#p=display&f=Slant%20Relief&t=ACE'
-	doom_printf(
-		"_____/\\\\\\\\\\\\\\\\\\___________/\\\\\\\\\\\\\\\\\\__/\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\_\n"
-		" ___/\\\\\\\\\\\\\\\\\\\\\\\\\\______/\\\\\\////////__\\/\\\\\\///////////__\n"
-		"  __/\\\\\\/////////\\\\\\___/\\\\\\/___________\\/\\\\\\_____________\n"
-		"   _\\/\\\\\\_______\\/\\\\\\__/\\\\\\_____________\\/\\\\\\\\\\\\\\\\\\\\\\_____\n"
-		"    _\\/\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\_\\/\\\\\\_____________\\/\\\\\\///////______\n"
-		"     _\\/\\\\\\/////////\\\\\\_\\//\\\\\\____________\\/\\\\\\_____________\n"
-		"by    _\\/\\\\\\_______\\/\\\\\\__\\///\\\\\\__________\\/\\\\\\_____________\n"
-		"kgsws  _\\/\\\\\\_______\\/\\\\\\____\\////\\\\\\\\\\\\\\\\\\_\\/\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\_\n"
-		"        _\\///________\\///________\\/////////__\\///////////////__\n"
-	);
+	// hello world
+	doom_printf("Text from ACE!\n");
+	doom_printf("CODE: 0x%08X\n", doom_code_segment);
+	doom_printf("DATA: 0x%08X\n", doom_data_segment);
 
 	// install hooks
 	utils_init();
-
-	// remove first '-config'
-	for(uint32_t i = 0; i < *myargc; i++)
-	{
-		uint32_t *tmp = myargv[0][i];
-		if(*tmp == 0x6e6f632d)
-		{
-			*tmp = 0;
-			break;
-		}
-	}
-
-	// TEST
-	for(uint32_t i = 0; i < 2; i++)
-		doom_printf("%u = %p %p\n", i, test_rw[i], test_ro[i]);
-	for(uint32_t i = 0; i < 5; i++)
-		doom_printf("%u = %p %p\n", i, htest[i].addr, htest[i].value);
 
 	// continue loading Doom
 }
@@ -78,13 +41,15 @@ uint32_t ace_main()
 // hooks
 static const hook_t hooks[] __attribute__((used,section(".hooks"))) =
 {
-	// invert 'run key' function (auto run)
-	{0X0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},
-	// skip part of loading
-	{0x0001E4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0001E70C},
+	// 
+	{0x00022B0A, DATA_HOOK | HOOK_UINT32, 0x6766},
+	// invert 'run key' logic (auto run)
+	{0x0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},
+	// fix blazing door double close sound
+	{0x0002690A, CODE_HOOK | HOOK_UINT16, 0x0BEB},
+	// hook 'I_FinishUpdate' in 'D_Display'
+	{0x0001D4A6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_I_FinishUpdate},
 	// some variables
-	{0x0002B6F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&myargc},
-	{0x0002B6F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&myargv},
-	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles}
+	{0x0002914C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&destscreen}
 };
 

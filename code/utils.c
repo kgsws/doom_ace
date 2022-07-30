@@ -1,7 +1,7 @@
 // kgsws' Doom ACE
 // Various utility functions.
 //
-#include "engine.h"
+#include "sdk.h"
 #include "utils.h"
 
 // this is '.hooks' section
@@ -40,7 +40,6 @@ void utils_install_hooks(const hook_t *table, uint32_t count)
 			case HOOK_JMP_ACE:
 				*((uint8_t*)addr) = 0xE9;
 				addr++; // fall trough
-			case HOOK_RELADDR_ACE:
 reladdr_ace:
 				*((uint32_t*)(addr)) = table->value - (addr + 4);
 			break;
@@ -51,7 +50,6 @@ reladdr_ace:
 			case HOOK_JMP_DOOM:
 				*((uint8_t*)addr) = 0xE9;
 				addr++; // fall trough
-			case HOOK_RELADDR_DOOM:
 reladdr_doom:
 				*((uint32_t*)(addr)) = (table->value + doom_code_segment) - (addr + 4);
 			break;

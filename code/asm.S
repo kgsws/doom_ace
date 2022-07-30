@@ -125,18 +125,6 @@ dos_exit:
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012
 __reloc_code_012:
-////////////////////////////////// doom_open
-.section .text.doom_open
-.global doom_open
-doom_open:
-	.byte	0xE9
-	.4byte	0x00040691
-////////////////////////////////// close
-.section .text.close
-.global close
-close:
-	.byte	0xE9
-	.4byte	0x00040902
 ////////////////////////////////// doom_printf
 .section .text.doom_printf
 .global doom_printf
@@ -161,30 +149,30 @@ doom_free:
 doom_malloc:
 	.byte	0xE9
 	.4byte	0x00040602
+////////////////////////////////// doom_open_X
+.section .text.doom_open_X
+.global doom_open_X
+doom_open_X:
+	.byte	0xE9
+	.4byte	0x00040691
+////////////////////////////////// doom_close
+.section .text.doom_close
+.global doom_close
+doom_close:
+	.byte	0xE9
+	.4byte	0x00040902
 ////////////////////////////////// I_Error
 .section .text.I_Error
 .global I_Error
 I_Error:
 	.byte	0xE9
 	.4byte	0x0001AB10
-////////////////////////////////// D_StartTitle
-.section .text.D_StartTitle
-.global D_StartTitle
-D_StartTitle:
+////////////////////////////////// I_FinishUpdate
+.section .text.I_FinishUpdate
+.global I_FinishUpdate
+I_FinishUpdate:
 	.byte	0xE9
-	.4byte	0x0001D810
-////////////////////////////////// ST_Init
-.section .text.ST_Init
-.global ST_Init
-ST_Init:
-	.byte	0xE9
-	.4byte	0x0003AFA0
-////////////////////////////////// HU_Init
-.section .text.HU_Init
-.global HU_Init
-HU_Init:
-	.byte	0xE9
-	.4byte	0x0003B4B0
+	.4byte	0x00019F60
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:
@@ -195,30 +183,30 @@ __reloc_code_012_end:
 // Similar to '012' but there is some stack handling code. Jump is replaced with call.
 .section .text.__reloc_code_arg3
 __reloc_code_arg3:
-////////////////////////////////// read
-.section .text.read
-.global read
-read:
+////////////////////////////////// doom_read
+.section .text.doom_read
+.global doom_read
+doom_read:
 	push	%ebx
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x00040935
 	pop	%ebx
 	ret
-////////////////////////////////// write
-.section .text.write
-.global write
-write:
+////////////////////////////////// doom_write
+.section .text.doom_write
+.global doom_write
+doom_write:
 	push	%ebx
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x0004159a
 	pop	%ebx
 	ret
-////////////////////////////////// lseek
-.section .text.lseek
-.global lseek
-lseek:
+////////////////////////////////// doom_lseek
+.section .text.doom_lseek
+.global doom_lseek
+doom_lseek:
 	push	%ebx
 	mov	8(%esp),%ebx
 	.byte	0xE8

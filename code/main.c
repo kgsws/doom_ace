@@ -41,7 +41,7 @@ uint32_t ace_main()
 // hooks
 static const hook_t hooks[] __attribute__((used,section(".hooks"))) =
 {
-	// 
+	// change '-config' to '-cfg'
 	{0x00022B0A, DATA_HOOK | HOOK_UINT32, 0x6766},
 	// invert 'run key' logic (auto run)
 	{0x0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},

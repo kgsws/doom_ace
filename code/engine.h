@@ -172,6 +172,16 @@ typedef struct player_s
 } player_t;
 
 //
+// video
+
+typedef struct patch_s
+{
+	uint16_t width, height;
+	int16_t x, y;
+	uint32_t offs[];
+} patch_t;
+
+//
 // wad
 
 typedef struct

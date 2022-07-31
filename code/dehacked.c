@@ -1,5 +1,6 @@
 // kgsws' ACE Engine
 ////
+// This is a DEHACKED parser.
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
@@ -613,7 +614,7 @@ void deh_init()
 	ptr2state = syst;
 	ptrtable = syst + POINTER_COUNT * sizeof(uint16_t);
 
-	doom_printf("[ACE] Loading DEHACKED ...\n");
+	doom_printf("[ACE] loading DEHACKED ...\n");
 
 	size = 0;
 	for(uint32_t i = 0; i < NUMSTATES; i++)

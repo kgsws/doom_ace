@@ -15,11 +15,10 @@ weaponinfo_t *weaponinfo;
 //
 // ACE Initialization
 
-static void __attribute((regparm(2),no_caller_saved_registers))
-ace_init()
+static __attribute((regparm(2),no_caller_saved_registers))
+void ace_init()
 {
-	// initialize extra ACE Engine stuff
-
+	// initialize ACE Engine stuff
 	deh_init();
 }
 
@@ -55,7 +54,7 @@ uint32_t ace_main()
 
 //
 // hooks
-static const hook_t hooks[] __attribute__((used,section(".hooks"))) =
+static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// add custom loading, skip "commercial" text and PWAD warning
 	{0x0001E4DA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)ace_init},

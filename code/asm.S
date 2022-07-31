@@ -173,6 +173,18 @@ doom_close:
 I_Error:
 	.byte	0xE9
 	.4byte	0x0001AB10
+////////////////////////////////// R_RenderPlayerView
+.section .text.R_RenderPlayerView
+.global R_RenderPlayerView
+R_RenderPlayerView:
+	.byte	0xE9
+	.4byte	0x00035FB0
+////////////////////////////////// ST_Init
+.section .text.ST_Init
+.global ST_Init
+ST_Init:
+	.byte	0xE9
+	.4byte	0x0003AFA0
 ////////////////////////////////// W_CheckNumForName
 .section .text.W_CheckNumForName
 .global W_CheckNumForName

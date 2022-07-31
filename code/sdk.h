@@ -28,6 +28,10 @@ extern struct weaponinfo_s *weaponinfo;
 
 #define doom_open(n,f,...)	doom_open_X(n, (f) | O_BINARY, __VA_ARGS__)
 
+// stuff
+struct player_s;
+struct patch_s;
+
 // asm.S
 void dos_exit(uint32_t) __attribute((regparm(2)));
 
@@ -45,6 +49,15 @@ int doom_read(int,void*,uint32_t) __attribute((regparm(2)));
 int doom_lseek(int,int,int) __attribute((regparm(2)));
 void doom_free(void*) __attribute((regparm(2)));
 void *doom_malloc(uint32_t) __attribute((regparm(2)));
+
+// st_stuff
+void ST_Init() __attribute((regparm(2)));
+
+// r_main
+void R_RenderPlayerView(struct player_s*) __attribute((regparm(2)));
+
+// v_video
+void V_DrawPatchDirect(int32_t, int32_t, uint32_t, struct patch_s*) __attribute((regparm(2)));
 
 // w_wad
 int32_t W_CheckNumForName(uint8_t *name) __attribute((regparm(2)));

@@ -1,9 +1,11 @@
-// kgsws' Doom ACE
-//
+// kgsws' ACE Engine
+////
 // This file contains all required engine types and function prototypes.
 
 //
 // basic
+
+#define MAXWADFILES	20
 
 #define SCREENWIDTH	320
 #define SCREENHEIGHT	200
@@ -32,6 +34,14 @@ typedef uint32_t angle_t;
 #define DBITS	(FRACBITS - SLOPEBITS)
 
 //
+// zone
+
+#define PU_STATIC	1
+#define PU_LEVEL	50
+#define PU_LEVELSPEC	51
+#define PU_CACHE	101
+
+//
 // tics
 
 #define BT_ATTACK	1
@@ -57,7 +67,7 @@ typedef struct thinker_s
 //
 // weapons
 
-typedef struct
+typedef struct weaponinfo_s
 {
 	uint32_t ammo;
 	uint32_t upstate;
@@ -202,7 +212,7 @@ typedef struct
 #define NUMMOBJTYPES	137
 #define NUMSTATES	967
 
-typedef struct
+typedef struct mobjinfo_s
 {
 	int32_t doomednum;
 	int32_t spawnstate;

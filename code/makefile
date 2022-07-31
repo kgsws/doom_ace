@@ -1,5 +1,5 @@
 program = code
-OBJ = asm.o main.o utils.o
+OBJ = asm.o main.o utils.o dehacked.o
 CC = gcc -m32 -march=i386
 OPT = -O2 -g0
 BOTH = -fno-pie

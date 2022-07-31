@@ -1,4 +1,5 @@
-// kgsws' Doom ACE
+// kgsws' ACE Engine
+////
 // Various utility stuff.
 //
 
@@ -38,10 +39,8 @@ typedef struct
 	uint32_t value;
 } hook_t;
 
-#define relocate_addr_code(x)	((uint32_t)(x)+doom_code_segment)
-#define relocate_addr_data(x)	((uint32_t)(x)+doom_data_segment)
-#define relocate_ptr_code(x)	((void*)((uint32_t)(x)+doom_code_segment))
-#define relocate_ptr_data(x)	((void*)((uint32_t)(x)+doom_data_segment))
+#define DOOM_CODE_LOAD	282624
+#define DOOM_DATA_LOAD	152829
 
 extern uint32_t doom_code_segment;
 extern uint32_t doom_data_segment;

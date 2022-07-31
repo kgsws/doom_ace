@@ -10,8 +10,9 @@
 
 //
 // variables
-
-extern uint8_t **destscreen;
+extern struct mobjinfo_s *mobjinfo;
+extern struct state_s *states;
+extern struct weaponinfo_s *weaponinfo;
 
 //
 // Doom Engine Functions
@@ -32,8 +33,9 @@ void dos_exit(uint32_t) __attribute((regparm(2)));
 
 // Variadic functions require no attributes.
 void I_Error(uint8_t*, ...);
-int doom_sprintf(uint8_t*, const uint8_t*, ...);
 int doom_printf(const uint8_t*, ...);
+int doom_sprintf(uint8_t*, const uint8_t*, ...);
+int doom_sscanf(const uint8_t*, const uint8_t*, ...);
 int doom_open_X(const uint8_t *, uint32_t, ...);
 
 // SDK
@@ -44,6 +46,14 @@ int doom_lseek(int,int,int) __attribute((regparm(2)));
 void doom_free(void*) __attribute((regparm(2)));
 void *doom_malloc(uint32_t) __attribute((regparm(2)));
 
-//
-void I_FinishUpdate() __attribute((regparm(2)));
+// w_wad
+int32_t W_CheckNumForName(uint8_t *name) __attribute((regparm(2)));
+void *W_CacheLumpName(uint8_t *name, uint32_t tag) __attribute((regparm(2)));
+void *W_CacheLumpNum(int32_t lump, uint32_t tag) __attribute((regparm(2)));
+uint32_t W_LumpLength(int32_t lump) __attribute((regparm(2)));
+void W_ReadLump(int32_t lump, void *dst) __attribute((regparm(2)));
+
+// z_zone
+void *Z_Malloc(uint32_t size, uint32_t tag, void *owner) __attribute((regparm(2)));
+void Z_Free(void *ptr) __attribute((regparm(2)));
 

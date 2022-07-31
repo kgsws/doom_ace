@@ -137,6 +137,12 @@ doom_printf:
 doom_sprintf:
 	.byte	0xE9
 	.4byte	0x0004101C
+////////////////////////////////// doom_sscanf
+.section .text.doom_sscanf
+.global doom_sscanf
+doom_sscanf:
+	.byte	0xE9
+	.4byte	0x00040AD4
 ////////////////////////////////// doom_free
 .section .text.doom_free
 .global doom_free
@@ -167,12 +173,42 @@ doom_close:
 I_Error:
 	.byte	0xE9
 	.4byte	0x0001AB10
-////////////////////////////////// I_FinishUpdate
-.section .text.I_FinishUpdate
-.global I_FinishUpdate
-I_FinishUpdate:
+////////////////////////////////// W_CheckNumForName
+.section .text.W_CheckNumForName
+.global W_CheckNumForName
+W_CheckNumForName:
 	.byte	0xE9
-	.4byte	0x00019F60
+	.4byte	0x00038AF0
+////////////////////////////////// W_CacheLumpName
+.section .text.W_CacheLumpName
+.global W_CacheLumpName
+W_CacheLumpName:
+	.byte	0xE9
+	.4byte	0x00038CF0
+////////////////////////////////// W_CacheLumpNum
+.section .text.W_CacheLumpNum
+.global W_CacheLumpNum
+W_CacheLumpNum:
+	.byte	0xE9
+	.4byte	0x00038D00
+////////////////////////////////// W_LumpLength
+.section .text.W_LumpLength
+.global W_LumpLength
+W_LumpLength:
+	.byte	0xE9
+	.4byte	0x00038BB0
+////////////////////////////////// W_ReadLump
+.section .text.W_ReadLump
+.global W_ReadLump
+W_ReadLump:
+	.byte	0xE9
+	.4byte	0x00038BF0
+////////////////////////////////// Z_Free
+.section .text.Z_Free
+.global Z_Free
+Z_Free:
+	.byte	0xE9
+	.4byte	0x00039600
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:
@@ -211,6 +247,16 @@ doom_lseek:
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x000408c0
+	pop	%ebx
+	ret
+////////////////////////////////// Z_Malloc
+.section .text.Z_Malloc
+.global Z_Malloc
+Z_Malloc:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x00039690
 	pop	%ebx
 	ret
 ////////////////////////////////// end

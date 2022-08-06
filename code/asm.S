@@ -35,6 +35,8 @@ rel_ace_loop:
 	cmp	%edx,%ebx
 	jge	rel_ace_end
 	mov	(%ebx),%eax
+	test	%eax,%eax
+	jz	rel_ace_end
 	add	%ecx,(%ecx,%eax,1)
 	add	$8,%ebx
 	jmp	rel_ace_loop

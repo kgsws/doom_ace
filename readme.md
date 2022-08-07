@@ -9,21 +9,22 @@ The same version is distributed with SHAREWARE.
 (Why are there so many different 1.9 versions?)
 
 ## How to run this
-Generated binary is called ACE. It has to be provided as a command line parameter to the game as response file.
+Compile `exploit` and `code`.
+Exploit generates a WAD file with two entries, `ACE_LDR` and `ACE_CODE`. Replace `ACE_CODE` with generated `code.bin` in any WAD editor.
 
-That is `doom2 @ACE`. This parameter **must** be first, more parameters are optional and allowed.
+Resulting WAD file must be run with command `doom2 -config ace.wad`.
 
 ## Code
-Code is split into three distinct parts.
+Code is split into two distinct parts.
 
 ### Exploit
-This file is used as a `response file` and a `config file` at the same time.
+This file is used as a `config file`. It is specially crafted so it appears as a `WAD` file too.
 
-### Code
-TODO
+#### BEWARE
+Resulting WAD file must not contain byte 0x1A in the header. You have to check if `directory offset` or `entry count` does not contain this value.
 
 ### Engine
-TODO
+This is a source of the entire ACE Engine. Resulting binary `code.bin` has to be placed into generated WAD as `ACE_CODE`.
 
 ## Exploit
 This enhancement exploits a stack overflow in function `M_LoadDefaults`. However, due to the random memory layout the exploit chain is a bit more complicated.

@@ -26,7 +26,8 @@ extern struct weaponinfo_s *weaponinfo;
 #define O_TRUNC	0x40
 #define O_BINARY	0x200
 
-#define doom_open(n,f,...)	doom_open_X(n, (f) | O_BINARY, __VA_ARGS__)
+#define doom_open_RD(n)	doom_open(n, O_RDONLY | O_BINARY)
+#define doom_open_WR(n)	doom_open(n, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666)
 
 // stuff
 struct player_s;
@@ -37,18 +38,19 @@ void dos_exit(uint32_t) __attribute((regparm(2)));
 
 // Variadic functions require no attributes.
 void I_Error(uint8_t*, ...);
-int doom_printf(const uint8_t*, ...);
-int doom_sprintf(uint8_t*, const uint8_t*, ...);
-int doom_sscanf(const uint8_t*, const uint8_t*, ...);
-int doom_open_X(const uint8_t *, uint32_t, ...);
+int32_t doom_printf(const uint8_t*, ...);
+int32_t doom_sprintf(uint8_t*, const uint8_t*, ...);
+int32_t doom_sscanf(const uint8_t*, const uint8_t*, ...);
+int32_t doom_open(const uint8_t *, uint32_t, ...);
 
 // SDK
-void doom_close(int) __attribute((regparm(2)));
-int doom_write(int,void*,uint32_t) __attribute((regparm(2)));
-int doom_read(int,void*,uint32_t) __attribute((regparm(2)));
-int doom_lseek(int,int,int) __attribute((regparm(2)));
+void doom_close(int32_t) __attribute((regparm(2)));
+int32_t doom_write(int32_t,void*,uint32_t) __attribute((regparm(2)));
+int32_t doom_read(int32_t,void*,uint32_t) __attribute((regparm(2)));
+int32_t doom_lseek(int32_t,int32_t,int32_t) __attribute((regparm(2)));
 void doom_free(void*) __attribute((regparm(2)));
 void *doom_malloc(uint32_t) __attribute((regparm(2)));
+void *doom_realloc(void*,uint32_t) __attribute((regparm(2)));
 
 // st_stuff
 void ST_Init() __attribute((regparm(2)));

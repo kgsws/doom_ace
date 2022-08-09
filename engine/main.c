@@ -3,10 +3,11 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "wadfile.h"
 #include "dehacked.h"
 
-uint8_t **wadfiles;
-uint8_t *ace_wad_name;
+static uint8_t *ace_wad_name;
+static uint32_t ace_wad_type;
 
 mobjinfo_t *mobjinfo;
 state_t *states;
@@ -27,27 +28,27 @@ void ace_init()
 
 uint32_t ace_main()
 {
-	// LOGO - temporary, until graphical loader is added
-	// generated at 'https://patorjk.com/software/taag/#p=display&f=Slant%20Relief&t=ACE'
-	doom_printf(
-		"_____/\\\\\\\\\\\\\\\\\\___________/\\\\\\\\\\\\\\\\\\__/\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\_\n"
-		" ___/\\\\\\\\\\\\\\\\\\\\\\\\\\______/\\\\\\////////__\\/\\\\\\///////////__\n"
-		"  __/\\\\\\/////////\\\\\\___/\\\\\\/___________\\/\\\\\\_____________\n"
-		"   _\\/\\\\\\_______\\/\\\\\\__/\\\\\\_____________\\/\\\\\\\\\\\\\\\\\\\\\\_____\n"
-		"    _\\/\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\_\\/\\\\\\_____________\\/\\\\\\///////______\n"
-		"     _\\/\\\\\\/////////\\\\\\_\\//\\\\\\____________\\/\\\\\\_____________\n"
-		"by    _\\/\\\\\\_______\\/\\\\\\__\\///\\\\\\__________\\/\\\\\\_____________\n"
-		"kgsws  _\\/\\\\\\_______\\/\\\\\\____\\////\\\\\\\\\\\\\\\\\\_\\/\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\_\n"
-		"        _\\///________\\///________\\/////////__\\///////////////__\n"
-	);
+	doom_printf("                          -= ACE Engine by kgsws =-\n[ACE] CODE: 0x%08X DATA: 0x%08X\n", doom_code_segment, doom_data_segment);
 
 	// install hooks
 	utils_init();
 
-	// insert ACE WAD file to the list
-	for(uint32_t i = MAXWADFILES-2; i > 0; i--)
-		wadfiles[i+1] = wadfiles[i];
-	wadfiles[1] = ace_wad_name;
+	// WAD file
+	// - check if ACE is IWAD of PWAD
+	if(ace_wad_type == 0x44415749)
+	{
+		// replace IWAD with ACE WAD
+		wadfiles[0] = ace_wad_name;
+	} else
+	{
+		// insert ACE WAD file to the list
+		for(uint32_t i = MAXWADFILES-2; i > 0; i--)
+			wadfiles[i+1] = wadfiles[i];
+		wadfiles[1] = ace_wad_name;
+	}
+
+	// load WAD files
+	wad_init();
 
 	// continue loading Doom
 }
@@ -64,6 +65,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// import variables
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles},
+	// read stuff
+	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	// import info
 	{0x00015A28, DATA_HOOK | HOOK_IMPORT, (uint32_t)&states},
 	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mobjinfo},

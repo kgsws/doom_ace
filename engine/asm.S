@@ -157,10 +157,16 @@ doom_free:
 doom_malloc:
 	.byte	0xE9
 	.4byte	0x00040602
-////////////////////////////////// doom_open_X
-.section .text.doom_open_X
-.global doom_open_X
-doom_open_X:
+////////////////////////////////// doom_realloc
+.section .text.doom_realloc
+.global doom_realloc
+doom_realloc:
+	.byte	0xE9
+	.4byte	0x00040EE3
+////////////////////////////////// doom_open
+.section .text.doom_open
+.global doom_open
+doom_open:
 	.byte	0xE9
 	.4byte	0x00040691
 ////////////////////////////////// doom_close

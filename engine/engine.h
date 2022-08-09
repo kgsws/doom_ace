@@ -182,7 +182,7 @@ typedef struct patch_s
 } patch_t;
 
 //
-// wad
+// WAD
 
 typedef struct
 {

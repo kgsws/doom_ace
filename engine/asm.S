@@ -175,6 +175,12 @@ doom_open:
 doom_close:
 	.byte	0xE9
 	.4byte	0x00040902
+////////////////////////////////// doom_filelength
+.section .text.doom_filelength
+.global doom_filelength
+doom_filelength:
+	.byte	0xE9
+	.4byte	0x000419EF
 ////////////////////////////////// I_Error
 .section .text.I_Error
 .global I_Error

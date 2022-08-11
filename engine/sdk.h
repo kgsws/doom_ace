@@ -8,6 +8,14 @@
 #include <string.h>
 #include <stddef.h>
 
+typedef union
+{
+	uint64_t u64;
+	uint32_t u32[2];
+	uint16_t u16[4];
+	uint8_t u8[8];
+} num64_t;
+
 //
 // variables
 extern struct mobjinfo_s *mobjinfo;

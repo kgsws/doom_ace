@@ -5,6 +5,60 @@
 #include "engine.h"
 #include "utils.h"
 
+static uint32_t **texturecompositesize;
+static fixed_t **textureheight;
+
+static uint32_t *dc_x;
+static uint32_t *dc_yl;
+static uint32_t *dc_yh;
+static uint8_t **dc_source;
+
+static fixed_t *sprtopscreen;
+static fixed_t *spryscale;
+
+static int16_t **mfloorclip;
+static int16_t **mceilingclip;
+
+static void (**colfunc)();
+
+//
+// 'medusa' effect fix
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void draw_masked_column(uint32_t texture, uint32_t column)
+{
+	void *data;
+
+	// get texture data, as usual
+	data = R_GetColumn(texture, column);
+
+	// check if this texture is composite
+	if((*texturecompositesize)[texture])
+	{
+		// it is; draw solid
+		int32_t bot, xx, yy;
+
+		xx = *dc_x;
+
+		bot = *sprtopscreen + *spryscale * ((*textureheight)[texture] >> FRACBITS);
+
+		yy = (*sprtopscreen + FRACUNIT - 1) >> FRACBITS;
+		if(yy <= (*mceilingclip)[xx])
+			yy = (*mceilingclip)[xx] + 1;
+		*dc_yl = yy;
+
+		yy = (bot - 1) >> FRACBITS;
+		if(yy >= (*mfloorclip)[xx])
+			yy = (*mfloorclip)[xx] - 1;
+		*dc_yh = yy;
+
+		*dc_source = data;
+		(*colfunc)();
+	} else
+		// it is not; draw as usual
+		R_DrawMaskedColumn(data - 3);
+}
+
 //
 // hooks
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -20,5 +74,20 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003A085, CODE_HOOK | HOOK_JMP_DOOM, 0x0003A136},
 	{0x0003A137, CODE_HOOK | HOOK_UINT8, 8},
 	{0x0003A134, CODE_HOOK | HOOK_UINT8, 0xEB},
+	// fix 'medusa' effect
+	{0x0003692D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_masked_column},
+	{0x00036932, CODE_HOOK | HOOK_SET_NOPS, 8},
+	{0x000300D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturecompositesize},
+	{0x00030124, DATA_HOOK | HOOK_IMPORT, (uint32_t)&textureheight},
+	// render variables
+	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
+	{0x000322EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_x},
+	{0x000322F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yl},
+	{0x000322F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yh},
+	{0x000322E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_source},
+	{0x0005C888, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sprtopscreen},
+	{0x0005C8A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spryscale},
+	{0x0005C890, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mfloorclip},
+	{0x0005C88C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mceilingclip},
 };
 

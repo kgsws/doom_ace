@@ -187,18 +187,54 @@ doom_filelength:
 I_Error:
 	.byte	0xE9
 	.4byte	0x0001AB10
-////////////////////////////////// R_RenderPlayerView
-.section .text.R_RenderPlayerView
-.global R_RenderPlayerView
-R_RenderPlayerView:
+////////////////////////////////// I_InitGraphics
+.section .text.I_InitGraphics
+.global I_InitGraphics
+I_InitGraphics:
 	.byte	0xE9
-	.4byte	0x00035FB0
+	.4byte	0x0001A010
+////////////////////////////////// I_FinishUpdate
+.section .text.I_FinishUpdate
+.global I_FinishUpdate
+I_FinishUpdate:
+	.byte	0xE9
+	.4byte	0x00019F60
+////////////////////////////////// M_CheckParm
+.section .text.M_CheckParm
+.global M_CheckParm
+M_CheckParm:
+	.byte	0xE9
+	.4byte	0x00024110
+////////////////////////////////// R_GenerateLookup
+.section .text.R_GenerateLookup
+.global R_GenerateLookup
+R_GenerateLookup:
+	.byte	0xE9
+	.4byte	0x00033D40
+////////////////////////////////// R_GetColumn
+.section .text.R_GetColumn
+.global R_GetColumn
+R_GetColumn:
+	.byte	0xE9
+	.4byte	0x00033F50
+////////////////////////////////// R_DrawMaskedColumn
+.section .text.R_DrawMaskedColumn
+.global R_DrawMaskedColumn
+R_DrawMaskedColumn:
+	.byte	0xE9
+	.4byte	0x00037AA0
 ////////////////////////////////// ST_Init
 .section .text.ST_Init
 .global ST_Init
 ST_Init:
 	.byte	0xE9
 	.4byte	0x0003AFA0
+////////////////////////////////// R_RenderPlayerView
+.section .text.R_RenderPlayerView
+.global R_RenderPlayerView
+R_RenderPlayerView:
+	.byte	0xE9
+	.4byte	0x00035FB0
 ////////////////////////////////// W_CheckNumForName
 .section .text.W_CheckNumForName
 .global W_CheckNumForName

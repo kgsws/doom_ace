@@ -181,6 +181,8 @@ typedef struct patch_s
 	uint32_t offs[];
 } patch_t;
 
+struct column_t;
+
 //
 // WAD
 
@@ -188,12 +190,12 @@ typedef struct
 {
 	union
 	{
-		char name[8];
+		uint8_t name[8];
 		uint32_t same[2];
 		uint64_t wame;
 	};
-	int32_t handle;
-	uint32_t position;
+	int32_t fd;
+	uint32_t offset;
 	uint32_t size;
 } lumpinfo_t;
 
@@ -411,12 +413,25 @@ typedef struct mobj_s
 } __attribute__((packed)) mobj_t;
 
 
+// i_video
+void I_InitGraphics() __attribute((regparm(2)));
+void I_FinishUpdate() __attribute((regparm(2)));
+
+// m_argv
+uint32_t M_CheckParm(uint8_t*) __attribute((regparm(2)));
 
 // st_stuff
 void ST_Init() __attribute((regparm(2)));
 
+// r_data
+void R_GenerateLookup(uint32_t) __attribute((regparm(2)));
+void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2)));
+
 // r_main
 void R_RenderPlayerView(struct player_s*) __attribute((regparm(2)));
+
+// r_things
+void R_DrawMaskedColumn(struct column_t*) __attribute((regparm(2)));
 
 // v_video
 void V_DrawPatchDirect(int32_t, int32_t, uint32_t, struct patch_s*) __attribute((regparm(2)));

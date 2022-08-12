@@ -4,6 +4,8 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "wadfile.h"
+#include "dehacked.h"
 
 #define POINTER_COUNT	448
 
@@ -530,8 +532,8 @@ static void parser_text(uint8_t *line)
 	nlen++;
 
 	// find original text in the memory
-	dst = (uint8_t*)doom_data_segment;
-	end = dst + DOOM_DATA_LOAD;
+	dst = (uint8_t*)doom_data_segment + 0x1F904;
+	end = dst + 0x5A94;
 	while(dst + olen < end)
 	{
 		if(!dst[olen] && !strncmp(otxt, dst, olen))
@@ -603,7 +605,7 @@ void deh_init()
 	void *data;
 	void *syst;
 
-	lump = W_CheckNumForName("DEHACKED");
+	lump = wad_check_lump("DEHACKED");
 	if(lump < 0)
 		return;
 
@@ -613,8 +615,6 @@ void deh_init()
 
 	ptr2state = syst;
 	ptrtable = syst + POINTER_COUNT * sizeof(uint16_t);
-
-	doom_printf("[ACE] loading DEHACKED ...\n");
 
 	size = 0;
 	for(uint32_t i = 0; i < NUMSTATES; i++)
@@ -627,15 +627,11 @@ void deh_init()
 			ptr2state[size++] = i;
 	}
 
-	size = W_LumpLength(lump);
-
-	data = Z_Malloc(size + 1, PU_STATIC, NULL);
-	W_ReadLump(lump, data);
-
+	data = wad_cache_lump(lump, &size);
+	doom_printf("[ACE] parse DEHACKED, %u bytes\n", size);
 	dehacked_parse(data, size);
 
-	Z_Free(data);
-
+	doom_free(data);
 	doom_free(syst);
 }
 

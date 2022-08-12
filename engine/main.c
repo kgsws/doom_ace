@@ -6,8 +6,24 @@
 #include "wadfile.h"
 #include "dehacked.h"
 
-#define LDR_ENGINE_WIDTH	2
-#define LDR_ENGINE_COUNT	3	// dehacked + decorate + other text
+#define LDR_ENGINE_COUNT	1	// dehacked
+
+typedef struct
+{
+	// progress bar
+	patch_t *gfx_loader_bg;
+	patch_t *gfx_loader_bar;
+	uint32_t gfx_step;
+	uint32_t gfx_ace;
+	uint32_t gfx_max;
+	uint32_t gfx_current;
+	uint16_t gfx_width;
+	// counters
+	uint32_t counter_value;
+	uint32_t count_texture;
+	uint32_t count_sprite;
+	uint32_t count_flat;
+} gfx_loading_t;
 
 static uint8_t *ace_wad_name;
 static uint32_t ace_wad_type;
@@ -18,16 +34,7 @@ weaponinfo_t *weaponinfo;
 
 static uint8_t *screen_buffer;
 
-static patch_t *gfx_loader_bg;
-static patch_t *gfx_loader_bar;
-static uint32_t gfx_step;
-static uint32_t gfx_max = 0xFFFFFFFF;
-static uint16_t gfx_width;
-
-static uint32_t counter_value;
-static uint32_t count_texture;
-static uint32_t count_sprite;
-static uint32_t count_flat;
+static gfx_loading_t *loading;
 
 static num64_t range_defs[4] =
 {
@@ -38,20 +45,13 @@ static num64_t range_defs[4] =
 };
 
 //
-// ACE Initialization
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void ace_init()
-{
-	// initialize ACE Engine stuff
-	deh_init();
-}
+// hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void *load_palette()
 {
 	int32_t idx;
-	void *dest = (void*)0x0002D0A0 + doom_data_segment; // drawsegs
+	void *dest = screen_buffer;
 
 	idx = wad_get_lump("PLAYPAL");
 	wad_read_lump(dest, idx, 768);
@@ -118,7 +118,7 @@ static void count_textures()
 		count += temp;
 	}
 
-	count_texture = count;
+	loading->count_texture = count;
 }
 
 //
@@ -126,7 +126,7 @@ static void count_textures()
 
 static void cb_counter(lumpinfo_t *li)
 {
-	counter_value++;
+	loading->counter_value++;
 }
 
 //
@@ -136,21 +136,32 @@ static void gfx_progress(uint32_t step)
 {
 	uint32_t width;
 
-	if(!gfx_loader_bar)
+	if(!step)
+	{
+		V_DrawPatchDirect(0, 0, 0, loading->gfx_loader_bg);
+		I_FinishUpdate();
+		// reset
+		loading->gfx_current = 0;
 		return;
+	}
 
-	if(step >= gfx_max)
-		width = gfx_width;
+	if(!loading->gfx_loader_bar)
+		return;
+doom_printf("loading add %u to %u (%u / %u)\n", step, loading->gfx_current, step + loading->gfx_current, loading->gfx_max);
+	loading->gfx_current += step;
+
+	if(loading->gfx_current >= loading->gfx_max)
+		width = loading->gfx_width;
 	else
-		width = (gfx_step * step) >> 16;
+		width = (loading->gfx_step * loading->gfx_current) >> 16;
 
-	if(gfx_loader_bar->width == width)
+	if(loading->gfx_loader_bar->width == width)
 		return;
 
-	gfx_loader_bar->width = width;
+	loading->gfx_loader_bar->width = width;
 
-	V_DrawPatchDirect(0, 0, 0, gfx_loader_bg);
-	V_DrawPatchDirect(0, 0, 0, gfx_loader_bar);
+	V_DrawPatchDirect(0, 0, 0, loading->gfx_loader_bg);
+	V_DrawPatchDirect(0, 0, 0, loading->gfx_loader_bar);
 
 	I_FinishUpdate();
 }
@@ -159,30 +170,24 @@ static void gfx_init()
 {
 	int32_t idx;
 
-	gfx_loader_bg = (patch_t*)(screen_buffer + 64000);
-	gfx_loader_bar = (patch_t*)(screen_buffer + 64000 + 69632);
+	loading->gfx_loader_bg = (patch_t*)(screen_buffer + 64000);
+	loading->gfx_loader_bar = (patch_t*)(screen_buffer + 64000 + 69632);
 
 	// load background
 	idx = wad_check_lump("A_LDING");
 	if(idx < 0)
 		idx = wad_get_lump("INTERPIC");
-	wad_read_lump(gfx_loader_bg, idx, 69632);
+	wad_read_lump(loading->gfx_loader_bg, idx, 69632);
 
 	// load progress bar
 	idx = wad_check_lump("A_LDBAR");
 	if(idx < 0)
 		idx = wad_get_lump("TITLEPIC");
-	wad_read_lump(gfx_loader_bar, idx, 69632);
+	wad_read_lump(loading->gfx_loader_bar, idx, 69632);
 
-	gfx_width = gfx_loader_bar->width;
-	if(gfx_width < LDR_ENGINE_WIDTH * LDR_ENGINE_COUNT + LDR_ENGINE_WIDTH)
-	{
-		gfx_loader_bar = NULL;
-		// well, just an empty loading screen
-		V_DrawPatchDirect(0, 0, 0, gfx_loader_bg);
-		I_FinishUpdate();
-	} else
-		gfx_width -= LDR_ENGINE_WIDTH * LDR_ENGINE_COUNT;
+	loading->gfx_width = loading->gfx_loader_bar->width;
+	if(loading->gfx_width < 32 || loading->gfx_width > 320)
+		loading->gfx_loader_bar = NULL;
 }
 
 //
@@ -192,7 +197,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void generate_texture(uint32_t idx)
 {
 	R_GenerateLookup(idx);
-	gfx_progress(idx + 1);
+	gfx_progress(1);
 }
 
 //
@@ -235,22 +240,46 @@ uint32_t ace_main()
 	// start loading
 	gfx_progress(0);
 
+	//
+	// count EVERYTHING
+
 	// count textures
 	count_textures();
-	counter_value = 0;
+	loading->counter_value = 0;
 	handle_range(0x5854, cb_counter);
-	count_texture += counter_value;
-	doom_printf("[ACE] texture count %u\n", count_texture);
+	loading->count_texture += loading->counter_value;
+	doom_printf("[ACE] texture count %u\n", loading->count_texture);
 /*
 	// count sprites
-	counter_value = 0;
+	loading->counter_value = 0;
 	handle_range('S', cb_counter);
-	count_sprite = counter_value;
-	doom_printf("[ACE] sprite count %u\n", counter_value);
+	loading->count_sprite = loading->counter_value;
+	doom_printf("[ACE] sprite count %u\n", loading->count_sprite);
 */
 	// calculate progress bar
-	gfx_max = count_texture + count_sprite;
-	gfx_step = ((uint32_t)gfx_width << 16) / gfx_max;
+	{
+		uint32_t new_max;
+
+		// GFX stuff count
+		loading->gfx_max = loading->count_texture + loading->count_sprite;
+
+		// reserve 15% for engine stuff
+		new_max = (loading->gfx_max * 115) / 100;
+		loading->gfx_ace = (new_max - loading->gfx_max) / LDR_ENGINE_COUNT;
+
+		// fix rounding error
+		loading->gfx_max = loading->gfx_ace * LDR_ENGINE_COUNT + loading->gfx_max;
+
+		// progress bar step size
+		loading->gfx_step = ((uint32_t)loading->gfx_width << 16) / loading->gfx_max;
+	}
+
+	//
+	// LOADING
+
+	// dehacked
+	deh_init();
+	gfx_progress(loading->gfx_ace);
 
 	// continue loading Doom
 }
@@ -260,8 +289,7 @@ uint32_t ace_main()
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// add custom loading, skip "commercial" text and PWAD warning
-	{0x0001E4DA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)ace_init},
-	{0x0001E4DF, CODE_HOOK | HOOK_JMP_DOOM, 0x0001E70C},
+	{0x0001E4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0001E70C},
 	// change '-config' to '-cfg'
 	{0x00022B0A, DATA_HOOK | HOOK_UINT32, 0x6766},
 	// disable title text update
@@ -286,5 +314,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00015A28, DATA_HOOK | HOOK_IMPORT, (uint32_t)&states},
 	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mobjinfo},
 	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&weaponinfo},
+	// place 'loading' structure into 'vissprites'
+	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 };
 

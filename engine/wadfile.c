@@ -208,9 +208,29 @@ uint32_t wad_read_lump(void *dest, int32_t idx, uint32_t limit)
 	doom_lseek(li->fd, li->offset, SEEK_SET);
 	ret = doom_read(li->fd, dest, limit);
 	if(ret != limit)
-		I_Error("Lump %.8s read failed! %d", li->name, ret);
+		I_Error("Lump %.8s read failed!", li->name);
 
 	return limit;
+}
+
+void *wad_cache_lump(int32_t idx, uint32_t *size)
+{
+	void *data;
+	lumpinfo_t *li = *lumpinfo + idx;
+
+	if(!li->size)
+		I_Error("Lump %.8s is empty!");
+
+	data = doom_malloc(li->size);
+	if(!data)
+		I_Error("Lump %.8s allocation failed!", li->name);
+
+	wad_read_lump(data, idx, li->size);
+
+	if(size)
+		*size = li->size;
+
+	return data;
 }
 
 //

@@ -16,3 +16,4 @@ void wad_init();
 int32_t wad_check_lump(uint8_t *name);
 int32_t wad_get_lump(uint8_t *name);
 uint32_t wad_read_lump(void *dest, int32_t idx, uint32_t limit);
+void *wad_cache_lump(int32_t idx, uint32_t *size);

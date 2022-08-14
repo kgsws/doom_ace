@@ -5,8 +5,10 @@
 #include "utils.h"
 #include "wadfile.h"
 #include "dehacked.h"
+#include "ldr_texture.h"
+#include "ldr_sprite.h"
 
-#define LDR_ENGINE_COUNT	1	// dehacked
+#define LDR_ENGINE_COUNT	4	// dehacked, texure-init, sprite-init, flat-init
 
 typedef struct
 {
@@ -25,6 +27,10 @@ typedef struct
 	uint32_t count_flat;
 } gfx_loading_t;
 
+//
+
+uint8_t *ldr_alloc_message;
+
 static uint8_t *ace_wad_name;
 static uint32_t ace_wad_type;
 
@@ -36,13 +42,8 @@ static uint8_t *screen_buffer;
 
 static gfx_loading_t *loading;
 
-static num64_t range_defs[4] =
-{
-	{.u64 = 0x0054524154535f00},
-	{.u64 = 0x54524154535f0000},
-	{.u64 = 0x000000444e455f00},
-	{.u64 = 0x0000444e455f0000}
-};
+//
+static const hook_t restore_i_error[];
 
 //
 // hooks
@@ -62,40 +63,15 @@ void *load_palette()
 //
 // loading
 
-static void handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
+void *ldr_malloc(uint32_t size)
 {
-	lumpinfo_t *li = *lumpinfo;
-	lumpinfo_t *le = *lumpinfo + lumpcount;
-	uint32_t is_inside = 0;
+	void *ret;
 
-	if(ident > 255)
-	{
-		range_defs[0].u64 = (0x0054524154535f00 << 8) | ident;
-		range_defs[1].u64 = 0xFFFFFFFFFFFFFFFF;
-		range_defs[2].u64 = (0x0054524154535f00 << 8) | ident;
-		range_defs[3].u64 = 0xFFFFFFFFFFFFFFFF;
-	} else
-	{
-		range_defs[0].u64 = 0x0054524154535f00 | ident;
-		range_defs[1].u64 = 0x54524154535f0000 | ident;
-		range_defs[2].u64 = 0x0054524154535f00 | ident;
-		range_defs[3].u64 = 0x54524154535f0000 | ident;
-	}
+	ret = doom_malloc(size);
+	if(!ret)
+		I_Error("%s (%uB)", ldr_alloc_message, size);
 
-	for( ; li < le; li++)
-	{
-		if(is_inside)
-		{
-			if(li->wame == range_defs[2].u64 || li->wame == range_defs[3].u64)
-				is_inside = 0;
-			else
-				cb(li);
-		} else
-		{
-			if(li->wame == range_defs[0].u64 || li->wame == range_defs[1].u64)
-				is_inside = 1;
-		}
-	}
+	return ret;
 }
 
 static void count_textures()
@@ -132,7 +108,7 @@ static void cb_counter(lumpinfo_t *li)
 //
 // graphics mode
 
-static void gfx_progress(uint32_t step)
+void gfx_progress(int32_t step)
 {
 	uint32_t width;
 
@@ -147,7 +123,10 @@ static void gfx_progress(uint32_t step)
 
 	if(!loading->gfx_loader_bar)
 		return;
-doom_printf("loading add %u to %u (%u / %u)\n", step, loading->gfx_current, step + loading->gfx_current, loading->gfx_max);
+
+	if(step < 0)
+		step = loading->gfx_ace;
+
 	loading->gfx_current += step;
 
 	if(loading->gfx_current >= loading->gfx_max)
@@ -188,16 +167,6 @@ static void gfx_init()
 	loading->gfx_width = loading->gfx_loader_bar->width;
 	if(loading->gfx_width < 32 || loading->gfx_width > 320)
 		loading->gfx_loader_bar = NULL;
-}
-
-//
-// loading stuff
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void generate_texture(uint32_t idx)
-{
-	R_GenerateLookup(idx);
-	gfx_progress(1);
 }
 
 //
@@ -246,15 +215,13 @@ uint32_t ace_main()
 	// count textures
 	count_textures();
 	loading->counter_value = 0;
-	handle_range(0x5854, cb_counter);
+	wad_handle_range(0x5854, cb_counter);
 	loading->count_texture += loading->counter_value;
-	doom_printf("[ACE] texture count %u\n", loading->count_texture);
 /*
 	// count sprites
 	loading->counter_value = 0;
-	handle_range('S', cb_counter);
+	wad_handle_range('S', cb_counter);
 	loading->count_sprite = loading->counter_value;
-	doom_printf("[ACE] sprite count %u\n", loading->count_sprite);
 */
 	// calculate progress bar
 	{
@@ -279,13 +246,31 @@ uint32_t ace_main()
 
 	// dehacked
 	deh_init();
-	gfx_progress(loading->gfx_ace);
+	gfx_progress(-1);
 
-	// continue loading Doom
+	// TODO: decorate here
+
+	// textures
+	init_textures(loading->count_texture);
+	gfx_progress(-1);
+
+	// sprites
+//	init_sprites(loading->count_sprite);
+
+	// restore 'I_Error' modification
+	utils_install_hooks(restore_i_error, 1);
+
+	// continue running Doom
 }
 
 //
 // hooks
+
+static const hook_t restore_i_error[] =
+{
+	{0x0001AB1E, CODE_HOOK | HOOK_CALL_DOOM, 0x0001B830},
+};
+
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// add custom loading, skip "commercial" text and PWAD warning
@@ -302,8 +287,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001A0FF, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// disable disk flash; 'grmode = 1' in 'I_InitGraphics'
 	{0x0001A041, CODE_HOOK | HOOK_SET_NOPS, 6},
-	// replace call to 'R_GenerateLookup' in 'R_InitTextures'
-	{0x00034418, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)generate_texture},
 	// import variables
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles},
@@ -316,5 +299,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&weaponinfo},
 	// place 'loading' structure into 'vissprites'
 	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
+	// early 'I_Error' fix
+	{0x0001AB1E, CODE_HOOK | HOOK_SET_NOPS, 5},
 };
 

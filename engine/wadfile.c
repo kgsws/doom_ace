@@ -12,7 +12,8 @@ uint32_t *numlumps;
 lumpinfo_t **lumpinfo;
 void ***lumpcache;
 
-uint32_t lumpcount;
+static uint32_t lumpcount;
+static num64_t range_defs[4];
 
 //
 // funcs
@@ -156,6 +157,9 @@ void wad_init()
 	if(!lumpcount)
 		I_Error("Umm. WADs are empty ...");
 
+	if(lumpcount >= 65535)
+		I_Error("Wow. Too many lumps ...");
+
 	*lumpcache = doom_malloc(lumpcount * sizeof(void*));
 	if(!*lumpcache)
 		I_Error("Failed to allocate lump cache.");
@@ -166,19 +170,32 @@ void wad_init()
 
 int32_t wad_check_lump(uint8_t *name)
 {
-	uint64_t wame;
+	union
+	{
+		uint64_t w;
+		uint8_t b[8];
+	} nm;
 	uint32_t idx;
 	lumpinfo_t *li = *lumpinfo;
 
 	// search as 64bit number
-	strncpy((uint8_t*)&wame, name, 8);
+	nm.w = 0;
+	for(uint32_t i = 0; i < 8; i++)
+	{
+		register uint8_t in = name[i];
+		if(!in)
+			break;
+		if(in >= 'a' && in <= 'z')
+			in &= ~0x20; // uppercase only
+		nm.b[i] = in;
+	}
 
 	// do a backward search
 	idx = lumpcount;
 	do
 	{
 		idx--;
-		if(li[idx].wame == wame)
+		if(li[idx].wame == nm.w)
 			return idx;
 	} while(idx);
 
@@ -231,6 +248,66 @@ void *wad_cache_lump(int32_t idx, uint32_t *size)
 		*size = li->size;
 
 	return data;
+}
+
+void *wad_cache_optional(uint8_t *name, uint32_t *size)
+{
+	int32_t idx;
+	void *data;
+	lumpinfo_t *li;
+
+	idx = wad_check_lump(name);
+	if(idx < 0)
+		return NULL;
+
+	li = *lumpinfo + idx;
+
+	data = doom_malloc(li->size);
+	if(!data)
+		I_Error("Lump %.8s allocation failed!", li->name);
+
+	wad_read_lump(data, idx, li->size);
+
+	if(size)
+		*size = li->size;
+
+	return data;
+}
+
+void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
+{
+	lumpinfo_t *li = *lumpinfo;
+	lumpinfo_t *le = *lumpinfo + lumpcount;
+	uint32_t is_inside = 0;
+
+	if(ident > 255)
+	{
+		range_defs[0].u64 = (0x0054524154535f00 << 8) | ident;
+		range_defs[1].u64 = 0xFFFFFFFFFFFFFFFF;
+		range_defs[2].u64 = (0x000000444E455F00 << 8) | ident;
+		range_defs[3].u64 = 0xFFFFFFFFFFFFFFFF;
+	} else
+	{
+		range_defs[0].u64 = 0x0054524154535f00 | ident;
+		range_defs[1].u64 = 0x54524154535f0000 | ident;
+		range_defs[2].u64 = 0x000000444E455F00 | ident;
+		range_defs[3].u64 = 0x0000444E455F0000 | ident;
+	}
+
+	for( ; li < le; li++)
+	{
+		if(is_inside)
+		{
+			if(li->wame == range_defs[2].u64 || li->wame == range_defs[3].u64)
+				is_inside = 0;
+			else
+				cb(li);
+		} else
+		{
+			if(li->wame == range_defs[0].u64 || li->wame == range_defs[1].u64)
+				is_inside = 1;
+		}
+	}
 }
 
 //

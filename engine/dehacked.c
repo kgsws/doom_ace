@@ -1,6 +1,5 @@
 // kgsws' ACE Engine
 ////
-// This is a DEHACKED parser.
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
@@ -628,7 +627,7 @@ void deh_init()
 	}
 
 	data = wad_cache_lump(lump, &size);
-	doom_printf("[ACE] parse DEHACKED, %u bytes\n", size);
+	doom_printf("[ACE] parse DEHACKED %u bytes\n", size);
 	dehacked_parse(data, size);
 
 	doom_free(data);

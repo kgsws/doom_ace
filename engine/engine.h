@@ -341,6 +341,30 @@ typedef struct subsector_s
 } subsector_t;
 
 //
+// data
+
+typedef struct texpatch_s
+{
+	int32_t originx;
+	int32_t originy;
+	uint32_t patch;
+} __attribute__((packed)) texpatch_t;
+
+typedef struct texture_s
+{
+	union
+	{
+		uint8_t name[8];
+		uint32_t same[2];
+		uint64_t wame;
+	};
+	uint16_t width;
+	uint16_t height;
+	uint16_t patchcount;
+	texpatch_t patch[];
+} __attribute__((packed)) texture_t;
+
+//
 // mobj
 
 #define MF_SPECIAL	0x00000001
@@ -412,6 +436,10 @@ typedef struct mobj_s
 	struct mobj_s *tracer;
 } __attribute__((packed)) mobj_t;
 
+// main.c
+extern uint8_t *ldr_alloc_message;
+void gfx_progress(int32_t step);
+void *ldr_malloc(uint32_t size);
 
 // i_video
 void I_InitGraphics() __attribute((regparm(2)));

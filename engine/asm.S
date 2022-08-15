@@ -344,6 +344,19 @@ V_DrawPatchDirect:
 	pop	%ecx
 	pop	%ebx
 	ret
+////////////////////////////////// R_InstallSpriteLump
+.section .text.R_InstallSpriteLump
+.global R_InstallSpriteLump
+R_InstallSpriteLump:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00037650
+	pop	%ecx
+	pop	%ebx
+	ret
 ////////////////////////////////// end
 .section .text.__reloc_code_arg4_end
 __reloc_code_arg4_end:

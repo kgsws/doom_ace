@@ -1,5 +1,7 @@
 // kgsws' ACE Engine
 ////
+// Texture loading replacement.
+// Adds support for simple textures between markers 'TX_START' and 'TX_END'.
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"

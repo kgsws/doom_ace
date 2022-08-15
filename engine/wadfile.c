@@ -116,14 +116,14 @@ static void wad_add(uint8_t *name)
 	totalsize = 0;
 	for(uint32_t i = 0; i < head.numlumps; i++, info++)
 	{
-		wadlump_t *lmp = lump + (i & 1023);
+		wadlump_t *lmp = lump + (i & 511);
 
 		if(lmp == lump)
 		{
 			uint32_t size = (head.numlumps - i) * sizeof(wadlump_t);
 
-			if(size > 1024 * sizeof(wadlump_t))
-				size = 1024 * sizeof(wadlump_t);
+			if(size > 512 * sizeof(wadlump_t))
+				size = 512 * sizeof(wadlump_t);
 
 			tmp = doom_read(fd, lump, size);
 			if(tmp != size)
@@ -238,7 +238,7 @@ void *wad_cache_lump(int32_t idx, uint32_t *size)
 	if(!li->size)
 		I_Error("Lump %.8s is empty!");
 
-	data = doom_malloc(li->size);
+	data = doom_malloc(li->size + 4); // extra space for text files (string terminator)
 	if(!data)
 		I_Error("Lump %.8s allocation failed!", li->name);
 
@@ -282,15 +282,16 @@ void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
 
 	if(ident > 255)
 	{
-		range_defs[0].u64 = (0x0054524154535f00 << 8) | ident;
-		range_defs[1].u64 = 0xFFFFFFFFFFFFFFFF;
+		range_defs[0].u64 = (0x0054524154535F00 << 8) | ident;
 		range_defs[2].u64 = (0x000000444E455F00 << 8) | ident;
+		range_defs[1].u64 = 0xFFFFFFFFFFFFFFFF;
 		range_defs[3].u64 = 0xFFFFFFFFFFFFFFFF;
 	} else
 	{
-		range_defs[0].u64 = 0x0054524154535f00 | ident;
-		range_defs[1].u64 = 0x54524154535f0000 | ident;
+		range_defs[0].u64 = 0x0054524154535F00 | ident;
 		range_defs[2].u64 = 0x000000444E455F00 | ident;
+		ident |= ident << 8;
+		range_defs[1].u64 = 0x54524154535F0000 | ident;
 		range_defs[3].u64 = 0x0000444E455F0000 | ident;
 	}
 

@@ -364,6 +364,35 @@ typedef struct texture_s
 	texpatch_t patch[];
 } __attribute__((packed)) texture_t;
 
+typedef struct vissprite_s
+{
+	struct vissprite_s *next;
+	struct vissprite_s *prev;
+	int32_t x, y;
+	fixed_t gx, gy;
+	fixed_t gz, gzt;
+	fixed_t startfrac;
+	fixed_t scale;
+	fixed_t xiscale;
+	fixed_t texturemid;
+	int32_t patch;
+	void *colormap;
+	uint32_t mobjflags;
+} vissprite_t;
+
+typedef struct spriteframe_s
+{
+	uint32_t rotate;
+	uint16_t lump[8];
+	uint8_t flip[8];
+} spriteframe_t;
+
+typedef struct spritedef_s
+{
+	uint32_t numframes;
+	spriteframe_t *spriteframes;
+} spritedef_t;
+
 //
 // mobj
 
@@ -460,6 +489,7 @@ void R_RenderPlayerView(struct player_s*) __attribute((regparm(2)));
 
 // r_things
 void R_DrawMaskedColumn(struct column_t*) __attribute((regparm(2)));
+void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2)));
 
 // v_video
 void V_DrawPatchDirect(int32_t, int32_t, uint32_t, struct patch_s*) __attribute((regparm(2)));

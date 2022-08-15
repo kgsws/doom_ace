@@ -8,7 +8,7 @@
 #include "ldr_texture.h"
 #include "ldr_sprite.h"
 
-#define LDR_ENGINE_COUNT	4	// dehacked, texure-init, sprite-init, flat-init
+#define LDR_ENGINE_COUNT	4	// dehacked, texure-init, flat-init, sprite-init
 
 typedef struct
 {
@@ -217,12 +217,12 @@ uint32_t ace_main()
 	loading->counter_value = 0;
 	wad_handle_range(0x5854, cb_counter);
 	loading->count_texture += loading->counter_value;
-/*
+
 	// count sprites
 	loading->counter_value = 0;
 	wad_handle_range('S', cb_counter);
 	loading->count_sprite = loading->counter_value;
-*/
+
 	// calculate progress bar
 	{
 		uint32_t new_max;
@@ -248,14 +248,19 @@ uint32_t ace_main()
 	deh_init();
 	gfx_progress(-1);
 
-	// TODO: decorate here
+	// decorate
+	// TODO
 
 	// textures
 	init_textures(loading->count_texture);
 	gfx_progress(-1);
 
+	// flats
+	// TODO
+
 	// sprites
-//	init_sprites(loading->count_sprite);
+	init_sprites(loading->count_sprite);
+	gfx_progress(-1);
 
 	// restore 'I_Error' modification
 	utils_install_hooks(restore_i_error, 1);

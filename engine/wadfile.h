@@ -4,9 +4,10 @@
 // Fixes bug: https://doomwiki.org/wiki/PWAD_size_limit
 
 extern uint8_t **wadfiles;
-extern uint32_t *numlumps;
 extern lumpinfo_t **lumpinfo;
 extern void ***lumpcache;
+
+extern uint32_t lumpcount;
 
 //
 

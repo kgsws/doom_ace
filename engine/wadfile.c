@@ -7,12 +7,13 @@
 
 //
 
+static uint32_t *numlumps;
 uint8_t **wadfiles;
-uint32_t *numlumps;
 lumpinfo_t **lumpinfo;
 void ***lumpcache;
 
-static uint32_t lumpcount;
+uint32_t lumpcount;
+
 static num64_t range_defs[4];
 
 //
@@ -232,17 +233,18 @@ uint32_t wad_read_lump(void *dest, int32_t idx, uint32_t limit)
 
 void *wad_cache_lump(int32_t idx, uint32_t *size)
 {
-	void *data;
+	uint8_t *data;
 	lumpinfo_t *li = *lumpinfo + idx;
 
 	if(!li->size)
 		I_Error("Lump %.8s is empty!");
 
-	data = doom_malloc(li->size + 4); // extra space for text files (string terminator)
+	data = doom_malloc(li->size + 4); // extra space for text files
 	if(!data)
 		I_Error("Lump %.8s allocation failed!", li->name);
 
 	wad_read_lump(data, idx, li->size);
+	data[li->size] = 0; // string terminator
 
 	if(size)
 		*size = li->size;
@@ -253,7 +255,7 @@ void *wad_cache_lump(int32_t idx, uint32_t *size)
 void *wad_cache_optional(uint8_t *name, uint32_t *size)
 {
 	int32_t idx;
-	void *data;
+	uint8_t *data;
 	lumpinfo_t *li;
 
 	idx = wad_check_lump(name);
@@ -262,11 +264,12 @@ void *wad_cache_optional(uint8_t *name, uint32_t *size)
 
 	li = *lumpinfo + idx;
 
-	data = doom_malloc(li->size);
+	data = doom_malloc(li->size + 4); // extra space for text files
 	if(!data)
 		I_Error("Lump %.8s allocation failed!", li->name);
 
 	wad_read_lump(data, idx, li->size);
+	data[li->size] = 0; // string terminator
 
 	if(size)
 		*size = li->size;
@@ -305,10 +308,16 @@ void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
 				cb(li);
 		} else
 		{
-			if(li->wame == range_defs[0].u64 || li->wame == range_defs[1].u64)
+			if(li->wame == range_defs[0].u64)
 				is_inside = 1;
+			else
+			if(li->wame == range_defs[1].u64)
+				is_inside = 2;
 		}
 	}
+
+	if(is_inside)
+		I_Error("Unclosed range %.8s / %.8s\n", range_defs[is_inside-1].u8, range_defs[is_inside+1].u8);
 }
 
 //

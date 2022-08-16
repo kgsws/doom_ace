@@ -24,7 +24,6 @@ typedef struct
 	uint32_t counter_value;
 	uint32_t count_texture;
 	uint32_t count_sprite;
-	uint32_t count_flat;
 } gfx_loading_t;
 
 //
@@ -256,7 +255,8 @@ uint32_t ace_main()
 	gfx_progress(-1);
 
 	// flats
-	// TODO
+	init_flats();
+	gfx_progress(-1);
 
 	// sprites
 	init_sprites(loading->count_sprite);

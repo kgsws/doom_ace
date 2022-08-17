@@ -92,7 +92,7 @@ continue_keyword:
 			get_pic = texture_num_check;
 		else
 		{
-			if(!skip)
+			if(!skip && strcmp(kw, "allowdecals"))
 				I_Error("ANIMDEFS: Invalid keyword '%s'!", kw);
 			continue;
 		}
@@ -254,6 +254,13 @@ continue_keyword:
 
 				// check next keyword
 				kw = get_keyword();
+				if(!kw)
+					break;
+
+				if(kw[0] == 'a')
+					// skip 'allowdecals'
+					kw = get_keyword();
+
 				if(!kw || kw[0] != 'p')
 					break;
 			}
@@ -360,6 +367,19 @@ void animate_step()
 }
 
 //
+// callbacks
+
+static void cb_animdefs(lumpinfo_t *li)
+{
+	void *data;
+
+	data = wad_cache_lump(li - *lumpinfo, NULL);
+	parse_animdefs(data);
+
+	doom_free(data);
+}
+
+//
 // API
 
 void init_animations()
@@ -372,7 +392,8 @@ void init_animations()
 	// PASS 1
 
 	// count all animations (get buffer size)
-	parse_animdefs(engine_animdefs);
+	parse_animdefs(engine_animdefs); // internal
+	wad_handle_lump("ANIMDEFS", cb_animdefs);
 
 	//
 	// PASS 2
@@ -389,7 +410,8 @@ void init_animations()
 	}
 
 	// generate animations
-	parse_animdefs(engine_animdefs);
+	parse_animdefs(engine_animdefs); // internal
+	wad_handle_lump("ANIMDEFS", cb_animdefs);
 
 	// terminator
 	*((uint8_t*)anim_ptr) = ANIM_TERMINATOR;

@@ -331,7 +331,17 @@ void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
 
 void wad_handle_lump(uint8_t *name, void (*cb)(lumpinfo_t*))
 {
+	uint64_t wame;
+	lumpinfo_t *li = *lumpinfo;
 
+	// search as 64bit number
+	wame = wad_name64(name);
+
+	for(uint32_t i = 0; i < lumpcount; i++, li++)
+	{
+		if(li->wame == wame)
+			cb(li);
+	}
 }
 
 //

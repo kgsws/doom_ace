@@ -5,7 +5,9 @@
 #include "utils.h"
 #include "wadfile.h"
 #include "dehacked.h"
+#include "animate.h"
 #include "ldr_texture.h"
+#include "ldr_flat.h"
 #include "ldr_sprite.h"
 
 #define LDR_ENGINE_COUNT	4	// dehacked, texure-init, flat-init, sprite-init
@@ -33,6 +35,7 @@ uint8_t *ldr_alloc_message;
 static uint8_t *ace_wad_name;
 static uint32_t ace_wad_type;
 
+uint32_t *leveltime;
 mobjinfo_t *mobjinfo;
 state_t *states;
 weaponinfo_t *weaponinfo;
@@ -262,6 +265,9 @@ uint32_t ace_main()
 	init_sprites(loading->count_sprite);
 	gfx_progress(-1);
 
+	// animations
+	init_animations();
+
 	// restore 'I_Error' modification
 	utils_install_hooks(restore_i_error, 1);
 
@@ -302,6 +308,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00015A28, DATA_HOOK | HOOK_IMPORT, (uint32_t)&states},
 	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mobjinfo},
 	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&weaponinfo},
+	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
 	// place 'loading' structure into 'vissprites'
 	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 	// early 'I_Error' fix

@@ -169,17 +169,14 @@ void wad_init()
 	memset(*lumpcache, 0, lumpcount * sizeof(void*));
 }
 
-int32_t wad_check_lump(uint8_t *name)
+uint64_t wad_name64(uint8_t *name)
 {
 	union
 	{
 		uint64_t w;
 		uint8_t b[8];
 	} nm;
-	uint32_t idx;
-	lumpinfo_t *li = *lumpinfo;
 
-	// search as 64bit number
 	nm.w = 0;
 	for(uint32_t i = 0; i < 8; i++)
 	{
@@ -191,12 +188,24 @@ int32_t wad_check_lump(uint8_t *name)
 		nm.b[i] = in;
 	}
 
+	return nm.w;
+}
+
+int32_t wad_check_lump(uint8_t *name)
+{
+	uint64_t wame;
+	uint32_t idx;
+	lumpinfo_t *li = *lumpinfo;
+
+	// search as 64bit number
+	wame = wad_name64(name);
+
 	// do a backward search
 	idx = lumpcount;
 	do
 	{
 		idx--;
-		if(li[idx].wame == nm.w)
+		if(li[idx].wame == wame)
 			return idx;
 	} while(idx);
 
@@ -318,6 +327,11 @@ void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
 
 	if(is_inside)
 		I_Error("Unclosed range %.8s / %.8s\n", range_defs[is_inside-1].u8, range_defs[is_inside+1].u8);
+}
+
+void wad_handle_lump(uint8_t *name, void (*cb)(lumpinfo_t*))
+{
+
 }
 
 //

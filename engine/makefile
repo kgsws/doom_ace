@@ -1,5 +1,5 @@
 program = code
-OBJ = asm.o main.o utils.o bugfix.o wadfile.o ldr_texture.o ldr_flat.o ldr_sprite.o dehacked.o stbar.o
+OBJ = asm.o main.o utils.o bugfix.o wadfile.o ldr_texture.o ldr_flat.o ldr_sprite.o dehacked.o animate.o stbar.o
 CC = gcc -m32 -march=i386
 OPT = -O2 -g0
 BOTH = -fno-pie

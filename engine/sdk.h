@@ -18,6 +18,7 @@ typedef union
 
 //
 // variables
+extern uint32_t *leveltime;
 extern struct mobjinfo_s *mobjinfo;
 extern struct state_s *states;
 extern struct weaponinfo_s *weaponinfo;
@@ -41,7 +42,7 @@ extern struct weaponinfo_s *weaponinfo;
 void dos_exit(uint32_t) __attribute((regparm(2)));
 
 // Variadic functions require no attributes.
-void I_Error(uint8_t*, ...);
+void I_Error(uint8_t*, ...) __attribute((noreturn));
 int32_t doom_printf(const uint8_t*, ...);
 int32_t doom_sprintf(uint8_t*, const uint8_t*, ...);
 int32_t doom_sscanf(const uint8_t*, const uint8_t*, ...);

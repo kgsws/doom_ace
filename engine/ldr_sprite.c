@@ -150,7 +150,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace call to 'R_InitSpriteLumps' in 'R_InitData'
 	{0x00034634, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)load_sprites},
-	// diable call to 'R_InitSpriteDefs' in 'R_InitSprites'
+	// disable call to 'R_InitSpriteDefs' in 'R_InitSprites'
 	{0x00037A4B, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace call to 'W_CacheLumpNum' in 'R_DrawVisSprite'
 	{0x00037BA6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)vissprite_cache_lump},

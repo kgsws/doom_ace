@@ -66,7 +66,7 @@ static uint8_t ***texturecomposite;
 static uint32_t **texturecompositesize;
 static uint32_t **texturewidthmask;
 static fixed_t **textureheight;
-static uint32_t **texturetranslation;
+uint32_t **texturetranslation;
 
 static uint16_t *patch_lump;
 static uint32_t tmp_count;
@@ -105,14 +105,10 @@ static internal_texture_t internal_texture[EXTRA_TEXTURES] =
 //
 // hooks
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 int32_t texture_num_get(uint8_t *name)
 {
-	union
-	{
-		uint64_t w;
-		uint8_t b[8];
-	} nm;
+	uint64_t wame;
 	uint32_t idx;
 	texture_t **tex = *textures;
 
@@ -121,28 +117,32 @@ int32_t texture_num_get(uint8_t *name)
 		return 0;
 
 	// search as 64bit number
-	nm.w = 0;
-	for(uint32_t i = 0; i < 8; i++)
-	{
-		register uint8_t in = name[i];
-		if(!in)
-			break;
-		if(in >= 'a' && in <= 'z')
-			in &= ~0x20; // uppercase only
-		nm.b[i] = in;
-	}
+	wame = wad_name64(name);
 
 	// do a backward search
 	idx = *numtextures;
 	do
 	{
 		idx--;
-		if(tex[idx]->wame == nm.w)
+		if(tex[idx]->wame == wame)
 			return idx;
 	} while(idx);
 
 	// last texture is 'unknown texture'
 	return *numtextures - 1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+int32_t texture_num_check(uint8_t *name)
+{
+	// 'texture_num_get' is used more often, but this is sometines required too
+	int32_t idx;
+
+	idx = texture_num_get(name);
+	if(idx == *numtextures - 1)
+		return -1;
+
+	return idx;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

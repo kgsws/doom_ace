@@ -181,7 +181,7 @@ typedef struct patch_s
 	uint32_t offs[];
 } patch_t;
 
-struct column_t;
+struct column_s;
 
 //
 // WAD
@@ -300,7 +300,7 @@ typedef struct
 	struct mobj_s *soundtarget;
 	int32_t blockbox[4];
 	degenmobj_t soundorg;
-	int validcount;
+	uint32_t validcount;
 	struct mobj_s *thinglist;
 	void *specialdata;
 	uint32_t linecount;
@@ -314,12 +314,12 @@ typedef struct line_s
 	uint16_t flags;
 	uint16_t special;
 	uint16_t tag;
-	int16_t sidenum[2];
+	uint16_t sidenum[2];
 	fixed_t bbox[4];
 	uint32_t slopetype;
 	sector_t *frontsector;
 	sector_t *backsector;
-	int validcount;
+	uint32_t validcount;
 	void *specialdata;
 } __attribute__((packed)) line_t;
 
@@ -447,7 +447,7 @@ typedef struct mobj_s
 	fixed_t momx;
 	fixed_t momy;
 	fixed_t momz;
-	int validcount;
+	uint32_t validcount;
 	uint32_t type;
 	mobjinfo_t *info;
 	int tics;
@@ -485,14 +485,17 @@ void R_GenerateLookup(uint32_t) __attribute((regparm(2)));
 void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2)));
 
 // r_main
-void R_RenderPlayerView(struct player_s*) __attribute((regparm(2)));
+void R_RenderPlayerView(player_t*) __attribute((regparm(2)));
 
 // r_things
-void R_DrawMaskedColumn(struct column_t*) __attribute((regparm(2)));
+void R_DrawMaskedColumn(struct column_s*) __attribute((regparm(2)));
 void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2)));
 
+// s_sound.c
+void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2)));
+
 // v_video
-void V_DrawPatchDirect(int32_t, int32_t, uint32_t, struct patch_s*) __attribute((regparm(2)));
+void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2)));
 
 // w_wad
 int32_t W_CheckNumForName(uint8_t *name) __attribute((regparm(2)));

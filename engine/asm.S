@@ -271,6 +271,12 @@ W_ReadLump:
 Z_Free:
 	.byte	0xE9
 	.4byte	0x00039600
+////////////////////////////////// S_StartSound
+.section .text.S_StartSound
+.global S_StartSound
+S_StartSound:
+	.byte	0xE9
+	.4byte	0x0003F370
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:

@@ -4,9 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
-
-static uint32_t **texturecompositesize;
-static fixed_t **textureheight;
+#include "ldr_texture.h"
 
 static uint32_t *dc_x;
 static uint32_t *dc_yl;
@@ -28,12 +26,14 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void draw_masked_column(uint32_t texture, uint32_t column)
 {
 	void *data;
+	void *composite;
 
 	// get texture data, as usual
 	data = R_GetColumn(texture, column);
 
-	// check if this texture is composite
-	if((*texturecompositesize)[texture])
+	// check if this column is composite
+	composite = (*texturecomposite)[texture];
+	if(composite && data >= composite && data < composite + (*texturecompositesize)[texture])
 	{
 		// it is; draw solid
 		int32_t bot, xx, yy;
@@ -77,8 +77,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// fix 'medusa' effect
 	{0x0003692D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_masked_column},
 	{0x00036932, CODE_HOOK | HOOK_SET_NOPS, 8},
-	{0x000300D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturecompositesize},
-	{0x00030124, DATA_HOOK | HOOK_IMPORT, (uint32_t)&textureheight},
 	// render variables
 	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
 	{0x000322EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_x},

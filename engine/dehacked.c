@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "wadfile.h"
 #include "dehacked.h"
+#include "textpars.h"
 
 #define POINTER_COUNT	448
 
@@ -601,7 +602,7 @@ void deh_init()
 {
 	int32_t lump;
 	uint32_t size;
-	void *data;
+	uint8_t *data;
 	void *syst;
 
 	lump = wad_check_lump("DEHACKED");
@@ -626,11 +627,21 @@ void deh_init()
 			ptr2state[size++] = i;
 	}
 
-	data = wad_cache_lump(lump, &size);
+	size = (*lumpinfo)[lump].size;
+
+	if(size <= TP_MEMORY_SIZE)
+	{
+		data = TP_MEMORY_ADDR;
+		wad_read_lump(data, lump, TP_MEMORY_SIZE);
+		data[size] = 0;
+	} else
+		data = wad_cache_lump(lump, NULL);
+
 	doom_printf("[ACE] parse DEHACKED %u bytes\n", size);
 	dehacked_parse(data, size);
 
-	doom_free(data);
+	if(data != TP_MEMORY_ADDR)
+		doom_free(data);
 	doom_free(syst);
 }
 

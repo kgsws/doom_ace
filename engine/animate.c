@@ -8,7 +8,9 @@
 #include "engine.h"
 #include "utils.h"
 #include "wadfile.h"
+#include "textpars.h"
 #include "animate.h"
+#include "sound.h"
 #include "map.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
@@ -84,7 +86,6 @@ typedef struct
 } switch_t;
 
 //
-static uint8_t *text_ptr;
 static void *anim_ptr;
 static void *switch_ptr;
 static void *animations;
@@ -199,7 +200,8 @@ uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t diff, in
 
 				if(active->dest == dest)
 				{
-					// do nothing
+					// force instant reverse
+					active->delay = 1;
 					return 0;
 				}
 
@@ -238,34 +240,7 @@ uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t diff, in
 //
 // parser
 
-static uint8_t *get_keyword()
-{
-	uint8_t *ret;
-
-	// end check
-	if(!*text_ptr)
-		return NULL;
-
-	// skip whitespaces and newlines
-	while(*text_ptr == ' ' || *text_ptr == '\t' || *text_ptr == '\r' || *text_ptr == '\n')
-		text_ptr++;
-
-	// this is the keyword
-	ret = text_ptr;
-
-	// skip the text
-	while(*text_ptr && *text_ptr != ' ' && *text_ptr != '\t' && *text_ptr != '\r' && *text_ptr != '\n')
-		text_ptr++;
-
-	// terminate string
-	if(*text_ptr)
-		*text_ptr++ = 0;
-
-	// return the keyword
-	return ret;
-}
-
-static void parse_animdefs(uint8_t *text)
+static void parse_animdefs()
 {
 	union
 	{
@@ -277,13 +252,12 @@ static void parse_animdefs(uint8_t *text)
 	uint32_t skip = 0;
 	int32_t (*get_pic)(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 
-	text_ptr = text;
 	while(1)
 	{
-		kw = get_keyword();
+		kw = tp_get_keyword();
 continue_keyword:
 		if(!kw)
-			break;
+			return;
 
 		if(!strcmp(kw, "flat"))
 			get_pic = flat_num_check;
@@ -296,13 +270,14 @@ continue_keyword:
 			int32_t num;
 			uint32_t tick_total;
 			uint32_t count;
+			uint16_t sound = 23;
 			animframe_t *frame;
 			aswitch_t *reverse;
 
 			skip = 0;
 
 			// get picture name
-			kw = get_keyword();
+			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
 
@@ -316,20 +291,34 @@ continue_keyword:
 			name = kw;
 
 			// expecting 'on'
-			kw = get_keyword();
+			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
 			if(*((uint16_t*)kw) != 0x6E6F)
-				I_Error("ANIMDEFS: Expected keyword 'ok' found '%s' in '%s'!", kw, name);
+				I_Error("[ANIMDEFS] Expected keyword 'ok' found '%s' in '%s'!", kw, name);
 
-			// TODO: optional sound
-
-			// expecting 'pic'
-			kw = get_keyword();
+			// expecting 'pic' or 'sound'
+			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
+
+			if(kw[0] == 's')
+			{
+				// get sound name
+				kw = tp_get_keyword();
+				if(!kw)
+					goto error_end;
+
+				sound = sfx_by_name(kw);
+
+				// read next keyword
+				kw = tp_get_keyword();
+				if(!kw)
+					goto error_end;
+			}
+
 			if(kw[0] != 'p')
-				I_Error("ANIMDEFS: Expected keyword 'pic' found '%s' in '%s'!", kw, name);
+				I_Error("[ANIMDEFS] Expected keyword 'pic' found '%s' in '%s'!", kw, name);
 
 			// switch
 			dest.swtch = switch_ptr;
@@ -350,12 +339,12 @@ continue_keyword:
 				switch_ptr += sizeof(animframe_t);
 
 				// get picture name
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					goto error_end;
 				num = texture_num_check(kw);
 				if(num < 0)
-					I_Error("ANIMDEFS: frame '%s' not found for '%s'\n", kw, name);
+					I_Error("[ANIMDEFS] frame '%s' not found for '%s'\n", kw, name);
 
 				if(animations)
 				{
@@ -364,14 +353,14 @@ continue_keyword:
 				}
 
 				// only 'tics' is supported; no 'rand'
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					goto error_end;
 				if(kw[0] != 't')
 					goto error_tics;
 
 				// get tick count
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					goto error_end;
 				if(doom_sscanf(kw, "%u", &num) != 1 || num < 0) // zero can be used on last frame
@@ -382,7 +371,7 @@ continue_keyword:
 				tick_total += num;
 
 				// check for next frame
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					break;
 				if(!kw || kw[0] != 'p')
@@ -402,7 +391,7 @@ continue_keyword:
 				dest.swtch->count = count;
 				dest.swtch->target = target;
 				dest.swtch->tick_total = tick_total;
-				dest.swtch->sound = 23;
+				dest.swtch->sound = sound;
 				dest.swtch->reverse = switch_ptr;
 
 				// store stuff for reversion
@@ -413,14 +402,28 @@ continue_keyword:
 			// check for 'off'
 			if(kw && *((uint32_t*)kw) == 0x0066666F)
 			{
-				// TODO: optional sound
-
 				// expecting 'pic'
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					goto error_end;
+
+				if(kw[0] == 's')
+				{
+					// get sound name
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+
+					sound = sfx_by_name(kw);
+
+					// read next keyword
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+				}
+
 				if(kw[0] != 'p')
-					I_Error("ANIMDEFS: Expected keyword 'pic' found '%s' in '%s'!", kw, name);
+					I_Error("[ANIMDEFS] Expected keyword 'pic' found '%s' in '%s'!", kw, name);
 
 				// switch
 				dest.swtch = switch_ptr;
@@ -441,12 +444,12 @@ continue_keyword:
 					switch_ptr += sizeof(animframe_t);
 
 					// get picture name
-					kw = get_keyword();
+					kw = tp_get_keyword();
 					if(!kw)
 						goto error_end;
 					num = texture_num_check(kw);
 					if(num < 0)
-						I_Error("ANIMDEFS: frame '%s' not found for '%s'\n", kw, name);
+						I_Error("[ANIMDEFS] frame '%s' not found for '%s'\n", kw, name);
 
 					if(animations)
 					{
@@ -455,14 +458,14 @@ continue_keyword:
 					}
 
 					// only 'tics' is supported; no 'rand'
-					kw = get_keyword();
+					kw = tp_get_keyword();
 					if(!kw)
 						goto error_end;
 					if(kw[0] != 't')
 						goto error_tics;
 
 					// get tick count
-					kw = get_keyword();
+					kw = tp_get_keyword();
 					if(!kw)
 						goto error_end;
 					if(doom_sscanf(kw, "%u", &num) != 1 || num < 0) // zero can be used on last frame
@@ -473,7 +476,7 @@ continue_keyword:
 					tick_total += num;
 
 					// check for next frame
-					kw = get_keyword();
+					kw = tp_get_keyword();
 					if(!kw)
 						break;
 					if(!kw || kw[0] != 'p')
@@ -493,7 +496,7 @@ continue_keyword:
 					dest.swtch->count = count;
 					dest.swtch->target = skip; // this was stored above
 					dest.swtch->tick_total = tick_total;
-					dest.swtch->sound = 23;
+					dest.swtch->sound = sound;
 					dest.swtch->reverse = reverse;
 				}
 			} else
@@ -512,7 +515,7 @@ continue_keyword:
 					dest.swtch->count = 1;
 					dest.swtch->target = skip; // this was stored above
 					dest.swtch->tick_total = 1;
-					dest.swtch->sound = 23;
+					dest.swtch->sound = sound;
 					dest.swtch->frame[0].tick = 0;
 					dest.swtch->frame[0].pic = target;
 				}
@@ -523,12 +526,12 @@ continue_keyword:
 		} else
 		{
 			if(!skip && kw[0] && strcmp(kw, "allowdecals"))
-				I_Error("ANIMDEFS: Invalid keyword '%s'!", kw);
+				I_Error("[ANIMDEFS] Invalid keyword '%s'!", kw);
 			continue;
 		}
 
 		// get picture name
-		kw = get_keyword();
+		kw = tp_get_keyword();
 		if(!kw)
 			goto error_end;
 
@@ -545,7 +548,7 @@ continue_keyword:
 		dest.anim = anim_ptr;
 
 		// expecting 'pic' or 'range'
-		kw = get_keyword();
+		kw = tp_get_keyword();
 		if(!kw)
 			goto error_end;
 
@@ -557,25 +560,25 @@ continue_keyword:
 			int32_t num;
 			uint32_t tics;
 
-			kw = get_keyword();
+			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
 
 			num = get_pic(kw);
 			if(num <= target || num - target > 255)
-				I_Error("ANIMDEFS: invalid range in '%s'", name);
+				I_Error("[ANIMDEFS] invalid range in '%s'", name);
 
 			num -= target;
 			num++;
 
 			// only 'tics' is supported; no 'rand'
-			kw = get_keyword();
+			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
 			if(kw[0] != 't')
 				goto error_tics;
 
-			kw = get_keyword();
+			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
 			if(doom_sscanf(kw, "%u", &tics) != 1 || !tics)
@@ -647,12 +650,12 @@ continue_keyword:
 				anim_ptr += sizeof(animframe_t);
 
 				// get picture name
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					goto error_end;
 				num = get_pic(kw);
 				if(num < 0)
-					I_Error("ANIMDEFS: frame '%s' not found for '%s'\n", kw, name);
+					I_Error("[ANIMDEFS] frame '%s' not found for '%s'\n", kw, name);
 
 				if(animations)
 				{
@@ -664,14 +667,14 @@ continue_keyword:
 				}
 
 				// only 'tics' is supported; no 'rand'
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					goto error_end;
 				if(kw[0] != 't')
 					goto error_tics;
 
 				// get tick count
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					goto error_end;
 				if(doom_sscanf(kw, "%u", &num) != 1 || num <= 0)
@@ -682,13 +685,13 @@ continue_keyword:
 				tick_total += num;
 
 				// check next keyword
-				kw = get_keyword();
+				kw = tp_get_keyword();
 				if(!kw)
 					break;
 
 				if(kw[0] == 'a')
 					// skip 'allowdecals'
-					kw = get_keyword();
+					kw = tp_get_keyword();
 
 				// check for next frame
 				if(!kw || kw[0] != 'p')
@@ -716,20 +719,19 @@ continue_keyword:
 			goto continue_keyword;
 		}
 
-		I_Error("ANIMDEFS: Expected keyword 'pic' or 'range' found '%s' in '%s'!", kw, name);
+		I_Error("[ANIMDEFS] Expected keyword 'pic' or 'range' found '%s' in '%s'!", kw, name);
 	}
 
-	return;
 error_end:
-	I_Error("ANIMDEFS: Incomplete definition!");
+	I_Error("[ANIMDEFS] Incomplete definition!");
 error_tics:
-	I_Error("ANIMDEFS: Expected keyword 'tics' found '%s' in '%s'!", kw, name);
+	I_Error("[ANIMDEFS] Expected keyword 'tics' found '%s' in '%s'!", kw, name);
 error_numeric:
-	I_Error("ANIMDEFS: Unable to parse number '%s' in '%s'!", kw, name);
+	I_Error("[ANIMDEFS] Unable to parse number '%s' in '%s'!", kw, name);
 error_tic_count:
-	I_Error("ANIMDEFS: bad tick count for '%s'!", name);
+	I_Error("[ANIMDEFS] bad tick count for '%s'!", name);
 error_anim_count:
-	I_Error("ANIMDEFS: bad frame count for '%s'!", name);
+	I_Error("[ANIMDEFS] bad frame count for '%s'!", name);
 }
 
 //
@@ -884,12 +886,8 @@ void do_line_switch(line_t *ln, uint32_t repeat)
 
 static void cb_animdefs(lumpinfo_t *li)
 {
-	void *data;
-
-	data = wad_cache_lump(li - *lumpinfo, NULL);
-	parse_animdefs(data);
-
-	doom_free(data);
+	tp_load_lump(li);
+	parse_animdefs();
 }
 
 //
@@ -897,7 +895,7 @@ static void cb_animdefs(lumpinfo_t *li)
 
 void init_animations()
 {
-	// To avoid unnecessary memory fragmentation this function does multiple passes.
+	// To avoid unnecessary memory fragmentation, this function does multiple passes.
 	uint32_t size;
 
 	doom_printf("[ACE] init animations\n");
@@ -907,7 +905,12 @@ void init_animations()
 	// PASS 1
 
 	// count all animations (get buffer size)
-	parse_animdefs(engine_animdefs); // internal
+
+	// internal
+	tp_text_ptr = engine_animdefs;
+	parse_animdefs();
+
+	// external
 	wad_handle_lump("ANIMDEFS", cb_animdefs);
 
 	//
@@ -927,7 +930,12 @@ void init_animations()
 	}
 
 	// generate animations
-	parse_animdefs(engine_animdefs); // internal
+
+	// internal
+	tp_text_ptr = engine_animdefs;
+	parse_animdefs();
+
+	// external
 	wad_handle_lump("ANIMDEFS", cb_animdefs);
 
 	// animation terminator

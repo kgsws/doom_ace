@@ -6,11 +6,12 @@
 #include "wadfile.h"
 #include "dehacked.h"
 #include "animate.h"
+#include "sound.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
 
-#define LDR_ENGINE_COUNT	4	// dehacked, texure-init, flat-init, sprite-init
+#define LDR_ENGINE_COUNT	5	// dehacked, sndinfo, texure-init, flat-init, sprite-init
 
 typedef struct
 {
@@ -40,12 +41,12 @@ mobjinfo_t *mobjinfo;
 state_t *states;
 weaponinfo_t *weaponinfo;
 
-static uint8_t *screen_buffer;
+uint8_t *screen_buffer;
 
 static gfx_loading_t *loading;
 
 //
-static const hook_t restore_i_error[];
+static const hook_t restore_loader[];
 
 //
 // hooks
@@ -62,6 +63,14 @@ void *load_palette()
 	return dest;
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void finish_loading()
+{
+	// restore 'I_FinishUpdate' modification
+	utils_install_hooks(restore_loader + 1, 1);
+	doom_printf("LOADING FINISHED\n");
+}
+
 //
 // loading
 
@@ -70,6 +79,17 @@ void *ldr_malloc(uint32_t size)
 	void *ret;
 
 	ret = doom_malloc(size);
+	if(!ret)
+		I_Error("%s (%uB)", ldr_alloc_message, size);
+
+	return ret;
+}
+
+void *ldr_realloc(void *ptr, uint32_t size)
+{
+	void *ret;
+
+	ret = doom_realloc(ptr, size);
 	if(!ret)
 		I_Error("%s (%uB)", ldr_alloc_message, size);
 
@@ -141,7 +161,6 @@ void gfx_progress(int32_t step)
 
 	loading->gfx_loader_bar->width = width;
 
-	V_DrawPatchDirect(0, 0, 0, loading->gfx_loader_bg);
 	V_DrawPatchDirect(0, 0, 0, loading->gfx_loader_bar);
 
 	I_FinishUpdate();
@@ -151,8 +170,10 @@ static void gfx_init()
 {
 	int32_t idx;
 
-	loading->gfx_loader_bg = (patch_t*)(screen_buffer + 64000);
-	loading->gfx_loader_bar = (patch_t*)(screen_buffer + 64000 + 69632);
+	// these locations are specifically picked for their size
+	// background is required only once
+	loading->gfx_loader_bg = (patch_t*)(screen_buffer + 64000 + 69632);
+	loading->gfx_loader_bar = (patch_t*)(screen_buffer + 64000);
 
 	// load background
 	idx = wad_check_lump("A_LDING");
@@ -250,6 +271,10 @@ uint32_t ace_main()
 	deh_init();
 	gfx_progress(-1);
 
+	// sound
+	init_sound();
+	gfx_progress(-1);
+
 	// decorate
 	// TODO
 
@@ -269,7 +294,7 @@ uint32_t ace_main()
 	init_animations();
 
 	// restore 'I_Error' modification
-	utils_install_hooks(restore_i_error, 1);
+	utils_install_hooks(restore_loader + 0, 1);
 
 	// continue running Doom
 }
@@ -277,9 +302,12 @@ uint32_t ace_main()
 //
 // hooks
 
-static const hook_t restore_i_error[] =
+static const hook_t restore_loader[] =
 {
+	// 'I_Error' patch
 	{0x0001AB1E, CODE_HOOK | HOOK_CALL_DOOM, 0x0001B830},
+	// 'I_FinishUpdate' patch
+	{0x00019FE7, CODE_HOOK | HOOK_UINT8, 0x40},
 };
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -290,8 +318,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00022B0A, DATA_HOOK | HOOK_UINT32, 0x6766},
 	// disable title text update
 	{0x0001D8D0, CODE_HOOK | HOOK_UINT8, 0xC3},
-	// disable call to 'I_InitGraphics' in 'D_DoomLoop'
-	{0x0001D56D, CODE_HOOK | HOOK_SET_NOPS, 5},
+	// relace call to 'I_InitGraphics' in 'D_DoomLoop'
+	{0x0001D56D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)finish_loading},
 	// replace call to 'W_CacheLumpName' in 'I_InitGraphics'
 	{0x0001A0F5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)load_palette},
 	// disable call to 'I_InitDiskFlash' in 'I_InitGraphics'
@@ -313,5 +341,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 	// early 'I_Error' fix
 	{0x0001AB1E, CODE_HOOK | HOOK_SET_NOPS, 5},
+	// force single page in 'I_FinishUpdate'
+	{0x00019FE7, CODE_HOOK | HOOK_UINT8, 0x00},
 };
 

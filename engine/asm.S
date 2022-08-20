@@ -277,6 +277,18 @@ Z_Free:
 S_StartSound:
 	.byte	0xE9
 	.4byte	0x0003F370
+////////////////////////////////// P_Random
+.section .text.P_Random
+.global P_Random
+P_Random:
+	.byte	0xE9
+	.4byte	0x00024160
+////////////////////////////////// M_Random
+.section .text.M_Random
+.global M_Random
+M_Random:
+	.byte	0xE9
+	.4byte	0x00024180
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:

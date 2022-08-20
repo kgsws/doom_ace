@@ -18,6 +18,7 @@ typedef union
 
 //
 // variables
+extern uint8_t *screen_buffer;
 extern uint32_t *leveltime;
 extern struct mobjinfo_s *mobjinfo;
 extern struct state_s *states;

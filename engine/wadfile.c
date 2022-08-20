@@ -21,7 +21,6 @@ static num64_t range_defs[4];
 
 static void wad_add(uint8_t *name)
 {
-	// TODO: single file support (.lmp)
 	int32_t fd;
 	uint32_t tmp;
 	wadhead_t head;

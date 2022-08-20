@@ -341,6 +341,21 @@ typedef struct subsector_s
 } subsector_t;
 
 //
+// sound
+
+typedef struct sfxinfo_s
+{ // this structure has been changed
+	uint64_t alias;
+	uint32_t priority;
+	uint8_t reserved; // can be used for $limit
+	uint8_t rng_count;
+	uint16_t rng_id[5];
+	void *data;
+	int32_t usefulness;
+	int32_t lumpnum;
+} sfxinfo_t;
+
+//
 // data
 
 typedef struct texpatch_s
@@ -469,6 +484,7 @@ typedef struct mobj_s
 extern uint8_t *ldr_alloc_message;
 void gfx_progress(int32_t step);
 void *ldr_malloc(uint32_t size);
+void *ldr_realloc(void *ptr, uint32_t size);
 
 // i_video
 void I_InitGraphics() __attribute((regparm(2)));
@@ -476,6 +492,9 @@ void I_FinishUpdate() __attribute((regparm(2)));
 
 // m_argv
 uint32_t M_CheckParm(uint8_t*) __attribute((regparm(2)));
+
+// m_random
+uint8_t P_Random() __attribute((regparm(2)));
 
 // st_stuff
 void ST_Init() __attribute((regparm(2)));

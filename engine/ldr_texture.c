@@ -341,7 +341,7 @@ static void cb_tx_load(lumpinfo_t *li)
 
 void init_textures(uint32_t count)
 {
-	// To avoid unnecessary memory fragmentation this function does multiple passes.
+	// To avoid unnecessary memory fragmentation, this function does multiple passes.
 	uint32_t idx;
 
 	doom_printf("[ACE] preparing %u textures\n", count);

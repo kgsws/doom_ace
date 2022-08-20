@@ -2,6 +2,9 @@
 ////
 
 extern uint32_t **texturetranslation;
+extern uint8_t ***texturecomposite;
+extern uint32_t **texturecompositesize;
+extern fixed_t **textureheight;
 
 //
 

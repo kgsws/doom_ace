@@ -62,10 +62,10 @@ static uint32_t *numtextures;
 static texture_t ***textures;
 static uint16_t ***texturecolumnlump;
 static uint16_t ***texturecolumnofs;
-static uint8_t ***texturecomposite;
-static uint32_t **texturecompositesize;
+uint8_t ***texturecomposite;
+uint32_t **texturecompositesize;
 static uint32_t **texturewidthmask;
-static fixed_t **textureheight;
+fixed_t **textureheight;
 uint32_t **texturetranslation;
 
 static uint16_t *patch_lump;

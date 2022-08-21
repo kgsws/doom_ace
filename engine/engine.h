@@ -5,6 +5,8 @@
 //
 // basic
 
+#include "mobjflags.h"
+
 #define MAXWADFILES	20
 
 #define SCREENWIDTH	320
@@ -221,12 +223,10 @@ typedef struct
 //
 // info
 
-#define NUMMOBJTYPES	137
-#define NUMSTATES	967
-
 typedef struct mobjinfo_s
-{
-	int32_t doomednum;
+{ // this structure has been changed
+	uint16_t doomednum;
+	uint16_t spawnid;
 	int32_t spawnstate;
 	int32_t spawnhealth;
 	int32_t seestate;
@@ -247,16 +247,24 @@ typedef struct mobjinfo_s
 	int32_t mass;
 	int32_t damage;
 	int32_t activesound;
-	int32_t flags;
+	uint32_t flags0;
 	int32_t raisestate;
+	// new stuff
+	uint64_t actor_name;
+	uint32_t flags1;
 } mobjinfo_t;
 
 typedef struct state_s
 {
-	int32_t sprite;
-	int32_t frame;
+	uint16_t sprite;
+	uint16_t frame;
+	void *arg;
 	int32_t tics;
-	void *action;
+	union
+	{
+		void *action;
+		void (*acp)(struct mobj_s*) __attribute((regparm(2)));
+	};
 	int32_t nextstate;
 	int32_t misc1;
 	int32_t misc2;
@@ -441,7 +449,7 @@ typedef struct spritedef_s
 #define MF_TRANSLATION1 0x08000000
 
 typedef struct mobj_s
-{
+{ // this structure has been changed
 	thinker_t thinker;
 	fixed_t x;
 	fixed_t y;
@@ -449,9 +457,9 @@ typedef struct mobj_s
 	struct mobj_s *snext;
 	struct mobj_s *sprev;
 	angle_t angle;
-	int32_t dehacked_sprite;
-	uint16_t frame;
 	uint16_t sprite;
+	uint16_t frame;
+	uint32_t flags1;
 	struct mobj_s *bnext;
 	struct mobj_s *bprev;
 	struct subsector_s *subsector;
@@ -467,7 +475,7 @@ typedef struct mobj_s
 	mobjinfo_t *info;
 	int tics;
 	state_t *state;
-	uint32_t flags;
+	uint32_t flags0;
 	int health;
 	int movedir;
 	int movecount;
@@ -478,6 +486,7 @@ typedef struct mobj_s
 	int lastlook;
 	mapthing_t spawnpoint;
 	struct mobj_s *tracer;
+	uint32_t netid;
 } __attribute__((packed)) mobj_t;
 
 // main.c
@@ -498,6 +507,13 @@ uint8_t P_Random() __attribute((regparm(2)));
 
 // st_stuff
 void ST_Init() __attribute((regparm(2)));
+
+// p_maputl
+void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
+void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
+
+// p_inter
+void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2)));
 
 // r_data
 void R_GenerateLookup(uint32_t) __attribute((regparm(2)));

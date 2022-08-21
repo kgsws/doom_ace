@@ -30,6 +30,10 @@ static uint8_t *deh_end;
 static uint16_t *ptr2state;
 static void **ptrtable;
 
+deh_mobjinfo_t *deh_mobjinfo;
+deh_state_t *deh_states;
+weaponinfo_t *deh_weaponinfo;
+
 // section info
 static void parser_thing(uint8_t*);
 static void parser_frame(uint8_t*);
@@ -63,29 +67,29 @@ static void handle_infight(uint8_t*,void*);
 // section 'thing' values
 static const deh_value_t deh_value_thing[] =
 {
-	{"ID #", offsetof(mobjinfo_t, doomednum), handle_u32},
-	{"Initial frame", offsetof(mobjinfo_t, spawnstate), handle_u32},
-	{"Hit points", offsetof(mobjinfo_t, spawnhealth), handle_u32},
-	{"First moving frame", offsetof(mobjinfo_t, seestate), handle_u32},
-	{"Alert sound", offsetof(mobjinfo_t, seesound), handle_u32},
-	{"Reaction time", offsetof(mobjinfo_t, reactiontime), handle_u32},
-	{"Attack sound", offsetof(mobjinfo_t, attacksound), handle_u32},
-	{"Injury frame", offsetof(mobjinfo_t, painstate), handle_u32},
-	{"Pain chance", offsetof(mobjinfo_t, painchance), handle_u32},
-	{"Pain sound", offsetof(mobjinfo_t, painsound), handle_u32},
-	{"Close attack frame", offsetof(mobjinfo_t, meleestate), handle_u32},
-	{"Far attack frame", offsetof(mobjinfo_t, missilestate), handle_u32},
-	{"Death frame", offsetof(mobjinfo_t, deathstate), handle_u32},
-	{"Exploding frame", offsetof(mobjinfo_t, xdeathstate), handle_u32},
-	{"Death sound", offsetof(mobjinfo_t, deathsound), handle_u32},
-	{"Speed", offsetof(mobjinfo_t, speed), handle_u32},
-	{"Width", offsetof(mobjinfo_t, radius), handle_u32},
-	{"Height", offsetof(mobjinfo_t, height), handle_u32},
-	{"Mass", offsetof(mobjinfo_t, mass), handle_u32},
-	{"Missile damage", offsetof(mobjinfo_t, damage), handle_u32},
-	{"Action sound", offsetof(mobjinfo_t, activesound), handle_u32},
-	{"Bits", offsetof(mobjinfo_t, flags), handle_u32},
-	{"Respawn frame", offsetof(mobjinfo_t, raisestate), handle_u32},
+	{"ID #", offsetof(deh_mobjinfo_t, doomednum), handle_u32},
+	{"Initial frame", offsetof(deh_mobjinfo_t, spawnstate), handle_u32},
+	{"Hit points", offsetof(deh_mobjinfo_t, spawnhealth), handle_u32},
+	{"First moving frame", offsetof(deh_mobjinfo_t, seestate), handle_u32},
+	{"Alert sound", offsetof(deh_mobjinfo_t, seesound), handle_u32},
+	{"Reaction time", offsetof(deh_mobjinfo_t, reactiontime), handle_u32},
+	{"Attack sound", offsetof(deh_mobjinfo_t, attacksound), handle_u32},
+	{"Injury frame", offsetof(deh_mobjinfo_t, painstate), handle_u32},
+	{"Pain chance", offsetof(deh_mobjinfo_t, painchance), handle_u32},
+	{"Pain sound", offsetof(deh_mobjinfo_t, painsound), handle_u32},
+	{"Close attack frame", offsetof(deh_mobjinfo_t, meleestate), handle_u32},
+	{"Far attack frame", offsetof(deh_mobjinfo_t, missilestate), handle_u32},
+	{"Death frame", offsetof(deh_mobjinfo_t, deathstate), handle_u32},
+	{"Exploding frame", offsetof(deh_mobjinfo_t, xdeathstate), handle_u32},
+	{"Death sound", offsetof(deh_mobjinfo_t, deathsound), handle_u32},
+	{"Speed", offsetof(deh_mobjinfo_t, speed), handle_u32},
+	{"Width", offsetof(deh_mobjinfo_t, radius), handle_u32},
+	{"Height", offsetof(deh_mobjinfo_t, height), handle_u32},
+	{"Mass", offsetof(deh_mobjinfo_t, mass), handle_u32},
+	{"Missile damage", offsetof(deh_mobjinfo_t, damage), handle_u32},
+	{"Action sound", offsetof(deh_mobjinfo_t, activesound), handle_u32},
+	{"Bits", offsetof(deh_mobjinfo_t, flags), handle_u32},
+	{"Respawn frame", offsetof(deh_mobjinfo_t, raisestate), handle_u32},
 	// terminator
 	{NULL}
 };
@@ -93,13 +97,13 @@ static const deh_value_t deh_value_thing[] =
 // section 'frame' values
 static const deh_value_t deh_value_frame[] =
 {
-	{"Sprite number", offsetof(state_t, sprite), handle_u32},
-	{"Sprite subnumber", offsetof(state_t, frame), handle_u32},
-	{"Duration", offsetof(state_t, tics), handle_u32},
-//	{"Codep frame", offsetof(state_t, action), handle_u32},
-	{"Next frame", offsetof(state_t, nextstate), handle_u32},
-	{"Unknown 1", offsetof(state_t, misc1), handle_u32},
-	{"Unknown 2", offsetof(state_t, misc2), handle_u32},
+	{"Sprite number", offsetof(deh_state_t, sprite), handle_u32},
+	{"Sprite subnumber", offsetof(deh_state_t, frame), handle_u32},
+	{"Duration", offsetof(deh_state_t, tics), handle_u32},
+//	{"Codep frame", offsetof(deh_state_t, action), handle_u32},
+	{"Next frame", offsetof(deh_state_t, nextstate), handle_u32},
+	{"Unknown 1", offsetof(deh_state_t, misc1), handle_u32},
+	{"Unknown 2", offsetof(deh_state_t, misc2), handle_u32},
 	// terminator
 	{NULL}
 };
@@ -388,7 +392,7 @@ static void parser_thing(uint8_t *line)
 	void *base_ptr;
 
 	if(doom_sscanf(line, "%u", &idx) == 1 && idx > 0 && idx < NUMMOBJTYPES)
-		base_ptr = mobjinfo + idx - 1;
+		base_ptr = deh_mobjinfo + idx - 1;
 	else
 		base_ptr = NULL;
 
@@ -401,7 +405,7 @@ static void parser_frame(uint8_t *line)
 	void *base_ptr;
 
 	if(doom_sscanf(line, "%u", &idx) == 1 && idx < NUMSTATES)
-		base_ptr = states + idx;
+		base_ptr = deh_states + idx;
 	else
 		base_ptr = NULL;
 
@@ -414,7 +418,7 @@ static void parser_weapon(uint8_t *line)
 	void *base_ptr;
 
 	if(doom_sscanf(line, "%u", &idx) == 1 && idx < NUMWEAPONS)
-		base_ptr = weaponinfo + idx;
+		base_ptr = deh_weaponinfo + idx;
 	else
 		base_ptr = NULL;
 
@@ -504,7 +508,7 @@ static void parser_pointer(uint8_t *line)
 
 		// parse value
 		if(doom_sscanf(vtxt, "%i", &src_state) == 1 && src_state < NUMSTATES)
-			states[ptr_state].action = ptrtable[src_state];
+			deh_states[ptr_state].action = ptrtable[src_state];
 	}
 }
 
@@ -619,7 +623,7 @@ void deh_init()
 	size = 0;
 	for(uint32_t i = 0; i < NUMSTATES; i++)
 	{
-		state_t *state = states + i;
+		deh_state_t *state = deh_states + i;
 
 		ptrtable[i] = state->action;
 
@@ -644,4 +648,15 @@ void deh_init()
 		doom_free(data);
 	doom_free(syst);
 }
+
+//
+// hooks
+
+static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
+{
+	// import variables
+	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deh_mobjinfo},
+	{0x00015A28, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deh_states},
+	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deh_weaponinfo},
+};
 

@@ -5,13 +5,14 @@
 #include "utils.h"
 #include "wadfile.h"
 #include "dehacked.h"
+#include "decorate.h"
 #include "animate.h"
 #include "sound.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
 
-#define LDR_ENGINE_COUNT	5	// dehacked, sndinfo, texure-init, flat-init, sprite-init
+#define LDR_ENGINE_COUNT	6	// dehacked, sndinfo, decorate, texure-init, flat-init, sprite-init
 
 typedef struct
 {
@@ -35,11 +36,6 @@ uint8_t *ldr_alloc_message;
 
 static uint8_t *ace_wad_name;
 static uint32_t ace_wad_type;
-
-uint32_t *leveltime;
-mobjinfo_t *mobjinfo;
-state_t *states;
-weaponinfo_t *weaponinfo;
 
 uint8_t *screen_buffer;
 
@@ -197,7 +193,7 @@ static void gfx_init()
 
 uint32_t ace_main()
 {
-	doom_printf("                          -= ACE Engine by kgsws =-\n[ACE] CODE: 0x%08X DATA: 0x%08X\n", doom_code_segment, doom_data_segment);
+	doom_printf("                          -= ACE Engine by kgsws =-\n[ACE] CODE: 0x%08X DATA: 0x%08X ACE: 0x%08X+0x1004\n", doom_code_segment, doom_data_segment, ace_segment);
 
 	// install hooks
 	utils_init();
@@ -276,7 +272,8 @@ uint32_t ace_main()
 	gfx_progress(-1);
 
 	// decorate
-	// TODO
+	init_decorate();
+	gfx_progress(-1);
 
 	// textures
 	init_textures(loading->count_texture);
@@ -332,11 +329,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// read stuff
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},
-	// import info
-	{0x00015A28, DATA_HOOK | HOOK_IMPORT, (uint32_t)&states},
-	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mobjinfo},
-	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&weaponinfo},
-	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
 	// place 'loading' structure into 'vissprites'
 	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 	// early 'I_Error' fix

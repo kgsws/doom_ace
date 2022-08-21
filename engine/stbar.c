@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "dehacked.h"
 #include "stbar.h"
 
 static uint32_t *screenblocks;
@@ -93,8 +94,8 @@ void hook_RenderPlayerView(player_t *pl)
 	}
 
 	// AMMO
-	if(weaponinfo[pl->readyweapon].ammo < NUMAMMO)
-		stbar_big_number_r(SCREENWIDTH - 4, stbar_y, pl->ammo[weaponinfo[pl->readyweapon].ammo], -4);
+	if(deh_weaponinfo[pl->readyweapon].ammo < NUMAMMO)
+		stbar_big_number_r(SCREENWIDTH - 4, stbar_y, pl->ammo[deh_weaponinfo[pl->readyweapon].ammo], -4);
 
 	// keys
 	tmp = 1;

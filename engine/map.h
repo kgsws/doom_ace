@@ -1,6 +1,8 @@
 // kgsws' ACE Engine
 ////
 
+extern uint32_t *leveltime;
+
 extern uint32_t *numlines;
 extern uint32_t *numsectors;
 extern line_t **lines;

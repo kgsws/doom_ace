@@ -8,6 +8,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "wadfile.h"
+#include "decorate.h"
 #include "ldr_sprite.h"
 
 static uint32_t *numsprites;
@@ -18,30 +19,20 @@ static fixed_t **spritetopoffset;
 static int32_t *spr_maxframe;
 static spriteframe_t *spr_temp;
 static spritedef_t **sprites;
-static uint32_t **spr_names;
 
 static uint16_t *sprite_lump;
 
 static uint32_t tmp_count;
-
-static uint32_t sprite_table[MAX_SPRITE_NAMES];
 
 //
 // funcs
 
 static void install_sprites()
 {
-	uint32_t num_sprites;
-
-	// TODO: move to DECORATE
-	num_sprites = 138;
-	for(uint32_t i = 0; i < 138; i++)
-		sprite_table[i] = *spr_names[i];
-
-	*sprites = doom_malloc(num_sprites * sizeof(spritedef_t));
+	*sprites = doom_malloc(num_spr_names * sizeof(spritedef_t));
 
 	// process all sprites
-	for(uint32_t i = 0; i < num_sprites; i++)
+	for(uint32_t i = 0; i < num_spr_names; i++)
 	{
 		// reset
 		*spr_maxframe = 0;
@@ -146,6 +137,7 @@ void init_sprites(uint32_t count)
 
 //
 // hooks
+
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace call to 'R_InitSpriteLumps' in 'R_InitData'
@@ -171,7 +163,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00030114, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spritetopoffset},
 	{0x0005C884, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spr_maxframe},
 	{0x0005C554, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spr_temp},
-	{0x00015800, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spr_names},
 	{0x0005C8E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sprites},
 };
 

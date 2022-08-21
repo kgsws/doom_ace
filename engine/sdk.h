@@ -14,15 +14,25 @@ typedef union
 	uint32_t u32[2];
 	uint16_t u16[4];
 	uint8_t u8[8];
+	int64_t s64;
+	int32_t s32[2];
+	int16_t s16[4];
+	int8_t s8[8];
 } num64_t;
+
+typedef union
+{
+	uint32_t u32[2];
+	uint16_t u16[4];
+	uint8_t u8[8];
+	int32_t s32[2];
+	int16_t s16[4];
+	int8_t s8[8];
+} num32_t;
 
 //
 // variables
 extern uint8_t *screen_buffer;
-extern uint32_t *leveltime;
-extern struct mobjinfo_s *mobjinfo;
-extern struct state_s *states;
-extern struct weaponinfo_s *weaponinfo;
 
 //
 // Doom Engine Functions

@@ -19,6 +19,7 @@ _start:
 	// get ACE base
 	mov	(%esp),%ecx
 	sub	$0x1004,%ecx	// compensate for VMA offset (set in linker script) and bss_size
+	mov	%ecx,ace_segment(%ecx)
 
 	// get CODE base
 	mov	%esi,doom_code_segment(%ecx)
@@ -289,6 +290,24 @@ P_Random:
 M_Random:
 	.byte	0xE9
 	.4byte	0x00024180
+////////////////////////////////// P_SetThingPosition
+.section .text.P_SetThingPosition
+.global P_SetThingPosition
+P_SetThingPosition:
+	.byte	0xE9
+	.4byte	0x0002C460
+////////////////////////////////// P_UnsetThingPosition
+.section .text.P_UnsetThingPosition
+.global P_UnsetThingPosition
+P_UnsetThingPosition:
+	.byte	0xE9
+	.4byte	0x0002C3B0
+////////////////////////////////// P_TouchSpecialThing
+.section .text.P_TouchSpecialThing
+.global P_TouchSpecialThing
+P_TouchSpecialThing:
+	.byte	0xE9
+	.4byte	0x00029AE0
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:
@@ -407,6 +426,9 @@ __reloc_code_arg5_end:
 
 //
 // Stored variables for later.
+.global ace_segment
+ace_segment:
+	.4byte	0
 .global doom_code_segment
 doom_code_segment:
 	.4byte	0

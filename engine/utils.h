@@ -42,6 +42,7 @@ typedef struct
 #define DOOM_CODE_LOAD	282624
 #define DOOM_DATA_LOAD	152829
 
+extern uint32_t ace_segment;
 extern uint32_t doom_code_segment;
 extern uint32_t doom_data_segment;
 

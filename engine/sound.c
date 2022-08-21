@@ -30,7 +30,7 @@ typedef struct old_sfxinfo_s
 
 static old_sfxinfo_t *S_sfx;
 
-static uint32_t numsfx;
+static uint32_t numsfx = NUMSFX;
 static sfxinfo_t *sfxinfo;
 
 static hook_t sfx_hooks[NUM_SFX_HOOKS];
@@ -113,7 +113,7 @@ static sfxinfo_t *sfx_create(uint64_t alias)
 static sfxinfo_t *sfx_get(uint8_t *name)
 {
 	sfxinfo_t *ret;
-	uint64_t alias = sfx_alias(name);
+	uint64_t alias = tp_hash64(name);
 
 	ret = sfx_find(alias);
 	if(ret)
@@ -239,33 +239,7 @@ uint16_t sfx_by_alias(uint64_t alias)
 
 uint16_t sfx_by_name(uint8_t *name)
 {
-	return sfx_by_alias(sfx_alias(name));
-}
-
-uint64_t sfx_alias(uint8_t *name)
-{
-	// converts string name into 64bit alias (pseudo-hash)
-	uint64_t ret = 0;
-	uint32_t sub = 0;
-
-	while(*name)
-	{
-		uint8_t in = *name++;
-
-		if(in > 0x60)
-			in ^= 0x20;
-
-		in &= 0x3F;
-
-		ret ^= (uint64_t)in << sub;
-		ret ^= (uint64_t)in >> (64 - sub);
-
-		sub += 6;
-		if(sub >= 64)
-			sub -= 64;
-	}
-
-	return ret;
+	return sfx_by_alias(tp_hash64(name));
 }
 
 void init_sound()
@@ -279,7 +253,6 @@ void init_sound()
 
 	// allocate memory for internal sounds
 	sfxinfo = ldr_malloc(NUMSFX * sizeof(sfxinfo_t));
-	numsfx = NUMSFX;
 
 	// process internal sounds
 	for(uint32_t i = 1; i < NUMSFX; i++)
@@ -338,5 +311,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003F145, CODE_HOOK | HOOK_UINT16, 0x840F},
 	{0x0003F14B, CODE_HOOK | HOOK_UINT16, 0xC789},
 	{0x0003F14D, CODE_HOOK | HOOK_SET_NOPS, 9},
+	// disable sfx->link
+	{0x0003F171, CODE_HOOK | HOOK_UINT8, 0xEB},
+	{0x0003F493, CODE_HOOK | HOOK_UINT8, 0xEB},
 };
 

@@ -148,9 +148,7 @@ int32_t texture_num_check(uint8_t *name)
 static __attribute((regparm(2),no_caller_saved_registers))
 void load_textures()
 {
-	uint32_t i = 0;
-
-	for( ; i < tmp_count; i++)
+	for(uint32_t i; i < tmp_count; i++)
 	{
 		R_GenerateLookup(i);
 		gfx_progress(1);
@@ -229,20 +227,20 @@ static uint32_t texture_load(uint8_t *name, uint32_t idx)
 				uint32_t size;
 
 				size = sizeof(texture_t) + tex->patchcount * sizeof(texpatch_t);
-				(*texturecolumnlump)[i] = (void*)tex + size;
+				(*texturecolumnlump)[idx] = (void*)tex + size;
 
 				size += tex->width * sizeof(uint16_t);
-				(*texturecolumnofs)[i] = (void*)tex + size;
+				(*texturecolumnofs)[idx] = (void*)tex + size;
 			}
 
 			// resolution
-			(*textureheight)[i] = (uint32_t)tex->height << FRACBITS;
+			(*textureheight)[idx] = (uint32_t)tex->height << FRACBITS;
 
 			{
 				uint32_t size = 1;
 				while(size * 2 <= tex->width)
 					size <<= 1;
-				(*texturewidthmask)[i] = size - 1;
+				(*texturewidthmask)[idx] = size - 1;
 			}
 		}
 
@@ -369,10 +367,9 @@ void init_textures(uint32_t count)
 
 	// get size of each texture[x]
 	idx = texture_size_check("TEXTURE1", 0);
-	texture_size_check("TEXTURE2", idx);
+	tmp_count = texture_size_check("TEXTURE2", idx);
 
 	// textures in TX_* block
-	tmp_count = idx;
 	wad_handle_range(0x5854, cb_tx_count);
 
 	//
@@ -392,10 +389,9 @@ void init_textures(uint32_t count)
 
 	// load TEXTUREx info
 	idx = texture_load("TEXTURE1", 0);
-	texture_load("TEXTURE2", idx);
+	tmp_count = texture_load("TEXTURE2", idx);
 
 	// load TX_* info
-	tmp_count = idx;
 	wad_handle_range(0x5854, cb_tx_load);
 
 	//
@@ -444,6 +440,7 @@ void init_textures(uint32_t count)
 
 //
 // hooks
+
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace call to 'R_InitTextures' in 'R_InitData'

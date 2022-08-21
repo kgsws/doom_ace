@@ -113,7 +113,7 @@ static uint8_t engine_animdefs[] =
 "texture	GSTFONT1	r GSTFONT3 t 8\n"
 "texture	ROCKRED1	r ROCKRED3 t 8\n"
 "texture	SFALL1	r SFALL4 t 8\n"
-"texture	SLADRIP1	r SLADRIP4 t 8\n"
+"texture	SLADRIP1	r SLADRIP3 t 8\n"
 "texture	WFALL1	r WFALL4 t 8\n"
 "switch	SW1BRCOM on p SW2BRCOM t 0\n"
 "switch	SW1BRN1 on p SW2BRN1 t 0\n"
@@ -497,7 +497,7 @@ continue_keyword:
 					dest.swtch->target = skip; // this was stored above
 					dest.swtch->tick_total = tick_total;
 					dest.swtch->sound = sound;
-					dest.swtch->reverse = reverse;
+					dest.swtch->reverse = reverse; // this was stored above
 				}
 			} else
 			{
@@ -516,6 +516,7 @@ continue_keyword:
 					dest.swtch->target = skip; // this was stored above
 					dest.swtch->tick_total = 1;
 					dest.swtch->sound = sound;
+					dest.swtch->reverse = reverse; // this was stored above
 					dest.swtch->frame[0].tick = 0;
 					dest.swtch->frame[0].pic = target;
 				}

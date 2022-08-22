@@ -7,6 +7,7 @@
 #include "wadfile.h"
 #include "dehacked.h"
 #include "decorate.h"
+#include "action.h"
 #include "textpars.h"
 #include "sound.h"
 
@@ -22,6 +23,8 @@ enum
 	DT_FIXED,
 	DT_SOUND,
 	DT_SKIP1,
+	DT_MONSTER,
+	DT_PROJECTILE,
 	DT_STATES
 };
 
@@ -38,6 +41,12 @@ typedef struct
 	uint32_t bits;
 } dec_flag_t;
 
+typedef struct
+{
+	uint8_t *name;
+	uint32_t offset;
+} dec_anim_t;
+
 //
 
 uint32_t mobj_netid;
@@ -49,12 +58,19 @@ static uint32_t **spr_names;
 
 uint32_t num_mobj_types = NUMMOBJTYPES;
 mobjinfo_t *mobjinfo;
+
+uint32_t num_states = NUMSTATES;
 state_t *states;
 
 static hook_t hook_mobjinfo[NUM_INFO_HOOKS];
 static hook_t hook_states[NUM_STATE_HOOKS];
 
-static uint8_t *parse_actor_name;
+uint8_t *parse_actor_name;
+
+static void *parse_mobj_ptr;
+static uint32_t parse_first_state;
+static uint32_t *parse_next_state;
+static uint32_t parse_last_anim;
 
 static uint32_t parse_states();
 
@@ -67,6 +83,19 @@ static const mobjinfo_t default_mobj =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
+};
+
+// mobj animations
+static const dec_anim_t mobj_anim[NUM_MOBJ_ANIMS] =
+{
+	[ANIM_SPAWN] = {"spawn", offsetof(mobjinfo_t, spawnstate)},
+	[ANIM_SEE] = {"see", offsetof(mobjinfo_t, seestate)},
+	[ANIM_PAIN] = {"pain", offsetof(mobjinfo_t, painstate)},
+	[ANIM_MELEE] = {"melee", offsetof(mobjinfo_t, meleestate)},
+	[ANIM_MISSILE] = {"missile", offsetof(mobjinfo_t, missilestate)},
+	[ANIM_DEATH] = {"death", offsetof(mobjinfo_t, deathstate)},
+	[ANIM_XDEATH] = {"xdeath", offsetof(mobjinfo_t, xdeathstate)},
+	[ANIM_RAISE] = {"raise", offsetof(mobjinfo_t, raisestate)},
 };
 
 // mobj attributes
@@ -90,8 +119,8 @@ static const dec_attr_t mobj_attr[] =
 	{"painsound", DT_SOUND, offsetof(mobjinfo_t, painsound)},
 	{"seesound", DT_SOUND, offsetof(mobjinfo_t, seesound)},
 	//
-//	{"monster", PROPTYPE_FLAGCOMBO, MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID | MF_ISMONSTER},
-//	{"projectile", PROPTYPE_FLAGCOMBO, MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE | MF_NOTELEPORT},
+	{"monster", DT_MONSTER},
+	{"projectile", DT_PROJECTILE},
 	{"states", DT_STATES},
 	//
 	{"obituary", DT_SKIP1},
@@ -140,6 +169,7 @@ static const dec_flag_t mobj_flag[] =
 	{NULL}
 };
 
+// destination of different flags in mobjinfo_t
 static const uint32_t flag_dest[] =
 {
 	offsetof(mobjinfo_t, flags0),
@@ -176,9 +206,9 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword();
 			if(!kw)
 				return 1;
-			if(doom_sscanf(kw, "%u", num.u32) != 1 || num.u32[0] > 65535)
+			if(doom_sscanf(kw, "%u", &num.u32) != 1 || num.u32 > 65535)
 				return 1;
-			*((uint16_t*)dest) = num.u32[0];
+			*((uint16_t*)dest) = num.u32;
 		break;
 		case DT_S32:
 			kw = tp_get_keyword();
@@ -207,12 +237,89 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			if(!kw)
 				return 1;
 		break;
+		case DT_MONSTER:
+			((mobjinfo_t*)dest)->flags0 |= MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID;
+			// TODO: flags1
+		break;
+		case DT_PROJECTILE:
+			((mobjinfo_t*)dest)->flags0 |= MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE;
+			// TODO: flags1
+		break;
 		case DT_STATES:
-			return parse_states();
+			num.u32 = parse_states();
+			tp_enable_math = 0;
+			tp_enable_newline = 0;
+			return num.u32;
 		break;
 	}
 
 	return 0;
+}
+
+static int32_t check_add_sprite(uint8_t *text)
+{
+	// make lowercase, get length
+	uint32_t len = 0;
+	num32_t sprname;
+
+	while(1)
+	{
+		uint8_t in = *text;
+
+		if(!in)
+		{
+			if(len != 4)
+				return -1;
+			break;
+		}
+
+		if(in >= 'a' && in <= 'z')
+			sprname.u8[len] = in & ~0x20;
+		else
+			sprname.u8[len] = in;
+
+		text++;
+		len++;
+	}
+
+	return spr_add_name(sprname.u32);
+}
+
+static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint16_t flags)
+{
+	uint32_t tmp = num_states;
+
+	if(!parse_first_state)
+		parse_first_state = num_states;
+
+	num_states += strlen(frames);
+	states = ldr_realloc(states, num_states * sizeof(state_t));
+
+	for(uint32_t i = tmp; i < num_states; i++)
+	{
+		state_t *state = states + i;
+		uint8_t frm;
+
+		if(*frames < 'A' || *frames > ']')
+			I_Error("[DECORATE] Invalid frame '%c' in '%s'!", *frames, parse_actor_name);
+
+		if(parse_next_state)
+			*parse_next_state = state - states;
+
+		state->sprite = sprite;
+		state->frame = (*frames - 'A') | flags;
+		state->arg = parse_action_arg;
+		state->tics = tics;
+		state->action = parse_action_func;
+		state->nextstate = parse_first_state;
+		state->misc1 = 0;
+		state->misc2 = 0;
+
+		parse_next_state = &state->nextstate;
+
+		frames++;
+		state++;
+	}
 }
 
 //
@@ -221,15 +328,186 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 static uint32_t parse_states()
 {
 	uint8_t *kw;
+	uint8_t *wk;
+	int32_t animation = -1;
+	int32_t sprite;
+	int32_t tics;
+	uint16_t flags;
+	uint_fast8_t unfinished;
 
 	kw = tp_get_keyword();
 	if(!kw || kw[0] != '{')
 		return 1;
 
-	if(tp_skip_code_block(1))
-		return 1;
+	parse_last_anim = 0;
+	parse_first_state = 0;
+	parse_next_state = NULL;
+	unfinished = 0;
+
+	while(1)
+	{
+		kw = tp_get_keyword_lc();
+		if(!kw)
+			return 1;
+
+		if(kw[0] == '}')
+			break;
+
+		if(!strcmp(kw, "loop"))
+		{
+			if(!parse_next_state)
+				goto error_no_states;
+			*parse_next_state = parse_last_anim;
+			parse_next_state = NULL;
+			continue;
+		} else
+		if(!strcmp(kw, "stop"))
+		{
+			if(!parse_next_state)
+				goto error_no_states;
+			*parse_next_state = 0;
+			parse_next_state = NULL;
+			continue;
+		} else
+		if(!strcmp(kw, "wait"))
+		{
+			if(!parse_next_state)
+				goto error_no_states;
+			*parse_next_state = num_states - 1;
+			parse_next_state = NULL;
+			continue;
+		}
+		if(!strcmp(kw, "fail"))
+		{
+			if(!parse_next_state)
+				goto error_no_states;
+			*parse_next_state = 0;
+			parse_next_state = NULL;
+			continue;
+		} else
+		if(!strcmp(kw, "goto"))
+		{
+			uint32_t i;
+
+			if(!parse_next_state)
+				goto error_no_states;
+
+			// get state name
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+
+			// find animation
+			for(i = 0; i < NUM_MOBJ_ANIMS; i++)
+			{
+				if(!strcmp(kw, mobj_anim[i].name))
+					break;
+			}
+			if(i >= NUM_MOBJ_ANIMS)
+				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
+
+			// TODO: support math
+			// TODO: animation 'system'
+			*parse_next_state = *((uint32_t*)(parse_mobj_ptr + mobj_anim[i].offset));
+
+			parse_next_state = NULL;
+			continue;
+		}
+
+		// this is either sprite or state name
+		wk = tp_get_keyword_uc();
+		if(!wk)
+			return 1;
+
+		if(wk[0] == ':')
+		{
+			// it's a new state
+			uint32_t i;
+
+			for(i = 0; i < NUM_MOBJ_ANIMS; i++)
+			{
+				if(!strcmp(kw, mobj_anim[i].name))
+					break;
+			}
+			if(i >= NUM_MOBJ_ANIMS)
+				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
+
+			animation = i;
+			parse_last_anim = num_states;
+			*((uint32_t*)(parse_mobj_ptr + mobj_anim[i].offset)) = num_states;
+
+			unfinished = 1;
+			continue;
+		}
+
+		unfinished = 0;
+
+		// it's a sprite
+		sprite = check_add_sprite(kw);
+		if(sprite < 0)
+			I_Error("[DECORATE] Sprite name has wrong length in '%s'!", kw, parse_actor_name);
+
+		// switch to line-based parsing
+		tp_enable_newline = 1;
+		// reset frame stuff
+		flags = 0;
+		parse_action_func = NULL;
+		parse_action_arg = NULL;
+
+		// get ticks
+		kw = tp_get_keyword();
+		if(!kw || kw[0] == '\n')
+			return 1;
+
+		if(doom_sscanf(kw, "%d", &tics) != 1)
+			I_Error("[DECORATE] Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+
+		// optional 'bright' or action
+		kw = tp_get_keyword_lc();
+		if(!kw)
+			return 1;
+
+		if(!strcmp(kw, "bright"))
+		{
+			// optional action
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			// set the flag
+			flags |= 0x8000;
+		}
+
+		if(kw[0] != '\n')
+		{
+			// action
+			kw = action_parser(kw);
+			if(!kw)
+				return 1;
+		}
+
+		// create states
+		add_states(sprite, wk, tics, flags);
+
+		if(kw[0] != '\n')
+			I_Error("[DECORATE] Expected end of line, found '%s' in '%s'!", kw, parse_actor_name);
+
+		// next
+		tp_enable_newline = 0;
+	}
+
+	// sanity check
+	if(unfinished)
+		I_Error("[DECORATE] Unfinised animation in '%s'!", parse_actor_name);
+
+	// create a loopback
+	// this is how ZDoom behaves
+	if(parse_next_state)
+		*parse_next_state = parse_first_state;
 
 	return 0;
+
+error_no_states:
+	I_Error("[DECORATE] Missing states for '%s' in '%s'!", kw, parse_actor_name);
 }
 
 //
@@ -245,7 +523,7 @@ static void cb_count_actors(lumpinfo_t *li)
 
 	while(1)
 	{
-		kw = tp_get_keyword_uc();
+		kw = tp_get_keyword_lc();
 		if(!kw)
 			return;
 
@@ -300,7 +578,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 
 	while(1)
 	{
-		kw = tp_get_keyword_uc();
+		kw = tp_get_keyword_lc();
 		if(!kw)
 			return;
 
@@ -320,6 +598,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		if(idx < 0)
 			I_Error("[DECORATE] Loading mismatch for '%s'!", kw);
 		info = mobjinfo + idx;
+		parse_mobj_ptr = info;
 
 		// next, a few options
 		kw = tp_get_keyword();
@@ -349,7 +628,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		// parse attributes
 		while(1)
 		{
-			kw = tp_get_keyword_uc();
+			kw = tp_get_keyword_lc();
 			if(!kw)
 				goto error_end;
 
@@ -547,6 +826,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B031, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)touch_mobj},
 	// change 'mobj_t' size
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
+	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
 	// change 'mobjinfo_t' size
 	{0x00031574, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
 	{0x0003178F, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},

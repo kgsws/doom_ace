@@ -46,7 +46,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000319F0, CODE_HOOK | HOOK_UINT32, 0x32EBC189},
 	// replace mobjinfo search in 'P_RespawnSpecials'
 	{0x00031772, CODE_HOOK | HOOK_UINT32, 0x0645B70F},
-	{0x00031772, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)get_spawn_type},
+	{0x00031776, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)get_spawn_type},
 	{0x0003177B, CODE_HOOK | HOOK_UINT32, 0x10EBC189},
 	// import variables
 	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},

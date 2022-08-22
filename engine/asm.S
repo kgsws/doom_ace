@@ -308,6 +308,18 @@ P_UnsetThingPosition:
 P_TouchSpecialThing:
 	.byte	0xE9
 	.4byte	0x00029AE0
+////////////////////////////////// doom_A_Look
+.section .text.doom_A_Look
+.global doom_A_Look
+doom_A_Look:
+	.byte	0xE9
+	.4byte	0x000276C0
+////////////////////////////////// doom_A_Chase
+.section .text.doom_A_Chase
+.global doom_A_Chase
+doom_A_Chase:
+	.byte	0xE9
+	.4byte	0x00027790
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:
@@ -391,6 +403,19 @@ R_InstallSpriteLump:
 	mov	16(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x00037650
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// R_PointToAngle2
+.section .text.R_PointToAngle2
+.global R_PointToAngle2
+R_PointToAngle2:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00035740
 	pop	%ecx
 	pop	%ebx
 	ret

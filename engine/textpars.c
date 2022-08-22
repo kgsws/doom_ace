@@ -14,6 +14,7 @@ uint8_t *tp_text_ptr;
 uint_fast8_t tp_is_string;
 
 uint_fast8_t tp_enable_math;
+uint_fast8_t tp_enable_newline;
 
 static uint8_t script_char[2];
 static uint8_t backup_char;
@@ -159,6 +160,21 @@ uint8_t *tp_get_keyword()
 	// This function returns whitespace-separated keywords.
 	uint8_t *ret, *ptr;
 
+	if(backup_char == '\n')
+	{
+		backup_char = 0;
+		if(tp_enable_newline)
+		{
+			script_char[0] = '\n';
+			return script_char;
+		}
+	} else
+	if(backup_char == '"')
+	{
+		// there's a string waiting
+		backup_char = 0;
+		goto parse_string;
+	} else
 	if(backup_char)
 	{
 		// there's a script character waiting
@@ -175,9 +191,25 @@ try_again:
 	if(!*ptr)
 		return NULL;
 
-	// skip whitespaces and newlines
-	while(*ptr == ' ' || *ptr == '\t' || *ptr == '\r' || *ptr == '\n')
-		ptr++;
+	if(tp_enable_newline)
+	{
+		// skip whitespaces only
+		while(*ptr == ' ' || *ptr == '\t')
+			ptr++;
+
+		// check for newline
+		if(*ptr == '\r' || *ptr == '\n')
+		{
+			ptr++;
+			script_char[0] = '\n';
+			return script_char;
+		}
+	} else
+	{
+		// skip whitespaces and newlines
+		while(*ptr == ' ' || *ptr == '\t' || *ptr == '\r' || *ptr == '\n')
+			ptr++;
+	}
 
 	// end check
 	if(!*ptr)
@@ -192,11 +224,13 @@ try_again:
 	if(*ptr == '"')
 	{
 		// string in quotes
-		uint_fast8_t escaped = 0;
+		uint_fast8_t escaped;
 		uint8_t *dst;
 
-		tp_is_string = 1;
 		ptr++;
+parse_string:
+		escaped = 0;
+		tp_is_string = 1;
 
 		// this is the keyword
 		ret = ptr;
@@ -279,7 +313,7 @@ try_again:
 				// end of file
 				break;
 
-			if(is_script_char(*ptr))
+			if(*ptr == '"' || is_script_char(*ptr))
 			{
 				// backup
 				backup_char = *ptr;
@@ -291,6 +325,8 @@ try_again:
 
 			if(*ptr == ' ' || *ptr == '\t' || *ptr == '\r' || *ptr == '\n')
 			{
+				if(tp_enable_newline && (*ptr == '\r' || *ptr == '\n'))
+					backup_char = '\n';
 				// terminate string
 				*ptr++ = 0;
 				// stop
@@ -308,7 +344,7 @@ try_again:
 	return ret;
 }
 
-uint8_t *tp_get_keyword_uc()
+uint8_t *tp_get_keyword_lc()
 {
 	// uppercase
 	uint8_t *data;
@@ -322,6 +358,25 @@ uint8_t *tp_get_keyword_uc()
 		uint8_t in = *ptr;
 		if(in >= 'A' && in <= 'Z')
 			*ptr = in | 0x20;
+	}
+
+	return data;
+}
+
+uint8_t *tp_get_keyword_uc()
+{
+	// uppercase
+	uint8_t *data;
+
+	data = tp_get_keyword();
+	if(!data)
+		return NULL;
+
+	for(uint8_t *ptr = data; *ptr; ptr++)
+	{
+		uint8_t in = *ptr;
+		if(in >= 'a' && in <= 'z')
+			*ptr = in & ~0x20;
 	}
 
 	return data;

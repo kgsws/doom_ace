@@ -22,7 +22,7 @@ typedef union
 
 typedef union
 {
-	uint32_t u32[2];
+	uint32_t u32;
 	uint16_t u16[4];
 	uint8_t u8[8];
 	int32_t s32[2];

@@ -1,11 +1,12 @@
 // kgsws' ACE Engine
 ////
-// This file contains all required engine types and function prototypes.
+// This file contains required engine types and function prototypes.
 
 //
 // basic
 
-#include "mobjflags.h"
+// extra include to manage amount of text
+#include "e_mobj.h"
 
 #define MAXWADFILES	20
 
@@ -230,23 +231,28 @@ typedef struct mobjinfo_s
 	int32_t spawnstate;
 	int32_t spawnhealth;
 	int32_t seestate;
-	int32_t seesound;
+	uint16_t seesound;
+	uint16_t __free_18;
 	int32_t reactiontime;
-	int32_t attacksound;
+	uint16_t attacksound;
+	uint16_t __free_24;
 	int32_t painstate;
 	int32_t painchance;
-	int32_t painsound;
+	uint16_t painsound;
+	uint16_t __free_34;
 	int32_t meleestate;
 	int32_t missilestate;
 	int32_t deathstate;
 	int32_t xdeathstate;
-	int32_t deathsound;
+	uint16_t deathsound;
+	uint16_t __free_4C;
 	int32_t speed;
 	int32_t radius;
 	int32_t height;
 	int32_t mass;
 	int32_t damage;
-	int32_t activesound;
+	uint16_t activesound;
+	uint16_t __free_68;
 	uint32_t flags0;
 	int32_t raisestate;
 	// new stuff
@@ -265,7 +271,7 @@ typedef struct state_s
 		void *action;
 		void (*acp)(struct mobj_s*) __attribute((regparm(2)));
 	};
-	int32_t nextstate;
+	uint32_t nextstate;
 	int32_t misc1;
 	int32_t misc2;
 } state_t;
@@ -508,6 +514,10 @@ uint8_t P_Random() __attribute((regparm(2)));
 // st_stuff
 void ST_Init() __attribute((regparm(2)));
 
+// p_enemy
+void doom_A_Look(mobj_t*) __attribute((regparm(2)));
+void doom_A_Chase(mobj_t*) __attribute((regparm(2)));
+
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
@@ -521,6 +531,7 @@ void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2)));
 
 // r_main
 void R_RenderPlayerView(player_t*) __attribute((regparm(2)));
+angle_t R_PointToAngle2(fixed_t,fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
 
 // r_things
 void R_DrawMaskedColumn(struct column_s*) __attribute((regparm(2)));

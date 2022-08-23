@@ -1,7 +1,9 @@
 // ANIMATIONS
+#define STATE_SET_ANIMATION(anim,offset)	(0x80000000 | ((anim) << 16) | (offset))
+
 enum
 {
-	ANIM_SPAWN,
+	ANIM_SPAWN, // must be zero
 	ANIM_SEE,
 	ANIM_PAIN,
 	ANIM_MELEE,
@@ -9,6 +11,7 @@ enum
 	ANIM_DEATH,
 	ANIM_XDEATH,
 	ANIM_RAISE,
+	ANIM_CRUSH,
 	//
 	NUM_MOBJ_ANIMS
 };

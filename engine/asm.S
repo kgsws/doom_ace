@@ -308,6 +308,12 @@ P_UnsetThingPosition:
 P_TouchSpecialThing:
 	.byte	0xE9
 	.4byte	0x00029AE0
+////////////////////////////////// P_RemoveMobj
+.section .text.P_RemoveMobj
+.global P_RemoveMobj
+P_RemoveMobj:
+	.byte	0xE9
+	.4byte	0x00031660
 ////////////////////////////////// doom_A_Look
 .section .text.doom_A_Look
 .global doom_A_Look

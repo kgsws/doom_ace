@@ -10,10 +10,11 @@
 #include "action.h"
 #include "textpars.h"
 #include "sound.h"
+#include "map.h"
 
 #include "decodoom.h"
 
-#define NUM_INFO_HOOKS	3
+#define NUM_INFO_HOOKS	2
 #define NUM_STATE_HOOKS	7
 
 enum
@@ -65,6 +66,8 @@ state_t *states;
 static hook_t hook_mobjinfo[NUM_INFO_HOOKS];
 static hook_t hook_states[NUM_STATE_HOOKS];
 
+static void *es_ptr;
+
 uint8_t *parse_actor_name;
 
 static void *parse_mobj_ptr;
@@ -83,6 +86,7 @@ static const mobjinfo_t default_mobj =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
+	.crushstate = 895,
 };
 
 // mobj animations
@@ -96,6 +100,7 @@ static const dec_anim_t mobj_anim[NUM_MOBJ_ANIMS] =
 	[ANIM_DEATH] = {"death", offsetof(mobjinfo_t, deathstate)},
 	[ANIM_XDEATH] = {"xdeath", offsetof(mobjinfo_t, xdeathstate)},
 	[ANIM_RAISE] = {"raise", offsetof(mobjinfo_t, raisestate)},
+	[ANIM_CRUSH] = {"crush", offsetof(mobjinfo_t, crushstate)},
 };
 
 // mobj attributes
@@ -175,6 +180,20 @@ static const uint32_t flag_dest[] =
 	offsetof(mobjinfo_t, flags0),
 	offsetof(mobjinfo_t, flags1),
 };
+
+//
+// extra storage
+
+static void *es_alloc(uint32_t size)
+{
+	void *ptr = es_ptr;
+
+	es_ptr += size;
+	if(es_ptr > EXTRA_STORAGE_PTR + EXTRA_STORAGE_SIZE)
+		I_Error("[DECORATE] Extra storage allocation failed!");
+
+	return ptr;
+}
 
 //
 // funcs
@@ -329,7 +348,6 @@ static uint32_t parse_states()
 {
 	uint8_t *kw;
 	uint8_t *wk;
-	int32_t animation = -1;
 	int32_t sprite;
 	int32_t tics;
 	uint16_t flags;
@@ -339,17 +357,21 @@ static uint32_t parse_states()
 	if(!kw || kw[0] != '{')
 		return 1;
 
+	// reset parser
 	parse_last_anim = 0;
 	parse_first_state = 0;
 	parse_next_state = NULL;
 	unfinished = 0;
+
+	// reset extra storage
+	es_ptr = EXTRA_STORAGE_PTR;
 
 	while(1)
 	{
 		kw = tp_get_keyword_lc();
 		if(!kw)
 			return 1;
-
+have_keyword:
 		if(kw[0] == '}')
 			break;
 
@@ -392,6 +414,9 @@ static uint32_t parse_states()
 			if(!parse_next_state)
 				goto error_no_states;
 
+			// enable math
+			tp_enable_math = 1;
+
 			// get state name
 			kw = tp_get_keyword_lc();
 			if(!kw)
@@ -406,15 +431,41 @@ static uint32_t parse_states()
 			if(i >= NUM_MOBJ_ANIMS)
 				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
 
-			// TODO: support math
-			// TODO: animation 'system'
-			*parse_next_state = *((uint32_t*)(parse_mobj_ptr + mobj_anim[i].offset));
+			// check for '+'
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			if(kw[0] == '+')
+			{
+				// get offset
+				kw = tp_get_keyword_lc();
+				if(!kw)
+					return 1;
 
+				if(doom_sscanf(kw, "%u", &tics) != 1 || tics < 0 || tics > 65535)
+					I_Error("[DECORATE] Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+
+				// next keyword
+				kw = tp_get_keyword_lc();
+				if(!kw)
+					return 1;
+			} else
+				tics = 0;
+
+			// use animation 'system'
+			*parse_next_state = STATE_SET_ANIMATION(i, tics);
+
+			// disable math
+			tp_enable_math = 0;
+
+			// done
 			parse_next_state = NULL;
-			continue;
+
+			// one extra keyword was already parsed
+			goto have_keyword;
 		}
 
-		// this is either sprite or state name
+		// sprite frames or state definition
 		wk = tp_get_keyword_uc();
 		if(!wk)
 			return 1;
@@ -432,7 +483,6 @@ static uint32_t parse_states()
 			if(i >= NUM_MOBJ_ANIMS)
 				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
 
-			animation = i;
 			parse_last_anim = num_states;
 			*((uint32_t*)(parse_mobj_ptr + mobj_anim[i].offset)) = num_states;
 
@@ -445,7 +495,7 @@ static uint32_t parse_states()
 		// it's a sprite
 		sprite = check_add_sprite(kw);
 		if(sprite < 0)
-			I_Error("[DECORATE] Sprite name has wrong length in '%s'!", kw, parse_actor_name);
+			I_Error("[DECORATE] Sprite name '%s' has wrong length in '%s'!", kw, parse_actor_name);
 
 		// switch to line-based parsing
 		tp_enable_newline = 1;
@@ -503,6 +553,9 @@ static uint32_t parse_states()
 	// this is how ZDoom behaves
 	if(parse_next_state)
 		*parse_next_state = parse_first_state;
+
+	// add limitation for animations
+	((mobjinfo_t*)parse_mobj_ptr)->state_idx_limit = num_states;
 
 	return 0;
 
@@ -730,6 +783,8 @@ void init_decorate()
 		memcpy(mobjinfo + i, deh_mobjinfo + i, sizeof(deh_mobjinfo_t));
 		mobjinfo[i].actor_name = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
+		mobjinfo[i].state_idx_limit = NUMSTATES;
+		mobjinfo[i].crushstate = 895;
 	}
 
 	//
@@ -795,6 +850,98 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	mo->frame = temp;
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t set_mobj_state(mobj_t *mo, uint32_t state)
+{
+	state_t *st;
+
+	do
+	{
+		if(state & 0x80000000)
+		{
+			// change animation
+			const dec_anim_t *anim;
+			uint16_t offset;
+
+			offset = state & 0xFFFF;
+			mo->animation = (state >> 16) & 0xFF;
+
+			anim = mobj_anim + mo->animation;
+
+			state = *((uint32_t*)((void*)mo->info + anim->offset));
+			if(state)
+				state += offset;
+
+			if(state >= mo->info->state_idx_limit)
+				I_Error("[MOBJ] State set '%s + %u' is invalid!", anim->name, offset);
+		}
+
+		if(!state)
+		{
+			P_RemoveMobj(mo);
+			return 0;
+		}
+
+		st = states + state;
+		mo->state = st;
+		mo->sprite = st->sprite;
+		mo->frame = st->frame;
+		mo->tics = st->tics;
+		state = st->nextstate;
+
+		if(st->acp)
+			st->acp(mo);
+
+	} while(!mo->tics);
+
+	return 1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void kill_animation(mobj_t *mo)
+{
+	// custom death animations can be added
+
+	if(mo->info->xdeathstate && mo->health < -mo->info->spawnhealth)
+		set_mobj_animation(mo, ANIM_XDEATH);
+	else
+		set_mobj_animation(mo, ANIM_DEATH);
+
+	if(mo->tics > 0)
+	{
+		mo->tics -= P_Random() & 3;
+		if(mo->tics <= 0)
+			mo->tics = 1;
+	}
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void explode_missile(mobj_t *mo)
+{
+	mo->momx = 0;
+	mo->momy = 0;
+	mo->momz = 0;
+
+	set_mobj_animation(mo, ANIM_DEATH);
+
+	if(/*mo->flags1 & MF_RANDOMIZE && */mo->tics > 0)
+	{
+		mo->tics -= P_Random() & 3;
+		if(mo->tics <= 0)
+			mo->tics = 1;
+	}
+
+	mo->flags0 &= ~MF_MISSILE;
+
+	S_StartSound(mo, mo->info->deathsound);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
+{
+	set_mobj_state(mo, STATE_SET_ANIMATION(anim, 0));
+}
+
 //
 // hooks
 
@@ -802,18 +949,17 @@ static hook_t hook_mobjinfo[NUM_INFO_HOOKS] =
 {
 	{0x00031587, CODE_HOOK | HOOK_UINT32, 0}, // P_SpawnMobj
 	{0x00031792, CODE_HOOK | HOOK_UINT32, 0x55}, // P_RespawnSpecials
-	{0x00030F1E, CODE_HOOK | HOOK_UINT32, offsetof(mobjinfo_t, deathstate)}, // P_ExplodeMissile // TODO: animation
 };
 
 static hook_t hook_states[NUM_STATE_HOOKS] =
 {
 	{0x0002A72F, CODE_HOOK | HOOK_UINT32, 0}, // P_DamageMobj
 	{0x0002D062, CODE_HOOK | HOOK_UINT32, 0}, // P_SetPsprite
-	{0x00030EC0, CODE_HOOK | HOOK_UINT32, 0}, // P_SetMobjState
 	{0x000315D9, CODE_HOOK | HOOK_UINT32, 0}, // P_SpawnMobj
 	{0x0002D2FF, CODE_HOOK | HOOK_UINT32, 0x10D8}, // A_WeaponReady
 	{0x0002D307, CODE_HOOK | HOOK_UINT32, 0x10F4}, // A_WeaponReady
 	{0x0002D321, CODE_HOOK | HOOK_UINT32, 0x0754}, // A_WeaponReady
+	{0x0002DAF3, CODE_HOOK | HOOK_UINT32, 0x05B0}, // A_FireCGun
 };
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -824,6 +970,16 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000315FC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)prepare_mobj},
 	// replace call to 'P_TouchSpecialThing' in 'PIT_CheckThing'
 	{0x0002B031, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)touch_mobj},
+	// replace call to 'P_SetMobjState' in 'P_MobjThinker'
+	{0x000314F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_state},
+	// replace 'P_SetMobjState'
+	{0x00030EA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)set_mobj_state},
+	// extra stuff in 'P_KillMobj' - replaces animation change
+	{0x0002A3C8, CODE_HOOK | HOOK_UINT16, 0xD889},
+	{0x0002A3CA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)kill_animation},
+	{0x0002A3CF, CODE_HOOK | HOOK_JMP_DOOM, 0x0002A40D},
+	// replace 'P_ExplodeMissile'
+	{0x00030F00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)explode_missile},
 	// change 'mobj_t' size
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
 	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
@@ -834,8 +990,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// change 'sprite' of 'mobj_t' in 'R_PrecacheLevel'
 	{0x00034992, CODE_HOOK | HOOK_UINT32, 0x2443B70F},
 	{0x00034996, CODE_HOOK | HOOK_UINT32, 0x8B012488},
-	// remove old 'frame' set in 'P_SetMobjState'
-	{0x00030ED2, CODE_HOOK | HOOK_SET_NOPS, 6},
 	// fix 'R_ProjectSprite'; use new 'frame' and 'state', ignore invalid sprites
 	{0x00037D45, CODE_HOOK | HOOK_UINT32, 0x2446B70F},
 	{0x00037D49, CODE_HOOK | HOOK_UINT32, 0x1072E839},
@@ -856,5 +1010,31 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00038056, CODE_HOOK | HOOK_UINT8, 0x21},
 	{0x00038057, CODE_HOOK | HOOK_JMP_DOOM, 0x00038203},
 	{0x000381DD, CODE_HOOK | HOOK_UINT8, 0x03},
+	// replace 'P_SetMobjState' with new animation system
+	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SEE << 8)}, // A_Look
+	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Look
+	{0x0002782A, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SPAWN << 8)}, // A_Chase
+	{0x0002782D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
+	{0x0002789D, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_MELEE << 8)}, // A_Chase
+	{0x000278A0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
+	{0x000278DD, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_MISSILE << 8)}, // A_Chase
+	{0x000278E0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
+	// replace 'P_SetMobjState' with new animation system // P_DamageMobj will be replaced //
+	{0x0002A6D7, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_PAIN << 8)},
+	{0x0002A6DA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
+	{0x0002A73E, CODE_HOOK | HOOK_UINT16, 0x00b2 | (ANIM_SEE << 8)},
+	{0x0002A742, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
+	// replace 'P_SetMobjState' with new animation system (PIT_CheckThing, MF_SKULLFLY)
+	{0x0002AF2F, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SPAWN << 8)},
+	{0x0002AF32, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
+	// replace 'P_SetMobjState' with new animation system (PIT_ChangeSector, gibs)
+	{0x0002BEBA, CODE_HOOK | HOOK_UINT8, ANIM_CRUSH},
+	{0x0002BEC0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
+	// replace 'P_SetMobjState' with new animation system (P_MovePlayer)
+	{0x0003324B, CODE_HOOK | HOOK_UINT16, 0xB880},
+	{0x0003324D, CODE_HOOK | HOOK_UINT32, offsetof(mobj_t, animation)},
+	{0x00033251, CODE_HOOK | HOOK_UINT8, ANIM_SPAWN}, // check for
+	{0x00033255, CODE_HOOK | HOOK_UINT32, ANIM_SEE}, // replace with
+	{0x00033259, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
 };
 

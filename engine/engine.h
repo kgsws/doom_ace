@@ -228,22 +228,22 @@ typedef struct mobjinfo_s
 { // this structure has been changed
 	uint16_t doomednum;
 	uint16_t spawnid;
-	int32_t spawnstate;
+	uint32_t spawnstate;
 	int32_t spawnhealth;
-	int32_t seestate;
+	uint32_t seestate;
 	uint16_t seesound;
 	uint16_t __free_18;
 	int32_t reactiontime;
 	uint16_t attacksound;
 	uint16_t __free_24;
-	int32_t painstate;
+	uint32_t painstate;
 	int32_t painchance;
 	uint16_t painsound;
 	uint16_t __free_34;
-	int32_t meleestate;
-	int32_t missilestate;
-	int32_t deathstate;
-	int32_t xdeathstate;
+	uint32_t meleestate;
+	uint32_t missilestate;
+	uint32_t deathstate;
+	uint32_t xdeathstate;
 	uint16_t deathsound;
 	uint16_t __free_4C;
 	int32_t speed;
@@ -254,10 +254,13 @@ typedef struct mobjinfo_s
 	uint16_t activesound;
 	uint16_t __free_68;
 	uint32_t flags0;
-	int32_t raisestate;
+	uint32_t raisestate;
 	// new stuff
 	uint64_t actor_name;
+	uint32_t state_idx_limit;
 	uint32_t flags1;
+	// new states
+	uint32_t crushstate;
 } mobjinfo_t;
 
 typedef struct state_s
@@ -465,7 +468,7 @@ typedef struct mobj_s
 	angle_t angle;
 	uint16_t sprite;
 	uint16_t frame;
-	uint32_t flags1;
+	uint32_t flags1;	// new flags
 	struct mobj_s *bnext;
 	struct mobj_s *bprev;
 	struct subsector_s *subsector;
@@ -491,8 +494,9 @@ typedef struct mobj_s
 	struct player_s *player;
 	int lastlook;
 	mapthing_t spawnpoint;
+	uint16_t animation;	// animation system
 	struct mobj_s *tracer;
-	uint32_t netid;
+	uint32_t netid;	// unique identification
 } __attribute__((packed)) mobj_t;
 
 // main.c
@@ -521,6 +525,9 @@ void doom_A_Chase(mobj_t*) __attribute((regparm(2)));
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
+
+// p_mobj
+void P_RemoveMobj(mobj_t*) __attribute((regparm(2)));
 
 // p_inter
 void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2)));

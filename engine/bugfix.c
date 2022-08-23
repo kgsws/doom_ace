@@ -65,9 +65,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// invert 'run key' logic (auto run)
 	{0x0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},
-	// allow invalid switch textures
-	{0x0003025B, CODE_HOOK | HOOK_CALL_DOOM, 0x000346F0},
-	{0x0003026A, CODE_HOOK | HOOK_CALL_DOOM, 0x000346F0},
+	// fix 'A_Tracer' - make it leveltime based
+//	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80}, // TODO
 	// fix 'OUCH' face; this intentionaly fixes only 'OUCH' caused by enemies
 	{0x0003A079, CODE_HOOK | HOOK_UINT8, 0xD7},
 	{0x0003A081, CODE_HOOK | HOOK_UINT8, 0xFF},
@@ -77,7 +76,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// fix 'medusa' effect
 	{0x0003692D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_masked_column},
 	{0x00036932, CODE_HOOK | HOOK_SET_NOPS, 8},
-	// render variables
+	// import render variables
 	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
 	{0x000322EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_x},
 	{0x000322F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yl},

@@ -182,6 +182,12 @@ doom_close:
 doom_filelength:
 	.byte	0xE9
 	.4byte	0x000419EF
+////////////////////////////////// FixedDiv
+.section .text.FixedDiv
+.global FixedDiv
+FixedDiv:
+	.byte	0xE9
+	.4byte	0x0001D180
 ////////////////////////////////// I_Error
 .section .text.I_Error
 .global I_Error
@@ -376,6 +382,16 @@ Z_Malloc:
 	.4byte	0x00039690
 	pop	%ebx
 	ret
+////////////////////////////////// P_TryMove
+.section .text.P_TryMove
+.global P_TryMove
+P_TryMove:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002B200
+	pop	%ebx
+	ret
 ////////////////////////////////// end
 .section .text.__reloc_code_arg3_end
 __reloc_code_arg3_end:
@@ -422,6 +438,32 @@ R_PointToAngle2:
 	mov	16(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x00035740
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// P_SpawnMobj
+.section .text.P_SpawnMobj
+.global P_SpawnMobj
+P_SpawnMobj:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00031540
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// P_DamageMobj
+.section .text.P_DamageMobj
+.global P_DamageMobj
+P_DamageMobj:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x0002A460
 	pop	%ecx
 	pop	%ebx
 	ret

@@ -31,20 +31,20 @@ enum
 
 typedef struct
 {
-	uint8_t *name;
+	const uint8_t *name;
 	uint16_t type;
 	uint16_t offset;
 } dec_attr_t;
 
 typedef struct
 {
-	uint8_t *name;
+	const uint8_t *name;
 	uint32_t bits;
 } dec_flag_t;
 
 typedef struct
 {
-	uint8_t *name;
+	const uint8_t *name;
 	uint32_t offset;
 } dec_anim_t;
 
@@ -71,7 +71,6 @@ static void *es_ptr;
 uint8_t *parse_actor_name;
 
 static void *parse_mobj_ptr;
-static uint32_t parse_first_state;
 static uint32_t *parse_next_state;
 static uint32_t parse_last_anim;
 
@@ -177,14 +176,14 @@ static const dec_flag_t mobj_flag[] =
 // destination of different flags in mobjinfo_t
 static const uint32_t flag_dest[] =
 {
-	offsetof(mobjinfo_t, flags0),
+	offsetof(mobjinfo_t, flags),
 	offsetof(mobjinfo_t, flags1),
 };
 
 //
 // extra storage
 
-static void *es_alloc(uint32_t size)
+void *dec_es_alloc(uint32_t size)
 {
 	void *ptr = es_ptr;
 
@@ -233,17 +232,17 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword();
 			if(!kw)
 				return 1;
-			if(doom_sscanf(kw, "%d", num.s32) != 1)
+			if(doom_sscanf(kw, "%d", &num.s32) != 1)
 				return 1;
-			*((int32_t*)dest) = num.s32[0];
+			*((int32_t*)dest) = num.s32;
 		break;
 		case DT_FIXED:
 			kw = tp_get_keyword();
 			if(!kw)
 				return 1;
-			if(tp_parse_fixed(kw, num.s32))
+			if(tp_parse_fixed(kw, &num.s32))
 				return 1;
-			*((fixed_t*)dest) = num.s32[0];
+			*((fixed_t*)dest) = num.s32;
 		break;
 		case DT_SOUND:
 			kw = tp_get_keyword();
@@ -257,11 +256,11 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 				return 1;
 		break;
 		case DT_MONSTER:
-			((mobjinfo_t*)dest)->flags0 |= MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID;
+			((mobjinfo_t*)dest)->flags |= MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID;
 			// TODO: flags1
 		break;
 		case DT_PROJECTILE:
-			((mobjinfo_t*)dest)->flags0 |= MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE;
+			((mobjinfo_t*)dest)->flags |= MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE;
 			// TODO: flags1
 		break;
 		case DT_STATES:
@@ -308,9 +307,6 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 {
 	uint32_t tmp = num_states;
 
-	if(!parse_first_state)
-		parse_first_state = num_states;
-
 	num_states += strlen(frames);
 	states = ldr_realloc(states, num_states * sizeof(state_t));
 
@@ -330,7 +326,7 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 		state->arg = parse_action_arg;
 		state->tics = tics;
 		state->action = parse_action_func;
-		state->nextstate = parse_first_state;
+		state->nextstate = 0;
 		state->misc1 = 0;
 		state->misc2 = 0;
 
@@ -352,6 +348,7 @@ static uint32_t parse_states()
 	int32_t tics;
 	uint16_t flags;
 	uint_fast8_t unfinished;
+	uint32_t first_state = num_states;
 
 	kw = tp_get_keyword();
 	if(!kw || kw[0] != '{')
@@ -359,7 +356,6 @@ static uint32_t parse_states()
 
 	// reset parser
 	parse_last_anim = 0;
-	parse_first_state = 0;
 	parse_next_state = NULL;
 	unfinished = 0;
 
@@ -530,9 +526,11 @@ have_keyword:
 		if(kw[0] != '\n')
 		{
 			// action
+			tp_enable_math = 1;
 			kw = action_parser(kw);
 			if(!kw)
 				return 1;
+			tp_enable_math = 0;
 		}
 
 		// create states
@@ -552,10 +550,31 @@ have_keyword:
 	// create a loopback
 	// this is how ZDoom behaves
 	if(parse_next_state)
-		*parse_next_state = parse_first_state;
+		*parse_next_state = first_state;
 
 	// add limitation for animations
+	((mobjinfo_t*)parse_mobj_ptr)->state_idx_first = first_state;
 	((mobjinfo_t*)parse_mobj_ptr)->state_idx_limit = num_states;
+
+	// process extra storage
+	if(es_ptr != EXTRA_STORAGE_PTR)
+	{
+		// allocate extra space .. in states!
+		uint32_t size;
+		uint32_t idx = num_states;
+
+		size = es_ptr - EXTRA_STORAGE_PTR;
+		size += sizeof(state_t) - 1;
+		size /= sizeof(state_t);
+
+		num_states += size;
+		states = ldr_realloc(states, num_states * sizeof(state_t));
+
+		// copy all the stuff
+		memcpy(states + idx, EXTRA_STORAGE_PTR, es_ptr - EXTRA_STORAGE_PTR);
+
+		// relocation has to be done later
+	}
 
 	return 0;
 
@@ -816,6 +835,24 @@ void init_decorate()
 	wad_handle_lump("DECORATE", cb_parse_actors);
 
 	//
+	// PASS 3
+
+	// relocate extra storage
+	for(uint32_t idx = 0; idx < num_mobj_types; idx++)
+	{
+		mobjinfo_t *info = mobjinfo + idx;
+		void *target = states + info->state_idx_limit;
+
+		// state arguments
+		for(uint32_t i = info->state_idx_first; i < info->state_idx_limit; i++)
+		{
+			state_t *st = states + i;
+			if(st->arg)
+				st->arg = target + (st->arg - EXTRA_STORAGE_PTR);
+		}
+	}
+
+	//
 	// DONE
 
 	// patch CODE - 'mobjinfo'
@@ -916,7 +953,7 @@ static void kill_animation(mobj_t *mo)
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
-static void explode_missile(mobj_t *mo)
+void explode_missile(mobj_t *mo)
 {
 	mo->momx = 0;
 	mo->momy = 0;
@@ -931,7 +968,7 @@ static void explode_missile(mobj_t *mo)
 			mo->tics = 1;
 	}
 
-	mo->flags0 &= ~MF_MISSILE;
+	mo->flags &= ~MF_MISSILE;
 
 	S_StartSound(mo, mo->info->deathsound);
 }

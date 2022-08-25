@@ -25,5 +25,8 @@ void init_decorate();
 
 int32_t mobj_check_type(uint64_t alias);
 
+void *dec_es_alloc(uint32_t size);
+
 uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim) __attribute((regparm(2),no_caller_saved_registers));
+void explode_missile(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
 

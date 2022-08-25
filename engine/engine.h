@@ -253,10 +253,11 @@ typedef struct mobjinfo_s
 	int32_t damage;
 	uint16_t activesound;
 	uint16_t __free_68;
-	uint32_t flags0;
+	uint32_t flags;
 	uint32_t raisestate;
 	// new stuff
 	uint64_t actor_name;
+	uint32_t state_idx_first;
 	uint32_t state_idx_limit;
 	uint32_t flags1;
 	// new states
@@ -484,7 +485,7 @@ typedef struct mobj_s
 	mobjinfo_t *info;
 	int tics;
 	state_t *state;
-	uint32_t flags0;
+	uint32_t flags;
 	int health;
 	int movedir;
 	int movecount;
@@ -498,6 +499,16 @@ typedef struct mobj_s
 	struct mobj_s *tracer;
 	uint32_t netid;	// unique identification
 } __attribute__((packed)) mobj_t;
+
+// some variables
+extern fixed_t *finesine;
+extern fixed_t *finecosine;
+extern uint32_t *viewheight;
+extern uint32_t *viewwidth;
+
+// math
+fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));
+#define FixedMul(a,b)	(((uint64_t)(a) * (uint64_t)(b)) >> FRACBITS)
 
 // main.c
 extern uint8_t *ldr_alloc_message;
@@ -522,12 +533,19 @@ void ST_Init() __attribute((regparm(2)));
 void doom_A_Look(mobj_t*) __attribute((regparm(2)));
 void doom_A_Chase(mobj_t*) __attribute((regparm(2)));
 
+// p_map
+uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
+
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
 
 // p_mobj
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2)));
+mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2)));
+
+// p_inter
+void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2)));
 
 // p_inter
 void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2)));
@@ -560,4 +578,15 @@ void W_ReadLump(int32_t lump, void *dst) __attribute((regparm(2)));
 // z_zone
 void *Z_Malloc(uint32_t size, uint32_t tag, void *owner) __attribute((regparm(2)));
 void Z_Free(void *ptr) __attribute((regparm(2)));
+
+// extra inline
+
+static inline fixed_t P_AproxDistance(fixed_t dx, fixed_t dy)
+{
+	dx = abs(dx);
+	dy = abs(dy);
+	if(dx < dy)
+		return dx + dy - (dx >> 1);
+	return dx + dy - (dy >> 1);
+}
 

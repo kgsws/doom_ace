@@ -30,6 +30,13 @@ typedef struct
 	uint32_t count_sprite;
 } gfx_loading_t;
 
+// SDK variables
+
+fixed_t *finesine;
+fixed_t *finecosine;
+uint32_t *viewheight;
+uint32_t *viewwidth;
+
 //
 
 uint8_t *ldr_alloc_message;
@@ -263,6 +270,8 @@ uint32_t ace_main()
 	//
 	// LOADING
 
+	finecosine = finesine + (FINEANGLES / 4);
+
 	// dehacked
 	deh_init();
 	gfx_progress(-1);
@@ -323,17 +332,21 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001A0FF, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// disable disk flash; 'grmode = 1' in 'I_InitGraphics'
 	{0x0001A041, CODE_HOOK | HOOK_SET_NOPS, 6},
-	// import variables
-	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
-	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles},
-	// read stuff
-	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
-	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},
 	// place 'loading' structure into 'vissprites'
 	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 	// early 'I_Error' fix
 	{0x0001AB1E, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// force single page in 'I_FinishUpdate'
 	{0x00019FE7, CODE_HOOK | HOOK_UINT8, 0x00},
+	// import variables
+	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
+	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles},
+	// SDK variables
+	{0x00005A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finesine},
+	{0x00032304, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewheight},
+	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
+	// read stuff
+	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
+	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},
 };
 

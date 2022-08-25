@@ -24,6 +24,10 @@ static uint8_t backup_char;
 
 static uint32_t is_script_char(uint8_t in)
 {
+	if(in == '(')
+		return 1;
+	if(in == ')')
+		return 1;
 	if(in == '{')
 		return 1;
 	if(in == '}')
@@ -158,7 +162,8 @@ uint32_t tp_parse_fixed(uint8_t *text, fixed_t *value)
 uint8_t *tp_get_keyword()
 {
 	// This function returns whitespace-separated keywords.
-	uint8_t *ret, *ptr;
+	uint8_t *ret;
+	uint8_t *ptr = tp_text_ptr;
 
 	if(backup_char == '\n')
 	{

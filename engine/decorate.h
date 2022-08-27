@@ -6,6 +6,8 @@
 #define EXTRA_STORAGE_PTR	((void*)0x0002D0A0 + doom_data_segment)
 #define EXTRA_STORAGE_SIZE	12288
 
+#define UNKNOWN_MOBJ_IDX	29 // TODO: 'unknown thing'
+
 extern uint32_t mobj_netid;
 
 extern uint32_t num_spr_names;

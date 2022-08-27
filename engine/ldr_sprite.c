@@ -11,7 +11,6 @@
 #include "decorate.h"
 #include "ldr_sprite.h"
 
-static uint32_t *numsprites;
 static fixed_t **spritewidth;
 static fixed_t **spriteoffset;
 static fixed_t **spritetopoffset;
@@ -27,19 +26,26 @@ static uint32_t tmp_count;
 //
 // funcs
 
-static void install_sprites()
+static void install_sprites(uint32_t sprite_count)
 {
 	*sprites = doom_malloc(num_spr_names * sizeof(spritedef_t));
 
 	// process all sprites
 	for(uint32_t i = 0; i < num_spr_names; i++)
 	{
+		if(sprite_table[i] == 0x31544E54)
+		{
+			// ignore 'TNT1'
+			(*sprites)[i].numframes = 0;
+			continue;
+		}
+
 		// reset
-		*spr_maxframe = 0;
+		*spr_maxframe = -1;
 		memset(spr_temp, 0xFF, 29 * sizeof(spriteframe_t));
 
 		// find all lumps
-		for(uint32_t idx = 0; idx < *numsprites; idx++)
+		for(uint32_t idx = 0; idx < sprite_count; idx++)
 		{
 			lumpinfo_t *li = *lumpinfo + sprite_lump[idx];
 
@@ -127,12 +133,10 @@ void init_sprites(uint32_t count)
 	*spritetopoffset = ldr_malloc(count * sizeof(fixed_t));
 	sprite_lump = ldr_malloc(count * sizeof(uint16_t));
 
-	*numsprites = count;
-
 	tmp_count = 0;
 	wad_handle_range('S', cb_s_parse);
 
-	install_sprites();
+	install_sprites(count);
 }
 
 //
@@ -157,7 +161,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00037767, CODE_HOOK | HOOK_UINT8, 0xEB},
 	// import variables
 //	{0x00030120, DATA_HOOK | HOOK_IMPORT, (uint32_t)&firstspritelump}, // this is unused and kept 0
-	{0x0005C8E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsprites},
 	{0x00030100, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spritewidth},
 	{0x00030118, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spriteoffset},
 	{0x00030114, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spritetopoffset},

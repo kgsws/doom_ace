@@ -51,6 +51,15 @@ void *parse_action_arg;
 static const dec_action_t mobj_action[];
 
 //
+// common
+
+static const dec_arg_flag_t flags_empty[] =
+{
+	// just terminator, these flags are not supported
+	{NULL}
+};
+
+//
 // argument parsers
 
 static uint8_t *handle_mobjtype(uint8_t *kw, const dec_arg_t *arg)
@@ -58,10 +67,8 @@ static uint8_t *handle_mobjtype(uint8_t *kw, const dec_arg_t *arg)
 	int32_t type;
 
 	type = mobj_check_type(tp_hash64(kw));
-
 	if(type < 0)
-		// TODO: 'unknown thing'
-		type = 29;
+		type = UNKNOWN_MOBJ_IDX;
 
 	*((uint16_t*)(parse_action_arg + arg->offset)) = type;
 
@@ -83,7 +90,7 @@ static uint8_t *handle_fixed(uint8_t *kw, const dec_arg_t *arg)
 		negate = 0;
 
 	if(tp_parse_fixed(kw, &value))
-		I_Error("[DECORATE] Unable to parse fixed_t '%s' for action '%s' in '%s'!", arg->name, action_name, parse_actor_name);
+		I_Error("[DECORATE] Unable to parse fixed_t '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
 
 	if(negate)
 		value = -value;
@@ -109,8 +116,40 @@ static uint8_t *handle_angle(uint8_t *kw, const dec_arg_t *arg)
 
 static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 {
-	I_Error("TODO: handle_flags");
-	return NULL;
+	const dec_arg_flag_t *flag;
+
+	while(1)
+	{
+		if(kw[0] != '0')
+		{
+			flag = arg->flags;
+			while(flag->name)
+			{
+				if(!strcmp(flag->name, kw))
+					break;
+				flag++;
+			}
+
+			if(!flag->name)
+				I_Error("[DECORATE] Unknown flag '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+
+			*((uint32_t*)(parse_action_arg + arg->offset)) |= flag->bits;
+		}
+
+		kw = tp_get_keyword(kw, arg);
+		if(!kw)
+			return NULL;
+
+		if(kw[0] == ',' || kw[0] == ')')
+			return kw;
+
+		if(kw[0] != '|')
+			I_Error("[DECORATE] Unable to parse flags for action '%s' in '%s'!", action_name, parse_actor_name);
+
+		kw = tp_get_keyword(kw, arg);
+		if(!kw)
+			return NULL;
+	}
 }
 
 //
@@ -150,27 +189,30 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 }
 
 //
-// basic sounds
+// basic sounds	// TODO: boss checks
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Pain(mobj_t *mo)
 {
-	// TODO: boss check
 	S_StartSound(mo, mo->info->painsound);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Scream(mobj_t *mo)
 {
-	// TODO: boss check
 	S_StartSound(mo, mo->info->deathsound);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_XScream(mobj_t *mo)
 {
-	// TODO: boss check
 	S_StartSound(mo, 31);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_ActiveSound(mobj_t *mo)
+{
+	S_StartSound(mo, mo->info->activesound);
 }
 
 //
@@ -197,7 +239,22 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_NoBlocking(mobj_t *mo)
 {
 	mo->flags &= ~MF_SOLID;
-	// TODO: drop items
+
+	// drop items
+	for(args_dropitem_t *drop = mo->info->dropitems; drop < (args_dropitem_t*)mo->info->dropitem_end; drop++)
+	{
+		mobj_t *item;
+
+		if(drop->chance < 255 && drop->chance > P_Random())
+			continue;
+
+		item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), drop->type);
+		item->flags |= MF_DROPPED;
+		item->angle = P_Random() << 24;
+		item->momx = 2*FRACUNIT - (P_Random() << 9);
+		item->momy = 2*FRACUNIT - (P_Random() << 9);
+		item->momz = (3 << 15) + (P_Random() << 10);
+	}
 }
 
 //
@@ -267,7 +324,7 @@ static const dec_args_t args_SpawnProjectile =
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SpawnProjectile(mobj_t *mo)
 {
-	angle_t angle = 0;
+	angle_t angle = mo->angle;
 	fixed_t pitch = 0;
 	int32_t dist = 0;
 	angle_t aaa;
@@ -281,11 +338,15 @@ void A_SpawnProjectile(mobj_t *mo)
 	aaa = mo->angle;
 
 	if(info->flags & CMF_TRACKOWNER && mo->flags & MF_MISSILE)
+	{
 		mo = mo->target;
+		if(!mo)
+			return;
+	}
 
 	target = mo->target;
 
-	if(!target)
+	if(!target && !(info->flags & CMF_AIMDIRECTION))
 		return;
 
 	if(info->flags & CMF_CHECKTARGETDEAD && mo->health <= 0)
@@ -304,7 +365,7 @@ void A_SpawnProjectile(mobj_t *mo)
 		y += FixedMul(info->spawnofs_xy, finesine[a]);
 	}
 
-	if((info->flags & (CMF_AIMOFFSET|CMF_AIMDIRECTION)) == 0)
+	if(!(info->flags & (CMF_AIMOFFSET|CMF_AIMDIRECTION)))
 	{
 		angle = R_PointToAngle2(x, y, target->x, target->y);
 		dist = P_AproxDistance(target->x - x, target->y - y);
@@ -335,6 +396,29 @@ void A_SpawnProjectile(mobj_t *mo)
 	}
 
 	missile_stuff(item, mo, target, angle);
+}
+
+//
+// A_SetAngle
+
+static const dec_args_t args_SetAngle =
+{
+	.size = sizeof(args_SetAngle_t),
+	.arg =
+	{
+		{"angle", handle_angle, offsetof(args_SetAngle_t, angle)},
+		{"flags", handle_flags, offsetof(args_SetAngle_t, flags), 1, flags_empty},
+//		{"ptr", handle_pointer, offsetof(args_SetAngle_t, ptr), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SetAngle(mobj_t *mo)
+{
+	args_SetAngle_t *info = mo->state->arg;
+	mo->angle = info->angle;
 }
 
 //
@@ -423,6 +507,7 @@ static const dec_action_t mobj_action[] =
 	{"a_pain", A_Pain},
 	{"a_scream", A_Scream},
 	{"a_xscream", A_XScream},
+	{"a_activesound", A_ActiveSound},
 	// basic control
 	{"a_facetarget", A_FaceTarget},
 	{"a_noblocking", A_NoBlocking},
@@ -431,6 +516,8 @@ static const dec_action_t mobj_action[] =
 	{"a_chase", A_Chase},
 	// enemy attack
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
+	// misc
+	{"a_setangle", A_SetAngle, &args_SetAngle},
 	// terminator
 	{NULL}
 };

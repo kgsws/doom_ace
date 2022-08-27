@@ -20,6 +20,8 @@ uint8_t *tp_get_keyword();
 uint8_t *tp_get_keyword_uc();
 uint8_t *tp_get_keyword_lc();
 
+void tp_push_keyword(uint8_t *kw);
+
 uint32_t tp_skip_code_block(uint32_t depth);
 
 //

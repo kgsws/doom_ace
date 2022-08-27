@@ -68,7 +68,7 @@ static const uint64_t doom_actor_name[NUMMOBJTYPES] =
 	0x0000925CA1CA6B89, // Infrared
 	0x0972968C3386794D, // Megasphere
 	0x0000000000C29B03, // Clip
-	0x496CB350A63F8B0D, // BoxOfBullets
+	0x0000038BC2C29B03, // ClipBox
 	0x0BEDB41D25AE3BD2, // RocketAmmo
 	0x0038BC2D25AE3BD2, // RocketBox
 	0x0000000000B2C943, // Cell

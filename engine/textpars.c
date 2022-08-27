@@ -18,6 +18,7 @@ uint_fast8_t tp_enable_newline;
 
 static uint8_t script_char[2];
 static uint8_t backup_char;
+static uint8_t *pushed_kw;
 
 //
 // funcs
@@ -164,6 +165,13 @@ uint8_t *tp_get_keyword()
 	// This function returns whitespace-separated keywords.
 	uint8_t *ret;
 	uint8_t *ptr = tp_text_ptr;
+
+	if(pushed_kw)
+	{
+		ret = pushed_kw;
+		pushed_kw = NULL;
+		return ret;
+	}
 
 	if(backup_char == '\n')
 	{
@@ -387,6 +395,11 @@ uint8_t *tp_get_keyword_uc()
 	return data;
 }
 
+void tp_push_keyword(uint8_t *kw)
+{
+	pushed_kw = kw;
+}
+
 uint32_t tp_skip_code_block(uint32_t depth)
 {
 	// Skip '{}' block without any parsing.
@@ -426,5 +439,6 @@ void tp_load_lump(lumpinfo_t *li)
 	wad_read_lump(tp_text_ptr, li - *lumpinfo, TP_MEMORY_SIZE);
 
 	backup_char = 0;
+	pushed_kw = 0;
 }
 

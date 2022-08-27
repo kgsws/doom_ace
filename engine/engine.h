@@ -259,6 +259,8 @@ typedef struct mobjinfo_s
 	uint64_t actor_name;
 	uint32_t state_idx_first;
 	uint32_t state_idx_limit;
+	void *dropitems;
+	void *dropitem_end;
 	uint32_t flags1;
 	// new states
 	uint32_t crushstate;

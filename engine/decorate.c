@@ -26,7 +26,8 @@ enum
 	DT_SKIP1,
 	DT_MONSTER,
 	DT_PROJECTILE,
-	DT_STATES
+	DT_DROPITEM,
+	DT_STATES,
 };
 
 typedef struct
@@ -56,6 +57,7 @@ uint32_t num_spr_names = 138;
 uint32_t sprite_table[MAX_SPRITE_NAMES];
 
 static uint32_t **spr_names;
+static uint32_t *numsprites;
 
 uint32_t num_mobj_types = NUMMOBJTYPES;
 mobjinfo_t *mobjinfo;
@@ -74,7 +76,11 @@ static void *parse_mobj_ptr;
 static uint32_t *parse_next_state;
 static uint32_t parse_last_anim;
 
+static args_dropitem_t *dropitems;
+static args_dropitem_t *dropitem_next;
+
 static uint32_t parse_states();
+static uint32_t parse_dropitem();
 
 // default mobj
 static const mobjinfo_t default_mobj =
@@ -116,6 +122,8 @@ static const dec_attr_t mobj_attr[] =
 	{"radius", DT_FIXED, offsetof(mobjinfo_t, radius)},
 	{"height", DT_FIXED, offsetof(mobjinfo_t, height)},
 	{"mass", DT_S32, offsetof(mobjinfo_t, mass)},
+	//
+	{"dropitem", DT_DROPITEM},
 	//
 	{"activesound", DT_SOUND, offsetof(mobjinfo_t, activesound)},
 	{"attacksound", DT_SOUND, offsetof(mobjinfo_t, attacksound)},
@@ -204,11 +212,15 @@ static uint32_t spr_add_name(uint32_t name)
 	for(i = 0; i < num_spr_names; i++)
 	{
 		if(sprite_table[i] == name)
-			break;
+			return i;
 	}
 
 	if(i == MAX_SPRITE_NAMES)
 		I_Error("[DECORATE] Too many sprite names!");
+
+	sprite_table[i] = name;
+
+	num_spr_names++;
 
 	return i;
 }
@@ -262,6 +274,9 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 		case DT_PROJECTILE:
 			((mobjinfo_t*)dest)->flags |= MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE;
 			// TODO: flags1
+		break;
+		case DT_DROPITEM:
+			return parse_dropitem();
 		break;
 		case DT_STATES:
 			num.u32 = parse_states();
@@ -338,6 +353,79 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 }
 
 //
+// dropitem parser
+
+static uint32_t parse_dropitem()
+{
+	uint8_t *kw;
+	int32_t tmp;
+	args_dropitem_t *drop;
+
+	// allocate space, setup destination
+	drop = dec_es_alloc(sizeof(args_dropitem_t));
+	if(dropitems)
+	{
+		if(drop != dropitem_next)
+			I_Error("[DECORATE] Drop item list is not contiguous in '%s'!", parse_actor_name);
+	} else
+		dropitems = drop;
+
+	dropitem_next = drop + 1;
+
+	// defaults
+	drop->chance = 255;
+	drop->amount = 0;
+
+	// get actor name
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+
+	tmp = mobj_check_type(tp_hash64(kw));
+	if(tmp < 0)
+		drop->type = UNKNOWN_MOBJ_IDX;
+	else
+		drop->type = tmp;
+
+	// check for chance
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+	if(kw[0] != ',')
+		goto finished;
+
+	// parse chance
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+	if(doom_sscanf(kw, "%d", &tmp) != 1 || tmp < -32768 || tmp > 32767)
+		return 1;
+
+	drop->chance = tmp;
+
+	// check for amount
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+	if(kw[0] != ',')
+		goto finished;
+
+	// parse amount
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+	if(doom_sscanf(kw, "%d", &tmp) != 1 || tmp < 0 || tmp > 65535)
+		return 1;
+
+	return 0;
+
+finished:
+	// this keyword has to be parsed again
+	tp_push_keyword(kw);
+	return 0;
+}
+
+//
 // state parser
 
 static uint32_t parse_states()
@@ -358,9 +446,6 @@ static uint32_t parse_states()
 	parse_last_anim = 0;
 	parse_next_state = NULL;
 	unfinished = 0;
-
-	// reset extra storage
-	es_ptr = EXTRA_STORAGE_PTR;
 
 	while(1)
 	{
@@ -556,26 +641,6 @@ have_keyword:
 	((mobjinfo_t*)parse_mobj_ptr)->state_idx_first = first_state;
 	((mobjinfo_t*)parse_mobj_ptr)->state_idx_limit = num_states;
 
-	// process extra storage
-	if(es_ptr != EXTRA_STORAGE_PTR)
-	{
-		// allocate extra space .. in states!
-		uint32_t size;
-		uint32_t idx = num_states;
-
-		size = es_ptr - EXTRA_STORAGE_PTR;
-		size += sizeof(state_t) - 1;
-		size /= sizeof(state_t);
-
-		num_states += size;
-		states = ldr_realloc(states, num_states * sizeof(state_t));
-
-		// copy all the stuff
-		memcpy(states + idx, EXTRA_STORAGE_PTR, es_ptr - EXTRA_STORAGE_PTR);
-
-		// relocation has to be done later
-	}
-
 	return 0;
 
 error_no_states:
@@ -697,6 +762,13 @@ static void cb_parse_actors(lumpinfo_t *li)
 		info->doomednum = idx;
 		info->actor_name = alias;
 
+		// reset stuff
+		dropitems = NULL;
+		dropitem_next = NULL;
+
+		// reset extra storage
+		es_ptr = EXTRA_STORAGE_PTR;
+
 		// parse attributes
 		while(1)
 		{
@@ -760,6 +832,30 @@ static void cb_parse_actors(lumpinfo_t *li)
 					I_Error("[DECORATE] Unable to parse value of '%s' in '%s'!", kw, parse_actor_name);
 			}
 		}
+
+		// save drop item list
+		info->dropitems = dropitems;
+		info->dropitem_end = dropitem_next;
+
+		// process extra storage
+		if(es_ptr != EXTRA_STORAGE_PTR)
+		{
+			// allocate extra space .. in states!
+			uint32_t size;
+			uint32_t idx = num_states;
+
+			size = es_ptr - EXTRA_STORAGE_PTR;
+			size += sizeof(state_t) - 1;
+			size /= sizeof(state_t);
+
+			num_states += size;
+			states = ldr_realloc(states, num_states * sizeof(state_t));
+
+			// copy all the stuff
+			memcpy(states + idx, EXTRA_STORAGE_PTR, es_ptr - EXTRA_STORAGE_PTR);
+
+			// relocation has to be done later
+		}
 	}
 
 error_end:
@@ -788,7 +884,7 @@ void init_decorate()
 	doom_printf("[ACE] init DECORATE\n");
 	ldr_alloc_message = "Decorate memory allocation failed!";
 
-	// init sprite names // TODO: TNT1
+	// init sprite names
 	for(uint32_t i = 0; i < num_spr_names; i++)
 		sprite_table[i] = *spr_names[i];
 
@@ -850,6 +946,13 @@ void init_decorate()
 			if(st->arg)
 				st->arg = target + (st->arg - EXTRA_STORAGE_PTR);
 		}
+
+		// drop item list
+		if(info->dropitems)
+		{
+			info->dropitems = target + (info->dropitems - EXTRA_STORAGE_PTR);
+			info->dropitem_end = target + (info->dropitem_end - EXTRA_STORAGE_PTR);
+		}
 	}
 
 	//
@@ -864,6 +967,9 @@ void init_decorate()
 	for(uint32_t i = 0; i < NUM_STATE_HOOKS; i++)
 		hook_states[i].value += (uint32_t)states;
 	utils_install_hooks(hook_states, NUM_STATE_HOOKS);
+
+	// done
+	*numsprites = num_spr_names;
 }
 
 //
@@ -1003,12 +1109,15 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// import variables
 	{0x00015800, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spr_names},
+	{0x0005C8E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsprites},
 	// replace call to 'P_SetThingPosition' in 'P_SpawnMobj'
 	{0x000315FC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)prepare_mobj},
 	// replace call to 'P_TouchSpecialThing' in 'PIT_CheckThing'
 	{0x0002B031, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)touch_mobj},
 	// replace call to 'P_SetMobjState' in 'P_MobjThinker'
 	{0x000314F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_state},
+	// fix jump condition in 'P_SetMobjState'
+	{0x000314E4, CODE_HOOK | HOOK_UINT8, 0x7F},
 	// replace 'P_SetMobjState'
 	{0x00030EA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)set_mobj_state},
 	// extra stuff in 'P_KillMobj' - replaces animation change

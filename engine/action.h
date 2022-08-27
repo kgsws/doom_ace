@@ -6,6 +6,16 @@ extern void *parse_action_arg;
 
 //
 
+typedef struct
+{
+	uint16_t type;
+	int16_t chance;
+	uint16_t amount;
+	uint16_t __padding;
+} args_dropitem_t;
+
+//
+
 #define CMF_AIMOFFSET	1
 #define CMF_AIMDIRECTION	2
 #define CMF_TRACKOWNER	4
@@ -25,6 +35,15 @@ typedef struct
 	uint32_t flags;
 	fixed_t pitch;
 } args_SpawnProjectile_t;
+
+//
+
+typedef struct
+{
+	angle_t angle;
+	uint8_t ptr;
+	uint32_t flags;
+} args_SetAngle_t;
 
 //
 

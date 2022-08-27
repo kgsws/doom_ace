@@ -27,6 +27,31 @@ SECTIONS
 	}
 	. = ALIGN(32);
 
+	.rodata         :
+	{
+		*(.rodata .rodata.* .gnu.linkonce.r.*)
+	}
+	. = ALIGN(32);
+
+	.data           :
+	{
+		*(.data .data.* .gnu.linkonce.d.*)
+		SORT(CONSTRUCTORS)
+	}
+	. = ALIGN(32);
+
+	_bss_start = .;
+	.bss            :
+	{
+		*(.dynbss)
+		*(.bss .bss.* .gnu.linkonce.b.*)
+		*(COMMON)
+	}
+	_bss_end = .;
+	_size_of_bss = _bss_end - _bss_start;
+
+	/* [kg] we do not care about any of these */
+
 	_reloc_start = .;
 	.rel.dyn        :
 	{
@@ -55,31 +80,6 @@ SECTIONS
 	}
 	_hooks_end = .;
 	. = ALIGN(32);
-
-	.rodata         :
-	{
-		*(.rodata .rodata.* .gnu.linkonce.r.*)
-	}
-	. = ALIGN(32);
-
-	.data           :
-	{
-		*(.data .data.* .gnu.linkonce.d.*)
-		SORT(CONSTRUCTORS)
-	}
-	. = ALIGN(32);
-
-	_bss_start = .;
-	.bss            :
-	{
-		*(.dynbss)
-		*(.bss .bss.* .gnu.linkonce.b.*)
-		*(COMMON)
-	}
-	_bss_end = .;
-	_size_of_bss = _bss_end - _bss_start;
-
-	/* [kg] we do not care about any of these */
 
   . = SEGMENT_START("rodata-segment", ALIGN(CONSTANT (MAXPAGESIZE)) + (. & (CONSTANT (MAXPAGESIZE) - 1)));
 

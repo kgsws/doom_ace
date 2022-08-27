@@ -31,7 +31,7 @@ _start:
 
 	// continue loading Doom
 	mov	doom_code_segment(%ecx),%eax
-	add	$0x1e4ac,%eax
+	add	$0x1E4AC,%eax
 	jmp	*%eax
 
 	// exit

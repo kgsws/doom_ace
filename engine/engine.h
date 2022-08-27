@@ -37,6 +37,13 @@ typedef uint32_t angle_t;
 #define DBITS	(FRACBITS - SLOPEBITS)
 
 //
+// cheats
+
+#define CF_NOCLIP	1
+#define CF_GODMODE	2
+#define CF_NOMOMENTUM	4
+
+//
 // zone
 
 #define PU_STATIC	1
@@ -502,6 +509,9 @@ typedef struct mobj_s
 	uint32_t netid;	// unique identification
 } __attribute__((packed)) mobj_t;
 
+// ASM hooks
+void hook_mobj_damage();
+
 // some variables
 extern fixed_t *finesine;
 extern fixed_t *finecosine;
@@ -526,7 +536,7 @@ void I_FinishUpdate() __attribute((regparm(2)));
 uint32_t M_CheckParm(uint8_t*) __attribute((regparm(2)));
 
 // m_random
-uint8_t P_Random() __attribute((regparm(2)));
+int32_t P_Random() __attribute((regparm(2)));
 
 // st_stuff
 void ST_Init() __attribute((regparm(2)));
@@ -548,9 +558,8 @@ mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2)));
 
 // p_inter
 void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2)));
-
-// p_inter
 void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2)));
+void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2)));
 
 // r_data
 void R_GenerateLookup(uint32_t) __attribute((regparm(2)));

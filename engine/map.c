@@ -6,6 +6,7 @@
 #include "map.h"
 #include "decorate.h"
 
+uint32_t *gameskill;
 uint32_t *leveltime;
 
 uint32_t *numlines;
@@ -49,6 +50,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031776, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)get_spawn_type},
 	{0x0003177B, CODE_HOOK | HOOK_UINT32, 0x10EBC189},
 	// import variables
+	{0x0002B3E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameskill},
 	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
 	{0x0002C134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlines},
 	{0x0002C14C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsectors},

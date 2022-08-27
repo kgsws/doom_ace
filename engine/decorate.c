@@ -14,7 +14,7 @@
 
 #include "decodoom.h"
 
-#define NUM_INFO_HOOKS	2
+#define NUM_INFO_HOOKS	5
 #define NUM_STATE_HOOKS	7
 
 enum
@@ -175,8 +175,14 @@ static const dec_flag_t mobj_flag[] =
 	{"notdmatch", MF_NOTDMATCH},
 	// flags 1
 	{"", 0}, // this is a separator
-//	{"noteleport", MF1_NOTELEPORT},
-//	{"ismonster", MF1_ISMONSTER},
+	{"ismonster", MF1_ISMONSTER},
+	{"noteleport", MF1_NOTELEPORT},
+	{"randomize", MF1_RANDOMIZE},
+	{"telestomp", MF1_TELESTOMP},
+	{"notarget", MF1_NOTARGET},
+	{"quicktoretaliate", MF1_QUICKTORETALIATE},
+	{"seekermissile", MF1_SEEKERMISSILE},
+	{"noforwardfall", MF1_NOFORWARDFALL},
 	// terminator
 	{NULL}
 };
@@ -269,11 +275,11 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 		break;
 		case DT_MONSTER:
 			((mobjinfo_t*)dest)->flags |= MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID;
-			// TODO: flags1
+			((mobjinfo_t*)dest)->flags1 |= MF1_ISMONSTER;
 		break;
 		case DT_PROJECTILE:
 			((mobjinfo_t*)dest)->flags |= MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE;
-			// TODO: flags1
+			((mobjinfo_t*)dest)->flags1 |= MF1_NOTELEPORT;
 		break;
 		case DT_DROPITEM:
 			return parse_dropitem();
@@ -900,7 +906,27 @@ void init_decorate()
 		mobjinfo[i].spawnid = doom_spawn_id[i];
 		mobjinfo[i].state_idx_limit = NUMSTATES;
 		mobjinfo[i].crushstate = 895;
+
+		// basically everything is randomized
+		mobjinfo[i].flags1 = MF1_RANDOMIZE;
+
+		// mark enemies
+		if(mobjinfo[i].flags & MF_COUNTKILL)
+			mobjinfo[i].flags1 |= MF1_ISMONSTER;
+
+		// modify projectiles
+		if(mobjinfo[i].flags & MF_MISSILE)
+			mobjinfo[i].flags1 |= MF1_NOTELEPORT;
 	}
+
+	// player stuff
+	mobjinfo[0].flags1 |= MF1_TELESTOMP;
+
+	// lost souls are enemy too
+	mobjinfo[18].flags1 |= MF1_ISMONSTER;
+
+	// archvile stuff
+	mobjinfo[3].flags1 |= MF1_NOTARGET | MF1_QUICKTORETALIATE;
 
 	//
 	// PASS 1
@@ -976,6 +1002,12 @@ void init_decorate()
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
+{
+	mobj_set_state(mo, STATE_SET_ANIMATION(anim, 0));
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 void prepare_mobj(mobj_t *mo)
 {
 	mo->flags1 = mo->info->flags1;
@@ -993,8 +1025,8 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	mo->frame = temp;
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t set_mobj_state(mobj_t *mo, uint32_t state)
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 {
 	state_t *st;
 
@@ -1067,7 +1099,7 @@ void explode_missile(mobj_t *mo)
 
 	set_mobj_animation(mo, ANIM_DEATH);
 
-	if(/*mo->flags1 & MF_RANDOMIZE && */mo->tics > 0)
+	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
 	{
 		mo->tics -= P_Random() & 3;
 		if(mo->tics <= 0)
@@ -1079,10 +1111,123 @@ void explode_missile(mobj_t *mo)
 	S_StartSound(mo, mo->info->deathsound);
 }
 
-__attribute((regparm(2),no_caller_saved_registers))
-uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
+void mobj_damage(mobj_t *target, mobj_t *source, mobj_t *origin, uint32_t damage, uint32_t extra)
 {
-	set_mobj_state(mo, STATE_SET_ANIMATION(anim, 0));
+	// target = what is damaged
+	// source = damage source (projectile or ...)
+	// origin = what is responsible
+	player_t *player;
+
+	if(!(target->flags & MF_SHOOTABLE))
+		return;
+
+	if(target->health <= 0)
+		return;
+
+	if(target->flags & MF_SKULLFLY)
+	{
+		target->momx = 0;
+		target->momy = 0;
+		target->momz = 0;
+	}
+
+	player = target->player;
+
+	if(player && !*gameskill)
+		damage /= 2;
+
+	if(	source &&
+		!(target->flags & MF_NOCLIP) &&
+		(!origin || !origin->player || origin->player->readyweapon != 7) // chainsaw hack // TODO: replace with weapon.kickback
+	) {
+		angle_t angle;
+		uint32_t thrust;
+
+		thrust = damage > 10000 ? 10000 : damage;
+
+		angle = R_PointToAngle2(source->x, source->y, target->x, target->y);
+		thrust = thrust * (FRACUNIT >> 3) * 100 / target->info->mass;
+
+		if(	!(target->flags1 & MF1_NOFORWARDFALL) &&
+			(!source || !(source->flags1 & MF1_NOFORWARDFALL) ) && // TODO: extra steps for hitscan
+			damage < 40 &&
+			damage > target->health &&
+			target->z - source->z > 64 * FRACUNIT &&
+			P_Random() & 1
+		) {
+			angle += ANG180;
+			thrust *= 4;
+		}
+
+		angle >>= ANGLETOFINESHIFT;
+		target->momx += FixedMul(thrust, finecosine[angle]);
+		target->momy += FixedMul(thrust, finesine[angle]);
+	}
+
+	if(player)
+	{
+		if(target->subsector->sector->special == 11 && damage >= target->health)
+			damage = target->health - 1;
+
+		if(	damage < 1000000 &&
+			( player->cheats & CF_GODMODE ||
+			player->powers[pw_invulnerability] )
+		)
+			return;
+
+		if(player->armortype)
+		{
+			uint32_t saved;
+
+			saved = (player->armortype == 1) ? (damage / 3) : (damage / 2);
+			if(player->armorpoints <= saved)
+			{
+				saved = player->armorpoints;
+				player->armortype = 0;
+			}
+
+			player->armorpoints -= saved;
+			damage -= saved;
+		}
+
+		player->health -= damage;
+		if(player->health < 0)
+			player->health = 0;
+
+		player->attacker = origin;
+
+		player->damagecount += damage;
+		if(player->damagecount > 100)
+			player->damagecount = 100;
+
+		// I_Tactile ...
+	}
+
+	target->health -= damage;
+	if(target->health <= 0)
+	{
+		P_KillMobj(origin, target);
+		return;
+	}
+
+	if(	P_Random() < target->info->painchance &&
+		!(target->flags & MF_SKULLFLY)
+	) {
+		target->flags |= MF_JUSTHIT;
+		mobj_set_state(target, STATE_SET_ANIMATION(ANIM_PAIN, 0));
+	}
+
+	target->reactiontime = 0;
+
+	if(	(!target->threshold || target->flags1 & MF1_QUICKTORETALIATE) &&
+		origin && origin != target &&
+		!(origin->flags1 & MF1_NOTARGET)
+	) {
+		target->target = origin;
+		target->threshold = 100;
+		if(target->info->seestate && target->state == states + target->info->spawnstate)
+			mobj_set_state(target, STATE_SET_ANIMATION(ANIM_SEE, 0));
+	}
 }
 
 //
@@ -1092,6 +1237,9 @@ static hook_t hook_mobjinfo[NUM_INFO_HOOKS] =
 {
 	{0x00031587, CODE_HOOK | HOOK_UINT32, 0}, // P_SpawnMobj
 	{0x00031792, CODE_HOOK | HOOK_UINT32, 0x55}, // P_RespawnSpecials
+	{0x00031A34, CODE_HOOK | HOOK_UINT32, 0x57}, // P_SpawnMapThing
+	{0x00031A56, CODE_HOOK | HOOK_UINT32, offsetof(mobjinfo_t, flags1)}, // P_SpawnMapThing
+	{0x00031A74, CODE_HOOK | HOOK_UINT32, 0x55}, // P_SpawnMapThing
 };
 
 static hook_t hook_states[NUM_STATE_HOOKS] =
@@ -1115,17 +1263,29 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace call to 'P_TouchSpecialThing' in 'PIT_CheckThing'
 	{0x0002B031, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)touch_mobj},
 	// replace call to 'P_SetMobjState' in 'P_MobjThinker'
-	{0x000314F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_state},
+	{0x000314F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_set_state},
 	// fix jump condition in 'P_SetMobjState'
 	{0x000314E4, CODE_HOOK | HOOK_UINT8, 0x7F},
 	// replace 'P_SetMobjState'
-	{0x00030EA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)set_mobj_state},
+	{0x00030EA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_set_state},
+	// replace 'P_DamageMobj' - use trampoline
+	{0x0002A460, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hook_mobj_damage},
 	// extra stuff in 'P_KillMobj' - replaces animation change
 	{0x0002A3C8, CODE_HOOK | HOOK_UINT16, 0xD889},
 	{0x0002A3CA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)kill_animation},
 	{0x0002A3CF, CODE_HOOK | HOOK_JMP_DOOM, 0x0002A40D},
 	// replace 'P_ExplodeMissile'
 	{0x00030F00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)explode_missile},
+	// use 'MF1_ISMONSTER' in 'P_SpawnMapThing'
+	{0x00031A5A, CODE_HOOK | HOOK_UINT8, MF1_ISMONSTER},
+	// use 'MF1_NOTELEPORT' in 'EV_Teleport'
+	{0x00031E4D, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},
+	{0x00031E4E, CODE_HOOK | HOOK_UINT8, MF1_NOTELEPORT},
+	// use 'MF1_TELESTOMP' in 'PIT_StompThing'
+	{0x0002ABC7, CODE_HOOK | HOOK_UINT16, 0x43F6},
+	{0x0002ABC9, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},
+	{0x0002ABCA, CODE_HOOK | HOOK_UINT8, MF1_TELESTOMP},
+	{0x0002ABCB, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// change 'mobj_t' size
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
 	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
@@ -1133,6 +1293,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031574, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
 	{0x0003178F, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
 	{0x00030F10, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
+	{0x00031A31, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
+	{0x00031A53, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
+	{0x00031A63, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
 	// change 'sprite' of 'mobj_t' in 'R_PrecacheLevel'
 	{0x00034992, CODE_HOOK | HOOK_UINT32, 0x2443B70F},
 	{0x00034996, CODE_HOOK | HOOK_UINT32, 0x8B012488},

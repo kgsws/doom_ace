@@ -1,6 +1,7 @@
 // kgsws' ACE Engine
 ////
 
+extern uint32_t *gameskill;
 extern uint32_t *leveltime;
 
 extern uint32_t *numlines;

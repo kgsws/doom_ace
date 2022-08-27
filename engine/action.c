@@ -160,7 +160,7 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 	S_StartSound(mo, mo->info->seesound);
 
 	mo->target = source;
-//	if(mo->flags1 & MF1_SEEKERMISSILE)
+	if(mo->flags1 & MF1_SEEKERMISSILE)
 		mo->tracer = target;
 	mo->angle = angle;
 
@@ -168,7 +168,7 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 	mo->momx = FixedMul(mo->info->speed, finecosine[angle]);
 	mo->momy = FixedMul(mo->info->speed, finesine[angle]);
 
-	if(/*mo->flags1 & MF1_RANDOMIZE &&*/ mo->tics > 0)
+	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
 	{
 		mo->tics -= P_Random() & 3;
 		if(mo->tics <= 0)

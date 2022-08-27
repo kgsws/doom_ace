@@ -124,6 +124,19 @@ dos_exit:
 	int	$0x21
 
 //
+// P_DamageMobj hook
+.global hook_mobj_damage
+hook_mobj_damage:
+	push	$0
+	push	%ecx
+	push	%ebx
+	push	%edx
+	push	%eax
+	call	mobj_damage
+	add	$20,%esp
+	ret
+
+//
 // Relocation table for functions with 0, 1 or 2 arguments.
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012
@@ -320,6 +333,12 @@ P_TouchSpecialThing:
 P_RemoveMobj:
 	.byte	0xE9
 	.4byte	0x00031660
+////////////////////////////////// P_KillMobj
+.section .text.P_KillMobj
+.global P_KillMobj
+P_KillMobj:
+	.byte	0xE9
+	.4byte	0x0002A2B0
 ////////////////////////////////// doom_A_Look
 .section .text.doom_A_Look
 .global doom_A_Look

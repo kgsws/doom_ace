@@ -27,6 +27,7 @@ static void wad_add(uint8_t *name)
 	lumpinfo_t *info;
 	wadlump_t *lump = (void*)0x0002D0A0 + doom_data_segment; // drawsegs
 	uint32_t totalsize;
+	uint_fast8_t is_ignored = 0;
 
 	doom_printf("   %s ", name);
 
@@ -135,6 +136,21 @@ static void wad_add(uint8_t *name)
 		info->fd = fd;
 		info->offset = lmp->offset;
 		info->size = lmp->size;
+
+		// check for ignore
+		if(is_ignored)
+		{
+			if(info->wame == 0x534B49505F454341) // ACE_PIKS
+				is_ignored = 0;
+			info->wame |= 0x80;
+		} else
+		{
+			if(info->wame == 0x50494B535F454341) // ACE_SKIP
+			{
+				is_ignored = 1;
+				info->wame |= 0x80;
+			}
+		}
 
 		totalsize += lmp->size;
 	}

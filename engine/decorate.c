@@ -183,6 +183,8 @@ static const dec_flag_t mobj_flag[] =
 	{"quicktoretaliate", MF1_QUICKTORETALIATE},
 	{"seekermissile", MF1_SEEKERMISSILE},
 	{"noforwardfall", MF1_NOFORWARDFALL},
+	{"dontthrust", MF1_DONTTHRUST},
+	{"nodamagethrust", MF1_NODAMAGETHRUST},
 	// terminator
 	{NULL}
 };
@@ -1141,7 +1143,9 @@ void mobj_damage(mobj_t *target, mobj_t *source, mobj_t *origin, uint32_t damage
 		damage /= 2;
 
 	if(	source &&
+		!(target->flags1 & MF1_DONTTHRUST) &&
 		!(target->flags & MF_NOCLIP) &&
+		!(source->flags1 & MF1_NODAMAGETHRUST) && // TODO: extra steps for hitscan
 		(!origin || !origin->player || origin->player->readyweapon != 7) // chainsaw hack // TODO: replace with weapon.kickback
 	) {
 		angle_t angle;

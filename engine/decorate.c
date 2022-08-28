@@ -907,6 +907,10 @@ void init_decorate()
 		mobjinfo[i].state_idx_limit = NUMSTATES;
 		mobjinfo[i].crushstate = 895;
 
+		// check for original random sounds
+		sfx_rng_fix(&mobjinfo[i].seesound, 98);
+		sfx_rng_fix(&mobjinfo[i].deathsound, 70);
+
 		// basically everything is randomized
 		mobjinfo[i].flags1 = MF1_RANDOMIZE;
 

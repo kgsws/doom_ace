@@ -9,6 +9,7 @@
 #include "sound.h"
 
 #define NUMSFX	109
+#define NUMSFX_RNG	4
 #define NUM_SFX_HOOKS	8
 #define SFX_PRIORITY	666
 #define RNG_RECURSION	8
@@ -30,10 +31,38 @@ typedef struct old_sfxinfo_s
 
 static old_sfxinfo_t *S_sfx;
 
-static uint32_t numsfx = NUMSFX;
+static uint32_t numsfx = NUMSFX + NUMSFX_RNG;
 static sfxinfo_t *sfxinfo;
 
 static hook_t sfx_hooks[NUM_SFX_HOOKS];
+
+static const sfxinfo_t sfx_rng[NUMSFX_RNG] =
+{
+	{ // posit
+		.priority = 98,
+		.usefulness = -1,
+		.rng_count = 3,
+		.rng_id = {36, 37, 38},
+	},
+	{ // bgsit
+		.priority = 98,
+		.usefulness = -1,
+		.rng_count = 2,
+		.rng_id = {39, 40},
+	},
+	{ // podth
+		.priority = 70,
+		.usefulness = -1,
+		.rng_count = 3,
+		.rng_id = {59, 60, 61},
+	},
+	{ // bgdth
+		.priority = 70,
+		.usefulness = -1,
+		.rng_count = 2,
+		.rng_id = {62, 63},
+	},
+};
 
 //
 // hooks
@@ -79,8 +108,7 @@ uint32_t sound_start_check(void *mo, uint32_t idx)
 
 static sfxinfo_t *sfx_find(uint64_t alias)
 {
-	// never search for internal sounds
-	for(uint32_t i = NUMSFX; i < numsfx; i++)
+	for(uint32_t i = 0; i < numsfx; i++)
 	{
 		if(sfxinfo[i].alias == alias)
 			return sfxinfo + i;
@@ -119,6 +147,40 @@ static sfxinfo_t *sfx_get(uint8_t *name)
 	if(ret)
 		return ret;
 
+	return sfx_create(alias);
+}
+
+static sfxinfo_t *sfx_get_lc(uint8_t *name, int32_t lump)
+{
+	sfxinfo_t *ret;
+	uint64_t alias;
+
+	alias = tp_hash64(name);
+
+	// check for existing
+	ret = sfx_find(alias);
+	if(ret)
+		return ret;
+
+	// try to use empty default sounds
+	if(lump >= 0)
+	{
+		for(uint32_t i = 0; i < NUMSFX; i++)
+		{
+			if(sfxinfo[i].alias)
+				continue;
+
+			if(sfxinfo[i].lumpnum == lump)
+			{
+				// found one; use it
+				sfxinfo[i].alias = alias;
+				sfxinfo[i].priority = SFX_PRIORITY;
+				return sfxinfo + i;
+			}
+		}
+	}
+
+	// create a new one
 	return sfx_create(alias);
 }
 
@@ -214,7 +276,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 		lump = wad_check_lump(kw);
 
 		// update existing or create new entry
-		sfx = sfx_get(name);
+		sfx = sfx_get_lc(name, lump);
 		sfx->lumpnum = lump;
 		sfx->rng_count = 0;
 	}
@@ -228,8 +290,7 @@ error_end:
 
 uint16_t sfx_by_alias(uint64_t alias)
 {
-	// never search for internal sounds
-	for(uint32_t i = NUMSFX; i < numsfx; i++)
+	for(uint32_t i = 0; i < numsfx; i++)
 	{
 		if(sfxinfo[i].alias == alias)
 			return i;
@@ -242,6 +303,26 @@ uint16_t sfx_by_name(uint8_t *name)
 	return sfx_by_alias(tp_hash64(name));
 }
 
+void sfx_rng_fix(uint16_t *idx, uint32_t pmatch)
+{
+	for(uint32_t i = 0; i < NUMSFX_RNG; i++)
+	{
+		const sfxinfo_t *sr = sfx_rng + i;
+
+		if(sr->priority != pmatch)
+			continue;
+
+		for(uint32_t j = 0; j < sr->rng_count; j++)
+		{
+			if(sr->rng_id[j] == *idx)
+			{
+				*idx = NUMSFX + i;
+				return;
+			}
+		}
+	}
+}
+
 void init_sound()
 {
 	uint8_t temp[16];
@@ -252,7 +333,7 @@ void init_sound()
 	ldr_alloc_message = "Sound info memory allocation failed!";
 
 	// allocate memory for internal sounds
-	sfxinfo = ldr_malloc(NUMSFX * sizeof(sfxinfo_t));
+	sfxinfo = ldr_malloc((NUMSFX + NUMSFX_RNG) * sizeof(sfxinfo_t));
 
 	// process internal sounds
 	for(uint32_t i = 1; i < NUMSFX; i++)
@@ -273,6 +354,9 @@ void init_sound()
 		sfxinfo[i].usefulness = -1;
 		sfxinfo[i].lumpnum = wad_check_lump(temp);
 	}
+
+	// add extra RNG sounds
+	memcpy(sfxinfo + NUMSFX, sfx_rng, sizeof(sfx_rng));
 
 	// process SNDINFO
 	wad_handle_lump("SNDINFO", cb_sndinfo);
@@ -303,6 +387,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// import variables
 	{0x0001488C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&S_sfx},
+	// disable hardcoded sound randomization
+	{0x00027716, CODE_HOOK | HOOK_UINT16, 0x41EB}, // A_Look
+	{0x0002882B, CODE_HOOK | HOOK_UINT16, 0x47EB}, // A_Scream
 	// custom sound ID check and translation
 	// invalid sounds are skipped instead of causing error
 	{0x0003F13E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_start_check},

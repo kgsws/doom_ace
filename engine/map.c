@@ -6,8 +6,22 @@
 #include "map.h"
 #include "decorate.h"
 
+mapthing_t *playerstarts;
+mapthing_t *deathmatchstarts;
+mapthing_t **deathmatch_p;
+
+uint32_t *nomonsters;
+uint32_t *fastparm;
+uint32_t *respawnparm;
+
+uint32_t *netgame;
+uint32_t *deathmatch;
 uint32_t *gameskill;
 uint32_t *leveltime;
+
+uint32_t *totalkills;
+uint32_t *totalitems;
+uint32_t *totalsecret;
 
 uint32_t *numlines;
 uint32_t *numsectors;
@@ -17,23 +31,89 @@ side_t **sides;
 sector_t **sectors;
 
 //
+
+static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
+
+//
 // hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
-uint32_t get_spawn_type(uint32_t ednum)
+static void spawn_map_thing(mapthing_t *mt)
 {
-	// do a backward search
-	uint32_t idx = num_mobj_types;
+	uint32_t idx;
+	mobj_t *mo;
+	mobjinfo_t *info;
+	fixed_t x, y, z;
 
+	// deathmatch starts
+	if(mt->type == 11)
+	{
+		if(*deathmatch_p < deathmatchstarts + 10)
+		{
+			**deathmatch_p = *mt;
+			*deathmatch_p = *deathmatch_p + 1;
+		}
+		return;
+	}
+
+	// player starts
+	if(mt->type && mt->type <= 4)
+	{
+		playerstarts[mt->type - 1] = *mt;
+		if(!*deathmatch)
+			P_SpawnPlayer(mt);
+		return;
+	}
+
+	// check network game
+	if(!*netgame && mt->options & 16)
+		return;
+
+	// check skill level
+	if(*gameskill > sizeof(skillbits) || !(mt->options & skillbits[*gameskill]))
+		return;
+
+	// backward search for type
+	idx = num_mobj_types;
 	do
 	{
 		idx--;
-		if(mobjinfo[idx].doomednum == ednum)
-			return idx;
+		if(mobjinfo[idx].doomednum == mt->type)
+			break;
 	} while(idx);
+	if(!idx)
+		idx = UNKNOWN_MOBJ_IDX;
+	info = mobjinfo + idx;
 
-	// TODO: custom 'unknown item'
-	return 0;
+	// 'not in deathmatch'
+	if(*deathmatch && info->flags & MF_NOTDMATCH)
+		return;
+
+	// '-nomonsters'
+	if(*nomonsters && info->flags1 & MF1_ISMONSTER)
+		return;
+
+	// position
+	x = (fixed_t)mt->x << FRACBITS;
+	y = (fixed_t)mt->y << FRACBITS;
+	z = info->flags & MF_SPAWNCEILING ? 0x7FFFFFFF : 0x80000000;
+
+	// spawn
+	mo = P_SpawnMobj(x, y, z, idx);
+	mo->spawnpoint = *mt;
+	mo->angle = ANG45 * (mt->angle / 45);
+
+	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
+		mo->tics = 1 + (P_Random() % mo->tics);
+
+	if(mt->options & 8)
+		mo->flags |= MF_AMBUSH;
+
+	if(mo->flags & MF_COUNTKILL)
+		*totalkills = *totalkills + 1;
+
+	if(mo->flags & MF_COUNTITEM)
+		*totalitems = *totalitems + 1;
 }
 
 //
@@ -41,17 +121,22 @@ uint32_t get_spawn_type(uint32_t ednum)
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// replace mobjinfo search in 'P_SpawnMapThing'
-	{0x000319E7, CODE_HOOK | HOOK_UINT32, 0x0645B70F},
-	{0x000319EB, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)get_spawn_type},
-	{0x000319F0, CODE_HOOK | HOOK_UINT32, 0x32EBC189},
-	// replace mobjinfo search in 'P_RespawnSpecials'
-	{0x00031772, CODE_HOOK | HOOK_UINT32, 0x0645B70F},
-	{0x00031776, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)get_spawn_type},
-	{0x0003177B, CODE_HOOK | HOOK_UINT32, 0x10EBC189},
+	// replace call to 'P_SpawnMapThing' in 'P_LoadThings'
+	{0x0002E1F9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spawn_map_thing},
 	// import variables
+	{0x0002C0D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playerstarts},
+	{0x0002C154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatchstarts},
+	{0x0002C150, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatch_p},
+	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nomonsters},
+	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&fastparm},
+	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&respawnparm},
+	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
+	{0x0002B3FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatch},
 	{0x0002B3E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameskill},
 	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
+	{0x0002B3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalsecret},
+	{0x0002B3D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalitems},
+	{0x0002B3D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalkills},
 	{0x0002C134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlines},
 	{0x0002C14C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsectors},
 	{0x0002C120, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lines},

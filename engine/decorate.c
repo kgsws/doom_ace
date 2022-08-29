@@ -14,8 +14,8 @@
 
 #include "decodoom.h"
 
-#define NUM_INFO_HOOKS	5
-#define NUM_STATE_HOOKS	7
+#define NUM_INFO_HOOKS	1
+#define NUM_STATE_HOOKS	6
 
 enum
 {
@@ -621,16 +621,16 @@ have_keyword:
 			// action
 			tp_enable_math = 1;
 			kw = action_parser(kw);
+			tp_enable_math = 0;
 			if(!kw)
 				return 1;
-			tp_enable_math = 0;
 		}
 
 		// create states
 		add_states(sprite, wk, tics, flags);
 
 		if(kw[0] != '\n')
-			I_Error("[DECORATE] Expected end of line, found '%s' in '%s'!", kw, parse_actor_name);
+			I_Error("[DECORATE] Expected newline, found '%s' in '%s'!", kw, parse_actor_name);
 
 		// next
 		tp_enable_newline = 0;
@@ -746,9 +746,30 @@ static void cb_parse_actors(lumpinfo_t *li)
 		parse_mobj_ptr = info;
 
 		// next, a few options
-		kw = tp_get_keyword();
+		kw = tp_get_keyword_lc();
 		if(!kw)
 			goto error_end;
+
+		if(!strcmp(kw, "replaces"))
+		{
+			int32_t rep;
+
+			// get replacement
+			kw = tp_get_keyword();
+			if(!kw)
+				goto error_end;
+
+			rep = mobj_check_type(tp_hash64(kw));
+			if(rep <= 0)
+				I_Error("[DECORATE] Unable to replace '%s'!", kw);
+
+			mobjinfo[rep].replacement = idx;
+
+			// next keyword
+			kw = tp_get_keyword();
+			if(!kw)
+				goto error_end;
+		}
 
 		if(kw[0] != '{')
 		{
@@ -760,7 +781,8 @@ static void cb_parse_actors(lumpinfo_t *li)
 			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
-		}
+		} else
+			idx = -1;
 
 		if(kw[0] != '{')
 			I_Error("[DECORATE] Expected '{', got '%s'!", kw);
@@ -1014,11 +1036,44 @@ uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void prepare_mobj(mobj_t *mo)
+uint32_t prepare_mobj(mobj_t *mo, uint32_t type)
 {
-	mo->flags1 = mo->info->flags1;
+	uint32_t tmp = 8;
+	mobjinfo_t *info;
+
+	// find replacement
+	while(mobjinfo[type].replacement)
+	{
+		if(!tmp)
+			I_Error("[DECORATE] Too many replacements!");
+		type = mobjinfo[type].replacement;
+		tmp--;
+	}
+
+	info = mobjinfo + type;
+
+	// clear memory
+	memset(mo, 0, sizeof(mobj_t));
+
+	// fill in new stuff
+	mo->type = type;
+	mo->flags1 = info->flags1;
 	mo->netid = mobj_netid++;
-	P_SetThingPosition(mo);
+
+	// return offset
+	return type * sizeof(mobjinfo_t);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t finish_mobj(mobj_t *mo)
+{
+	// add thinker
+	P_AddThinker(&mo->thinker);
+
+	// ZDoom compatibility
+	// teleport fog starts teleport sound
+	if(mo->type == 39)
+		S_StartSound(mo, 35);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -1244,15 +1299,10 @@ void mobj_damage(mobj_t *target, mobj_t *source, mobj_t *origin, uint32_t damage
 static hook_t hook_mobjinfo[NUM_INFO_HOOKS] =
 {
 	{0x00031587, CODE_HOOK | HOOK_UINT32, 0}, // P_SpawnMobj
-	{0x00031792, CODE_HOOK | HOOK_UINT32, 0x55}, // P_RespawnSpecials
-	{0x00031A34, CODE_HOOK | HOOK_UINT32, 0x57}, // P_SpawnMapThing
-	{0x00031A56, CODE_HOOK | HOOK_UINT32, offsetof(mobjinfo_t, flags1)}, // P_SpawnMapThing
-	{0x00031A74, CODE_HOOK | HOOK_UINT32, 0x55}, // P_SpawnMapThing
 };
 
 static hook_t hook_states[NUM_STATE_HOOKS] =
 {
-	{0x0002A72F, CODE_HOOK | HOOK_UINT32, 0}, // P_DamageMobj
 	{0x0002D062, CODE_HOOK | HOOK_UINT32, 0}, // P_SetPsprite
 	{0x000315D9, CODE_HOOK | HOOK_UINT32, 0}, // P_SpawnMobj
 	{0x0002D2FF, CODE_HOOK | HOOK_UINT32, 0x10D8}, // A_WeaponReady
@@ -1266,8 +1316,13 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// import variables
 	{0x00015800, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spr_names},
 	{0x0005C8E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsprites},
-	// replace call to 'P_SetThingPosition' in 'P_SpawnMobj'
-	{0x000315FC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)prepare_mobj},
+	// replace call to 'memset' in 'P_SpawnMobj'
+	{0x00031569, CODE_HOOK | HOOK_UINT16, 0xEA89},
+	{0x00031571, CODE_HOOK | HOOK_UINT32, 0x90C38900},
+	{0x0003156D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)prepare_mobj},
+	{0x00031579, CODE_HOOK | HOOK_SET_NOPS, 3},
+	// replace call to 'P_AddThinker' in 'P_SpawnMobj'
+	{0x00031647, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)finish_mobj},
 	// replace call to 'P_TouchSpecialThing' in 'PIT_CheckThing'
 	{0x0002B031, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)touch_mobj},
 	// replace call to 'P_SetMobjState' in 'P_MobjThinker'
@@ -1284,11 +1339,13 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002A3CF, CODE_HOOK | HOOK_JMP_DOOM, 0x0002A40D},
 	// replace 'P_ExplodeMissile'
 	{0x00030F00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)explode_missile},
-	// use 'MF1_ISMONSTER' in 'P_SpawnMapThing'
-	{0x00031A5A, CODE_HOOK | HOOK_UINT8, MF1_ISMONSTER},
 	// use 'MF1_NOTELEPORT' in 'EV_Teleport'
 	{0x00031E4D, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},
 	{0x00031E4E, CODE_HOOK | HOOK_UINT8, MF1_NOTELEPORT},
+	// disable teleport sounds
+	{0x00031F54, CODE_HOOK | HOOK_SET_NOPS, 10}, // EV_Teleport
+	{0x00031FAE, CODE_HOOK | HOOK_SET_NOPS, 10}, // EV_Teleport
+	{0x00020BA2, CODE_HOOK | HOOK_SET_NOPS, 12}, // G_CheckSpot
 	// use 'MF1_TELESTOMP' in 'PIT_StompThing'
 	{0x0002ABC7, CODE_HOOK | HOOK_UINT16, 0x43F6},
 	{0x0002ABC9, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},
@@ -1296,14 +1353,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002ABCB, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// change 'mobj_t' size
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
-	{0x00031563, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
-	// change 'mobjinfo_t' size
-	{0x00031574, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
-	{0x0003178F, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
-	{0x00030F10, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
-	{0x00031A31, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
-	{0x00031A53, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
-	{0x00031A63, CODE_HOOK | HOOK_UINT8, sizeof(mobjinfo_t)},
+	// fix 'P_SpawnMobj'; disable old 'frame'
+	{0x000315F9, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// change 'sprite' of 'mobj_t' in 'R_PrecacheLevel'
 	{0x00034992, CODE_HOOK | HOOK_UINT32, 0x2443B70F},
 	{0x00034996, CODE_HOOK | HOOK_UINT32, 0x8B012488},

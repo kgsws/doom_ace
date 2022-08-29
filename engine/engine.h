@@ -266,6 +266,7 @@ typedef struct mobjinfo_s
 	uint64_t actor_name;
 	uint32_t state_idx_first;
 	uint32_t state_idx_limit;
+	uint32_t replacement;
 	void *dropitems;
 	void *dropitem_end;
 	uint32_t flags1;
@@ -555,11 +556,15 @@ void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
 // p_mobj
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2)));
 mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2)));
+void P_SpawnPlayer(mapthing_t*) __attribute((regparm(2)));
 
 // p_inter
 void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2)));
 void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2)));
 void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2)));
+
+// p_tick
+void P_AddThinker(thinker_t*) __attribute((regparm(2)));
 
 // r_data
 void R_GenerateLookup(uint32_t) __attribute((regparm(2)));

@@ -309,6 +309,12 @@ P_Random:
 M_Random:
 	.byte	0xE9
 	.4byte	0x00024180
+////////////////////////////////// P_AddThinker
+.section .text.P_AddThinker
+.global P_AddThinker
+P_AddThinker:
+	.byte	0xE9
+	.4byte	0x00032ED0
 ////////////////////////////////// P_SetThingPosition
 .section .text.P_SetThingPosition
 .global P_SetThingPosition
@@ -339,6 +345,12 @@ P_RemoveMobj:
 P_KillMobj:
 	.byte	0xE9
 	.4byte	0x0002A2B0
+////////////////////////////////// P_SpawnPlayer
+.section .text.P_SpawnPlayer
+.global P_SpawnPlayer
+P_SpawnPlayer:
+	.byte	0xE9
+	.4byte	0x000317F0
 ////////////////////////////////// doom_A_Look
 .section .text.doom_A_Look
 .global doom_A_Look

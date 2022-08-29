@@ -1172,11 +1172,11 @@ void explode_missile(mobj_t *mo)
 	S_StartSound(mo, mo->info->deathsound);
 }
 
-void mobj_damage(mobj_t *target, mobj_t *source, mobj_t *origin, uint32_t damage, uint32_t extra)
+void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t damage, uint32_t extra)
 {
 	// target = what is damaged
-	// source = damage source (projectile or ...)
-	// origin = what is responsible
+	// inflictor = damage source (projectile or ...)
+	// source = what is responsible
 	player_t *player;
 
 	if(!(target->flags & MF_SHOOTABLE))
@@ -1197,25 +1197,25 @@ void mobj_damage(mobj_t *target, mobj_t *source, mobj_t *origin, uint32_t damage
 	if(player && !*gameskill)
 		damage /= 2;
 
-	if(	source &&
+	if(	inflictor &&
 		!(target->flags1 & MF1_DONTTHRUST) &&
 		!(target->flags & MF_NOCLIP) &&
-		!(source->flags1 & MF1_NODAMAGETHRUST) && // TODO: extra steps for hitscan
-		(!origin || !origin->player || origin->player->readyweapon != 7) // chainsaw hack // TODO: replace with weapon.kickback
+		!(inflictor->flags1 & MF1_NODAMAGETHRUST) && // TODO: extra steps for hitscan
+		(!source || !source->player || source->player->readyweapon != 7) // chainsaw hack // TODO: replace with weapon.kickback
 	) {
 		angle_t angle;
 		uint32_t thrust;
 
 		thrust = damage > 10000 ? 10000 : damage;
 
-		angle = R_PointToAngle2(source->x, source->y, target->x, target->y);
+		angle = R_PointToAngle2(inflictor->x, inflictor->y, target->x, target->y);
 		thrust = thrust * (FRACUNIT >> 3) * 100 / target->info->mass;
 
 		if(	!(target->flags1 & MF1_NOFORWARDFALL) &&
-			(!source || !(source->flags1 & MF1_NOFORWARDFALL) ) && // TODO: extra steps for hitscan
+			(!inflictor || !(inflictor->flags1 & MF1_NOFORWARDFALL) ) && // TODO: extra steps for hitscan
 			damage < 40 &&
 			damage > target->health &&
-			target->z - source->z > 64 * FRACUNIT &&
+			target->z - inflictor->z > 64 * FRACUNIT &&
 			P_Random() & 1
 		) {
 			angle += ANG180;
@@ -1257,7 +1257,7 @@ void mobj_damage(mobj_t *target, mobj_t *source, mobj_t *origin, uint32_t damage
 		if(player->health < 0)
 			player->health = 0;
 
-		player->attacker = origin;
+		player->attacker = source;
 
 		player->damagecount += damage;
 		if(player->damagecount > 100)
@@ -1269,7 +1269,7 @@ void mobj_damage(mobj_t *target, mobj_t *source, mobj_t *origin, uint32_t damage
 	target->health -= damage;
 	if(target->health <= 0)
 	{
-		P_KillMobj(origin, target);
+		P_KillMobj(source, target);
 		return;
 	}
 
@@ -1283,10 +1283,10 @@ void mobj_damage(mobj_t *target, mobj_t *source, mobj_t *origin, uint32_t damage
 	target->reactiontime = 0;
 
 	if(	(!target->threshold || target->flags1 & MF1_QUICKTORETALIATE) &&
-		origin && origin != target &&
-		!(origin->flags1 & MF1_NOTARGET)
+		source && source != target &&
+		!(source->flags1 & MF1_NOTARGET)
 	) {
-		target->target = origin;
+		target->target = source;
 		target->threshold = 100;
 		if(target->info->seestate && target->state == states + target->info->spawnstate)
 			mobj_set_state(target, STATE_SET_ANIMATION(ANIM_SEE, 0));

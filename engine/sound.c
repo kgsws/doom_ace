@@ -150,38 +150,46 @@ static sfxinfo_t *sfx_get(uint8_t *name)
 	return sfx_create(alias);
 }
 
-static sfxinfo_t *sfx_get_lc(uint8_t *name, int32_t lump)
+static void sfx_by_lump(uint8_t *name, int32_t lump)
 {
-	sfxinfo_t *ret;
+	sfxinfo_t *sfx;
 	uint64_t alias;
 
 	alias = tp_hash64(name);
 
 	// check for existing
-	ret = sfx_find(alias);
-	if(ret)
-		return ret;
-
-	// try to use empty default sounds
-	if(lump >= 0)
+	sfx = sfx_find(alias);
+	if(!sfx)
 	{
-		for(uint32_t i = 0; i < NUMSFX; i++)
+		// try to use empty default sounds
+		if(lump >= 0)
 		{
-			if(sfxinfo[i].alias)
-				continue;
-
-			if(sfxinfo[i].lumpnum == lump)
+			for(uint32_t i = 0; i < NUMSFX; i++)
 			{
-				// found one; use it
-				sfxinfo[i].alias = alias;
-				sfxinfo[i].priority = SFX_PRIORITY;
-				return sfxinfo + i;
+				if(sfxinfo[i].alias)
+					continue;
+
+				if(sfxinfo[i].lumpnum == lump)
+				{
+					// found one; use it
+					sfxinfo[i].alias = alias;
+					sfxinfo[i].priority = SFX_PRIORITY;
+					return;
+				}
 			}
 		}
+
+		// create a new one
+		sfx = sfx_create(alias);
 	}
 
-	// create a new one
-	return sfx_create(alias);
+	// sanity check
+	if(sfx < sfxinfo + NUMSFX && sfx->lumpnum != lump)
+		I_Error("[SNDINFO] Illegal replacement of '%.8s' by '%.8s' in '%s' detected!", (*lumpinfo)[sfx->lumpnum].name, (*lumpinfo)[lump].name, name);
+
+	// fill info
+	sfx->lumpnum = lump;
+	sfx->rng_count = 0;
 }
 
 //
@@ -246,6 +254,12 @@ static void cb_sndinfo(lumpinfo_t *li)
 
 				// update existing or create new entry
 				sfx = sfx_get(name);
+
+				// sanity check
+				if(sfx < sfxinfo + NUMSFX)
+					I_Error("[SNDINFO] Illegal replacement of '%.8s' by random in '%s' detected!", (*lumpinfo)[sfx->lumpnum].name, name);
+
+				// modify
 				sfx->rng_count = count;
 				for(uint32_t i = 0; i < count; i++)
 					sfx->rng_id[i] = id[i];
@@ -276,9 +290,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 		lump = wad_check_lump(kw);
 
 		// update existing or create new entry
-		sfx = sfx_get_lc(name, lump);
-		sfx->lumpnum = lump;
-		sfx->rng_count = 0;
+		sfx_by_lump(name, lump);
 	}
 
 error_end:

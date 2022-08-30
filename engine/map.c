@@ -103,7 +103,7 @@ static void spawn_map_thing(mapthing_t *mt)
 	mo->spawnpoint = *mt;
 	mo->angle = ANG45 * (mt->angle / 45);
 
-	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
+	if(mo->tics > 0)
 		mo->tics = 1 + (P_Random() % mo->tics);
 
 	if(mt->options & 8)

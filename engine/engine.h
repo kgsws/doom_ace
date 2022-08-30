@@ -521,7 +521,7 @@ extern uint32_t *viewwidth;
 
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));
-#define FixedMul(a,b)	(((uint64_t)(a) * (uint64_t)(b)) >> FRACBITS)
+#define FixedMul(a,b)	(((int64_t)(a) * (int64_t)(b)) >> FRACBITS)
 
 // main.c
 extern uint8_t *ldr_alloc_message;

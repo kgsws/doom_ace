@@ -2,11 +2,20 @@
 ////
 
 #define MAX_SPRITE_NAMES	1024
+#define MAX_PLAYER_CLASSES	512
 
 #define EXTRA_STORAGE_PTR	((void*)0x0002D0A0 + doom_data_segment)
 #define EXTRA_STORAGE_SIZE	12288
 
 #define UNKNOWN_MOBJ_IDX	29 // TODO: 'unknown thing'
+
+enum
+{
+	ETYPE_NONE, // must be first
+	ETYPE_PLAYERPAWN,
+	//
+	NUM_EXTRA_TYPES,
+};
 
 typedef struct
 {
@@ -27,6 +36,9 @@ extern mobjinfo_t *mobjinfo;
 extern uint32_t num_states;
 extern state_t *states;
 
+extern uint32_t num_player_classes;
+extern uint16_t player_class[MAX_PLAYER_CLASSES];
+
 extern uint8_t *parse_actor_name;
 
 extern const dec_anim_t mobj_anim[NUM_MOBJ_ANIMS];
@@ -38,11 +50,4 @@ void init_decorate();
 int32_t mobj_check_type(uint64_t alias);
 
 void *dec_es_alloc(uint32_t size);
-
-void mobj_damage(mobj_t *target, mobj_t *cause, mobj_t *source, uint32_t damage, uint32_t extra);
-
-void explode_missile(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
-uint32_t mobj_set_state(mobj_t *mo, uint32_t state) __attribute((regparm(2),no_caller_saved_registers));
-
-#define mobj_set_animation(mo,anim)	mobj_set_state((mo), STATE_SET_ANIMATION((anim), 0))
 

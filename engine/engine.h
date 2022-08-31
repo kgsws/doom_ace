@@ -273,6 +273,13 @@ typedef struct mobjinfo_s
 	// new states
 	uint16_t healstate;
 	uint16_t crushstate;
+	// type based stuff
+	uint32_t extra_type;
+	struct
+	{
+		fixed_t view_height;
+		fixed_t attack_offs;
+	} player;
 } mobjinfo_t;
 
 typedef struct state_s
@@ -542,6 +549,10 @@ int32_t P_Random() __attribute((regparm(2)));
 
 // st_stuff
 void ST_Init() __attribute((regparm(2)));
+void ST_Start() __attribute((regparm(2)));
+
+// hu_stuff
+void HU_Start() __attribute((regparm(2)));
 
 // p_enemy
 void doom_A_Look(mobj_t*) __attribute((regparm(2)));
@@ -563,6 +574,9 @@ void P_SpawnPlayer(mapthing_t*) __attribute((regparm(2)));
 void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2)));
 void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2)));
 void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2)));
+
+// p_pspr
+void P_SetupPsprites(player_t*) __attribute((regparm(2)));
 
 // p_tick
 void P_AddThinker(thinker_t*) __attribute((regparm(2)));

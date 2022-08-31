@@ -7,8 +7,9 @@
 #include "dehacked.h"
 #include "decorate.h"
 #include "action.h"
-#include "textpars.h"
+#include "mobj.h"
 #include "sound.h"
+#include "textpars.h"
 
 #define MAKE_FLAG(x)	{.name = #x, .bits = x}
 

@@ -42,6 +42,13 @@ typedef struct
 	uint32_t bits;
 } dec_flag_t;
 
+typedef struct
+{
+	const uint8_t *name;
+	const mobjinfo_t *def;
+	const dec_attr_t *attr;
+} dec_inherit_t;
+
 //
 
 uint32_t mobj_netid;
@@ -57,6 +64,9 @@ mobjinfo_t *mobjinfo;
 
 uint32_t num_states = NUMSTATES;
 state_t *states;
+
+uint32_t num_player_classes = 1;
+uint16_t player_class[MAX_PLAYER_CLASSES];
 
 static hook_t hook_states[NUM_STATE_HOOKS];
 
@@ -77,12 +87,27 @@ static uint32_t parse_dropitem();
 // default mobj
 static const mobjinfo_t default_mobj =
 {
-	.doomednum = 0xFFFF,
 	.spawnhealth = 1000,
 	.reactiontime = 8,
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
+	.crushstate = 895,
+};
+
+// default 'PlayerPawn'
+static const mobjinfo_t default_player =
+{
+	.spawnhealth = 100,
+	.radius = 16 << FRACBITS,
+	.height = 56 << FRACBITS,
+	.mass = 100,
+	.painchance = 255,
+	.speed = 1 << FRACBITS,
+	.flags = MF_SOLID | MF_SHOOTABLE | MF_DROPOFF | MF_PICKUP | MF_NOTDMATCH | MF_SLIDE,
+	.flags1 = MF1_TELESTOMP,
+	.player.view_height = 41 << FRACBITS,
+	.player.attack_offs = 8 << FRACBITS,
 	.crushstate = 895,
 };
 
@@ -98,6 +123,7 @@ const dec_anim_t mobj_anim[NUM_MOBJ_ANIMS] =
 	[ANIM_XDEATH] = {"xdeath", offsetof(mobjinfo_t, xdeathstate)},
 	[ANIM_RAISE] = {"raise", offsetof(mobjinfo_t, raisestate)},
 	[ANIM_CRUSH] = {"crush", offsetof(mobjinfo_t, crushstate)},
+	[ANIM_HEAL] = {"heal", offsetof(mobjinfo_t, healstate)},
 };
 
 // mobj attributes
@@ -179,6 +205,34 @@ static const dec_flag_t mobj_flag[] =
 	{"nodamagethrust", MF1_NODAMAGETHRUST},
 	// terminator
 	{NULL}
+};
+
+// player attributes
+static const dec_attr_t player_attr[] =
+{
+	{"player.viewheight", DT_FIXED, offsetof(mobjinfo_t, player.view_height)},
+	{"player.attackzoffset", DT_FIXED, offsetof(mobjinfo_t, player.attack_offs)},
+	//
+	{"player.displayname", DT_SKIP1},
+	{"player.crouchsprite", DT_SKIP1},
+	// terminator
+	{NULL}
+};
+
+// actor inheritance
+const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
+{
+	[ETYPE_NONE] =
+	{
+		.name = NULL,
+		.def = &default_mobj
+	},
+	[ETYPE_PLAYERPAWN] =
+	{
+		.name = "PlayerPawn",
+		.def = &default_player,
+		.attr = player_attr
+	},
 };
 
 // destination of different flags in mobjinfo_t
@@ -706,7 +760,7 @@ error_end:
 
 static void cb_parse_actors(lumpinfo_t *li)
 {
-	int32_t idx;
+	int32_t idx, etp;
 	uint8_t *kw;
 	mobjinfo_t *info;
 	uint64_t alias;
@@ -741,6 +795,31 @@ static void cb_parse_actors(lumpinfo_t *li)
 		kw = tp_get_keyword_lc();
 		if(!kw)
 			goto error_end;
+
+		if(kw[0] == ':')
+		{
+			// inheritance
+
+			// get actor name
+			kw = tp_get_keyword();
+			if(!kw)
+				goto error_end;
+
+			// find this class
+			for(etp = 1; etp < NUM_EXTRA_TYPES; etp++)
+			{
+				if(!strcmp(kw, inheritance[etp].name))
+					break;
+			}
+			if(etp >= NUM_EXTRA_TYPES)
+				I_Error("[DECORATE] Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
+
+			// next keyword
+			kw = tp_get_keyword();
+			if(!kw)
+				goto error_end;
+		} else
+			etp = ETYPE_NONE;
 
 		if(!strcmp(kw, "replaces"))
 		{
@@ -780,9 +859,10 @@ static void cb_parse_actors(lumpinfo_t *li)
 			I_Error("[DECORATE] Expected '{', got '%s'!", kw);
 
 		// initialize mobj
-		memcpy(info, &default_mobj, sizeof(mobjinfo_t));
+		memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
 		info->doomednum = idx;
 		info->actor_name = alias;
+		info->extra_type = etp;
 
 		// reset stuff
 		dropitems = NULL;
@@ -846,6 +926,18 @@ static void cb_parse_actors(lumpinfo_t *li)
 					attr++;
 				}
 
+				if(!attr->name && inheritance[etp].attr)
+				{
+					// find attribute
+					attr = inheritance[etp].attr;
+					while(attr->name)
+					{
+						if(!strcmp(attr->name, kw))
+							break;
+						attr++;
+					}
+				}
+
 				if(!attr->name)
 					I_Error("[DECORATE] Unknown attribute '%s' in '%s'!", kw, parse_actor_name);
 
@@ -884,6 +976,53 @@ error_end:
 	I_Error("[DECORATE] Incomplete definition!");
 error_numeric:
 	I_Error("[DECORATE] Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+}
+
+//
+// KEYCONF
+
+static void parse_keyconf()
+{
+	int32_t lump;
+	uint8_t *kw;
+
+	lump = wad_check_lump("KEYCONF");
+	if(lump < 0)
+		return;
+
+	doom_printf("[ACE] load KEYCONF\n");
+
+	tp_load_lump(*lumpinfo + lump);
+
+	while(1)
+	{
+		kw = tp_get_keyword_lc();
+		if(!kw)
+			break;
+
+		if(!strcmp("clearplayerclasses", kw))
+		{
+			num_player_classes = 0;
+		} else
+		if(!strcmp("addplayerclass", kw))
+		{
+			if(num_player_classes >= MAX_PLAYER_CLASSES)
+				I_Error("[KEYCONF] Too many player classes!");
+
+			kw = tp_get_keyword();
+			if(!kw)
+				I_Error("[KEYCONF] Incomplete definition!");
+
+			lump = mobj_check_type(tp_hash64(kw));
+			if(lump < 0 || mobjinfo[lump].extra_type != ETYPE_PLAYERPAWN)
+				I_Error("[KEYCONF] Invalid player class '%s'!", kw);
+
+			player_class[num_player_classes] = lump;
+
+			num_player_classes++;
+		} else
+			I_Error("[KEYCONF] Unknown keyword '%s'.", kw);
+	}
 }
 
 //
@@ -941,6 +1080,8 @@ void init_decorate()
 
 	// player stuff
 	mobjinfo[0].flags1 |= MF1_TELESTOMP;
+	mobjinfo[0].player.view_height = 41 * FRACUNIT;
+	mobjinfo[0].player.attack_offs = 8 * FRACUNIT;
 
 	// lost souls are enemy too
 	mobjinfo[18].flags1 |= MF1_ISMONSTER;
@@ -1011,6 +1152,14 @@ void init_decorate()
 
 	// done
 	*numsprites = num_spr_names;
+
+	//
+	// KEYCONF
+
+	parse_keyconf();
+
+	if(!num_player_classes)
+		I_Error("No player classes defined!");
 }
 
 //

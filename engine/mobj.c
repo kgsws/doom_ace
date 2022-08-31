@@ -5,11 +5,132 @@
 #include "engine.h"
 #include "utils.h"
 #include "wadfile.h"
+#include "dehacked.h"
 #include "decorate.h"
+#include "mobj.h"
 #include "map.h"
+
+uint32_t *playeringame;
+player_t *players;
+
+uint32_t *consoleplayer;
+uint32_t *displayplayer;
+
+static const uint32_t view_height_ptr[] =
+{
+	0x00031227, // P_ZMovement
+	0x00033088, // P_CalcHeight
+	0x000330EE, // P_CalcHeight
+	0x000330F7, // P_CalcHeight
+	0, // separator (half height)
+	0x00033101, // P_CalcHeight
+	0x0003310D, // P_CalcHeight
+};
+
+//
+// funcs
+
+static void set_viewheight(fixed_t wh)
+{
+	// TODO: do this in 'coop spy' too
+	for(uint32_t i = 0; i < sizeof(view_height_ptr) / sizeof(uint32_t); i++)
+	{
+		if(!view_height_ptr[i])
+		{
+			wh /= 2;
+			continue;
+		}
+
+		*((fixed_t*)(view_height_ptr[i] + doom_code_segment)) = wh;
+	}
+}
 
 //
 // hooks
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void player_reborn(uint32_t idx)
+{
+	uint32_t killcount;
+	uint32_t itemcount;
+	uint32_t secretcount;
+	player_t *pl = players + idx;
+
+	killcount = pl->killcount;
+	itemcount = pl->itemcount;
+	secretcount = pl->secretcount;
+
+	memset(pl, 0, sizeof(player_t));
+
+	pl->killcount = killcount;
+	pl->itemcount = itemcount;
+	pl->secretcount = secretcount;
+
+	pl->usedown = 1;
+	pl->attackdown = 1;
+	pl->playerstate = PST_LIVE;
+	pl->health = deh_plr_health;
+
+	pl->readyweapon = 1;
+	pl->pendingweapon = 1;
+
+	pl->weaponowned[0] = 1;
+	pl->weaponowned[1] = 1;
+	pl->ammo[0] = deh_plr_bullets;
+
+	for(uint32_t i = 0; i < 4; i++)
+		pl->maxammo[i] = *((uint32_t*)(0x00012D70 + doom_data_segment) + i);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void spawn_player(mapthing_t *mt)
+{
+	player_t *pl;
+	int32_t idx = mt->type - 1;
+	mobj_t *mo;
+	mobjinfo_t *pc;
+
+	if(!playeringame[idx])
+		return;
+
+	pl = players + idx;
+	pc = mobjinfo + player_class[0];
+
+	if(pl->playerstate == PST_REBORN)
+		player_reborn(idx);
+
+	mo = P_SpawnMobj((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS, 0x80000000, player_class[0]);
+
+	// TODO: translation not in flags
+	mo->flags |= idx << 26;
+
+	mo->angle = ANG45 * (mt->angle / 45);
+	mo->player = pl;
+	mo->health = pl->health;
+
+	pl->mo = mo;
+	pl->playerstate = PST_LIVE;
+	pl->refire = 0;
+	pl->message = NULL;
+	pl->damagecount = 0;
+	pl->bonuscount = 0;
+	pl->extralight = 0;
+	pl->fixedcolormap = 0;
+	pl->viewheight = pc->player.view_height;
+
+	P_SetupPsprites(pl);
+
+	// TODO: better key handling (inventory?)
+	if(*deathmatch)
+		memset(pl->cards, 0xFF, NUMCARDS * sizeof(uint32_t));
+
+	if(idx == *consoleplayer)
+	{
+		ST_Start();
+		HU_Start();
+		set_viewheight(pl->viewheight);
+	}
+}
 
 static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
@@ -61,12 +182,36 @@ uint32_t finish_mobj(mobj_t *mo)
 static __attribute((regparm(2),no_caller_saved_registers))
 void touch_mobj(mobj_t *mo, mobj_t *toucher)
 {
+	if(!toucher->player)
+		return;
+
 	// old items; workaround for 'sprite' changes in 'mobj_t'
 	uint16_t temp = mo->frame;
 	mo->frame = 0;
 	P_TouchSpecialThing(mo, toucher);
 	mo->frame = temp;
 }
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void kill_animation(mobj_t *mo)
+{
+	// custom death animations can be added
+
+	if(mo->info->xdeathstate && mo->health < -mo->info->spawnhealth)
+		set_mobj_animation(mo, ANIM_XDEATH);
+	else
+		set_mobj_animation(mo, ANIM_DEATH);
+
+	if(mo->tics > 0)
+	{
+		mo->tics -= P_Random() & 3;
+		if(mo->tics <= 0)
+			mo->tics = 1;
+	}
+}
+
+//
+// API
 
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
@@ -113,24 +258,6 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 	} while(!mo->tics);
 
 	return 1;
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
-static void kill_animation(mobj_t *mo)
-{
-	// custom death animations can be added
-
-	if(mo->info->xdeathstate && mo->health < -mo->info->spawnhealth)
-		set_mobj_animation(mo, ANIM_XDEATH);
-	else
-		set_mobj_animation(mo, ANIM_DEATH);
-
-	if(mo->tics > 0)
-	{
-		mo->tics -= P_Random() & 3;
-		if(mo->tics <= 0)
-			mo->tics = 1;
-	}
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -264,7 +391,8 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 	target->reactiontime = 0;
 
-	if(	(!target->threshold || target->flags1 & MF1_QUICKTORETALIATE) &&
+	if(	!deh_no_infight &&
+		(!target->threshold || target->flags1 & MF1_QUICKTORETALIATE) &&
 		source && source != target &&
 		!(source->flags1 & MF1_NOTARGET)
 	) {
@@ -280,6 +408,13 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// import variables
+	{0x0002B3D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&displayplayer},
+	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
+	{0x0002B2D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playeringame},
+	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
+	// replace 'P_SpawnPlayer'
+	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},
 	// replace call to 'memset' in 'P_SpawnMobj'
 	{0x00031569, CODE_HOOK | HOOK_UINT16, 0xEA89},
 	{0x00031571, CODE_HOOK | HOOK_UINT32, 0x90C38900},
@@ -310,6 +445,11 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
 	// fix 'P_SpawnMobj'; disable old 'frame'
 	{0x000315F9, CODE_HOOK | HOOK_SET_NOPS, 3},
+	// fix player check in 'PIT_CheckThing'
+	{0x0002AFC5, CODE_HOOK | HOOK_UINT16, 0xBB83},
+	{0x0002AFC7, CODE_HOOK | HOOK_UINT32, offsetof(mobj_t, player)},
+	{0x0002AFCB, CODE_HOOK | HOOK_UINT32, 0x427400},
+	{0x0002AFCE, CODE_HOOK | HOOK_SET_NOPS, 6},
 	// replace 'P_SetMobjState' with new animation system
 	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SEE << 8)}, // A_Look
 	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Look

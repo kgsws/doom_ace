@@ -249,6 +249,24 @@ R_DrawMaskedColumn:
 ST_Init:
 	.byte	0xE9
 	.4byte	0x0003AFA0
+////////////////////////////////// ST_Start
+.section .text.ST_Start
+.global ST_Start
+ST_Start:
+	.byte	0xE9
+	.4byte	0x0003AF20
+////////////////////////////////// HU_Start
+.section .text.HU_Start
+.global HU_Start
+HU_Start:
+	.byte	0xE9
+	.4byte	0x0003B530
+////////////////////////////////// P_SetupPsprites
+.section .text.P_SetupPsprites
+.global P_SetupPsprites
+P_SetupPsprites:
+	.byte	0xE9
+	.4byte	0x0002DC30
 ////////////////////////////////// R_RenderPlayerView
 .section .text.R_RenderPlayerView
 .global R_RenderPlayerView

@@ -34,6 +34,10 @@ deh_mobjinfo_t *deh_mobjinfo;
 deh_state_t *deh_states;
 weaponinfo_t *deh_weaponinfo;
 
+uint_fast8_t deh_no_infight;
+uint_fast8_t deh_plr_health = 100;
+uint_fast8_t deh_plr_bullets = 50;
+
 // section info
 static void parser_thing(uint8_t*);
 static void parser_frame(uint8_t*);
@@ -133,8 +137,8 @@ static const deh_value_t deh_value_ammo[] =
 // section 'misc' values
 static const deh_value_t deh_value_misc[] =
 {
-	{"Initial Health", 0x000209A4, handle_u32},
-	{"Initial Bullets", 0x000209C0, handle_u32},
+	{"Initial Health", (uint32_t)&deh_plr_health, handle_u32},
+	{"Initial Bullets", (uint32_t)&deh_plr_bullets, handle_u32},
 	{"Max Health", 0x00029BA6, handle_give_limit},
 	{"Max Armor", 0x00029BD3, handle_give_limit},
 //	{"Green Armor Class", },
@@ -289,15 +293,8 @@ static void handle_species(uint8_t *text, void *target)
 	if(doom_sscanf(text, "%i", &tmp) != 1) // allow DEC HEX and OCT
 		return;
 
-	if(tmp == 202)
-		tmp = 0x74;
-	else
 	if(tmp == 221)
-		tmp = 0xEB;
-	else
-		return;
-
-	*((uint8_t*)(doom_code_segment + 0x0002AFC9)) = tmp;
+		*((uint16_t*)(doom_code_segment + 0x0002AFC5)) = 0x0DEB;
 }
 
 static void handle_infight(uint8_t *text, void *target)
@@ -307,12 +304,7 @@ static void handle_infight(uint8_t *text, void *target)
 	if(doom_sscanf(text, "%i", &tmp) != 1) // allow DEC HEX and OCT
 		return;
 
-	if(tmp)
-		tmp = 0x7500;
-	else
-		tmp = 0x7403;
-
-	*((uint16_t*)(doom_code_segment + 0x0002A705)) = tmp;
+	deh_no_infight = !!tmp;
 }
 
 //

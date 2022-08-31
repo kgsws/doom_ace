@@ -8,6 +8,14 @@
 
 #define UNKNOWN_MOBJ_IDX	29 // TODO: 'unknown thing'
 
+typedef struct
+{
+	const uint8_t *name;
+	uint32_t offset;
+} dec_anim_t;
+
+//
+
 extern uint32_t mobj_netid;
 
 extern uint32_t num_spr_names;
@@ -20,6 +28,8 @@ extern uint32_t num_states;
 extern state_t *states;
 
 extern uint8_t *parse_actor_name;
+
+extern const dec_anim_t mobj_anim[NUM_MOBJ_ANIMS];
 
 //
 

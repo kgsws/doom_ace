@@ -271,7 +271,8 @@ typedef struct mobjinfo_s
 	void *dropitem_end;
 	uint32_t flags1;
 	// new states
-	uint32_t crushstate;
+	uint16_t healstate;
+	uint16_t crushstate;
 } mobjinfo_t;
 
 typedef struct state_s

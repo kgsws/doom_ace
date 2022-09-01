@@ -27,6 +27,21 @@ static const uint32_t view_height_ptr[] =
 	0x0003310D, // P_CalcHeight
 };
 
+// this only exists because original animations are all over the plase in 'mobjinfo_t'
+static const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
+{
+	[ANIM_SPAWN] = offsetof(mobjinfo_t, state_spawn),
+	[ANIM_SEE] = offsetof(mobjinfo_t, state_see),
+	[ANIM_PAIN] = offsetof(mobjinfo_t, state_pain),
+	[ANIM_MELEE] = offsetof(mobjinfo_t, state_melee),
+	[ANIM_MISSILE] = offsetof(mobjinfo_t, state_missile),
+	[ANIM_DEATH] = offsetof(mobjinfo_t, state_death),
+	[ANIM_XDEATH] = offsetof(mobjinfo_t, state_xdeath),
+	[ANIM_RAISE] = offsetof(mobjinfo_t, state_raise),
+	[ANIM_CRUSH] = offsetof(mobjinfo_t, state_crush),
+	[ANIM_HEAL] = offsetof(mobjinfo_t, state_heal),
+};
+
 //
 // funcs
 
@@ -88,13 +103,13 @@ void spawn_player(mapthing_t *mt)
 	player_t *pl;
 	int32_t idx = mt->type - 1;
 	mobj_t *mo;
-	mobjinfo_t *pc;
+	mobjinfo_t *info;
 
 	if(!playeringame[idx])
 		return;
 
 	pl = players + idx;
-	pc = mobjinfo + player_class[0];
+	info = mobjinfo + player_class[0];
 
 	if(pl->playerstate == PST_REBORN)
 		player_reborn(idx);
@@ -116,7 +131,7 @@ void spawn_player(mapthing_t *mt)
 	pl->bonuscount = 0;
 	pl->extralight = 0;
 	pl->fixedcolormap = 0;
-	pl->viewheight = pc->player.view_height;
+	pl->viewheight = info->player.view_height;
 
 	P_SetupPsprites(pl);
 
@@ -197,7 +212,7 @@ static void kill_animation(mobj_t *mo)
 {
 	// custom death animations can be added
 
-	if(mo->info->xdeathstate && mo->health < -mo->info->spawnhealth)
+	if(mo->info->state_xdeath && mo->health < -mo->info->spawnhealth)
 		set_mobj_animation(mo, ANIM_XDEATH);
 	else
 		set_mobj_animation(mo, ANIM_DEATH);
@@ -223,20 +238,21 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 		if(state & 0x80000000)
 		{
 			// change animation
-			const dec_anim_t *anim;
 			uint16_t offset;
 
 			offset = state & 0xFFFF;
 			mo->animation = (state >> 16) & 0xFF;
 
-			anim = mobj_anim + mo->animation;
+			if(mo->animation < NUM_MOBJ_ANIMS)
+				state = *((uint16_t*)((void*)mo->info + base_anim_offs[mo->animation]));
+			else
+				state = mo->info->extra_states[mo->animation - NUM_MOBJ_ANIMS];
 
-			state = *((uint16_t*)((void*)mo->info + anim->offset));
 			if(state)
 				state += offset;
 
 			if(state >= mo->info->state_idx_limit)
-				I_Error("[MOBJ] State set '%s + %u' is invalid!", anim->name, offset);
+				I_Error("[MOBJ] State jump '+%u' is invalid!", offset);
 		}
 
 		if(!state)
@@ -398,7 +414,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	) {
 		target->target = source;
 		target->threshold = 100;
-		if(target->info->seestate && target->state == states + target->info->spawnstate)
+		if(target->info->state_see && target->state == states + target->info->state_spawn)
 			mobj_set_state(target, STATE_SET_ANIMATION(ANIM_SEE, 0));
 	}
 }

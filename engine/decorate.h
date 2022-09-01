@@ -9,19 +9,16 @@
 
 #define UNKNOWN_MOBJ_IDX	29 // TODO: 'unknown thing'
 
+//
+
 enum
 {
 	ETYPE_NONE, // must be first
 	ETYPE_PLAYERPAWN,
+	ETYPE_WEAPON,
 	//
 	NUM_EXTRA_TYPES,
 };
-
-typedef struct
-{
-	const uint8_t *name;
-	uint32_t offset;
-} dec_anim_t;
 
 //
 
@@ -40,8 +37,6 @@ extern uint32_t num_player_classes;
 extern uint16_t player_class[MAX_PLAYER_CLASSES];
 
 extern uint8_t *parse_actor_name;
-
-extern const dec_anim_t mobj_anim[NUM_MOBJ_ANIMS];
 
 //
 

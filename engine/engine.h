@@ -21,6 +21,12 @@ typedef int32_t fixed_t;
 typedef uint32_t angle_t;
 
 //
+// ACE Engine stuff
+
+// do not change
+#define NUM_WPN_SLOTS	10
+
+//
 // tables
 
 #define ANGLETOFINESHIFT	19
@@ -231,26 +237,42 @@ typedef struct
 //
 // info
 
+typedef struct
+{
+	uint16_t *wpn_slot[NUM_WPN_SLOTS];
+	fixed_t view_height;
+	fixed_t attack_offs;
+} ei_player_t;
+
+typedef struct
+{
+	uint16_t selection_order;
+	uint16_t kickback;
+	uint16_t ammo_use[2];
+	uint16_t ammo_give[2];
+	uint16_t ammo_type[2];
+} ei_weapon_t;
+
 typedef struct mobjinfo_s
 { // this structure has been changed
 	uint16_t doomednum;
 	uint16_t spawnid;
-	uint32_t spawnstate;
+	uint32_t state_spawn;
 	int32_t spawnhealth;
-	uint32_t seestate;
+	uint32_t state_see;
 	uint16_t seesound;
 	uint16_t __free_18;
 	int32_t reactiontime;
 	uint16_t attacksound;
 	uint16_t __free_24;
-	uint32_t painstate;
+	uint32_t state_pain;
 	int32_t painchance;
 	uint16_t painsound;
 	uint16_t __free_34;
-	uint32_t meleestate;
-	uint32_t missilestate;
-	uint32_t deathstate;
-	uint32_t xdeathstate;
+	uint32_t state_melee;
+	uint32_t state_missile;
+	uint32_t state_death;
+	uint32_t state_xdeath;
 	uint16_t deathsound;
 	uint16_t __free_4C;
 	int32_t speed;
@@ -261,7 +283,7 @@ typedef struct mobjinfo_s
 	uint16_t activesound;
 	uint16_t __free_68;
 	uint32_t flags;
-	uint32_t raisestate;
+	uint32_t state_raise;
 	// new stuff
 	uint64_t actor_name;
 	uint32_t state_idx_first;
@@ -270,16 +292,35 @@ typedef struct mobjinfo_s
 	void *dropitems;
 	void *dropitem_end;
 	uint32_t flags1;
+	uint32_t eflags;
 	// new states
-	uint16_t healstate;
-	uint16_t crushstate;
+	uint16_t state_heal;
+	uint16_t state_crush;
+	// shared states
+	union
+	{
+		uint16_t extra_states[4];
+		struct
+		{
+			uint16_t state_ready;
+			uint16_t state_lower;
+			uint16_t state_raise;
+			uint16_t state_deadlow;
+			uint16_t state_fire;
+			uint16_t state_fire_alt;
+			uint16_t state_hold;
+			uint16_t state_hold_alt;
+			uint16_t state_flash;
+			uint16_t state_flash_alt;
+		} st_weapon;
+	};
 	// type based stuff
 	uint32_t extra_type;
-	struct
+	union
 	{
-		fixed_t view_height;
-		fixed_t attack_offs;
-	} player;
+		ei_player_t player;
+		ei_weapon_t weapon;
+	};
 } mobjinfo_t;
 
 typedef struct state_s

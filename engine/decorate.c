@@ -16,6 +16,8 @@
 
 #define NUM_STATE_HOOKS	6
 
+#define NUM_NEW_TYPES	2
+
 enum
 {
 	DT_U16,
@@ -25,7 +27,9 @@ enum
 	DT_SKIP1,
 	DT_MONSTER,
 	DT_PROJECTILE,
+	DT_MOBJTYPE,
 	DT_DROPITEM,
+	DT_PP_WPN_SLOT,
 	DT_STATES,
 };
 
@@ -45,8 +49,17 @@ typedef struct
 typedef struct
 {
 	const uint8_t *name;
+	uint8_t idx;
+	uint8_t type;
+	uint16_t offset;
+} dec_anim_t;
+
+typedef struct
+{
+	const uint8_t *name;
 	const mobjinfo_t *def;
 	const dec_attr_t *attr;
+	const dec_flag_t *flag[2];
 } dec_inherit_t;
 
 //
@@ -59,7 +72,7 @@ uint32_t sprite_table[MAX_SPRITE_NAMES];
 static uint32_t **spr_names;
 static uint32_t *numsprites;
 
-uint32_t num_mobj_types = NUMMOBJTYPES;
+uint32_t num_mobj_types = NUMMOBJTYPES + NUM_NEW_TYPES;
 mobjinfo_t *mobjinfo;
 
 uint32_t num_states = NUMSTATES;
@@ -74,7 +87,7 @@ static void *es_ptr;
 
 uint8_t *parse_actor_name;
 
-static void *parse_mobj_ptr;
+static mobjinfo_t *parse_mobj_info;
 static uint32_t *parse_next_state;
 static uint32_t parse_last_anim;
 
@@ -83,6 +96,14 @@ static args_dropitem_t *dropitem_next;
 
 static uint32_t parse_states();
 static uint32_t parse_dropitem();
+static uint32_t parse_wpn_slot();
+
+// 'DoomPlayer' stuff
+static const ei_player_t ei_player =
+{
+	.view_height = 41 * FRACUNIT,
+	.attack_offs = 8 * FRACUNIT,
+};
 
 // default mobj
 static const mobjinfo_t default_mobj =
@@ -92,7 +113,7 @@ static const mobjinfo_t default_mobj =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
-	.crushstate = 895,
+	.state_crush = 895,
 };
 
 // default 'PlayerPawn'
@@ -108,26 +129,52 @@ static const mobjinfo_t default_player =
 	.flags1 = MF1_TELESTOMP,
 	.player.view_height = 41 << FRACBITS,
 	.player.attack_offs = 8 << FRACBITS,
-	.crushstate = 895,
+	.state_crush = 895,
+	.extra_type = ETYPE_PLAYERPAWN,
+};
+
+// default 'DoomWeapon'
+static const mobjinfo_t default_weapon =
+{
+	.spawnhealth = 1000,
+	.reactiontime = 8,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.state_crush = 895,
+	.extra_type = ETYPE_WEAPON,
 };
 
 // mobj animations
-const dec_anim_t mobj_anim[NUM_MOBJ_ANIMS] =
+static const dec_anim_t mobj_anim[] =
 {
-	[ANIM_SPAWN] = {"spawn", offsetof(mobjinfo_t, spawnstate)},
-	[ANIM_SEE] = {"see", offsetof(mobjinfo_t, seestate)},
-	[ANIM_PAIN] = {"pain", offsetof(mobjinfo_t, painstate)},
-	[ANIM_MELEE] = {"melee", offsetof(mobjinfo_t, meleestate)},
-	[ANIM_MISSILE] = {"missile", offsetof(mobjinfo_t, missilestate)},
-	[ANIM_DEATH] = {"death", offsetof(mobjinfo_t, deathstate)},
-	[ANIM_XDEATH] = {"xdeath", offsetof(mobjinfo_t, xdeathstate)},
-	[ANIM_RAISE] = {"raise", offsetof(mobjinfo_t, raisestate)},
-	[ANIM_CRUSH] = {"crush", offsetof(mobjinfo_t, crushstate)},
-	[ANIM_HEAL] = {"heal", offsetof(mobjinfo_t, healstate)},
+	{"spawn", ANIM_SPAWN, ETYPE_NONE, offsetof(mobjinfo_t, state_spawn)},
+	{"see", ANIM_SEE, ETYPE_NONE, offsetof(mobjinfo_t, state_see)},
+	{"pain", ANIM_PAIN, ETYPE_NONE, offsetof(mobjinfo_t, state_pain)},
+	{"melee", ANIM_MELEE, ETYPE_NONE, offsetof(mobjinfo_t, state_melee)},
+	{"missile", ANIM_MISSILE, ETYPE_NONE, offsetof(mobjinfo_t, state_missile)},
+	{"death", ANIM_DEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_death)},
+	{"xdeath", ANIM_XDEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_xdeath)},
+	{"raise", ANIM_RAISE, ETYPE_NONE, offsetof(mobjinfo_t, state_raise)},
+	{"crush", ANIM_CRUSH, ETYPE_NONE, offsetof(mobjinfo_t, state_crush)},
+	{"heal", ANIM_HEAL, ETYPE_NONE, offsetof(mobjinfo_t, state_heal)},
+	// weapon
+	{"ready", ANIM_W_READY, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_ready)},
+	{"deselect", ANIM_W_LOWER, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_lower)},
+	{"select", ANIM_W_RAISE, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_raise)},
+	{"deadlowered", ANIM_W_DEADLOW, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_deadlow)},
+	{"fire", ANIM_W_FIRE, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_fire)},
+	{"altfire", ANIM_W_FIRE_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_fire_alt)},
+	{"hold", ANIM_W_HOLD, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_hold)},
+	{"althold", ANIM_W_HOLD_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_hold_alt)},
+	{"flash", ANIM_W_FLASH, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_flash)},
+	{"altflash", ANIM_W_FLASH_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_flash_alt)},
+	// terminator
+	{NULL}
 };
 
 // mobj attributes
-static const dec_attr_t mobj_attr[] =
+static const dec_attr_t attr_mobj[] =
 {
 	{"spawnid", DT_U16, offsetof(mobjinfo_t, spawnid)},
 	//
@@ -160,12 +207,12 @@ static const dec_attr_t mobj_attr[] =
 };
 
 // mobj flags
-static const dec_flag_t mobj_flag[] =
+static const dec_flag_t mobj_flags0[] =
 {
 	// ignored flags
 	{"floorclip", 0},
 	{"noskin", 0},
-	// flags 0
+	// used flags
 	{"special", MF_SPECIAL},
 	{"solid", MF_SOLID},
 	{"shootable", MF_SHOOTABLE},
@@ -191,8 +238,11 @@ static const dec_flag_t mobj_flag[] =
 	{"countitem", MF_COUNTITEM},
 	{"skullfly", MF_SKULLFLY},
 	{"notdmatch", MF_NOTDMATCH},
-	// flags 1
-	{"", 0}, // this is a separator
+	// terminator
+	{NULL}
+};
+static const dec_flag_t mobj_flags1[] =
+{
 	{"ismonster", MF1_ISMONSTER},
 	{"noteleport", MF1_NOTELEPORT},
 	{"randomize", MF1_RANDOMIZE},
@@ -206,15 +256,54 @@ static const dec_flag_t mobj_flag[] =
 	// terminator
 	{NULL}
 };
+static const dec_flag_t inventory_flags[] =
+{
+	{"inventory.quiet", MFE_INVENTORY_QUIET},
+	// terminator
+	{NULL}
+};
+static const dec_flag_t weapon_flags[] =
+{
+	{"weapon.noautofire", MFE_WEAPON_NOAUTOFIRE},
+	{"weapon.noalert", MFE_WEAPON_NOALERT},
+	{"weapon.ammo_optional", MFE_WEAPON_AMMO_OPTIONAL},
+	{"weapon.alt_ammo_optional", MFE_WEAPON_ALT_AMMO_OPTIONAL},
+	{"weapon.ammo_checkboth", MFE_WEAPON_AMMO_CHECKBOTH},
+	{"weapon.primary_uses_both", MFE_WEAPON_PRIMARY_USES_BOTH},
+	{"weapon.alt_uses_both", MFE_WEAPON_ALT_USES_BOTH},
+	{"weapon.noautoaim", MFE_WEAPON_NOAUTOAIM},
+	// terminator
+	{NULL}
+};
 
-// player attributes
-static const dec_attr_t player_attr[] =
+// 'PlayerPawn' attributes
+static const dec_attr_t attr_player[] =
 {
 	{"player.viewheight", DT_FIXED, offsetof(mobjinfo_t, player.view_height)},
 	{"player.attackzoffset", DT_FIXED, offsetof(mobjinfo_t, player.attack_offs)},
 	//
+	{"player.weaponslot", DT_PP_WPN_SLOT},
+	//
 	{"player.displayname", DT_SKIP1},
 	{"player.crouchsprite", DT_SKIP1},
+	// terminator
+	{NULL}
+};
+
+// 'DoomWeapon' attributes
+static const dec_attr_t attr_weapon[] =
+{
+	{"weapon.selectionorder", DT_U16, offsetof(mobjinfo_t, weapon.selection_order)},
+	{"weapon.kickback", DT_U16, offsetof(mobjinfo_t, weapon.kickback)},
+	{"weapon.ammouse", DT_U16, offsetof(mobjinfo_t, weapon.ammo_use[0])},
+	{"weapon.ammouse1", DT_U16, offsetof(mobjinfo_t, weapon.ammo_use[0])},
+	{"weapon.ammouse2", DT_U16, offsetof(mobjinfo_t, weapon.ammo_use[1])},
+	{"weapon.ammogive", DT_U16, offsetof(mobjinfo_t, weapon.ammo_give[0])},
+	{"weapon.ammogive1", DT_U16, offsetof(mobjinfo_t, weapon.ammo_give[0])},
+	{"weapon.ammogive2", DT_U16, offsetof(mobjinfo_t, weapon.ammo_give[1])},
+	{"weapon.ammotype", DT_MOBJTYPE, offsetof(mobjinfo_t, weapon.ammo_type[0])},
+	{"weapon.ammotype1", DT_MOBJTYPE, offsetof(mobjinfo_t, weapon.ammo_type[0])},
+	{"weapon.ammotype2", DT_MOBJTYPE, offsetof(mobjinfo_t, weapon.ammo_type[1])},
 	// terminator
 	{NULL}
 };
@@ -231,15 +320,43 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 	{
 		.name = "PlayerPawn",
 		.def = &default_player,
-		.attr = player_attr
+		.attr = attr_player
+	},
+	[ETYPE_WEAPON] =
+	{
+		.name = "DoomWeapon",
+		.def = &default_weapon,
+		.attr = attr_weapon,
+		.flag[0] = inventory_flags,
+		.flag[1] = weapon_flags,
 	},
 };
 
-// destination of different flags in mobjinfo_t
-static const uint32_t flag_dest[] =
+// internal types
+static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 {
-	offsetof(mobjinfo_t, flags),
-	offsetof(mobjinfo_t, flags1),
+	{
+		// Fist
+		.actor_name = 0x0000000000D33A46,
+		.spawnhealth = 1000,
+		.reactiontime = 8,
+		.radius = 20 << FRACBITS,
+		.height = 16 << FRACBITS,
+		.mass = 100,
+		.state_crush = 895,
+		.extra_type = ETYPE_WEAPON,
+	},
+	{
+		// Pistol
+		.actor_name = 0x0000000B2FD33A50,
+		.spawnhealth = 1000,
+		.reactiontime = 8,
+		.radius = 20 << FRACBITS,
+		.height = 16 << FRACBITS,
+		.mass = 100,
+		.state_crush = 895,
+		.extra_type = ETYPE_WEAPON,
+	}
 };
 
 //
@@ -329,8 +446,20 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			((mobjinfo_t*)dest)->flags |= MF_NOBLOCKMAP | MF_NOGRAVITY | MF_DROPOFF | MF_MISSILE;
 			((mobjinfo_t*)dest)->flags1 |= MF1_NOTELEPORT;
 		break;
+		case DT_MOBJTYPE:
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			num.s32 = mobj_check_type(tp_hash64(kw));
+			if(num.s32 < 0)
+				I_Error("[DECORATE] Unable to find ammo type '%s' in '%s'!", kw, parse_actor_name);
+			*((uint16_t*)dest) = num.s32;
+		break;
 		case DT_DROPITEM:
 			return parse_dropitem();
+		break;
+		case DT_PP_WPN_SLOT:
+			return parse_wpn_slot();
 		break;
 		case DT_STATES:
 			num.u32 = parse_states();
@@ -480,6 +609,66 @@ finished:
 }
 
 //
+// weapon slot parser
+
+static uint32_t parse_wpn_slot()
+{
+	uint8_t *kw;
+	uint32_t slot, count;
+	uint16_t *type;
+
+	// get slot number
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+	if(doom_sscanf(kw, "%u", &slot) != 1 || slot >= NUM_WPN_SLOTS)
+		return 1;
+
+	// get list of weapons
+	count = 0;
+	while(1)
+	{
+		int32_t tmp;
+
+		// get separator
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+		if(kw[0] != ',')
+			break;
+
+		// get actor name
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+
+		tmp = mobj_check_type(tp_hash64(kw));
+		if(tmp < 0)
+			I_Error("[DECORATE] Unable to find '%s' in '%s' weapon slot %u!", kw, parse_actor_name, slot);
+
+		type = dec_es_alloc(sizeof(uint16_t));
+		*type = tmp;
+
+		if(!count)
+			parse_mobj_info->player.wpn_slot[slot] = type;
+
+		count++;
+	}
+
+	// allocate terminator
+	type = dec_es_alloc(sizeof(uint16_t));
+	*type = 0;
+
+	// add padding (for 32bit alignment)
+	if(!(count & 1))
+		dec_es_alloc(sizeof(uint16_t));
+
+	// this keyword has to be parsed again
+	tp_push_keyword(kw);
+	return 0;
+}
+
+//
 // state parser
 
 static uint32_t parse_states()
@@ -545,6 +734,7 @@ have_keyword:
 		if(!strcmp(kw, "goto"))
 		{
 			uint32_t i;
+			const dec_anim_t *anim;
 
 			if(!parse_next_state)
 				goto error_no_states;
@@ -558,12 +748,16 @@ have_keyword:
 				return 1;
 
 			// find animation
-			for(i = 0; i < NUM_MOBJ_ANIMS; i++)
+			anim = mobj_anim;
+			while(anim->name)
 			{
-				if(!strcmp(kw, mobj_anim[i].name))
+				if(	(anim->type == ETYPE_NONE || parse_mobj_info->extra_type == anim->type) &&
+					!strcmp(kw, anim->name)
+				)
 					break;
+				anim++;
 			}
-			if(i >= NUM_MOBJ_ANIMS)
+			if(!anim->name)
 				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
 
 			// check for '+'
@@ -588,7 +782,7 @@ have_keyword:
 				tics = 0;
 
 			// use animation 'system'
-			*parse_next_state = STATE_SET_ANIMATION(i, tics);
+			*parse_next_state = STATE_SET_ANIMATION(anim->idx, tics);
 
 			// disable math
 			tp_enable_math = 0;
@@ -608,18 +802,22 @@ have_keyword:
 		if(wk[0] == ':')
 		{
 			// it's a new state
-			uint32_t i;
+			const dec_anim_t *anim;
 
-			for(i = 0; i < NUM_MOBJ_ANIMS; i++)
+			anim = mobj_anim;
+			while(anim->name)
 			{
-				if(!strcmp(kw, mobj_anim[i].name))
+				if(	(anim->type == ETYPE_NONE || parse_mobj_info->extra_type == anim->type) &&
+					!strcmp(kw, anim->name)
+				)
 					break;
+				anim++;
 			}
-			if(i >= NUM_MOBJ_ANIMS)
+			if(!anim->name)
 				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
 
 			parse_last_anim = num_states;
-			*((uint16_t*)(parse_mobj_ptr + mobj_anim[i].offset)) = num_states;
+			*((uint16_t*)((void*)parse_mobj_info + anim->offset)) = num_states;
 
 			unfinished = 1;
 			continue;
@@ -692,13 +890,42 @@ have_keyword:
 		*parse_next_state = first_state;
 
 	// add limitation for animations
-	((mobjinfo_t*)parse_mobj_ptr)->state_idx_first = first_state;
-	((mobjinfo_t*)parse_mobj_ptr)->state_idx_limit = num_states;
+	parse_mobj_info->state_idx_first = first_state;
+	parse_mobj_info->state_idx_limit = num_states;
 
 	return 0;
 
 error_no_states:
 	I_Error("[DECORATE] Missing states for '%s' in '%s'!", kw, parse_actor_name);
+}
+
+//
+// flag parsing
+
+static uint32_t change_flag(uint8_t *kw, const dec_flag_t *flag, uint32_t offset)
+{
+	uint32_t *dest;
+
+	// find flag
+	while(flag->name)
+	{
+		if(!strcmp(flag->name, kw + 1))
+			break;
+		flag++;
+	}
+
+	if(!flag->name)
+		return 1;
+
+	dest = (void*)parse_mobj_info + offset;
+
+	// change
+	if(kw[0] == '+')
+		*dest |= flag->bits;
+	else
+		*dest &= ~flag->bits;
+
+	return 0;
 }
 
 //
@@ -789,7 +1016,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		if(idx < 0)
 			I_Error("[DECORATE] Loading mismatch for '%s'!", kw);
 		info = mobjinfo + idx;
-		parse_mobj_ptr = info;
+		parse_mobj_info = info;
 
 		// next, a few options
 		kw = tp_get_keyword_lc();
@@ -862,7 +1089,6 @@ static void cb_parse_actors(lumpinfo_t *li)
 		memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
 		info->doomednum = idx;
 		info->actor_name = alias;
-		info->extra_type = etp;
 
 		// reset stuff
 		dropitems = NULL;
@@ -885,38 +1111,18 @@ static void cb_parse_actors(lumpinfo_t *li)
 			// check for flags
 			if(kw[0] == '-' || kw[0] == '+')
 			{
-				const dec_flag_t *flag = mobj_flag;
-				uint32_t *dest_offs = (uint32_t*)flag_dest;
+				uint32_t tmp;
 
-				// find flag
-				while(flag->name)
-				{
-					if(!flag->name[0])
-					{
-						// advance destination pointer
-						dest_offs++;
-					} else
-					{
-						if(!strcmp(flag->name, kw + 1))
-							break;
-					}
-					flag++;
-				}
-
-				if(!flag->name)
-					I_Error("[DECORATE] Unknown flag '%s'!", kw + 1);
-
-				// destination
-				dest_offs = (uint32_t*)((void*)info + *dest_offs);
-
-				// change
-				if(kw[0] == '+')
-					*dest_offs |= flag->bits;
-				else
-					*dest_offs &= ~flag->bits;
+				if(
+					change_flag(kw, mobj_flags0, offsetof(mobjinfo_t, flags)) &&
+					change_flag(kw, mobj_flags1, offsetof(mobjinfo_t, flags1)) &&
+					(!inheritance[etp].flag[0] || change_flag(kw, inheritance[etp].flag[0], offsetof(mobjinfo_t, eflags)) ) &&
+					(!inheritance[etp].flag[1] || change_flag(kw, inheritance[etp].flag[1], offsetof(mobjinfo_t, eflags)) )
+				)
+					I_Error("[DECORATE] Unknown flag '%s' in '%s'!", kw + 1, parse_actor_name);
 			} else
 			{
-				const dec_attr_t *attr = mobj_attr;
+				const dec_attr_t *attr = attr_mobj;
 
 				// find attribute
 				while(attr->name)
@@ -1050,7 +1256,7 @@ void init_decorate()
 		sprite_table[i] = *spr_names[i];
 
 	// mobjinfo
-	mobjinfo = ldr_malloc(NUMMOBJTYPES * sizeof(mobjinfo_t));
+	mobjinfo = ldr_malloc((NUMMOBJTYPES + NUM_NEW_TYPES) * sizeof(mobjinfo_t));
 
 	// copy original stuff
 	for(uint32_t i = 0; i < NUMMOBJTYPES; i++)
@@ -1060,7 +1266,7 @@ void init_decorate()
 		mobjinfo[i].actor_name = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
 		mobjinfo[i].state_idx_limit = NUMSTATES;
-		mobjinfo[i].crushstate = 895;
+		mobjinfo[i].state_crush = 895;
 
 		// check for original random sounds
 		sfx_rng_fix(&mobjinfo[i].seesound, 98);
@@ -1078,10 +1284,13 @@ void init_decorate()
 			mobjinfo[i].flags1 |= MF1_NOTELEPORT;
 	}
 
+	// copy internal stuff
+	memcpy(mobjinfo + NUMMOBJTYPES, internal_mobj_info, sizeof(internal_mobj_info));
+
 	// player stuff
 	mobjinfo[0].flags1 |= MF1_TELESTOMP;
-	mobjinfo[0].player.view_height = 41 * FRACUNIT;
-	mobjinfo[0].player.attack_offs = 8 * FRACUNIT;
+	mobjinfo[0].extra_type = ETYPE_PLAYERPAWN;
+	memcpy(&mobjinfo[0].player, &ei_player, sizeof(ei_player_t));
 
 	// lost souls are enemy too
 	mobjinfo[18].flags1 |= MF1_ISMONSTER;
@@ -1121,7 +1330,7 @@ void init_decorate()
 	// PASS 3
 
 	// relocate extra storage
-	for(uint32_t idx = 0; idx < num_mobj_types; idx++)
+	for(uint32_t idx = NUMMOBJTYPES; idx < num_mobj_types; idx++)
 	{
 		mobjinfo_t *info = mobjinfo + idx;
 		void *target = states + info->state_idx_limit;
@@ -1139,6 +1348,17 @@ void init_decorate()
 		{
 			info->dropitems = target + (info->dropitems - EXTRA_STORAGE_PTR);
 			info->dropitem_end = target + (info->dropitem_end - EXTRA_STORAGE_PTR);
+		}
+
+		// PlayerPawn
+		if(info->extra_type == ETYPE_PLAYERPAWN)
+		{
+			// weapon slots
+			for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
+			{
+				if(info->player.wpn_slot[i])
+					info->player.wpn_slot[i] = target + ((void*)info->player.wpn_slot[i] - EXTRA_STORAGE_PTR);
+			}
 		}
 	}
 

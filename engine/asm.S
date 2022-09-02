@@ -261,6 +261,12 @@ ST_Start:
 HU_Start:
 	.byte	0xE9
 	.4byte	0x0003B530
+////////////////////////////////// P_SetupLevel
+.section .text.P_SetupLevel
+.global P_SetupLevel
+P_SetupLevel:
+	.byte	0xE9
+	.4byte	0x0002E7A0
 ////////////////////////////////// P_SetupPsprites
 .section .text.P_SetupPsprites
 .global P_SetupPsprites

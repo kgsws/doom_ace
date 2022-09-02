@@ -7,6 +7,7 @@
 #include "wadfile.h"
 #include "dehacked.h"
 #include "decorate.h"
+#include "inventory.h"
 #include "action.h"
 #include "textpars.h"
 #include "sound.h"
@@ -24,12 +25,14 @@ enum
 	DT_S32,
 	DT_FIXED,
 	DT_SOUND,
+	DT_STRING,
 	DT_SKIP1,
 	DT_MONSTER,
 	DT_PROJECTILE,
 	DT_MOBJTYPE,
 	DT_DROPITEM,
 	DT_PP_WPN_SLOT,
+	DT_PP_INV_SLOT,
 	DT_STATES,
 };
 
@@ -58,7 +61,7 @@ typedef struct
 {
 	const uint8_t *name;
 	const mobjinfo_t *def;
-	const dec_attr_t *attr;
+	const dec_attr_t *attr[2];
 	const dec_flag_t *flag[2];
 } dec_inherit_t;
 
@@ -91,12 +94,13 @@ static mobjinfo_t *parse_mobj_info;
 static uint32_t *parse_next_state;
 static uint32_t parse_last_anim;
 
-static args_dropitem_t *dropitems;
-static args_dropitem_t *dropitem_next;
+static void *extra_stuff_cur;
+static void *extra_stuff_next;
 
 static uint32_t parse_states();
 static uint32_t parse_dropitem();
 static uint32_t parse_wpn_slot();
+static uint32_t parse_inv_slot();
 
 // 'DoomPlayer' stuff
 static const ei_player_t ei_player =
@@ -141,8 +145,30 @@ static const mobjinfo_t default_weapon =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.mass = 100,
+	.flags = MF_SPECIAL,
 	.state_crush = 895,
 	.extra_type = ETYPE_WEAPON,
+	.weapon.inventory.count = 1,
+	.weapon.inventory.max_count = 1,
+	.weapon.inventory.hub_count = 1,
+	.weapon.inventory.sound_pickup = 33,
+	.weapon.kickback = 100,
+};
+
+// default 'Ammo'
+static const mobjinfo_t default_ammo =
+{
+	.spawnhealth = 1000,
+	.reactiontime = 8,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.flags = MF_SPECIAL,
+	.state_crush = 895,
+	.extra_type = ETYPE_AMMO,
+	.ammo.inventory.count = 1,
+	.ammo.inventory.max_count = 1,
+	.ammo.inventory.sound_pickup = 32,
 };
 
 // mobj animations
@@ -283,9 +309,23 @@ static const dec_attr_t attr_player[] =
 	{"player.attackzoffset", DT_FIXED, offsetof(mobjinfo_t, player.attack_offs)},
 	//
 	{"player.weaponslot", DT_PP_WPN_SLOT},
+	{"player.startitem", DT_PP_INV_SLOT},
 	//
 	{"player.displayname", DT_SKIP1},
 	{"player.crouchsprite", DT_SKIP1},
+	// terminator
+	{NULL}
+};
+
+// 'Inventory' attributes
+static const dec_attr_t attr_inventory[] =
+{
+	{"inventory.amount", DT_U16, offsetof(mobjinfo_t, inventory.count)},
+	{"inventory.maxamount", DT_U16, offsetof(mobjinfo_t, inventory.max_count)},
+	{"inventory.interhubamount", DT_U16, offsetof(mobjinfo_t, inventory.hub_count)},
+	{"inventory.usesound", DT_U16, offsetof(mobjinfo_t, inventory.sound_use)},
+	{"inventory.pickupsound", DT_U16, offsetof(mobjinfo_t, inventory.sound_pickup)},
+	{"inventory.pickupmessage", DT_STRING, offsetof(mobjinfo_t, inventory.message)},
 	// terminator
 	{NULL}
 };
@@ -308,6 +348,15 @@ static const dec_attr_t attr_weapon[] =
 	{NULL}
 };
 
+// 'Ammo' attributes
+static const dec_attr_t attr_ammo[] =
+{
+	{"ammo.backpackamount", DT_U16, offsetof(mobjinfo_t, ammo.count)},
+	{"ammo.backpackmaxamount", DT_U16, offsetof(mobjinfo_t, ammo.max_count)},
+	// terminator
+	{NULL}
+};
+
 // actor inheritance
 const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 {
@@ -320,15 +369,28 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 	{
 		.name = "PlayerPawn",
 		.def = &default_player,
-		.attr = attr_player
+		.attr[0] = attr_player
 	},
 	[ETYPE_WEAPON] =
 	{
 		.name = "DoomWeapon",
 		.def = &default_weapon,
-		.attr = attr_weapon,
+		.attr[0] = attr_inventory,
+		.attr[1] = attr_weapon,
 		.flag[0] = inventory_flags,
 		.flag[1] = weapon_flags,
+	},
+	[ETYPE_AMMO] =
+	{
+		.name = "Ammo",
+		.def = &default_ammo,
+		.attr[0] = attr_inventory,
+		.attr[1] = attr_ammo,
+		.flag[0] = inventory_flags,
+	},
+	[ETYPE_AMMO_LINK] =
+	{
+		// nothing
 	},
 };
 
@@ -343,8 +405,14 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.radius = 20 << FRACBITS,
 		.height = 16 << FRACBITS,
 		.mass = 100,
+		.flags = MF_SPECIAL,
 		.state_crush = 895,
 		.extra_type = ETYPE_WEAPON,
+		.inventory.count = 1,
+		.inventory.max_count = 1,
+		.inventory.hub_count = 1,
+		.inventory.sound_pickup = 33,
+		.weapon.kickback = 100,
 	},
 	{
 		// Pistol
@@ -354,9 +422,46 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.radius = 20 << FRACBITS,
 		.height = 16 << FRACBITS,
 		.mass = 100,
+		.flags = MF_SPECIAL,
 		.state_crush = 895,
 		.extra_type = ETYPE_WEAPON,
+		.inventory.count = 1,
+		.inventory.max_count = 1,
+		.inventory.hub_count = 1,
+		.inventory.sound_pickup = 33,
+		.weapon.kickback = 100,
 	}
+};
+
+// doom weapons
+static const uint8_t wpn_idx[NUMWEAPONS] =
+{
+	NUMMOBJTYPES + 0, // Fist (new)
+	NUMMOBJTYPES + 1, // Pistol (new)
+	77, // Shotgun
+	73, // Chaingun
+	75, // RocketLauncher
+	76, // PlasmaRifle
+	72, // BFG9000
+	74, // Chainsaw
+	78, // SuperShotgun
+};
+
+// doom ammo
+static const uint8_t ammo_idx[NUMAMMO] =
+{
+	63, // Clip
+	69, // Shell
+	67, // Cell
+	65, // RocketAmmo
+};
+
+static const uint8_t aMMo_idx[NUMAMMO] =
+{
+	64, // ClipBox
+	70, // ShellBox
+	68, // CellPack
+	66, // RocketBox
 };
 
 //
@@ -367,7 +472,7 @@ void *dec_es_alloc(uint32_t size)
 	void *ptr = es_ptr;
 
 	es_ptr += size;
-	if(es_ptr > EXTRA_STORAGE_PTR + EXTRA_STORAGE_SIZE)
+	if(es_ptr > EXTRA_STORAGE_END)
 		I_Error("[DECORATE] Extra storage allocation failed!");
 
 	return ptr;
@@ -375,6 +480,35 @@ void *dec_es_alloc(uint32_t size)
 
 //
 // funcs
+
+static void make_doom_weapon(uint32_t idx)
+{
+	mobjinfo_t *info = mobjinfo + wpn_idx[idx];
+	weaponinfo_t *wpn = deh_weaponinfo + idx;
+
+	info->extra_type = ETYPE_WEAPON;
+	info->weapon = default_weapon.weapon;
+
+	// TODO
+}
+
+static void make_doom_ammo(uint32_t idx)
+{
+	mobjinfo_t *clp = mobjinfo + ammo_idx[idx];
+	mobjinfo_t *box = mobjinfo + aMMo_idx[idx];
+
+	clp->extra_type = ETYPE_AMMO;
+	clp->ammo = default_ammo.ammo;
+	clp->ammo.inventory.count = ((uint32_t*)(0x00012D80 + doom_data_segment))[idx]; // clipammo
+	clp->ammo.inventory.max_count = ((uint32_t*)(0x00012D70 + doom_data_segment))[idx]; // maxammo
+	clp->ammo.count = clp->ammo.inventory.count * 2;
+	clp->ammo.max_count = clp->ammo.inventory.max_count * 2;
+	// TODO: message
+
+	box->extra_type = ETYPE_AMMO_LINK;
+	box->inventory.special = ammo_idx[idx];
+	// TODO: message
+}
 
 static uint32_t spr_add_name(uint32_t name)
 {
@@ -433,6 +567,24 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 				return 1;
 			*((uint16_t*)dest) = sfx_by_name(kw);
 		break;
+		case DT_STRING:
+		{
+			uint8_t *tmp;
+
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+
+			num.u32 = strlen(kw);
+			num.u32 += 4; // NUL + padding
+			num.u32 &= ~3; // 32bit align
+
+			tmp = dec_es_alloc(num.u32);
+			strcpy(tmp, kw);
+
+			*((uint8_t**)dest) = tmp;
+		}
+		break;
 		case DT_SKIP1:
 			kw = tp_get_keyword();
 			if(!kw)
@@ -456,10 +608,15 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			*((uint16_t*)dest) = num.s32;
 		break;
 		case DT_DROPITEM:
+			if(parse_mobj_info->extra_type == ETYPE_PLAYERPAWN)
+				I_Error("[DECORATE] Attempt to add DropItem to player class '%s'!", parse_actor_name);
 			return parse_dropitem();
 		break;
 		case DT_PP_WPN_SLOT:
 			return parse_wpn_slot();
+		break;
+		case DT_PP_INV_SLOT:
+			return parse_inv_slot();
 		break;
 		case DT_STATES:
 			num.u32 = parse_states();
@@ -542,18 +699,18 @@ static uint32_t parse_dropitem()
 {
 	uint8_t *kw;
 	int32_t tmp;
-	args_dropitem_t *drop;
+	mobj_dropitem_t *drop;
 
 	// allocate space, setup destination
-	drop = dec_es_alloc(sizeof(args_dropitem_t));
-	if(dropitems)
+	drop = dec_es_alloc(sizeof(mobj_dropitem_t));
+	if(extra_stuff_cur)
 	{
-		if(drop != dropitem_next)
+		if(drop != extra_stuff_next)
 			I_Error("[DECORATE] Drop item list is not contiguous in '%s'!", parse_actor_name);
 	} else
-		dropitems = drop;
+		extra_stuff_cur = drop;
 
-	dropitem_next = drop + 1;
+	extra_stuff_next = drop + 1;
 
 	// defaults
 	drop->chance = 255;
@@ -665,6 +822,62 @@ static uint32_t parse_wpn_slot()
 
 	// this keyword has to be parsed again
 	tp_push_keyword(kw);
+	return 0;
+}
+
+//
+// start inventory parser
+
+static uint32_t parse_inv_slot()
+{
+	uint8_t *kw;
+	int32_t tmp;
+	plrp_start_item_t *item;
+
+	// allocate space, setup destination
+	item = dec_es_alloc(sizeof(plrp_start_item_t));
+	if(extra_stuff_cur)
+	{
+		if(item != extra_stuff_next)
+			I_Error("[DECORATE] Player start item list is not contiguous in '%s'!", parse_actor_name);
+	} else
+		extra_stuff_cur = item;
+
+	extra_stuff_next = item + 1;
+
+	// defaults
+	item->count = 1;
+
+	// get actor name
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+	tmp = mobj_check_type(tp_hash64(kw));
+	if(tmp < 0)
+		I_Error("[DECORATE] Unable to find '%s' start item for '%s'!", kw, parse_actor_name);
+
+	item->type = tmp;
+
+	// check for amount
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+	if(kw[0] != ',')
+	{
+		// this keyword has to be parsed again
+		tp_push_keyword(kw);
+		return 0;
+	}
+
+	// parse chance
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+	if(doom_sscanf(kw, "%d", &tmp) != 1 || tmp < 1 || tmp > 65535)
+		return 1;
+
+	item->count = tmp;
+
 	return 0;
 }
 
@@ -1035,7 +1248,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 			// find this class
 			for(etp = 1; etp < NUM_EXTRA_TYPES; etp++)
 			{
-				if(!strcmp(kw, inheritance[etp].name))
+				if(inheritance[etp].name && !strcmp(kw, inheritance[etp].name))
 					break;
 			}
 			if(etp >= NUM_EXTRA_TYPES)
@@ -1091,8 +1304,8 @@ static void cb_parse_actors(lumpinfo_t *li)
 		info->actor_name = alias;
 
 		// reset stuff
-		dropitems = NULL;
-		dropitem_next = NULL;
+		extra_stuff_cur = NULL;
+		extra_stuff_next = NULL;
 
 		// reset extra storage
 		es_ptr = EXTRA_STORAGE_PTR;
@@ -1132,10 +1345,22 @@ static void cb_parse_actors(lumpinfo_t *li)
 					attr++;
 				}
 
-				if(!attr->name && inheritance[etp].attr)
+				if(!attr->name && inheritance[etp].attr[0])
 				{
 					// find attribute
-					attr = inheritance[etp].attr;
+					attr = inheritance[etp].attr[0];
+					while(attr->name)
+					{
+						if(!strcmp(attr->name, kw))
+							break;
+						attr++;
+					}
+				}
+
+				if(!attr->name && inheritance[etp].attr[1])
+				{
+					// find attribute
+					attr = inheritance[etp].attr[1];
 					while(attr->name)
 					{
 						if(!strcmp(attr->name, kw))
@@ -1154,8 +1379,8 @@ static void cb_parse_actors(lumpinfo_t *li)
 		}
 
 		// save drop item list
-		info->dropitems = dropitems;
-		info->dropitem_end = dropitem_next;
+		info->extra_stuff[0] = extra_stuff_cur;
+		info->extra_stuff[1] = extra_stuff_next;
 
 		// process extra storage
 		if(es_ptr != EXTRA_STORAGE_PTR)
@@ -1298,6 +1523,14 @@ void init_decorate()
 	// archvile stuff
 	mobjinfo[3].flags1 |= MF1_NOTARGET | MF1_QUICKTORETALIATE;
 
+	// doom weapons
+	for(uint32_t i = 0; i < NUMWEAPONS; i++)
+		make_doom_weapon(i);
+
+	// doom ammo
+	for(uint32_t i = 0; i < NUMAMMO; i++)
+		make_doom_ammo(i);
+
 	//
 	// PASS 1
 
@@ -1330,7 +1563,7 @@ void init_decorate()
 	// PASS 3
 
 	// relocate extra storage
-	for(uint32_t idx = NUMMOBJTYPES; idx < num_mobj_types; idx++)
+	for(uint32_t idx = NUMMOBJTYPES + NUM_NEW_TYPES; idx < num_mobj_types; idx++)
 	{
 		mobjinfo_t *info = mobjinfo + idx;
 		void *target = states + info->state_idx_limit;
@@ -1344,10 +1577,10 @@ void init_decorate()
 		}
 
 		// drop item list
-		if(info->dropitems)
+		if(info->extra_stuff[0])
 		{
-			info->dropitems = target + (info->dropitems - EXTRA_STORAGE_PTR);
-			info->dropitem_end = target + (info->dropitem_end - EXTRA_STORAGE_PTR);
+			info->extra_stuff[0] = target + (info->extra_stuff[0] - EXTRA_STORAGE_PTR);
+			info->extra_stuff[1] = target + (info->extra_stuff[1] - EXTRA_STORAGE_PTR);
 		}
 
 		// PlayerPawn
@@ -1359,6 +1592,45 @@ void init_decorate()
 				if(info->player.wpn_slot[i])
 					info->player.wpn_slot[i] = target + ((void*)info->player.wpn_slot[i] - EXTRA_STORAGE_PTR);
 			}
+		}
+
+		// Inventory
+		if(inventory_is_valid(info))
+		{
+			if((void*)info->inventory.message >= EXTRA_STORAGE_PTR && (void*)info->inventory.message < EXTRA_STORAGE_END)
+				info->inventory.message = target + ((void*)info->inventory.message - EXTRA_STORAGE_PTR);
+		}
+	}
+
+	// extra inventory stuff
+	for(uint32_t idx = 0; idx < num_mobj_types; idx++)
+	{
+		mobjinfo_t *info = mobjinfo + idx;
+
+		switch(info->extra_type)
+		{
+			case ETYPE_WEAPON:
+				info->inventory.max_count = 1; // TODO: is this correct?
+				info->inventory.hub_count = 1;
+			break;
+			case ETYPE_AMMO:
+				info->inventory.hub_count = 0xFFFF;
+			break;
+			case ETYPE_AMMO_LINK:
+			{
+				mobjinfo_t *ofni = mobjinfo + info->inventory.special;
+
+				if(ofni->extra_type != ETYPE_AMMO)
+					I_Error("[DECORATE] Invalid inheritted ammo!");
+
+				// copy only amounts, for faster access later
+				info->inventory.count = ofni->inventory.count;
+				info->inventory.max_count = ofni->inventory.max_count;
+				info->inventory.hub_count = 0xFFFF;
+				info->ammo.count = ofni->ammo.count;
+				info->ammo.max_count = ofni->ammo.max_count;
+			}
+			break;
 		}
 	}
 

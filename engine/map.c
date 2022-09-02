@@ -3,8 +3,10 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
-#include "map.h"
 #include "decorate.h"
+#include "map.h"
+#include "mobj.h"
+#include "inventory.h"
 
 mapthing_t *playerstarts;
 mapthing_t *deathmatchstarts;
@@ -16,6 +18,8 @@ uint32_t *respawnparm;
 
 uint32_t *netgame;
 uint32_t *deathmatch;
+uint32_t *gamemap;
+uint32_t *gameepisode;
 uint32_t *gameskill;
 uint32_t *leveltime;
 
@@ -30,12 +34,41 @@ vertex_t **vertexes;
 side_t **sides;
 sector_t **sectors;
 
+static uint8_t map_name[9];
+
 //
 
 static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
 
 //
+// callbacks
+
+static uint32_t cb_free_inventory(mobj_t *mo)
+{
+	if(mo->player)
+		return 0;
+
+	inventory_clear(mo);
+
+	return 0;
+}
+
+//
 // hooks
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void map_load_setup()
+{
+	if(*gamemode)
+		doom_sprintf(map_name, "MAP%02u", *gamemap);
+	else
+		doom_sprintf(map_name, "E%uM%u", *gameepisode, *gamemap);
+
+	// free old inventories
+	mobj_for_each(cb_free_inventory);
+
+	P_SetupLevel();
+}
 
 __attribute((regparm(2),no_caller_saved_registers))
 static void spawn_map_thing(mapthing_t *mt)
@@ -121,8 +154,14 @@ static void spawn_map_thing(mapthing_t *mt)
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// replace call to 'P_SetupLevel' in 'G_DoLoadLevel'
+	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
 	// replace call to 'P_SpawnMapThing' in 'P_LoadThings'
 	{0x0002E1F9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spawn_map_thing},
+	// change map name variable in 'P_SetupLevel'
+	{0x0002E858, CODE_HOOK | HOOK_UINT16, 0x61EB},
+	{0x0002E8BB, CODE_HOOK | HOOK_UINT8, 0xB8},
+	{0x0002E8BC, CODE_HOOK | HOOK_UINT32, (uint32_t)map_name},
 	// import variables
 	{0x0002C0D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playerstarts},
 	{0x0002C154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatchstarts},
@@ -132,6 +171,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&respawnparm},
 	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
 	{0x0002B3FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatch},
+	{0x0002B3E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemap},
+	{0x0002B3F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameepisode},
 	{0x0002B3E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameskill},
 	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
 	{0x0002B3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalsecret},

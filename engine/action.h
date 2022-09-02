@@ -6,14 +6,6 @@ extern void *parse_action_arg;
 
 //
 
-typedef struct
-{
-	uint16_t type;
-	int16_t chance;
-	uint16_t amount;
-	uint16_t __padding;
-} args_dropitem_t;
-
 //
 
 #define CMF_AIMOFFSET	1

@@ -32,6 +32,10 @@ typedef struct
 
 // SDK variables
 
+uint32_t *gamemode;
+static uint32_t *gamemode_sw;
+static uint32_t *gamemode_reg;
+
 fixed_t *finesine;
 fixed_t *finecosine;
 uint32_t *viewheight;
@@ -200,10 +204,18 @@ static void gfx_init()
 
 uint32_t ace_main()
 {
+	// title
 	doom_printf("                          -= ACE Engine by kgsws =-\n[ACE] CODE: 0x%08X DATA: 0x%08X ACE: 0x%08X+0x1004\n", doom_code_segment, doom_data_segment, ace_segment);
 
 	// install hooks
 	utils_init();
+
+	// disable shareware
+	if(*gamemode_sw)
+	{
+		*gamemode_sw = 0;
+		*gamemode_reg = 1;
+	}
 
 	// WAD file
 	// - check if ACE is IWAD of PWAD
@@ -345,6 +357,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00005A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finesine},
 	{0x00032304, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewheight},
 	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
+	{0x0002A3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode},
+	{0x0002A3AC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_sw},
+	{0x0002A3B4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_reg},
 	// read stuff
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},

@@ -7,6 +7,7 @@
 #include "wadfile.h"
 #include "dehacked.h"
 #include "decorate.h"
+#include "inventory.h"
 #include "mobj.h"
 #include "map.h"
 
@@ -15,6 +16,8 @@ player_t *players;
 
 uint32_t *consoleplayer;
 uint32_t *displayplayer;
+
+thinker_t *thinkercap;
 
 static const uint32_t view_height_ptr[] =
 {
@@ -64,40 +67,6 @@ static void set_viewheight(fixed_t wh)
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void player_reborn(uint32_t idx)
-{
-	uint32_t killcount;
-	uint32_t itemcount;
-	uint32_t secretcount;
-	player_t *pl = players + idx;
-
-	killcount = pl->killcount;
-	itemcount = pl->itemcount;
-	secretcount = pl->secretcount;
-
-	memset(pl, 0, sizeof(player_t));
-
-	pl->killcount = killcount;
-	pl->itemcount = itemcount;
-	pl->secretcount = secretcount;
-
-	pl->usedown = 1;
-	pl->attackdown = 1;
-	pl->playerstate = PST_LIVE;
-	pl->health = deh_plr_health;
-
-	pl->readyweapon = 1;
-	pl->pendingweapon = 1;
-
-	pl->weaponowned[0] = 1;
-	pl->weaponowned[1] = 1;
-	pl->ammo[0] = deh_plr_bullets;
-
-	for(uint32_t i = 0; i < 4; i++)
-		pl->maxammo[i] = *((uint32_t*)(0x00012D70 + doom_data_segment) + i);
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
 void spawn_player(mapthing_t *mt)
 {
 	player_t *pl;
@@ -111,10 +80,48 @@ void spawn_player(mapthing_t *mt)
 	pl = players + idx;
 	info = mobjinfo + player_class[0];
 
-	if(pl->playerstate == PST_REBORN)
-		player_reborn(idx);
-
+	// create body
 	mo = P_SpawnMobj((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS, 0x80000000, player_class[0]);
+
+	// check for reset
+	if(pl->playerstate == PST_REBORN)
+	{
+		// cleanup
+		uint32_t killcount;
+		uint32_t itemcount;
+		uint32_t secretcount;
+
+		killcount = pl->killcount;
+		itemcount = pl->itemcount;
+		secretcount = pl->secretcount;
+
+		memset(pl, 0, sizeof(player_t));
+
+		pl->killcount = killcount;
+		pl->itemcount = itemcount;
+		pl->secretcount = secretcount;
+
+		pl->usedown = 1;
+		pl->attackdown = 1;
+		pl->playerstate = PST_LIVE;
+		pl->health = deh_plr_health;
+
+		//
+		// OLD INVENTORY - REMOVE
+		pl->readyweapon = 1;
+		pl->pendingweapon = 1;
+		pl->weaponowned[0] = 1;
+		pl->weaponowned[1] = 1;
+		pl->ammo[0] = deh_plr_bullets;
+		for(uint32_t i = 0; i < 4; i++)
+			pl->maxammo[i] = *((uint32_t*)(0x00012D70 + doom_data_segment) + i);
+		if(*deathmatch)
+			memset(pl->cards, 0xFF, NUMCARDS * sizeof(uint32_t));
+
+		// default inventory
+		for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
+			inventory_give(mo, si->type, si->count);
+	}
 
 	// TODO: translation not in flags
 	mo->flags |= idx << 26;
@@ -134,10 +141,6 @@ void spawn_player(mapthing_t *mt)
 	pl->viewheight = info->player.view_height;
 
 	P_SetupPsprites(pl);
-
-	// TODO: better key handling (inventory?)
-	if(*deathmatch)
-		memset(pl->cards, 0xFF, NUMCARDS * sizeof(uint32_t));
 
 	if(idx == *consoleplayer)
 	{
@@ -197,14 +200,90 @@ uint32_t finish_mobj(mobj_t *mo)
 static __attribute((regparm(2),no_caller_saved_registers))
 void touch_mobj(mobj_t *mo, mobj_t *toucher)
 {
-	if(!toucher->player)
+	mobjinfo_t *info;
+	player_t *pl;
+	uint32_t left;
+	fixed_t diff;
+
+	if(!toucher->player || toucher->player->playerstate != PST_LIVE)
 		return;
 
-	// old items; workaround for 'sprite' changes in 'mobj_t'
-	uint16_t temp = mo->frame;
-	mo->frame = 0;
-	P_TouchSpecialThing(mo, toucher);
-	mo->frame = temp;
+	diff = mo->z - toucher->z;
+	if(diff > toucher->height || diff < -mo->height)
+		return;
+
+	pl = toucher->player;
+
+	if(mo->type < NUMMOBJTYPES)
+	{
+		// old items; workaround for 'sprite' changes in 'mobj_t'
+
+		// TODO: rework
+		uint16_t temp = mo->frame;
+		mo->frame = 0;
+		P_TouchSpecialThing(mo, toucher);
+		mo->frame = temp;
+
+		return;
+	}
+
+	// new inventory stuff
+	info = mo->info;
+
+	switch(info->extra_type)
+	{
+		case ETYPE_WEAPON:
+		{
+			uint32_t given;
+
+			// add to inventory
+			given = !inventory_give(toucher, mo->type, info->inventory.count);
+
+			// primary ammo
+			if(info->weapon.ammo_type[0] && info->weapon.ammo_give[0])
+			{
+				left = inventory_give(toucher, info->weapon.ammo_type[0], info->weapon.ammo_give[0]);
+				given |= left < info->weapon.ammo_give[0];
+			}
+
+			// secondary ammo
+			if(info->weapon.ammo_type[1] && info->weapon.ammo_give[1])
+			{
+				left = inventory_give(toucher, info->weapon.ammo_type[1], info->weapon.ammo_give[1]);
+				given |= left < info->weapon.ammo_give[1];
+			}
+
+			if(!given)
+				return;
+		}
+		break;
+		case ETYPE_AMMO:
+		case ETYPE_AMMO_LINK:
+			// add to inventory
+			left = inventory_give(toucher, mo->type, info->inventory.count);
+			if(left >= info->inventory.count)
+				// can't pickup
+				return;
+		break;
+		default:
+			// this should not be set
+			mo->flags &= ~MF_SPECIAL;
+		return;
+	}
+
+	// remove
+	P_RemoveMobj(mo);
+
+	if(info->eflags & MFE_INVENTORY_QUIET)
+		return;
+
+	// sound & flash
+	pl->bonuscount += 6;
+	S_StartSound(toucher, info->inventory.sound_pickup);
+
+	// message
+	if(info->inventory.message)
+		pl->message = info->inventory.message;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -227,6 +306,21 @@ static void kill_animation(mobj_t *mo)
 
 //
 // API
+
+void mobj_for_each(uint32_t (*cb)(mobj_t*))
+{
+	if(!thinkercap->next)
+		// this happens only before any level was loaded
+		return;
+
+	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
+	{
+		if(th->function != (void*)0x00031490 + doom_code_segment)
+			continue;
+		if(cb((mobj_t*)th))
+			return;
+	}
+}
 
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
@@ -429,6 +523,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
 	{0x0002B2D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playeringame},
 	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
+	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
 	// replace 'P_SpawnPlayer'
 	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},
 	// replace call to 'memset' in 'P_SpawnMobj'

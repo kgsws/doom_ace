@@ -11,6 +11,8 @@ extern uint32_t *respawnparm;
 
 extern uint32_t *netgame;
 extern uint32_t *deathmatch;
+extern uint32_t *gamemap;
+extern uint32_t *gameepisode;
 extern uint32_t *gameskill;
 extern uint32_t *leveltime;
 

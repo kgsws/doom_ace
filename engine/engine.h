@@ -237,6 +237,31 @@ typedef struct
 //
 // info
 
+enum
+{
+	ETYPE_NONE, // must be first
+	ETYPE_PLAYERPAWN,
+	ETYPE_WEAPON,
+	ETYPE_AMMO,
+	ETYPE_AMMO_LINK,
+	//
+	NUM_EXTRA_TYPES,
+};
+
+typedef struct
+{
+	uint16_t type;
+	int16_t chance;
+	uint16_t amount;
+	uint16_t __padding;
+} mobj_dropitem_t;
+
+typedef struct
+{
+	uint16_t type;
+	uint16_t count;
+} plrp_start_item_t;
+
 typedef struct
 {
 	uint16_t *wpn_slot[NUM_WPN_SLOTS];
@@ -246,12 +271,31 @@ typedef struct
 
 typedef struct
 {
+	uint16_t count;
+	uint16_t max_count;
+	uint16_t hub_count;
+	uint16_t sound_use;
+	uint16_t sound_pickup;
+	uint16_t special; // backpack, ammo parent ...
+	uint8_t *message;
+} ei_inventory_t;
+
+typedef struct
+{
+	ei_inventory_t inventory;
 	uint16_t selection_order;
 	uint16_t kickback;
 	uint16_t ammo_use[2];
 	uint16_t ammo_give[2];
 	uint16_t ammo_type[2];
 } ei_weapon_t;
+
+typedef struct
+{
+	ei_inventory_t inventory;
+	uint16_t count;
+	uint16_t max_count;
+} ei_ammo_t;
 
 typedef struct mobjinfo_s
 { // this structure has been changed
@@ -289,10 +333,23 @@ typedef struct mobjinfo_s
 	uint32_t state_idx_first;
 	uint32_t state_idx_limit;
 	uint32_t replacement;
-	void *dropitems;
-	void *dropitem_end;
 	uint32_t flags1;
 	uint32_t eflags;
+	// extra stuff list
+	union
+	{
+		void *extra_stuff[2];
+		struct
+		{
+			mobj_dropitem_t *start;
+			mobj_dropitem_t *end;
+		} dropitem;
+		struct
+		{
+			plrp_start_item_t *start;
+			plrp_start_item_t *end;
+		} start_item;
+	};
 	// new states
 	uint16_t state_heal;
 	uint16_t state_crush;
@@ -319,7 +376,9 @@ typedef struct mobjinfo_s
 	union
 	{
 		ei_player_t player;
+		ei_inventory_t inventory;
 		ei_weapon_t weapon;
+		ei_ammo_t ammo;
 	};
 } mobjinfo_t;
 
@@ -557,12 +616,14 @@ typedef struct mobj_s
 	uint16_t animation;	// animation system
 	struct mobj_s *tracer;
 	uint32_t netid;	// unique identification
+	struct inventory_s *inventory;
 } __attribute__((packed)) mobj_t;
 
 // ASM hooks
 void hook_mobj_damage();
 
 // some variables
+extern uint32_t *gamemode;
 extern fixed_t *finesine;
 extern fixed_t *finecosine;
 extern uint32_t *viewheight;
@@ -618,6 +679,9 @@ void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2)));
 
 // p_pspr
 void P_SetupPsprites(player_t*) __attribute((regparm(2)));
+
+// p_setup
+void P_SetupLevel() __attribute((regparm(2)));
 
 // p_tick
 void P_AddThinker(thinker_t*) __attribute((regparm(2)));

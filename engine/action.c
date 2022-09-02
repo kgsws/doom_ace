@@ -242,7 +242,7 @@ void A_NoBlocking(mobj_t *mo)
 	mo->flags &= ~MF_SOLID;
 
 	// drop items
-	for(args_dropitem_t *drop = mo->info->dropitems; drop < (args_dropitem_t*)mo->info->dropitem_end; drop++)
+	for(mobj_dropitem_t *drop = mo->info->dropitem.start; drop < (mobj_dropitem_t*)mo->info->dropitem.end; drop++)
 	{
 		mobj_t *item;
 

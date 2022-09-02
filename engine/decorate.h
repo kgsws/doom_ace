@@ -6,19 +6,9 @@
 
 #define EXTRA_STORAGE_PTR	((void*)0x0002D0A0 + doom_data_segment)
 #define EXTRA_STORAGE_SIZE	12288
+#define EXTRA_STORAGE_END	(EXTRA_STORAGE_PTR + EXTRA_STORAGE_SIZE)
 
 #define UNKNOWN_MOBJ_IDX	29 // TODO: 'unknown thing'
-
-//
-
-enum
-{
-	ETYPE_NONE, // must be first
-	ETYPE_PLAYERPAWN,
-	ETYPE_WEAPON,
-	//
-	NUM_EXTRA_TYPES,
-};
 
 //
 

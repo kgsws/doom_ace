@@ -63,6 +63,76 @@ static void set_viewheight(fixed_t wh)
 	}
 }
 
+static uint32_t give_ammo(mobj_t *mo, uint16_t type, uint16_t count, uint32_t dropped)
+{
+	uint32_t left;
+
+	if(!type)
+		return 1;
+
+	if(	!(mobjinfo[type].eflags & MFE_INVENTORY_IGNORESKILL) &&
+		(*gameskill == sk_baby || *gameskill == sk_nightmare)
+	)
+		count *= 2;
+
+	if(dropped)
+		count /= 2;
+
+	left = inventory_give(mo, type, count);
+
+	return left < count;
+}
+
+static uint32_t give_health(mobj_t *mo, mobjinfo_t *info)
+{
+	uint32_t maxhp;
+
+	if(info->inventory.max_count)
+		maxhp = info->inventory.max_count;
+	else
+		maxhp = mo->info->spawnhealth;
+
+	if(mo->player->health >= maxhp)
+		return 0;
+
+	mo->player->health += info->inventory.count;
+	if(mo->player->health > maxhp)
+		mo->player->health = maxhp;
+	mo->health = mo->player->health;
+
+	return 1;
+}
+
+static uint32_t give_armor(mobj_t *mo, mobjinfo_t *info)
+{
+	player_t *pl = mo->player;
+
+	if(info->extra_type == ETYPE_ARMOR)
+	{
+		if(pl->armorpoints >= info->armor.count)
+			return 0;
+
+		pl->armorpoints = info->armor.count;
+		pl->armortype = info - mobjinfo;
+
+		return 1;
+	} else
+	if(info->extra_type == ETYPE_ARMOR_BONUS)
+	{
+		if(pl->armorpoints >= info->armor.max_count)
+			return 0;
+
+		pl->armorpoints += info->armor.count;
+		if(pl->armorpoints > info->armor.max_count)
+			pl->armorpoints = info->armor.max_count;
+
+		if(!pl->armortype)
+			pl->armortype = info - mobjinfo;
+
+		return 1;
+	}
+}
+
 //
 // hooks
 
@@ -202,7 +272,7 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 {
 	mobjinfo_t *info;
 	player_t *pl;
-	uint32_t left;
+	uint32_t left, given;
 	fixed_t diff;
 
 	if(!toucher->player || toucher->player->playerstate != PST_LIVE)
@@ -213,7 +283,7 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		return;
 
 	pl = toucher->player;
-
+/*
 	if(mo->type < NUMMOBJTYPES)
 	{
 		// old items; workaround for 'sprite' changes in 'mobj_t'
@@ -226,43 +296,53 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 
 		return;
 	}
-
+*/
 	// new inventory stuff
 	info = mo->info;
 
 	switch(info->extra_type)
 	{
-		case ETYPE_WEAPON:
-		{
-			uint32_t given;
-
-			// add to inventory
-			given = !inventory_give(toucher, mo->type, info->inventory.count);
-
-			// primary ammo
-			if(info->weapon.ammo_type[0] && info->weapon.ammo_give[0])
-			{
-				left = inventory_give(toucher, info->weapon.ammo_type[0], info->weapon.ammo_give[0]);
-				given |= left < info->weapon.ammo_give[0];
-			}
-
-			// secondary ammo
-			if(info->weapon.ammo_type[1] && info->weapon.ammo_give[1])
-			{
-				left = inventory_give(toucher, info->weapon.ammo_type[1], info->weapon.ammo_give[1]);
-				given |= left < info->weapon.ammo_give[1];
-			}
-
-			if(!given)
+		case ETYPE_HEALTH:
+			// health pickup
+			if(!give_health(toucher, info) && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+				// can't pickup
 				return;
-		}
+		break;
+		case ETYPE_WEAPON:
+			// weapon
+			given = !inventory_give(toucher, mo->type, info->inventory.count);
+			// primary ammo
+			given |= give_ammo(toucher, info->weapon.ammo_type[0], info->weapon.ammo_give[0], mo->flags & MF_DROPPED);
+			// secondary ammo
+			given |= give_ammo(toucher, info->weapon.ammo_type[1], info->weapon.ammo_give[1], mo->flags & MF_DROPPED);
+			// check
+			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+				return;
 		break;
 		case ETYPE_AMMO:
 		case ETYPE_AMMO_LINK:
-			// add to inventory
-			left = inventory_give(toucher, mo->type, info->inventory.count);
-			if(left >= info->inventory.count)
+			// add ammo to inventory
+			if(	!give_ammo(toucher, mo->type, info->inventory.count, mo->flags & MF_DROPPED) &&
+				!(info->eflags & MFE_INVENTORY_ALWAYSPICKUP)
+			)
 				// can't pickup
+				return;
+		break;
+		case ETYPE_KEY:
+			// add to inventory
+			inventory_give(toucher, mo->type, 1);
+		break;
+		case ETYPE_ARMOR:
+		case ETYPE_ARMOR_BONUS:
+			given = 0;
+			// autoactivate
+			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
+				given = give_armor(toucher, info);
+			// give as item
+			if(!given)
+				given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;
+			// check
+			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
 				return;
 		break;
 		default:
@@ -271,14 +351,22 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		return;
 	}
 
+	// count
+	if(mo->flags & MF_COUNTITEM)
+		pl->itemcount++;
+
 	// remove
+	mo->flags &= ~MF_SPECIAL; // disable original item respawn logic
 	P_RemoveMobj(mo);
 
 	if(info->eflags & MFE_INVENTORY_QUIET)
 		return;
 
-	// sound & flash
-	pl->bonuscount += 6;
+	// flash
+	if(!(info->eflags & MFE_INVENTORY_NOSCREENFLASH))
+		pl->bonuscount += 6;
+
+	// sound
 	S_StartSound(toucher, info->inventory.sound_pickup);
 
 	// message
@@ -413,7 +501,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 	player = target->player;
 
-	if(player && !*gameskill)
+	if(player && *gameskill == sk_baby)
 		damage /= 2;
 
 	if(	inflictor &&
@@ -461,7 +549,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		{
 			uint32_t saved;
 
-			saved = (player->armortype == 1) ? (damage / 3) : (damage / 2);
+			saved = (damage * mobjinfo[player->armortype].armor.percent) / 100;
 			if(player->armorpoints <= saved)
 			{
 				saved = player->armorpoints;

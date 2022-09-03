@@ -43,6 +43,15 @@ typedef uint32_t angle_t;
 #define DBITS	(FRACBITS - SLOPEBITS)
 
 //
+// skill
+
+#define sk_baby	0
+#define sk_easy	1
+#define sk_medium	2
+#define sk_hard	3
+#define sk_nightmare	4
+
+//
 // cheats
 
 #define CF_NOCLIP	1
@@ -109,6 +118,7 @@ typedef struct
 
 #define NUMWEAPONS	9
 #define NUMAMMO		4
+#define NUMCARDS		6
 
 #define WEAPONBOTTOM	(128 << FRACBITS)
 #define WEAPONTOP	(32 << FRACBITS)
@@ -135,17 +145,6 @@ enum
 	pw_allmap,
 	pw_infrared,
 	NUMPOWERS
-};
-
-enum
-{
-	it_bluecard,
-	it_yellowcard,
-	it_redcard,
-	it_blueskull,
-	it_yellowskull,
-	it_redskull,
-	NUMCARDS
 };
 
 typedef struct player_s
@@ -241,9 +240,13 @@ enum
 {
 	ETYPE_NONE, // must be first
 	ETYPE_PLAYERPAWN,
+	ETYPE_HEALTH,
 	ETYPE_WEAPON,
 	ETYPE_AMMO,
 	ETYPE_AMMO_LINK,
+	ETYPE_KEY,
+	ETYPE_ARMOR,
+	ETYPE_ARMOR_BONUS,
 	//
 	NUM_EXTRA_TYPES,
 };
@@ -296,6 +299,14 @@ typedef struct
 	uint16_t count;
 	uint16_t max_count;
 } ei_ammo_t;
+
+typedef struct
+{
+	ei_inventory_t inventory;
+	uint16_t count;
+	uint16_t max_count;
+	uint16_t percent;
+} ei_armor_t;
 
 typedef struct mobjinfo_s
 { // this structure has been changed
@@ -379,6 +390,7 @@ typedef struct mobjinfo_s
 		ei_inventory_t inventory;
 		ei_weapon_t weapon;
 		ei_ammo_t ammo;
+		ei_armor_t armor;
 	};
 } mobjinfo_t;
 

@@ -14,7 +14,10 @@ uint32_t inventory_is_valid(mobjinfo_t *info)
 {
 	return	info->extra_type == ETYPE_WEAPON ||
 		info->extra_type == ETYPE_AMMO ||
-		info->extra_type == ETYPE_AMMO_LINK
+		info->extra_type == ETYPE_AMMO_LINK ||
+		info->extra_type == ETYPE_KEY ||
+		info->extra_type == ETYPE_ARMOR ||
+		info->extra_type == ETYPE_ARMOR_BONUS
 	;
 }
 
@@ -51,6 +54,7 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 	if(!inventory_is_valid(info))
 		I_Error("Invalid inventory item!");
 
+	// backpack hack
 	if(	info->extra_type == ETYPE_AMMO &&
 		mo->player &&
 		mo->player->backpack
@@ -58,6 +62,10 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 		max_count = info->ammo.max_count;
 	else
 		max_count = info->inventory.max_count;
+
+	// zero check
+	if(!max_count)
+		return count;
 
 	// find in inventory
 	item = inventory_find(mo, type);
@@ -67,8 +75,8 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 		uint32_t newcount;
 
 		newcount = item->count + count;
-		if(newcount > 65535)
-			newcount = 65535;
+		if(newcount > INV_MAX_COUNT)
+			newcount = INV_MAX_COUNT;
 
 		if(newcount > max_count)
 			newcount = max_count;

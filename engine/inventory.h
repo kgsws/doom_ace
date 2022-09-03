@@ -1,6 +1,8 @@
 // kgsws' ACE Engine
 ////
 
+#define INV_MAX_COUNT	0xFFFF	// inventory uses uint16_t
+
 typedef struct inventory_s
 {
 	struct inventory_s *next;

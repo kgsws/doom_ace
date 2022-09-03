@@ -67,6 +67,46 @@ typedef struct
 
 //
 
+typedef struct
+{
+	uint8_t type;
+	uint8_t *message;
+} doom_weapon_t;
+
+typedef struct
+{
+	uint8_t clp;
+	uint8_t box;
+	uint8_t *msg_clp;
+	uint8_t *msg_box;
+} doom_ammo_t;
+
+typedef struct
+{
+	uint8_t type;
+	uint8_t *message;
+} doom_key_t;
+
+typedef struct
+{
+	uint8_t type;
+	uint8_t count;
+	uint8_t max_count;
+	uint8_t bonus;
+	uint8_t *message;
+} doom_health_t;
+
+typedef struct
+{
+	uint8_t type;
+	uint8_t count;
+	uint8_t percent;
+	uint8_t bonus;
+	uint8_t *message;
+} doom_armor_t;
+
+//
+
 uint32_t mobj_netid;
 
 uint32_t num_spr_names = 138;
@@ -134,7 +174,21 @@ static const mobjinfo_t default_player =
 	.player.view_height = 41 << FRACBITS,
 	.player.attack_offs = 8 << FRACBITS,
 	.state_crush = 895,
-	.extra_type = ETYPE_PLAYERPAWN,
+};
+
+// default 'Health'
+static const mobjinfo_t default_health =
+{
+	.spawnhealth = 1000,
+	.reactiontime = 8,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.flags = MF_SPECIAL,
+	.state_crush = 895,
+	.inventory.count = 1,
+	.inventory.max_count = 0,
+	.inventory.sound_pickup = 32,
 };
 
 // default 'DoomWeapon'
@@ -147,7 +201,6 @@ static const mobjinfo_t default_weapon =
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.state_crush = 895,
-	.extra_type = ETYPE_WEAPON,
 	.weapon.inventory.count = 1,
 	.weapon.inventory.max_count = 1,
 	.weapon.inventory.hub_count = 1,
@@ -156,7 +209,7 @@ static const mobjinfo_t default_weapon =
 };
 
 // default 'Ammo'
-static const mobjinfo_t default_ammo =
+static mobjinfo_t default_ammo =
 {
 	.spawnhealth = 1000,
 	.reactiontime = 8,
@@ -165,10 +218,61 @@ static const mobjinfo_t default_ammo =
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.state_crush = 895,
-	.extra_type = ETYPE_AMMO,
 	.ammo.inventory.count = 1,
 	.ammo.inventory.max_count = 1,
+	.ammo.inventory.hub_count = INV_MAX_COUNT,
 	.ammo.inventory.sound_pickup = 32,
+};
+
+// default 'DoomKey'
+static const mobjinfo_t default_key =
+{
+	.spawnhealth = 1000,
+	.reactiontime = 8,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.flags = MF_SPECIAL | MF_NOTDMATCH,
+	.flags1 = MF1_DONTGIB,
+	.state_crush = 895,
+	.inventory.count = 1,
+	.inventory.max_count = 1,
+	.inventory.sound_pickup = 32,
+};
+
+// default 'BasicArmorPickup'
+static mobjinfo_t default_armor =
+{
+	.spawnhealth = 1000,
+	.reactiontime = 8,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.flags = MF_SPECIAL,
+	.eflags = MFE_INVENTORY_AUTOACTIVATE,
+	.state_crush = 895,
+	.armor.inventory.count = 1,
+	.armor.inventory.max_count = 0,
+	.armor.inventory.hub_count = INV_MAX_COUNT,
+	.armor.inventory.sound_pickup = 32,
+};
+
+// default 'BasicArmorBonus'
+static mobjinfo_t default_armor_bonus =
+{
+	.spawnhealth = 1000,
+	.reactiontime = 8,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.flags = MF_SPECIAL,
+	.eflags = MFE_INVENTORY_AUTOACTIVATE | MFE_INVENTORY_ALWAYSPICKUP,
+	.state_crush = 895,
+	.armor.inventory.count = 1,
+	.armor.inventory.max_count = 0,
+	.armor.inventory.hub_count = INV_MAX_COUNT,
+	.armor.inventory.sound_pickup = 32,
+	.armor.percent = 33,
 };
 
 // mobj animations
@@ -279,12 +383,28 @@ static const dec_flag_t mobj_flags1[] =
 	{"noforwardfall", MF1_NOFORWARDFALL},
 	{"dontthrust", MF1_DONTTHRUST},
 	{"nodamagethrust", MF1_NODAMAGETHRUST},
+	{"dontgib", MF1_DONTGIB}, // TODO: implement in crusher
 	// terminator
 	{NULL}
 };
 static const dec_flag_t inventory_flags[] =
 {
 	{"inventory.quiet", MFE_INVENTORY_QUIET},
+	{"inventory.ignoreskill", MFE_INVENTORY_IGNORESKILL},
+//	{"inventory.autoactivate", MFE_INVENTORY_AUTOACTIVATE},
+//	{"inventory.alwayspickup", MFE_INVENTORY_ALWAYSPICKUP},
+//	{"inventory.invbar", MFE_INVENTORY_INVBAR},
+//	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER},
+//	{"inventory.persistentpower", MFE_INVENTORY_PERSISTENTPOWER},
+//	{"inventory.bigpowerup", MFE_INVENTORY_BIGPOWERUP},
+//	{"inventory.neverrespawn", MFE_INVENTORY_NEVERRESPAWN},
+//	{"inventory.keepdepleted", MFE_INVENTORY_KEEPDEPLETED},
+//	{"inventory.additivetime", MFE_INVENTORY_ADDITIVETIME},
+//	{"inventory.restrictabsolutely", MFE_INVENTORY_RESTRICTABSOLUTELY},
+	{"inventory.noscreenflash", MFE_INVENTORY_NOSCREENFLASH},
+//	{"inventory.transfer", MFE_INVENTORY_TRANSFER},
+//	{"inventory.noteleportfreeze", MFE_INVENTORY_NOTELEPORTFREEZE},
+//	{"inventory.noscreenblink", MFE_INVENTORY_NOSCREENBLINK},
 	// terminator
 	{NULL}
 };
@@ -326,6 +446,7 @@ static const dec_attr_t attr_inventory[] =
 	{"inventory.usesound", DT_U16, offsetof(mobjinfo_t, inventory.sound_use)},
 	{"inventory.pickupsound", DT_U16, offsetof(mobjinfo_t, inventory.sound_pickup)},
 	{"inventory.pickupmessage", DT_STRING, offsetof(mobjinfo_t, inventory.message)},
+	{"inventory.icon", DT_SKIP1, 0}, // TODO
 	// terminator
 	{NULL}
 };
@@ -357,6 +478,16 @@ static const dec_attr_t attr_ammo[] =
 	{NULL}
 };
 
+// 'BasicArmorPickup' attributes
+static const dec_attr_t attr_armor[] =
+{
+	{"armor.saveamount", DT_U16, offsetof(mobjinfo_t, armor.count)},
+	{"armor.maxsaveamount", DT_U16, offsetof(mobjinfo_t, armor.max_count)}, // only for bonus, but MEH
+	{"armor.savepercent", DT_U16, offsetof(mobjinfo_t, armor.percent)},
+	// terminator
+	{NULL}
+};
+
 // actor inheritance
 const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 {
@@ -370,6 +501,13 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 		.name = "PlayerPawn",
 		.def = &default_player,
 		.attr[0] = attr_player
+	},
+	[ETYPE_HEALTH] =
+	{
+		.name = "Health",
+		.def = &default_health,
+		.attr[0] = attr_inventory,
+		.flag[0] = inventory_flags,
 	},
 	[ETYPE_WEAPON] =
 	{
@@ -390,7 +528,33 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 	},
 	[ETYPE_AMMO_LINK] =
 	{
-		// nothing
+		// fake inheritance
+		.def = &default_ammo,
+		.attr[0] = attr_inventory,
+		.flag[0] = inventory_flags,
+	},
+	[ETYPE_KEY] =
+	{
+		.name = "DoomKey",
+		.def = &default_key,
+		.attr[0] = attr_inventory,
+		.flag[0] = inventory_flags,
+	},
+	[ETYPE_ARMOR] =
+	{
+		.name = "BasicArmorPickup",
+		.def = &default_armor,
+		.attr[0] = attr_inventory,
+		.attr[1] = attr_armor,
+		.flag[0] = inventory_flags,
+	},
+	[ETYPE_ARMOR_BONUS] =
+	{
+		.name = "BasicArmorBonus",
+		.def = &default_armor_bonus,
+		.attr[0] = attr_inventory,
+		.attr[1] = attr_armor,
+		.flag[0] = inventory_flags,
 	},
 };
 
@@ -408,10 +572,10 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.flags = MF_SPECIAL,
 		.state_crush = 895,
 		.extra_type = ETYPE_WEAPON,
-		.inventory.count = 1,
-		.inventory.max_count = 1,
-		.inventory.hub_count = 1,
-		.inventory.sound_pickup = 33,
+		.weapon.inventory.count = 1,
+		.weapon.inventory.max_count = 1,
+		.weapon.inventory.hub_count = 1,
+		.weapon.inventory.sound_pickup = 33,
 		.weapon.kickback = 100,
 	},
 	{
@@ -425,44 +589,66 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.flags = MF_SPECIAL,
 		.state_crush = 895,
 		.extra_type = ETYPE_WEAPON,
-		.inventory.count = 1,
-		.inventory.max_count = 1,
-		.inventory.hub_count = 1,
-		.inventory.sound_pickup = 33,
+		.weapon.inventory.count = 1,
+		.weapon.inventory.max_count = 1,
+		.weapon.inventory.hub_count = 1,
+		.weapon.inventory.sound_pickup = 33,
 		.weapon.kickback = 100,
 	}
 };
 
 // doom weapons
-static const uint8_t wpn_idx[NUMWEAPONS] =
+static const doom_weapon_t doom_weapon[NUMWEAPONS] =
 {
-	NUMMOBJTYPES + 0, // Fist (new)
-	NUMMOBJTYPES + 1, // Pistol (new)
-	77, // Shotgun
-	73, // Chaingun
-	75, // RocketLauncher
-	76, // PlasmaRifle
-	72, // BFG9000
-	74, // Chainsaw
-	78, // SuperShotgun
+	{NUMMOBJTYPES + 0, NULL}, // Fist (new)
+	{NUMMOBJTYPES + 1, "Pistol!"}, // Pistol (new)
+	{77, (uint8_t*)0x00023104}, // Shotgun
+	{73, (uint8_t*)0x00023094}, // Chaingun
+	{75, (uint8_t*)0x000230CC}, // RocketLauncher
+	{76, (uint8_t*)0x000230EC}, // PlasmaRifle
+	{72, (uint8_t*)0x00023074}, // BFG9000
+	{74, (uint8_t*)0x000230AC}, // Chainsaw
+	{78, (uint8_t*)0x0002311C}, // SuperShotgun
 };
 
 // doom ammo
-static const uint8_t ammo_idx[NUMAMMO] =
+static const doom_ammo_t doom_ammo[NUMAMMO] =
 {
-	63, // Clip
-	69, // Shell
-	67, // Cell
-	65, // RocketAmmo
+	{63, 64, (uint8_t*)0x00022F74, (uint8_t*)0x00022F88}, // Clip, ClipBox
+	{69, 70, (uint8_t*)0x00023010, (uint8_t*)0x0002302C}, // Shell, ShellBox
+	{67, 68, (uint8_t*)0x00022FD4, (uint8_t*)0x00022FF0}, // Cell, CellPack
+	{65, 66, (uint8_t*)0x00022FA4, (uint8_t*)0x00022FB8}, // RocketAmmo, RocketBox
 };
 
-static const uint8_t aMMo_idx[NUMAMMO] =
+// doom keys
+static const doom_key_t doom_key[NUMCARDS] =
 {
-	64, // ClipBox
-	70, // ShellBox
-	68, // CellPack
-	66, // RocketBox
+	{47, (uint8_t*)0x00022DE8}, // BlueCard
+	{49, (uint8_t*)0x00022E04}, // YellowCard
+	{48, (uint8_t*)0x00022E20}, // RedCard
+	{52, (uint8_t*)0x00022E3C}, // BlueSkull
+	{50, (uint8_t*)0x00022E58}, // YellowSkull
+	{51, (uint8_t*)0x00022E78}, // RedSkull
 };
+
+// doom health
+static const doom_health_t doom_health[] =
+{
+	{53, 10, 0, 0, (uint8_t*)0x00022E94}, // Stimpack
+	{54, 25, 0, 0, (uint8_t*)0x00022ED8}, // Medikit
+	{45, 1, 200, 1, (uint8_t*)0x00022D94}, // HealthBonus
+	{55, 100, 200, 2, (uint8_t*)0x00022DCC}, // Soulsphere
+};
+#define NUM_HEALTH_ITEMS	(sizeof(doom_health) / sizeof(doom_health_t))
+
+// doom armor
+static const doom_armor_t doom_armor[] =
+{
+	{43, 100, 33, 0, (uint8_t*)0x00022D60}, // GreenArmor
+	{44, 200, 50, 0, (uint8_t*)0x00022D78}, // BlueArmor
+	{46, 1, 33, 1, (uint8_t*)0x00022DB0}, // ArmorBonus
+};
+#define NUM_ARMOR_ITEMS	(sizeof(doom_armor) / sizeof(doom_armor_t))
 
 //
 // extra storage
@@ -483,31 +669,103 @@ void *dec_es_alloc(uint32_t size)
 
 static void make_doom_weapon(uint32_t idx)
 {
-	mobjinfo_t *info = mobjinfo + wpn_idx[idx];
+	const doom_weapon_t *def = doom_weapon + idx;
+	mobjinfo_t *info = mobjinfo + def->type;
 	weaponinfo_t *wpn = deh_weaponinfo + idx;
 
 	info->extra_type = ETYPE_WEAPON;
 	info->weapon = default_weapon.weapon;
+
+	if(def->type >= NUMMOBJTYPES)
+		return;
+
+	info->weapon.inventory.message = def->message + doom_data_segment;
 
 	// TODO
 }
 
 static void make_doom_ammo(uint32_t idx)
 {
-	mobjinfo_t *clp = mobjinfo + ammo_idx[idx];
-	mobjinfo_t *box = mobjinfo + aMMo_idx[idx];
+	const doom_ammo_t *ammo = doom_ammo + idx;
+	mobjinfo_t *info;
 
-	clp->extra_type = ETYPE_AMMO;
-	clp->ammo = default_ammo.ammo;
-	clp->ammo.inventory.count = ((uint32_t*)(0x00012D80 + doom_data_segment))[idx]; // clipammo
-	clp->ammo.inventory.max_count = ((uint32_t*)(0x00012D70 + doom_data_segment))[idx]; // maxammo
-	clp->ammo.count = clp->ammo.inventory.count * 2;
-	clp->ammo.max_count = clp->ammo.inventory.max_count * 2;
-	// TODO: message
+	info = mobjinfo + ammo->clp;
+	info->extra_type = ETYPE_AMMO;
+	info->ammo = default_ammo.ammo;
+	info->ammo.inventory.count = ((uint32_t*)(0x00012D80 + doom_data_segment))[idx]; // clipammo
+	info->ammo.inventory.max_count = ((uint32_t*)(0x00012D70 + doom_data_segment))[idx]; // maxammo
+	info->ammo.count = info->ammo.inventory.count * 2;
+	info->ammo.max_count = info->ammo.inventory.max_count * 2;
+	info->ammo.inventory.message = ammo->msg_clp + doom_data_segment;
+	// TODO: icon
 
-	box->extra_type = ETYPE_AMMO_LINK;
-	box->inventory.special = ammo_idx[idx];
-	// TODO: message
+	info = mobjinfo + ammo->box;
+	info->extra_type = ETYPE_AMMO_LINK;
+	info->ammo = default_ammo.ammo;
+	info->inventory.special = ammo->clp;
+	info->ammo.inventory.message = ammo->msg_box + doom_data_segment;
+	// TODO: icon
+}
+
+static void make_doom_key(uint32_t idx)
+{
+	const doom_key_t *key = doom_key + idx;
+	mobjinfo_t *info = mobjinfo + key->type;
+
+	info->extra_type = ETYPE_KEY;
+	info->inventory = default_key.inventory;
+	info->inventory.message = key->message + doom_data_segment;
+	// TODO: icon
+}
+
+static void make_doom_health(uint32_t idx)
+{
+	const doom_health_t *hp = doom_health + idx;
+	mobjinfo_t *info = mobjinfo + hp->type;
+
+	info->extra_type = ETYPE_HEALTH;
+	info->inventory = default_health.inventory;
+	info->inventory.count = hp->count;
+	info->inventory.max_count = hp->max_count;
+	info->inventory.message = hp->message + doom_data_segment;
+	if(hp->bonus)
+		info->eflags |= MFE_INVENTORY_ALWAYSPICKUP;
+	if(hp->bonus == 2)
+		info->inventory.sound_pickup = 93;
+}
+
+static void make_doom_armor(uint32_t idx)
+{
+	const doom_armor_t *ar = doom_armor + idx;
+	mobjinfo_t *info = mobjinfo + ar->type;
+
+	if(ar->bonus)
+	{
+		info->extra_type = ETYPE_ARMOR_BONUS;
+		info->eflags = default_armor_bonus.eflags;
+		info->armor = default_armor_bonus.armor;
+		info->armor.max_count = 200;
+	} else
+	{
+		info->extra_type = ETYPE_ARMOR;
+		info->eflags = default_armor.eflags;
+		info->armor = default_armor.armor;
+	}
+
+	info->armor.count = ar->count;
+	info->armor.percent = ar->percent;
+	info->armor.inventory.message = ar->message + doom_data_segment;
+}
+
+static void *relocate_estorage(void *target, void *ptr)
+{
+	if(ptr < EXTRA_STORAGE_PTR)
+		return ptr;
+
+	if(ptr >= EXTRA_STORAGE_END)
+		return ptr;
+
+	return target + (ptr - EXTRA_STORAGE_PTR);
 }
 
 static uint32_t spr_add_name(uint32_t name)
@@ -1252,7 +1510,16 @@ static void cb_parse_actors(lumpinfo_t *li)
 					break;
 			}
 			if(etp >= NUM_EXTRA_TYPES)
-				I_Error("[DECORATE] Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
+			{
+				// must be ammo link
+				idx = mobj_check_type(tp_hash64(kw));
+				if(idx < 0 || mobjinfo[idx].extra_type != ETYPE_AMMO)
+					I_Error("[DECORATE] Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
+
+				// fake inheritance - only link ammo
+				etp = ETYPE_AMMO_LINK;
+				default_ammo.inventory.special = idx;
+			}
 
 			// next keyword
 			kw = tp_get_keyword();
@@ -1302,6 +1569,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
 		info->doomednum = idx;
 		info->actor_name = alias;
+		info->extra_type = etp;
 
 		// reset stuff
 		extra_stuff_cur = NULL;
@@ -1531,6 +1799,18 @@ void init_decorate()
 	for(uint32_t i = 0; i < NUMAMMO; i++)
 		make_doom_ammo(i);
 
+	// doom keys
+	for(uint32_t i = 0; i < NUMCARDS; i++)
+		make_doom_key(i);
+
+	// doom health
+	for(uint32_t i = 0; i < NUM_HEALTH_ITEMS; i++)
+		make_doom_health(i);
+
+	// doom armor
+	for(uint32_t i = 0; i < NUM_ARMOR_ITEMS; i++)
+		make_doom_armor(i);
+
 	//
 	// PASS 1
 
@@ -1570,17 +1850,13 @@ void init_decorate()
 
 		// state arguments
 		for(uint32_t i = info->state_idx_first; i < info->state_idx_limit; i++)
-		{
-			state_t *st = states + i;
-			if(st->arg)
-				st->arg = target + (st->arg - EXTRA_STORAGE_PTR);
-		}
+			states[i].arg = relocate_estorage(target, states[i].arg);
 
 		// drop item list
 		if(info->extra_stuff[0])
 		{
-			info->extra_stuff[0] = target + (info->extra_stuff[0] - EXTRA_STORAGE_PTR);
-			info->extra_stuff[1] = target + (info->extra_stuff[1] - EXTRA_STORAGE_PTR);
+			info->extra_stuff[0] = relocate_estorage(target, info->extra_stuff[0]);
+			info->extra_stuff[1] = relocate_estorage(target, info->extra_stuff[1]);
 		}
 
 		// PlayerPawn
@@ -1588,18 +1864,16 @@ void init_decorate()
 		{
 			// weapon slots
 			for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
-			{
-				if(info->player.wpn_slot[i])
-					info->player.wpn_slot[i] = target + ((void*)info->player.wpn_slot[i] - EXTRA_STORAGE_PTR);
-			}
+				info->player.wpn_slot[i] = relocate_estorage(target, info->player.wpn_slot[i]);
 		}
 
 		// Inventory
 		if(inventory_is_valid(info))
-		{
-			if((void*)info->inventory.message >= EXTRA_STORAGE_PTR && (void*)info->inventory.message < EXTRA_STORAGE_END)
-				info->inventory.message = target + ((void*)info->inventory.message - EXTRA_STORAGE_PTR);
-		}
+			info->inventory.message = relocate_estorage(target, info->inventory.message);
+
+		// Health
+		if(info->extra_type == ETYPE_HEALTH)
+			info->inventory.message = relocate_estorage(target, info->inventory.message);
 	}
 
 	// extra inventory stuff
@@ -1609,12 +1883,10 @@ void init_decorate()
 
 		switch(info->extra_type)
 		{
-			case ETYPE_WEAPON:
-				info->inventory.max_count = 1; // TODO: is this correct?
-				info->inventory.hub_count = 1;
-			break;
 			case ETYPE_AMMO:
-				info->inventory.hub_count = 0xFFFF;
+				// ZDoom - allow 0, but no specific number
+				if(info->inventory.hub_count)
+					info->inventory.hub_count = INV_MAX_COUNT;
 			break;
 			case ETYPE_AMMO_LINK:
 			{
@@ -1623,13 +1895,19 @@ void init_decorate()
 				if(ofni->extra_type != ETYPE_AMMO)
 					I_Error("[DECORATE] Invalid inheritted ammo!");
 
-				// copy only amounts, for faster access later
-				info->inventory.count = ofni->inventory.count;
+				// copy only max amounts, for faster access later
 				info->inventory.max_count = ofni->inventory.max_count;
-				info->inventory.hub_count = 0xFFFF;
+				info->inventory.hub_count = ofni->inventory.hub_count;
 				info->ammo.count = ofni->ammo.count;
 				info->ammo.max_count = ofni->ammo.max_count;
 			}
+			break;
+			case ETYPE_KEY:
+				info->inventory.count = 1;
+				info->inventory.max_count = 1;
+				// ZDoom - allow 0, but no specific number
+				if(info->inventory.hub_count)
+					info->inventory.hub_count = 1;
 			break;
 		}
 	}

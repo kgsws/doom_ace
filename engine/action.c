@@ -241,6 +241,10 @@ void A_NoBlocking(mobj_t *mo)
 {
 	mo->flags &= ~MF_SOLID;
 
+	if(mo->info->extra_type == ETYPE_PLAYERPAWN)
+		// no item drops for player classes
+		return;
+
 	// drop items
 	for(mobj_dropitem_t *drop = mo->info->dropitem.start; drop < (mobj_dropitem_t*)mo->info->dropitem.end; drop++)
 	{

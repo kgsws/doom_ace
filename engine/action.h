@@ -32,6 +32,15 @@ typedef struct
 
 typedef struct
 {
+	uint16_t type;
+	uint16_t amount;
+	uint8_t ptr;
+} args_GiveInventory_t;
+
+//
+
+typedef struct
+{
 	angle_t angle;
 	uint8_t ptr;
 	uint32_t flags;

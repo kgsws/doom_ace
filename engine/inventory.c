@@ -12,7 +12,9 @@
 
 uint32_t inventory_is_valid(mobjinfo_t *info)
 {
-	return	info->extra_type == ETYPE_WEAPON ||
+	return	info->extra_type == ETYPE_INVENTORY ||
+		info->extra_type == ETYPE_INVENTORY_CUSTOM ||
+		info->extra_type == ETYPE_WEAPON ||
 		info->extra_type == ETYPE_AMMO ||
 		info->extra_type == ETYPE_AMMO_LINK ||
 		info->extra_type == ETYPE_KEY ||
@@ -44,6 +46,9 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 	inventory_t *item;
 	mobjinfo_t *info;
 	uint32_t max_count;
+
+	if(!count)
+		return 0;
 
 	// ammo inheritance
 	info = mobjinfo + type;

@@ -34,7 +34,17 @@ deh_mobjinfo_t *deh_mobjinfo;
 deh_state_t *deh_states;
 weaponinfo_t *deh_weaponinfo;
 
-uint_fast8_t deh_no_infight;
+deh_stuff_t dehacked =
+{
+	.start_health = 100,
+	.start_bullets = 50,
+	.max_bonus_health = 200,
+	.max_bonus_armor = 200,
+	.max_soulsphere = 200,
+	.hp_soulsphere = 100,
+	.hp_megasphere = 200,
+};
+
 uint_fast8_t deh_plr_health = 100;
 uint_fast8_t deh_plr_bullets = 50;
 
@@ -63,7 +73,6 @@ static const deh_section_t deh_section[] =
 // section handlers
 static void handle_u32(uint8_t*,void*);
 static void handle_u8(uint8_t*,void*);
-static void handle_give_limit(uint8_t*,void*);
 static void handle_bfg(uint8_t*,void*);
 static void handle_species(uint8_t*,void*);
 static void handle_infight(uint8_t*,void*);
@@ -137,15 +146,15 @@ static const deh_value_t deh_value_ammo[] =
 // section 'misc' values
 static const deh_value_t deh_value_misc[] =
 {
-	{"Initial Health", (uint32_t)&deh_plr_health, handle_u32},
-	{"Initial Bullets", (uint32_t)&deh_plr_bullets, handle_u32},
-	{"Max Health", 0x00029BA6, handle_give_limit},
-	{"Max Armor", 0x00029BD3, handle_give_limit},
+	{"Initial Health", (uint32_t)&dehacked.start_health, handle_u32},
+	{"Initial Bullets", (uint32_t)&dehacked.start_bullets, handle_u32},
+	{"Max Health", (uint32_t)&dehacked.max_bonus_health, handle_u32},
+	{"Max Armor", (uint32_t)&dehacked.max_bonus_armor, handle_u32},
 //	{"Green Armor Class", },
 //	{"Blue Armor Class", },
-	{"Max Soulsphere", 0x00029C06, handle_give_limit},
-	{"Soulsphere Health", 0x00029C01, handle_u8},
-	{"Megasphere Health", 0x00029C3F, handle_u32},
+	{"Max Soulsphere", (uint32_t)&dehacked.max_soulsphere, handle_u32},
+	{"Soulsphere Health", (uint32_t)&dehacked.hp_soulsphere, handle_u32},
+	{"Megasphere Health", (uint32_t)&dehacked.hp_megasphere, handle_u32},
 //	{"God Mode Health", },
 //	{"IDFA Armor", },
 //	{"IDFA Armor Class", },
@@ -246,34 +255,6 @@ static void handle_u8(uint8_t *text, void *target)
 
 	*((uint8_t*)target) = tmp;
 }
-#if 0
-static void handle_max_health(uint8_t *text, void *target)
-{
-	// this modifies multiple locations
-	// only 8bit (255 max) is allowed
-	uint32_t tmp;
-
-	if(doom_sscanf(text, "%i", &tmp) != 1) // allow DEC HEX and OCT
-		return;
-
-	// patch 'P_GiveBody'
-	*((uint8_t*)(doom_code_segment + 0x000298F7)) = tmp; // cmp $0x64,%ebx
-	*((uint8_t*)(doom_code_segment + 0x00029907)) = tmp; // cmp $0x64,%ecx
-	*((uint8_t*)(doom_code_segment + 0x0002990D)) = tmp; // movl $0x64,0x20(%eax)
-}
-#endif
-static void handle_give_limit(uint8_t *text, void *target)
-{
-	// health or armor give limit
-	// this modifies multiple locations
-	uint32_t tmp;
-
-	if(doom_sscanf(text, "%i", &tmp) != 1) // allow DEC HEX and OCT
-		return;
-
-	*((uint32_t*)target) = tmp;
-	*((uint32_t*)(target + 9)) = tmp;
-}
 
 static void handle_bfg(uint8_t *text, void *target)
 {
@@ -304,7 +285,7 @@ static void handle_infight(uint8_t *text, void *target)
 	if(doom_sscanf(text, "%i", &tmp) != 1) // allow DEC HEX and OCT
 		return;
 
-	deh_no_infight = !!tmp;
+	dehacked.no_infight = !!tmp;
 }
 
 //

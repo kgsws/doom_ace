@@ -19,6 +19,8 @@ uint32_t *displayplayer;
 
 thinker_t *thinkercap;
 
+//
+
 static const uint32_t view_height_ptr[] =
 {
 	0x00031227, // P_ZMovement
@@ -63,6 +65,9 @@ static void set_viewheight(fixed_t wh)
 	}
 }
 
+//
+// inventory handling
+
 static uint32_t give_ammo(mobj_t *mo, uint16_t type, uint16_t count, uint32_t dropped)
 {
 	uint32_t left;
@@ -87,22 +92,35 @@ static uint32_t give_ammo(mobj_t *mo, uint16_t type, uint16_t count, uint32_t dr
 	return left < count;
 }
 
-static uint32_t give_health(mobj_t *mo, mobjinfo_t *info)
+static uint32_t give_health(mobj_t *mo, uint32_t count, uint32_t max_count)
 {
 	uint32_t maxhp;
 
-	if(info->inventory.max_count)
-		maxhp = info->inventory.max_count;
+	if(max_count)
+		maxhp = max_count;
 	else
 		maxhp = mo->info->spawnhealth;
 
-	if(mo->player->health >= maxhp)
+	if(mo->player)
+	{
+		// Voodoo Doll ...
+		if(mo->player->health >= maxhp)
+			return 0;
+
+		mo->player->health += count;
+		if(mo->player->health > maxhp)
+			mo->player->health = maxhp;
+		mo->health = mo->player->health;
+
+		return 1;
+	}
+
+	if(mo->health >= maxhp)
 		return 0;
 
-	mo->player->health += info->inventory.count;
-	if(mo->player->health > maxhp)
-		mo->player->health = maxhp;
-	mo->health = mo->player->health;
+	mo->health += count;
+	if(mo->health > maxhp)
+		mo->health = maxhp;
 
 	return 1;
 }
@@ -166,6 +184,84 @@ static uint32_t give_power(mobj_t *mo, mobjinfo_t *info)
 	return 1;
 }
 
+static uint32_t give_special(mobj_t *mo, mobjinfo_t *info)
+{
+	if(!mo->player)
+		return 0;
+
+	switch(info->inventory.special)
+	{
+		case 0:
+			// backpack
+			if(!mo->player->backpack)
+				mo->player->backpack = 1;
+			// give all existing ammo
+			for(uint32_t idx = 0; idx < num_mobj_types; idx++)
+			{
+				mobjinfo_t *info = mobjinfo + idx;
+				if(info->extra_type == ETYPE_AMMO)
+					inventory_give(mo, idx, info->ammo.count);
+			}
+		break;
+		case 1:
+			// map
+			if(mo->player->powers[pw_allmap])
+				// original behaviour - different than ZDoom
+				return 0;
+			mo->player->powers[pw_allmap] = 1;
+		break;
+		case 2:
+			// megasphere
+			mo->health = dehacked.hp_megasphere;
+			mo->player->health = mo->health;
+			mo->player->armorpoints = 200;
+			mo->player->armortype = 44;
+		break;
+		case 3:
+			// berserk
+			give_health(mo, 100, 0);
+			mo->player->powers[pw_strength] = 1;
+			if(mo->player->readyweapon && inventory_find(mo, MOBJ_IDX_FIST))
+				mo->player->pendingweapon = 0;
+		break;
+	}
+
+	return 1;
+}
+
+static uint32_t pick_custom_inv(mobj_t *mo, mobjinfo_t *info, uint32_t from_pickup)
+{
+	if(!info->st_custinv.pickup)
+		return 1;
+
+	if(mo->custom_inventory)
+		I_Error("Nested CustomInventory is not supported!");
+
+	mo->custom_inventory = info;
+	mo->custom_result = from_pickup;
+	mobj_inv_state(mo, info->st_custinv.pickup);
+
+	if(info->eflags & MFE_INVENTORY_ALWAYSPICKUP)
+		return 1;
+
+	return mo->custom_result;
+}
+
+static uint32_t use_custom_inv(mobj_t *mo, mobjinfo_t *info, uint32_t from_pickup)
+{
+	if(!info->st_custinv.use)
+		return 1;
+
+	if(mo->custom_inventory)
+		I_Error("Nested CustomInventory is not supported!");
+
+	mo->custom_inventory = info;
+	mo->custom_result = from_pickup;
+	mobj_inv_state(mo, info->st_custinv.use);
+
+	return mo->custom_result;
+}
+
 //
 // hooks
 
@@ -181,7 +277,7 @@ void spawn_player(mapthing_t *mt)
 		return;
 
 	pl = players + idx;
-	info = mobjinfo + player_class[0];
+	info = mobjinfo + player_class[0]; // TODO
 
 	// create body
 	mo = P_SpawnMobj((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS, 0x80000000, player_class[0]);
@@ -207,7 +303,11 @@ void spawn_player(mapthing_t *mt)
 		pl->usedown = 1;
 		pl->attackdown = 1;
 		pl->playerstate = PST_LIVE;
-		pl->health = deh_plr_health;
+
+		if(info == mobjinfo)
+			pl->health = dehacked.start_health;
+		else
+			pl->health = info->spawnhealth;
 
 		//
 		// OLD INVENTORY - REMOVE
@@ -215,7 +315,7 @@ void spawn_player(mapthing_t *mt)
 		pl->pendingweapon = 1;
 		pl->weaponowned[0] = 1;
 		pl->weaponowned[1] = 1;
-		pl->ammo[0] = deh_plr_bullets;
+		pl->ammo[0] = 50;
 		for(uint32_t i = 0; i < 4; i++)
 			pl->maxammo[i] = *((uint32_t*)(0x00012D70 + doom_data_segment) + i);
 		if(*deathmatch)
@@ -337,13 +437,45 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	{
 		case ETYPE_HEALTH:
 			// health pickup
-			if(!give_health(toucher, info) && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+			if(!give_health(toucher, info->inventory.count, info->inventory.max_count) && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
 				// can't pickup
 				return;
 		break;
+		case ETYPE_INV_SPECIAL:
+			// special pickup type
+			if(!give_special(toucher, info))
+				// can't pickup
+				return;
+		break;
+		case ETYPE_INVENTORY:
+			// add to inventory
+			if(inventory_give(toucher, mo->type, info->inventory.count) >= info->inventory.count)
+				// can't pickup
+				return;
+		break;
+		case ETYPE_INVENTORY_CUSTOM:
+			// pickup
+			if(!pick_custom_inv(toucher, info, 0xFF))
+				// can't pickup
+				return;
+			// check for 'use'
+			if(info->st_custinv.use)
+			{
+				given = 0;
+				// autoactivate
+				if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
+					given = use_custom_inv(toucher, info, 0xFF);
+				// give as item
+				if(!given)
+					given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;
+				// check
+				if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+					return;
+			}
+		break;
 		case ETYPE_WEAPON:
 			// weapon
-			given = !inventory_give(toucher, mo->type, info->inventory.count);
+			given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;
 			// primary ammo
 			given |= give_ammo(toucher, info->weapon.ammo_type[0], info->weapon.ammo_give[0], mo->flags & MF_DROPPED);
 			// secondary ammo
@@ -440,6 +572,87 @@ static void kill_animation(mobj_t *mo)
 //
 // API
 
+uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
+{
+	uint32_t given;
+	mobjinfo_t *info = mobjinfo + type;
+
+	if(!count)
+		return 0;
+
+	switch(info->extra_type)
+	{
+		case ETYPE_HEALTH:
+			return give_health(mo, (uint32_t)count * (uint32_t)info->inventory.count, info->inventory.max_count);
+		case ETYPE_INV_SPECIAL:
+			return give_special(mo, info);
+		case ETYPE_INVENTORY:
+		case ETYPE_WEAPON:
+		case ETYPE_AMMO:
+		case ETYPE_AMMO_LINK:
+		case ETYPE_KEY: // can this fail in ZDoom?
+			return inventory_give(mo, type, count) < count;
+		case ETYPE_INVENTORY_CUSTOM:
+			// pickup
+			if(!pick_custom_inv(mo, info, 0))
+				return 0;
+			// check for 'use'
+			if(info->st_custinv.use)
+			{
+				given = 0;
+				// autoactivate
+				if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
+				{
+					given = use_custom_inv(mo, info, 0);
+					if(given)
+						count--;
+				}
+				// give as item(s)
+				if(!given || count)
+					given |= inventory_give(mo, type, count) < count;
+				// check
+				if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+					return 0;
+			}
+			return 1;
+		case ETYPE_ARMOR:
+		case ETYPE_ARMOR_BONUS:
+			given = 0;
+			// autoactivate
+			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
+			{
+				given = give_armor(mo, info);
+				if(given)
+					count--;
+			}
+			// give as item(s)
+			if(!given || count)
+				given |= inventory_give(mo, type, count) < count;
+			// check
+			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+				return 0;
+			return 1;
+		case ETYPE_POWERUP:
+			given = 0;
+			// autoactivate
+			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
+			{
+				given = give_power(mo, info);
+				if(given)
+					count--;
+			}
+			// give as item(s)
+			if(!given || count)
+				given |= inventory_give(mo, type, count) < count;
+			// check
+			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+				return 0;
+			return 1;
+	}
+
+	return 0;
+}
+
 void mobj_for_each(uint32_t (*cb)(mobj_t*))
 {
 	if(!thinkercap->next)
@@ -458,6 +671,7 @@ void mobj_for_each(uint32_t (*cb)(mobj_t*))
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 {
+	// normal state changes
 	state_t *st;
 
 	do
@@ -496,11 +710,56 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 		state = st->nextstate;
 
 		if(st->acp)
-			st->acp(mo);
+			st->acp(mo, st, mobj_set_state);
 
 	} while(!mo->tics);
 
 	return 1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void mobj_inv_state(mobj_t *mo, uint32_t state)
+{
+	// state set by custom inventory
+	state_t *st;
+
+	while(mo->custom_inventory)
+	{
+		if(state & 0x80000000)
+		{
+			// change animation
+			mobjinfo_t *info = mo->custom_inventory;
+			uint16_t offset;
+			uint8_t anim;
+
+			offset = state & 0xFFFF;
+			anim = (state >> 16) & 0xFF;
+
+			if(anim < NUM_MOBJ_ANIMS)
+				state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
+			else
+				state = info->extra_states[anim - NUM_MOBJ_ANIMS];
+
+			if(state)
+				state += offset;
+
+			if(state >= info->state_idx_limit)
+				I_Error("[MOBJ] State jump '+%u' is invalid!", offset);
+		}
+
+		if(state <= 1)
+		{
+			mo->custom_result = !state;
+			mo->custom_inventory = NULL;
+			return;
+		}
+
+		st = states + state;
+		state = st->nextstate;
+
+		if(st->acp)
+			st->acp(mo, st, mobj_inv_state);
+	}
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -634,7 +893,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 	target->reactiontime = 0;
 
-	if(	!deh_no_infight &&
+	if(	!dehacked.no_infight &&
 		(!target->threshold || target->flags1 & MF1_QUICKTORETALIATE) &&
 		source && source != target &&
 		!(source->flags1 & MF1_NOTARGET)

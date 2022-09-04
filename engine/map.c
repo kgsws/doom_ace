@@ -115,7 +115,7 @@ static void spawn_map_thing(mapthing_t *mt)
 			break;
 	} while(idx);
 	if(!idx)
-		idx = UNKNOWN_MOBJ_IDX;
+		idx = MOBJ_IDX_UNKNOWN;
 	info = mobjinfo + idx;
 
 	// 'not in deathmatch'

@@ -2,9 +2,6 @@
 ////
 // This is a DEHACKED parser.
 
-#define NUMMOBJTYPES	137
-#define NUMSTATES	967
-
 //
 
 typedef struct
@@ -45,15 +42,25 @@ typedef struct deh_state_s
 	int32_t misc2;
 } deh_state_t;
 
+typedef struct
+{
+	uint32_t start_health;
+	uint32_t start_bullets;
+	uint32_t max_bonus_health;
+	uint32_t max_bonus_armor;
+	uint32_t max_soulsphere;
+	uint32_t hp_soulsphere;
+	uint32_t hp_megasphere;
+	uint8_t no_infight;
+} deh_stuff_t;
+
 //
 
 extern deh_mobjinfo_t *deh_mobjinfo;
 extern deh_state_t *deh_states;
 extern weaponinfo_t *deh_weaponinfo;
 
-extern uint_fast8_t deh_no_infight;
-extern uint_fast8_t deh_plr_health;
-extern uint_fast8_t deh_plr_bullets;
+extern deh_stuff_t dehacked;
 
 //
 

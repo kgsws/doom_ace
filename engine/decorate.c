@@ -17,7 +17,7 @@
 
 #define NUM_STATE_HOOKS	6
 
-#define NUM_NEW_TYPES	2
+#define NUM_NEW_TYPES	3
 
 enum
 {
@@ -26,6 +26,7 @@ enum
 	DT_FIXED,
 	DT_SOUND,
 	DT_STRING,
+	DT_ICON,
 	DT_SKIP1,
 	DT_POWERUP_TYPE,
 	DT_POWERUP_MODE,
@@ -123,6 +124,14 @@ typedef struct
 	uint8_t *message;
 } doom_powerup_t;
 
+typedef struct
+{
+	uint8_t type;
+	uint8_t special;
+	uint8_t sound;
+	uint8_t *message;
+} doom_invspec_t;
+
 //
 
 uint32_t mobj_netid;
@@ -206,6 +215,22 @@ static const mobjinfo_t default_health =
 	.state_crush = 895,
 	.inventory.count = 1,
 	.inventory.max_count = 0,
+	.inventory.sound_pickup = 32,
+};
+
+// default 'Inventory'
+static mobjinfo_t default_inventory =
+{
+	.spawnhealth = 1000,
+	.reactiontime = 8,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.flags = MF_SPECIAL,
+	.state_crush = 895,
+	.inventory.count = 1,
+	.inventory.max_count = 1,
+	.inventory.hub_count = 1,
 	.inventory.sound_pickup = 32,
 };
 
@@ -325,16 +350,19 @@ static const dec_anim_t mobj_anim[] =
 	{"crush", ANIM_CRUSH, ETYPE_NONE, offsetof(mobjinfo_t, state_crush)},
 	{"heal", ANIM_HEAL, ETYPE_NONE, offsetof(mobjinfo_t, state_heal)},
 	// weapon
-	{"ready", ANIM_W_READY, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_ready)},
-	{"deselect", ANIM_W_LOWER, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_lower)},
-	{"select", ANIM_W_RAISE, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_raise)},
-	{"deadlowered", ANIM_W_DEADLOW, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_deadlow)},
-	{"fire", ANIM_W_FIRE, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_fire)},
-	{"altfire", ANIM_W_FIRE_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_fire_alt)},
-	{"hold", ANIM_W_HOLD, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_hold)},
-	{"althold", ANIM_W_HOLD_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_hold_alt)},
-	{"flash", ANIM_W_FLASH, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_flash)},
-	{"altflash", ANIM_W_FLASH_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.state_flash_alt)},
+	{"ready", ANIM_W_READY, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.ready)},
+	{"deselect", ANIM_W_LOWER, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.lower)},
+	{"select", ANIM_W_RAISE, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.raise)},
+	{"deadlowered", ANIM_W_DEADLOW, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.deadlow)},
+	{"fire", ANIM_W_FIRE, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.fire)},
+	{"altfire", ANIM_W_FIRE_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.fire_alt)},
+	{"hold", ANIM_W_HOLD, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.hold)},
+	{"althold", ANIM_W_HOLD_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.hold_alt)},
+	{"flash", ANIM_W_FLASH, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.flash)},
+	{"altflash", ANIM_W_FLASH_ALT, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.flash_alt)},
+	// custom inventory
+	{"pickup", ANIM_I_PICKUP, ETYPE_INVENTORY_CUSTOM, offsetof(mobjinfo_t, st_custinv.pickup)},
+	{"use", ANIM_I_USE, ETYPE_INVENTORY_CUSTOM, offsetof(mobjinfo_t, st_custinv.use)},
 	// terminator
 	{NULL}
 };
@@ -430,7 +458,7 @@ static const dec_flag_t inventory_flags[] =
 	{"inventory.autoactivate", MFE_INVENTORY_AUTOACTIVATE},
 	{"inventory.alwayspickup", MFE_INVENTORY_ALWAYSPICKUP},
 //	{"inventory.invbar", MFE_INVENTORY_INVBAR},
-//	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER}, // not available
+//	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER}, // not available, not planned
 //	{"inventory.persistentpower", MFE_INVENTORY_PERSISTENTPOWER},
 //	{"inventory.bigpowerup", MFE_INVENTORY_BIGPOWERUP},
 //	{"inventory.neverrespawn", MFE_INVENTORY_NEVERRESPAWN},
@@ -441,6 +469,7 @@ static const dec_flag_t inventory_flags[] =
 //	{"inventory.transfer", MFE_INVENTORY_TRANSFER},
 //	{"inventory.noteleportfreeze", MFE_INVENTORY_NOTELEPORTFREEZE},
 //	{"inventory.noscreenblink", MFE_INVENTORY_NOSCREENBLINK},
+	{"inventory.untossable", MFE_INVENTORY_UNTOSSABLE}, // for ZDoom compatibility, might be used later
 	// terminator
 	{NULL}
 };
@@ -479,10 +508,13 @@ static const dec_attr_t attr_inventory[] =
 	{"inventory.amount", DT_U16, offsetof(mobjinfo_t, inventory.count)},
 	{"inventory.maxamount", DT_U16, offsetof(mobjinfo_t, inventory.max_count)},
 	{"inventory.interhubamount", DT_U16, offsetof(mobjinfo_t, inventory.hub_count)},
-	{"inventory.usesound", DT_U16, offsetof(mobjinfo_t, inventory.sound_use)},
-	{"inventory.pickupsound", DT_U16, offsetof(mobjinfo_t, inventory.sound_pickup)},
+	{"inventory.icon", DT_ICON, offsetof(mobjinfo_t, inventory.icon)},
+	{"inventory.pickupflash", DT_MOBJTYPE, offsetof(mobjinfo_t, inventory.flash_type)},
+	{"inventory.respawntics", DT_MOBJTYPE, offsetof(mobjinfo_t, inventory.respawn_tics)},
+	{"inventory.usesound", DT_SOUND, offsetof(mobjinfo_t, inventory.sound_use)},
+	{"inventory.pickupsound", DT_SOUND, offsetof(mobjinfo_t, inventory.sound_pickup)},
 	{"inventory.pickupmessage", DT_STRING, offsetof(mobjinfo_t, inventory.message)},
-	{"inventory.icon", DT_SKIP1, 0}, // TODO
+	{"inventory.althudicon", DT_SKIP1, 0}, // TODO
 	// terminator
 	{NULL}
 };
@@ -556,6 +588,27 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 		.attr[0] = attr_inventory,
 		.flag[0] = inventory_flags,
 	},
+	[ETYPE_INV_SPECIAL] =
+	{
+		// special inheritance
+		.def = &default_inventory,
+		.attr[0] = attr_inventory,
+		.flag[0] = inventory_flags,
+	},
+	[ETYPE_INVENTORY] =
+	{
+		.name = "Inventory",
+		.def = &default_inventory,
+		.attr[0] = attr_inventory,
+		.flag[0] = inventory_flags,
+	},
+	[ETYPE_INVENTORY_CUSTOM] =
+	{
+		.name = "CustomInventory",
+		.def = &default_inventory,
+		.attr[0] = attr_inventory,
+		.flag[0] = inventory_flags,
+	},
 	[ETYPE_WEAPON] =
 	{
 		.name = "DoomWeapon",
@@ -616,6 +669,17 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 // internal types
 static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 {
+	[MOBJ_IDX_UNKNOWN - NUMMOBJTYPES] =
+	{
+		.spawnhealth = 1000,
+		.reactiontime = 8,
+		.radius = 20 << FRACBITS,
+		.height = 16 << FRACBITS,
+		.mass = 100,
+		.flags = MF_NOGRAVITY | MF_NOBLOCKMAP,
+		.state_spawn = 149, // TODO: custom sprite
+	},
+	[MOBJ_IDX_FIST - NUMMOBJTYPES] =
 	{
 		// Fist
 		.actor_name = 0x0000000000D33A46,
@@ -633,6 +697,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.weapon.inventory.sound_pickup = 33,
 		.weapon.kickback = 100,
 	},
+	[MOBJ_IDX_PISTOL - NUMMOBJTYPES] =
 	{
 		// Pistol
 		.actor_name = 0x0000000B2FD33A50,
@@ -663,11 +728,20 @@ static const dec_powerup_t powerup_type[NUMPOWERS] =
 	[pw_infrared] = {"lightamp", -120},
 };
 
+// special inventory
+static const uint8_t *powerup_special[] =
+{
+	"BackpackItem",
+	"MapRevealer",
+	// terminator
+	NULL
+};
+
 // doom weapons
 static const doom_weapon_t doom_weapon[NUMWEAPONS] =
 {
-	{NUMMOBJTYPES + 0, NULL}, // Fist (new)
-	{NUMMOBJTYPES + 1, "Pistol!"}, // Pistol (new)
+	{MOBJ_IDX_FIST, NULL}, // Fist (new)
+	{MOBJ_IDX_PISTOL, "Pistol!"}, // Pistol (new)
 	{77, (uint8_t*)0x00023104}, // Shotgun
 	{73, (uint8_t*)0x00023094}, // Chaingun
 	{75, (uint8_t*)0x000230CC}, // RocketLauncher
@@ -726,6 +800,16 @@ static const doom_powerup_t doom_powerup[] =
 };
 #define NUM_POWERUP_ITEMS	(sizeof(doom_powerup) / sizeof(doom_powerup_t))
 
+// doop special powerups
+static const doom_invspec_t doom_invspec[] =
+{
+	{71, 0, 32, (uint8_t*)0x00023050}, // Backpack
+	{60, 1, 93, (uint8_t*)0x00022F44}, // Allmap
+	{62, 2, 93, (uint8_t*)0x00022DDC}, // Megasphere
+	{57, 3, 93, (uint8_t*)0x00022F04}, // Berserk
+};
+#define NUM_INVSPEC_ITEMS	(sizeof(doom_invspec) / sizeof(doom_invspec_t))
+
 //
 // extra storage
 
@@ -770,7 +854,7 @@ static void make_doom_ammo(uint32_t idx)
 	info->ammo = default_ammo.ammo;
 	info->ammo.inventory.count = ((uint32_t*)(0x00012D80 + doom_data_segment))[idx]; // clipammo
 	info->ammo.inventory.max_count = ((uint32_t*)(0x00012D70 + doom_data_segment))[idx]; // maxammo
-	info->ammo.count = info->ammo.inventory.count * 2;
+	info->ammo.count = info->ammo.inventory.count;
 	info->ammo.max_count = info->ammo.inventory.max_count * 2;
 	info->ammo.inventory.message = ammo->msg_clp + doom_data_segment;
 	// TODO: icon
@@ -844,6 +928,19 @@ static void make_doom_powerup(uint32_t idx)
 	info->powerup.inventory.max_count = 0;
 	info->powerup.type = pw->power;
 	info->powerup.inventory.message = pw->message + doom_data_segment;
+}
+
+static void make_doom_invspec(uint32_t idx)
+{
+	const doom_invspec_t *pw = doom_invspec + idx;
+	mobjinfo_t *info = mobjinfo + pw->type;
+
+	info->extra_type = ETYPE_INV_SPECIAL;
+	info->eflags = default_powerup.eflags;
+	info->inventory = default_powerup.powerup.inventory;
+	info->inventory.special = pw->special;
+	info->inventory.sound_pickup = pw->sound;
+	info->inventory.message = pw->message + doom_data_segment;
 }
 
 static void *relocate_estorage(void *target, void *ptr)
@@ -930,6 +1027,20 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			strcpy(tmp, kw);
 
 			*((uint8_t**)dest) = tmp;
+		}
+		break;
+		case DT_ICON:
+		{
+			uint8_t *tmp;
+
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+
+			num.s32 = wad_check_lump(kw);
+			if(num.s32 < 0)
+				num.s32 = 0;
+			*((int32_t*)dest) = num.s32;
 		}
 		break;
 		case DT_SKIP1:
@@ -1098,7 +1209,7 @@ static uint32_t parse_dropitem()
 
 	tmp = mobj_check_type(tp_hash64(kw));
 	if(tmp < 0)
-		drop->type = UNKNOWN_MOBJ_IDX;
+		drop->type = MOBJ_IDX_UNKNOWN;
 	else
 		drop->type = tmp;
 
@@ -1311,11 +1422,11 @@ have_keyword:
 			parse_next_state = NULL;
 			continue;
 		}
-		if(!strcmp(kw, "fail"))
+		if(parse_mobj_info->extra_type == ETYPE_INVENTORY_CUSTOM && !strcmp(kw, "fail"))
 		{
 			if(!parse_next_state)
 				goto error_no_states;
-			*parse_next_state = 0;
+			*parse_next_state = 1;
 			parse_next_state = NULL;
 			continue;
 		} else
@@ -1346,7 +1457,19 @@ have_keyword:
 				anim++;
 			}
 			if(!anim->name)
+			{
+				if(parse_mobj_info->extra_type == ETYPE_WEAPON && !strcmp(kw, "lightdone"))
+				{
+					// special state for weapons
+					*parse_next_state = 1;
+					// next keyword
+					kw = tp_get_keyword_lc();
+					if(!kw)
+						return 1;
+					goto skip_math;
+				}
 				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
+			}
 
 			// check for '+'
 			kw = tp_get_keyword_lc();
@@ -1371,7 +1494,7 @@ have_keyword:
 
 			// use animation 'system'
 			*parse_next_state = STATE_SET_ANIMATION(anim->idx, tics);
-
+skip_math:
 			// disable math
 			tp_enable_math = 0;
 
@@ -1625,6 +1748,24 @@ static void cb_parse_actors(lumpinfo_t *li)
 			{
 				if(inheritance[etp].name && !strcmp(kw, inheritance[etp].name))
 					break;
+			}
+			if(etp >= NUM_EXTRA_TYPES)
+			{
+				// extra special type
+				uint32_t extra = 0;
+				const uint8_t **name = powerup_special;
+				while(*name)
+				{
+					if(!strcmp(*name, kw))
+						break;
+					extra++;
+					name++;
+				}
+				if(*name)
+				{
+					etp = ETYPE_INV_SPECIAL;
+					default_inventory.inventory.special = extra;
+				}
 			}
 			if(etp >= NUM_EXTRA_TYPES)
 			{
@@ -1932,6 +2073,16 @@ void init_decorate()
 	for(uint32_t i = 0; i < NUM_POWERUP_ITEMS; i++)
 		make_doom_powerup(i);
 
+	// doom other powerups
+	for(uint32_t i = 0; i < NUM_INVSPEC_ITEMS; i++)
+		make_doom_invspec(i);
+
+	// dehacked modifications
+	mobjinfo[45].inventory.max_count = dehacked.max_bonus_health;
+	mobjinfo[46].armor.max_count = dehacked.max_bonus_armor;
+	mobjinfo[55].inventory.count = dehacked.hp_soulsphere;
+	mobjinfo[55].inventory.max_count = dehacked.max_soulsphere;
+
 	//
 	// PASS 1
 
@@ -1988,12 +2139,8 @@ void init_decorate()
 				info->player.wpn_slot[i] = relocate_estorage(target, info->player.wpn_slot[i]);
 		}
 
-		// Inventory
-		if(inventory_is_valid(info))
-			info->inventory.message = relocate_estorage(target, info->inventory.message);
-
-		// Health
-		if(info->extra_type == ETYPE_HEALTH)
+		// Inventory stuff
+		if(inventory_is_valid(info) || info->extra_type == ETYPE_HEALTH || info->extra_type == ETYPE_INV_SPECIAL)
 			info->inventory.message = relocate_estorage(target, info->inventory.message);
 	}
 

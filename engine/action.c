@@ -69,9 +69,21 @@ static uint8_t *handle_mobjtype(uint8_t *kw, const dec_arg_t *arg)
 
 	type = mobj_check_type(tp_hash64(kw));
 	if(type < 0)
-		type = UNKNOWN_MOBJ_IDX;
+		type = MOBJ_IDX_UNKNOWN;
 
 	*((uint16_t*)(parse_action_arg + arg->offset)) = type;
+
+	return tp_get_keyword();
+}
+
+static uint8_t *handle_u16(uint8_t *kw, const dec_arg_t *arg)
+{
+	int32_t tmp;
+
+	if(doom_sscanf(kw, "%d", &tmp) != 1 || tmp < 0 || tmp > 65535)
+		I_Error("[DECORATE] Unable to parse uint16_t '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+
+	*((uint16_t*)(parse_action_arg + arg->offset)) = tmp;
 
 	return tp_get_keyword();
 }
@@ -180,10 +192,18 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 	mo->y += mo->momy >> 1;
 	mo->z += mo->momz >> 1;
 
+	// this is an extra addition
+	// projectile spawn can be called in pickup function,
+	// that creates nested 'P_TryMove' call
+	// which breaks basicaly everything
+	// so let's avoid that
+	if(source->custom_result == 0xFF)
+		return;
+
 	if(!P_TryMove(mo, mo->x, mo->y))
 	{
 		if(mo->flags1 & MF_SHOOTABLE)
-			P_DamageMobj(mo, NULL, NULL, 0x100000);
+			P_DamageMobj(mo, NULL, NULL, 100000);
 		else
 			explode_missile(mo);
 	}
@@ -193,25 +213,25 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 // basic sounds	// TODO: boss checks
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_Pain(mobj_t *mo)
+void A_Pain(mobj_t *mo, state_t *st, void *stfunc)
 {
 	S_StartSound(mo, mo->info->painsound);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_Scream(mobj_t *mo)
+void A_Scream(mobj_t *mo, state_t *st, void *stfunc)
 {
 	S_StartSound(mo, mo->info->deathsound);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_XScream(mobj_t *mo)
+void A_XScream(mobj_t *mo, state_t *st, void *stfunc)
 {
 	S_StartSound(mo, 31);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_ActiveSound(mobj_t *mo)
+void A_ActiveSound(mobj_t *mo, state_t *st, void *stfunc)
 {
 	S_StartSound(mo, mo->info->activesound);
 }
@@ -220,7 +240,7 @@ void A_ActiveSound(mobj_t *mo)
 // A_FaceTarget
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_FaceTarget(mobj_t *mo)
+void A_FaceTarget(mobj_t *mo, state_t *st, void *stfunc)
 {
 	if(!mo->target)
 		return;
@@ -237,7 +257,7 @@ void A_FaceTarget(mobj_t *mo)
 // A_NoBlocking
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_NoBlocking(mobj_t *mo)
+void A_NoBlocking(mobj_t *mo, state_t *st, void *stfunc)
 {
 	mo->flags &= ~MF_SOLID;
 
@@ -266,7 +286,7 @@ void A_NoBlocking(mobj_t *mo)
 // A_Look
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_Look(mobj_t *mo)
+void A_Look(mobj_t *mo, state_t *st, void *stfunc)
 {
 	doom_A_Look(mo);
 }
@@ -275,7 +295,7 @@ void A_Look(mobj_t *mo)
 // A_Chase
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_Chase(mobj_t *mo)
+void A_Chase(mobj_t *mo, state_t *st, void *stfunc)
 {
 	// workaround for non-fixed speed
 	fixed_t speed = mo->info->speed;
@@ -327,7 +347,7 @@ static const dec_args_t args_SpawnProjectile =
 };
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_SpawnProjectile(mobj_t *mo)
+void A_SpawnProjectile(mobj_t *mo, state_t *st, void *stfunc)
 {
 	angle_t angle = mo->angle;
 	fixed_t pitch = 0;
@@ -335,7 +355,7 @@ void A_SpawnProjectile(mobj_t *mo)
 	angle_t aaa;
 	fixed_t x, y, z;
 	mobj_t *item, *target;
-	args_SpawnProjectile_t *info = mo->state->arg;
+	args_SpawnProjectile_t *info = st->arg;
 
 	x = mo->x;
 	y = mo->y;
@@ -349,15 +369,19 @@ void A_SpawnProjectile(mobj_t *mo)
 			return;
 	}
 
-	target = mo->target;
+	if(info->flags & CMF_AIMDIRECTION)
+		target = NULL;
+	else
+	{
+		target = mo->target; // TODO: flags
+		if(!target)
+			return;
+	}
 
-	if(!target && !(info->flags & CMF_AIMDIRECTION))
+	if(target && info->flags & CMF_CHECKTARGETDEAD && target->health <= 0)
 		return;
 
-	if(info->flags & CMF_CHECKTARGETDEAD && mo->health <= 0)
-		return;
-
-	if(info->flags & CMF_AIMOFFSET)
+	if(target && info->flags & CMF_AIMOFFSET)
 	{
 		angle = R_PointToAngle2(x, y, target->x, target->y);
 		dist = P_AproxDistance(target->x - x, target->y - y);
@@ -381,7 +405,7 @@ void A_SpawnProjectile(mobj_t *mo)
 	else
 	{
 		angle += info->angle;
-		if(target->flags & MF_SHADOW)
+		if(target && target->flags & MF_SHADOW)
 			angle += (P_Random() - P_Random()) << 20;
 	}
 
@@ -404,6 +428,29 @@ void A_SpawnProjectile(mobj_t *mo)
 }
 
 //
+// A_GiveInventory
+
+static const dec_args_t args_GiveInventory =
+{
+	.size = sizeof(args_GiveInventory_t),
+	.arg =
+	{
+		{"type", handle_mobjtype, offsetof(args_GiveInventory_t, type)},
+		{"amount", handle_u16, offsetof(args_GiveInventory_t, amount), 1},
+//		{"ptr", handle_pointer, offsetof(args_GiveInventory_t, ptr), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_GiveInventory(mobj_t *mo, state_t *st, void *stfunc)
+{
+	args_GiveInventory_t *info = st->arg;
+	mobj_give_inventory(mo, info->type, info->amount);
+}
+
+//
 // A_SetAngle
 
 static const dec_args_t args_SetAngle =
@@ -420,9 +467,9 @@ static const dec_args_t args_SetAngle =
 };
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_SetAngle(mobj_t *mo)
+void A_SetAngle(mobj_t *mo, state_t *st, void *stfunc)
 {
-	args_SetAngle_t *info = mo->state->arg;
+	args_SetAngle_t *info = st->arg;
 	mo->angle = info->angle;
 }
 
@@ -523,6 +570,8 @@ static const dec_action_t mobj_action[] =
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
 	// misc
 	{"a_setangle", A_SetAngle, &args_SetAngle},
+	// inventory
+	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	// terminator
 	{NULL}
 };

@@ -25,6 +25,8 @@ typedef uint32_t angle_t;
 
 // do not change
 #define NUM_WPN_SLOTS	10
+#define NUMMOBJTYPES	137
+#define NUMSTATES	967
 
 //
 // tables
@@ -241,6 +243,9 @@ enum
 	ETYPE_NONE, // must be first
 	ETYPE_PLAYERPAWN,
 	ETYPE_HEALTH,
+	ETYPE_INV_SPECIAL,
+	ETYPE_INVENTORY,
+	ETYPE_INVENTORY_CUSTOM,
 	ETYPE_WEAPON,
 	ETYPE_AMMO,
 	ETYPE_AMMO_LINK,
@@ -275,9 +280,12 @@ typedef struct
 
 typedef struct
 {
+	int32_t icon;
 	uint16_t count;
 	uint16_t max_count;
 	uint16_t hub_count;
+	uint16_t flash_type;
+	uint16_t respawn_tics;
 	uint16_t sound_use;
 	uint16_t sound_pickup;
 	uint16_t special; // backpack, ammo parent ...
@@ -380,17 +388,22 @@ typedef struct mobjinfo_s
 		uint16_t extra_states[4];
 		struct
 		{
-			uint16_t state_ready;
-			uint16_t state_lower;
-			uint16_t state_raise;
-			uint16_t state_deadlow;
-			uint16_t state_fire;
-			uint16_t state_fire_alt;
-			uint16_t state_hold;
-			uint16_t state_hold_alt;
-			uint16_t state_flash;
-			uint16_t state_flash_alt;
+			uint16_t ready;
+			uint16_t lower;
+			uint16_t raise;
+			uint16_t deadlow;
+			uint16_t fire;
+			uint16_t fire_alt;
+			uint16_t hold;
+			uint16_t hold_alt;
+			uint16_t flash;
+			uint16_t flash_alt;
 		} st_weapon;
+		struct
+		{
+			uint16_t pickup;
+			uint16_t use;
+		} st_custinv;
 	};
 	// type based stuff
 	uint32_t extra_type;
@@ -414,7 +427,7 @@ typedef struct state_s
 	union
 	{
 		void *action;
-		void (*acp)(struct mobj_s*) __attribute((regparm(2)));
+		void (*acp)(struct mobj_s*,struct state_s*,void*) __attribute((regparm(2)));
 	};
 	uint32_t nextstate;
 	int32_t misc1;
@@ -636,10 +649,12 @@ typedef struct mobj_s
 	struct player_s *player;
 	int lastlook;
 	mapthing_t spawnpoint;
-	uint16_t animation;	// animation system
+	uint8_t animation;	// animation system
+	uint8_t custom_result;	// result of custom inventory
 	struct mobj_s *tracer;
 	uint32_t netid;	// unique identification
 	struct inventory_s *inventory;
+	mobjinfo_t *custom_inventory; // activating item, nesting is unsupported
 } __attribute__((packed)) mobj_t;
 
 // ASM hooks

@@ -27,6 +27,8 @@ enum
 	DT_SOUND,
 	DT_STRING,
 	DT_SKIP1,
+	DT_POWERUP_TYPE,
+	DT_POWERUP_MODE,
 	DT_MONSTER,
 	DT_PROJECTILE,
 	DT_MOBJTYPE,
@@ -64,6 +66,15 @@ typedef struct
 	const dec_attr_t *attr[2];
 	const dec_flag_t *flag[2];
 } dec_inherit_t;
+
+typedef struct
+{
+	const uint8_t *name;
+	int32_t duration;
+	uint32_t flags;
+	uint16_t mode;
+	uint16_t strength;
+} dec_powerup_t;
 
 //
 
@@ -104,6 +115,13 @@ typedef struct
 	uint8_t bonus;
 	uint8_t *message;
 } doom_armor_t;
+
+typedef struct
+{
+	uint8_t type;
+	uint8_t power;
+	uint8_t *message;
+} doom_powerup_t;
 
 //
 
@@ -275,6 +293,24 @@ static mobjinfo_t default_armor_bonus =
 	.armor.percent = 33,
 };
 
+// default 'PowerupGiver'
+static mobjinfo_t default_powerup =
+{
+	.spawnhealth = 1000,
+	.reactiontime = 8,
+	.radius = 20 << FRACBITS,
+	.height = 16 << FRACBITS,
+	.mass = 100,
+	.flags = MF_SPECIAL,
+	.eflags = MFE_INVENTORY_AUTOACTIVATE | MFE_INVENTORY_ALWAYSPICKUP,
+	.state_crush = 895,
+	.powerup.inventory.count = 1,
+	.powerup.inventory.max_count = 25,
+	.powerup.inventory.hub_count = INV_MAX_COUNT,
+	.powerup.inventory.sound_pickup = 93,
+	.powerup.type = -1,
+};
+
 // mobj animations
 static const dec_anim_t mobj_anim[] =
 {
@@ -391,15 +427,15 @@ static const dec_flag_t inventory_flags[] =
 {
 	{"inventory.quiet", MFE_INVENTORY_QUIET},
 	{"inventory.ignoreskill", MFE_INVENTORY_IGNORESKILL},
-//	{"inventory.autoactivate", MFE_INVENTORY_AUTOACTIVATE},
-//	{"inventory.alwayspickup", MFE_INVENTORY_ALWAYSPICKUP},
+	{"inventory.autoactivate", MFE_INVENTORY_AUTOACTIVATE},
+	{"inventory.alwayspickup", MFE_INVENTORY_ALWAYSPICKUP},
 //	{"inventory.invbar", MFE_INVENTORY_INVBAR},
-//	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER},
+//	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER}, // not available
 //	{"inventory.persistentpower", MFE_INVENTORY_PERSISTENTPOWER},
 //	{"inventory.bigpowerup", MFE_INVENTORY_BIGPOWERUP},
 //	{"inventory.neverrespawn", MFE_INVENTORY_NEVERRESPAWN},
 //	{"inventory.keepdepleted", MFE_INVENTORY_KEEPDEPLETED},
-//	{"inventory.additivetime", MFE_INVENTORY_ADDITIVETIME},
+	{"inventory.additivetime", MFE_INVENTORY_ADDITIVETIME},
 //	{"inventory.restrictabsolutely", MFE_INVENTORY_RESTRICTABSOLUTELY},
 	{"inventory.noscreenflash", MFE_INVENTORY_NOSCREENFLASH},
 //	{"inventory.transfer", MFE_INVENTORY_TRANSFER},
@@ -488,6 +524,17 @@ static const dec_attr_t attr_armor[] =
 	{NULL}
 };
 
+// 'BasicArmorPickup' attributes
+static const dec_attr_t attr_powerup[] =
+{
+	{"powerup.duration", DT_S32, offsetof(mobjinfo_t, powerup.duration)},
+	{"powerup.type", DT_POWERUP_TYPE},
+	{"powerup.mode", DT_POWERUP_MODE},
+	{"powerup.strength", DT_U16, offsetof(mobjinfo_t, powerup.strength)},
+	// terminator
+	{NULL}
+};
+
 // actor inheritance
 const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 {
@@ -556,6 +603,14 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 		.attr[1] = attr_armor,
 		.flag[0] = inventory_flags,
 	},
+	[ETYPE_POWERUP] =
+	{
+		.name = "PowerupGiver",
+		.def = &default_powerup,
+		.attr[0] = attr_inventory,
+		.attr[1] = attr_powerup,
+		.flag[0] = inventory_flags,
+	},
 };
 
 // internal types
@@ -595,6 +650,17 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.weapon.inventory.sound_pickup = 33,
 		.weapon.kickback = 100,
 	}
+};
+
+// powerup types
+static const dec_powerup_t powerup_type[NUMPOWERS] =
+{
+	[pw_invulnerability] = {"invulnerable", -30},
+	[pw_strength] = {"strength", 1, MFE_INVENTORY_HUBPOWER},
+	[pw_invisibility] = {"invisibility", -60, 0, 0, 80},
+	[pw_ironfeet] = {"ironfeet", -60},
+	[pw_allmap] = {""}, // this is not a powerup
+	[pw_infrared] = {"lightamp", -120},
 };
 
 // doom weapons
@@ -649,6 +715,16 @@ static const doom_armor_t doom_armor[] =
 	{46, 1, 33, 1, (uint8_t*)0x00022DB0}, // ArmorBonus
 };
 #define NUM_ARMOR_ITEMS	(sizeof(doom_armor) / sizeof(doom_armor_t))
+
+// doom powerups
+static const doom_powerup_t doom_powerup[] =
+{
+	{56, pw_invulnerability, (uint8_t*)0x00022EF0}, // InvulnerabilitySphere
+	{58, pw_invisibility, (uint8_t*)0x00022F10}, // BlurSphere
+	{59, pw_ironfeet, (uint8_t*)0x00022F28}, // RadSuit
+	{61, pw_infrared, (uint8_t*)0x00022F58}, // Infrared
+};
+#define NUM_POWERUP_ITEMS	(sizeof(doom_powerup) / sizeof(doom_powerup_t))
 
 //
 // extra storage
@@ -757,6 +833,19 @@ static void make_doom_armor(uint32_t idx)
 	info->armor.inventory.message = ar->message + doom_data_segment;
 }
 
+static void make_doom_powerup(uint32_t idx)
+{
+	const doom_powerup_t *pw = doom_powerup + idx;
+	mobjinfo_t *info = mobjinfo + pw->type;
+
+	info->extra_type = ETYPE_POWERUP;
+	info->eflags = default_powerup.eflags;
+	info->powerup = default_powerup.powerup;
+	info->powerup.inventory.max_count = 0;
+	info->powerup.type = pw->power;
+	info->powerup.inventory.message = pw->message + doom_data_segment;
+}
+
 static void *relocate_estorage(void *target, void *ptr)
 {
 	if(ptr < EXTRA_STORAGE_PTR)
@@ -847,6 +936,34 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword();
 			if(!kw)
 				return 1;
+		break;
+		case DT_POWERUP_TYPE:
+			if(parse_mobj_info->powerup.type < NUMPOWERS)
+				I_Error("[DECORATE] Powerup mode specified multiple times in '%s'!", parse_actor_name);
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			for(num.u32 = 0; num.u32 < NUMPOWERS; num.u32++)
+			{
+				if(!strcmp(powerup_type[num.u32].name, kw))
+					break;
+			}
+			if(num.u32 >= NUMPOWERS)
+				I_Error("[DECORATE] Unknown powerup type '%s' in '%s'!", kw, parse_actor_name);
+			// set type
+			parse_mobj_info->powerup.type = num.u32;
+			// modify stuff
+			parse_mobj_info->eflags |= powerup_type[num.u32].flags;
+			parse_mobj_info->powerup.mode = powerup_type[num.u32].mode;
+			parse_mobj_info->powerup.strength = powerup_type[num.u32].strength;
+		break;
+		case DT_POWERUP_MODE:
+			if(parse_mobj_info->powerup.type >= NUMPOWERS)
+				I_Error("[DECORATE] Powerup mode specified before type in '%s'!", parse_actor_name);
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			// TODO
 		break;
 		case DT_MONSTER:
 			((mobjinfo_t*)dest)->flags |= MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID;
@@ -1811,6 +1928,10 @@ void init_decorate()
 	for(uint32_t i = 0; i < NUM_ARMOR_ITEMS; i++)
 		make_doom_armor(i);
 
+	// doom powerups
+	for(uint32_t i = 0; i < NUM_POWERUP_ITEMS; i++)
+		make_doom_powerup(i);
+
 	//
 	// PASS 1
 
@@ -1908,6 +2029,11 @@ void init_decorate()
 				// ZDoom - allow 0, but no specific number
 				if(info->inventory.hub_count)
 					info->inventory.hub_count = 1;
+			break;
+			case ETYPE_POWERUP:
+				// apply default duration if unspecified
+				if(!info->powerup.duration && info->powerup.type < NUMPOWERS)
+					info->powerup.duration = powerup_type[info->powerup.type].duration;
 			break;
 		}
 	}

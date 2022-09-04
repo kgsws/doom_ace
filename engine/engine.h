@@ -247,6 +247,7 @@ enum
 	ETYPE_KEY,
 	ETYPE_ARMOR,
 	ETYPE_ARMOR_BONUS,
+	ETYPE_POWERUP,
 	//
 	NUM_EXTRA_TYPES,
 };
@@ -307,6 +308,15 @@ typedef struct
 	uint16_t max_count;
 	uint16_t percent;
 } ei_armor_t;
+
+typedef struct
+{
+	ei_inventory_t inventory;
+	int32_t duration;
+	uint8_t type;
+	uint8_t mode;
+	uint16_t strength;
+} ei_powerup_t;
 
 typedef struct mobjinfo_s
 { // this structure has been changed
@@ -391,6 +401,7 @@ typedef struct mobjinfo_s
 		ei_weapon_t weapon;
 		ei_ammo_t ammo;
 		ei_armor_t armor;
+		ei_powerup_t powerup;
 	};
 } mobjinfo_t;
 

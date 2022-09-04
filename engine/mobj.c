@@ -70,13 +70,17 @@ static uint32_t give_ammo(mobj_t *mo, uint16_t type, uint16_t count, uint32_t dr
 	if(!type)
 		return 1;
 
+	if(dropped)
+	{
+		count /= 2;
+		if(!count)
+			count = 1;
+	}
+
 	if(	!(mobjinfo[type].eflags & MFE_INVENTORY_IGNORESKILL) &&
 		(*gameskill == sk_baby || *gameskill == sk_nightmare)
 	)
 		count *= 2;
-
-	if(dropped)
-		count /= 2;
 
 	left = inventory_give(mo, type, count);
 
@@ -131,6 +135,35 @@ static uint32_t give_armor(mobj_t *mo, mobjinfo_t *info)
 
 		return 1;
 	}
+}
+
+static uint32_t give_power(mobj_t *mo, mobjinfo_t *info)
+{
+	uint32_t duration;
+
+	if(info->powerup.type >= NUMPOWERS)
+		return 1;
+
+	if(info->powerup.duration < 0)
+		duration = info->powerup.duration * -35;
+	else
+		duration = info->powerup.duration;
+
+	if(!duration)
+		return 1;
+
+	if(info->powerup.type == pw_invisibility)
+		mo->flags |= MF_SHADOW;
+
+	if(info->eflags & MFE_INVENTORY_HUBPOWER)
+		mo->player->powers[info->powerup.type] = 1; // only used on berserk
+	else
+	if(info->eflags & MFE_INVENTORY_ADDITIVETIME)
+		mo->player->powers[info->powerup.type] += duration;
+	else
+		mo->player->powers[info->powerup.type] = duration;
+
+	return 1;
 }
 
 //
@@ -338,6 +371,18 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			// autoactivate
 			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
 				given = give_armor(toucher, info);
+			// give as item
+			if(!given)
+				given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;
+			// check
+			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+				return;
+		break;
+		case ETYPE_POWERUP:
+			given = 0;
+			// autoactivate
+			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
+				given = give_power(toucher, info);
 			// give as item
 			if(!given)
 				given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;

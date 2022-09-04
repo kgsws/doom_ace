@@ -17,7 +17,8 @@ uint32_t inventory_is_valid(mobjinfo_t *info)
 		info->extra_type == ETYPE_AMMO_LINK ||
 		info->extra_type == ETYPE_KEY ||
 		info->extra_type == ETYPE_ARMOR ||
-		info->extra_type == ETYPE_ARMOR_BONUS
+		info->extra_type == ETYPE_ARMOR_BONUS ||
+		info->extra_type == ETYPE_POWERUP
 	;
 }
 

@@ -267,12 +267,6 @@ HU_Start:
 P_SetupLevel:
 	.byte	0xE9
 	.4byte	0x0002E7A0
-////////////////////////////////// P_SetupPsprites
-.section .text.P_SetupPsprites
-.global P_SetupPsprites
-P_SetupPsprites:
-	.byte	0xE9
-	.4byte	0x0002DC30
 ////////////////////////////////// R_RenderPlayerView
 .section .text.R_RenderPlayerView
 .global R_RenderPlayerView

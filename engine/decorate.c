@@ -839,9 +839,20 @@ static void make_doom_weapon(uint32_t idx)
 	if(def->type >= NUMMOBJTYPES)
 		return;
 
+	info->weapon = default_weapon.weapon;
 	info->weapon.inventory.message = def->message + doom_data_segment;
 
-	// TODO
+	if(def->type == 74)
+		info->weapon.kickback = 0;
+
+	if(wpn->ammo < NUMAMMO)
+		info->weapon.ammo_type[0] = doom_ammo[wpn->ammo].clp;
+
+	info->st_weapon.raise = wpn->upstate;
+	info->st_weapon.lower = wpn->downstate;
+	info->st_weapon.ready = wpn->readystate;
+	info->st_weapon.fire = wpn->atkstate;
+	info->st_weapon.flash = wpn->flashstate;
 }
 
 static void make_doom_ammo(uint32_t idx)

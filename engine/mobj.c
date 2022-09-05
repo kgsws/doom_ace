@@ -9,6 +9,7 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "mobj.h"
+#include "weapon.h"
 #include "map.h"
 
 uint32_t *playeringame;
@@ -33,7 +34,7 @@ static const uint32_t view_height_ptr[] =
 };
 
 // this only exists because original animations are all over the plase in 'mobjinfo_t'
-static const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
+const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
 {
 	[ANIM_SPAWN] = offsetof(mobjinfo_t, state_spawn),
 	[ANIM_SEE] = offsetof(mobjinfo_t, state_see),
@@ -62,6 +63,118 @@ static void set_viewheight(fixed_t wh)
 		}
 
 		*((fixed_t*)(view_height_ptr[i] + doom_code_segment)) = wh;
+	}
+}
+
+//
+// state changes
+
+__attribute((regparm(2),no_caller_saved_registers))
+static uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
+{
+	// normal state changes
+	state_t *st;
+
+	do
+	{
+		if(state & 0x80000000)
+		{
+			// change animation
+			uint16_t offset;
+
+			offset = state & 0xFFFF;
+			mo->animation = (state >> 16) & 0xFF;
+
+			if(mo->animation < NUM_MOBJ_ANIMS)
+				state = *((uint16_t*)((void*)mo->info + base_anim_offs[mo->animation]));
+			else
+				state = mo->info->extra_states[mo->animation - NUM_MOBJ_ANIMS];
+
+			if(state)
+				state += offset;
+
+			if(state >= mo->info->state_idx_limit)
+				I_Error("[MOBJ] State jump '+%u' is invalid!", offset);
+		}
+
+		if(!state)
+		{
+			P_RemoveMobj(mo);
+			return 0;
+		}
+
+		st = states + state;
+		mo->state = st;
+		mo->sprite = st->sprite;
+		mo->frame = st->frame;
+		mo->tics = st->tics;
+		state = st->nextstate;
+
+		if(st->acp)
+			st->acp(mo, st, mobj_set_state);
+
+	} while(!mo->tics);
+
+	return 1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static uint32_t mobj_inv_change(mobj_t *mo, uint32_t state)
+{
+	// defer state change for later
+	mo->custom_state = state;
+}
+
+static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
+{
+	// state set by custom inventory
+	state_t *st;
+
+	mo->custom_state = 0;
+
+	while(1)
+	{
+		if(state & 0x80000000)
+		{
+			// change animation
+			mobjinfo_t *info = mo->custom_inventory;
+			uint16_t offset;
+			uint8_t anim;
+
+			offset = state & 0xFFFF;
+			anim = (state >> 16) & 0xFF;
+
+			if(anim < NUM_MOBJ_ANIMS)
+				state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
+			else
+				state = info->extra_states[anim - NUM_MOBJ_ANIMS];
+
+			if(state)
+				state += offset;
+
+			if(state >= info->state_idx_limit)
+				I_Error("[MOBJ] State jump '+%u' is invalid!", offset);
+		}
+
+		if(state <= 1)
+		{
+			mo->custom_inventory = NULL;
+			return !state;
+		}
+
+		st = states + state;
+		state = st->nextstate;
+
+		if(st->acp)
+		{
+			st->acp(mo, st, mobj_inv_change);
+			if(mo->custom_state)
+			{
+				// apply deferred state change
+				state = mo->custom_state;
+				mo->custom_state = 0;
+			}
+		}
 	}
 }
 
@@ -170,12 +283,12 @@ static uint32_t give_power(mobj_t *mo, mobjinfo_t *info)
 	if(!duration)
 		return 1;
 
+	if(!(info->eflags & MFE_INVENTORY_ALWAYSPICKUP) && mo->player->powers[info->powerup.type])
+		return 0;
+
 	if(info->powerup.type == pw_invisibility)
 		mo->flags |= MF_SHADOW;
 
-	if(info->eflags & MFE_INVENTORY_HUBPOWER)
-		mo->player->powers[info->powerup.type] = 1; // only used on berserk
-	else
 	if(info->eflags & MFE_INVENTORY_ADDITIVETIME)
 		mo->player->powers[info->powerup.type] += duration;
 	else
@@ -221,16 +334,18 @@ static uint32_t give_special(mobj_t *mo, mobjinfo_t *info)
 			// berserk
 			give_health(mo, 100, 0);
 			mo->player->powers[pw_strength] = 1;
-			if(mo->player->readyweapon && inventory_find(mo, MOBJ_IDX_FIST))
-				mo->player->pendingweapon = 0;
+			if(mo->player->readyweapon != mobjinfo + MOBJ_IDX_FIST && inventory_find(mo, MOBJ_IDX_FIST))
+				mo->player->pendingweapon = mobjinfo + MOBJ_IDX_FIST;
 		break;
 	}
 
 	return 1;
 }
 
-static uint32_t pick_custom_inv(mobj_t *mo, mobjinfo_t *info, uint32_t from_pickup)
+static uint32_t pick_custom_inv(mobj_t *mo, mobjinfo_t *info)
 {
+	uint32_t ret;
+
 	if(!info->st_custinv.pickup)
 		return 1;
 
@@ -238,16 +353,15 @@ static uint32_t pick_custom_inv(mobj_t *mo, mobjinfo_t *info, uint32_t from_pick
 		I_Error("Nested CustomInventory is not supported!");
 
 	mo->custom_inventory = info;
-	mo->custom_result = from_pickup;
-	mobj_inv_state(mo, info->st_custinv.pickup);
+	ret = mobj_inv_loop(mo, info->st_custinv.pickup);
 
 	if(info->eflags & MFE_INVENTORY_ALWAYSPICKUP)
 		return 1;
 
-	return mo->custom_result;
+	return ret;
 }
 
-static uint32_t use_custom_inv(mobj_t *mo, mobjinfo_t *info, uint32_t from_pickup)
+static uint32_t use_custom_inv(mobj_t *mo, mobjinfo_t *info)
 {
 	if(!info->st_custinv.use)
 		return 1;
@@ -256,10 +370,7 @@ static uint32_t use_custom_inv(mobj_t *mo, mobjinfo_t *info, uint32_t from_picku
 		I_Error("Nested CustomInventory is not supported!");
 
 	mo->custom_inventory = info;
-	mo->custom_result = from_pickup;
-	mobj_inv_state(mo, info->st_custinv.use);
-
-	return mo->custom_result;
+	return mobj_inv_loop(mo, info->st_custinv.use);
 }
 
 //
@@ -309,21 +420,21 @@ void spawn_player(mapthing_t *mt)
 		else
 			pl->health = info->spawnhealth;
 
-		//
-		// OLD INVENTORY - REMOVE
-		pl->readyweapon = 1;
-		pl->pendingweapon = 1;
-		pl->weaponowned[0] = 1;
-		pl->weaponowned[1] = 1;
-		pl->ammo[0] = 50;
-		for(uint32_t i = 0; i < 4; i++)
-			pl->maxammo[i] = *((uint32_t*)(0x00012D70 + doom_data_segment) + i);
-		if(*deathmatch)
-			memset(pl->cards, 0xFF, NUMCARDS * sizeof(uint32_t));
+		pl->readyweapon = NULL;
+		pl->pendingweapon = NULL;
 
 		// default inventory
 		for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
-			inventory_give(mo, si->type, si->count);
+		{
+			mobj_give_inventory(mo, si->type, si->count);
+			if(!pl->pendingweapon)
+			{
+				if(mobjinfo[si->type].extra_type == ETYPE_WEAPON)
+					pl->pendingweapon = mobjinfo + si->type;
+			}
+		}
+
+		// if(*deathmatch) // TODO: give all keys
 	}
 
 	// TODO: translation not in flags
@@ -343,7 +454,7 @@ void spawn_player(mapthing_t *mt)
 	pl->fixedcolormap = 0;
 	pl->viewheight = info->player.view_height;
 
-	P_SetupPsprites(pl);
+	weapon_setup(pl);
 
 	if(idx == *consoleplayer)
 	{
@@ -455,7 +566,7 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		break;
 		case ETYPE_INVENTORY_CUSTOM:
 			// pickup
-			if(!pick_custom_inv(toucher, info, 0xFF))
+			if(!pick_custom_inv(toucher, info))
 				// can't pickup
 				return;
 			// check for 'use'
@@ -464,7 +575,7 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 				given = 0;
 				// autoactivate
 				if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
-					given = use_custom_inv(toucher, info, 0xFF);
+					given = use_custom_inv(toucher, info);
 				// give as item
 				if(!given)
 					given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;
@@ -594,7 +705,7 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 			return inventory_give(mo, type, count) < count;
 		case ETYPE_INVENTORY_CUSTOM:
 			// pickup
-			if(!pick_custom_inv(mo, info, 0))
+			if(!pick_custom_inv(mo, info))
 				return 0;
 			// check for 'use'
 			if(info->st_custinv.use)
@@ -603,7 +714,7 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 				// autoactivate
 				if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
 				{
-					given = use_custom_inv(mo, info, 0);
+					given = use_custom_inv(mo, info);
 					if(given)
 						count--;
 				}
@@ -669,100 +780,6 @@ void mobj_for_each(uint32_t (*cb)(mobj_t*))
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
-uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
-{
-	// normal state changes
-	state_t *st;
-
-	do
-	{
-		if(state & 0x80000000)
-		{
-			// change animation
-			uint16_t offset;
-
-			offset = state & 0xFFFF;
-			mo->animation = (state >> 16) & 0xFF;
-
-			if(mo->animation < NUM_MOBJ_ANIMS)
-				state = *((uint16_t*)((void*)mo->info + base_anim_offs[mo->animation]));
-			else
-				state = mo->info->extra_states[mo->animation - NUM_MOBJ_ANIMS];
-
-			if(state)
-				state += offset;
-
-			if(state >= mo->info->state_idx_limit)
-				I_Error("[MOBJ] State jump '+%u' is invalid!", offset);
-		}
-
-		if(!state)
-		{
-			P_RemoveMobj(mo);
-			return 0;
-		}
-
-		st = states + state;
-		mo->state = st;
-		mo->sprite = st->sprite;
-		mo->frame = st->frame;
-		mo->tics = st->tics;
-		state = st->nextstate;
-
-		if(st->acp)
-			st->acp(mo, st, mobj_set_state);
-
-	} while(!mo->tics);
-
-	return 1;
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
-void mobj_inv_state(mobj_t *mo, uint32_t state)
-{
-	// state set by custom inventory
-	state_t *st;
-
-	while(mo->custom_inventory)
-	{
-		if(state & 0x80000000)
-		{
-			// change animation
-			mobjinfo_t *info = mo->custom_inventory;
-			uint16_t offset;
-			uint8_t anim;
-
-			offset = state & 0xFFFF;
-			anim = (state >> 16) & 0xFF;
-
-			if(anim < NUM_MOBJ_ANIMS)
-				state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
-			else
-				state = info->extra_states[anim - NUM_MOBJ_ANIMS];
-
-			if(state)
-				state += offset;
-
-			if(state >= info->state_idx_limit)
-				I_Error("[MOBJ] State jump '+%u' is invalid!", offset);
-		}
-
-		if(state <= 1)
-		{
-			mo->custom_result = !state;
-			mo->custom_inventory = NULL;
-			return;
-		}
-
-		st = states + state;
-		state = st->nextstate;
-
-		if(st->acp)
-			st->acp(mo, st, mobj_inv_state);
-	}
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
 void explode_missile(mobj_t *mo)
 {
 	mo->momx = 0;
@@ -789,6 +806,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	// inflictor = damage source (projectile or ...)
 	// source = what is responsible
 	player_t *player;
+	int32_t kickback;
 
 	if(!(target->flags & MF_SHOOTABLE))
 		return;
@@ -803,16 +821,21 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		target->momz = 0;
 	}
 
+	if(source && source->player && source->player->readyweapon->weapon.kickback)
+		kickback = source->player->readyweapon->weapon.kickback;
+	else
+		kickback = 100;
+
 	player = target->player;
 
 	if(player && *gameskill == sk_baby)
 		damage /= 2;
 
 	if(	inflictor &&
+		kickback &&
 		!(target->flags1 & MF1_DONTTHRUST) &&
 		!(target->flags & MF_NOCLIP) &&
-		!(inflictor->flags1 & MF1_NODAMAGETHRUST) && // TODO: extra steps for hitscan
-		(!source || !source->player || source->player->readyweapon != 7) // chainsaw hack // TODO: replace with weapon.kickback
+		!(inflictor->flags1 & MF1_NODAMAGETHRUST) // TODO: extra steps for hitscan
 	) {
 		angle_t angle;
 		int32_t thrust;
@@ -821,6 +844,9 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 		angle = R_PointToAngle2(inflictor->x, inflictor->y, target->x, target->y);
 		thrust = thrust * (FRACUNIT >> 3) * 100 / target->info->mass;
+
+		if(kickback != 100)
+			thrust = (thrust * kickback) / 100;
 
 		if(	!(target->flags1 & MF1_NOFORWARDFALL) &&
 			!(inflictor->flags1 & MF1_NOFORWARDFALL) && // TODO: extra steps for hitscan

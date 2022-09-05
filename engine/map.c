@@ -64,6 +64,8 @@ static void map_load_setup()
 	else
 		doom_sprintf(map_name, "E%uM%u", *gameepisode, *gamemap);
 
+	// TODO: copy player *inventory, but check for new game / reset
+
 	// free old inventories
 	mobj_for_each(cb_free_inventory);
 

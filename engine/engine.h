@@ -107,7 +107,7 @@ typedef struct weaponinfo_s
 typedef struct
 {
 	struct state_s *state;
-	int tics;
+	int32_t tics;
 	fixed_t	sx;
 	fixed_t	sy;
 } pspdef_t;
@@ -165,8 +165,8 @@ typedef struct player_s
 	uint32_t cards[NUMCARDS];
 	uint32_t backpack;
 	int frags[MAXPLAYERS];
-	uint32_t readyweapon;
-	uint32_t pendingweapon;
+	struct mobjinfo_s *readyweapon;
+	struct mobjinfo_s *pendingweapon;
 	uint32_t weaponowned[NUMWEAPONS];
 	int ammo[NUMAMMO];
 	int maxammo[NUMAMMO];
@@ -418,6 +418,8 @@ typedef struct mobjinfo_s
 	};
 } mobjinfo_t;
 
+typedef uint32_t(*stfunc_t)(struct mobj_s*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+
 typedef struct state_s
 {
 	uint16_t sprite;
@@ -427,7 +429,7 @@ typedef struct state_s
 	union
 	{
 		void *action;
-		void (*acp)(struct mobj_s*,struct state_s*,void*) __attribute((regparm(2)));
+		void (*acp)(struct mobj_s*,struct state_s*,stfunc_t) __attribute((regparm(2)));
 	};
 	uint32_t nextstate;
 	int32_t misc1;
@@ -583,35 +585,6 @@ typedef struct spritedef_s
 //
 // mobj
 
-#define MF_SPECIAL	0x00000001
-#define MF_SOLID	0x00000002
-#define MF_SHOOTABLE	0x00000004
-#define MF_NOSECTOR	0x00000008
-#define MF_NOBLOCKMAP	0x00000010
-#define MF_AMBUSH	0x00000020
-#define MF_JUSTHIT	0x00000040
-#define MF_JUSTATTACKED	0x00000080
-#define MF_SPAWNCEILING	0x00000100
-#define MF_NOGRAVITY	0x00000200
-#define MF_DROPOFF	0x00000400
-#define MF_PICKUP	0x00000800
-#define MF_NOCLIP	0x00001000
-#define MF_SLIDE	0x00002000
-#define MF_FLOAT	0x00004000
-#define MF_TELEPORT	0x00008000
-#define MF_MISSILE	0x00010000
-#define MF_DROPPED	0x00020000
-#define MF_SHADOW	0x00040000
-#define MF_NOBLOOD	0x00080000
-#define MF_CORPSE	0x00100000
-#define MF_INFLOAT	0x00200000
-#define MF_COUNTKILL	0x00400000
-#define MF_COUNTITEM	0x00800000
-#define MF_SKULLFLY	0x01000000
-#define MF_NOTDMATCH	0x02000000
-#define MF_TRANSLATION0 0x04000000
-#define MF_TRANSLATION1 0x08000000
-
 typedef struct mobj_s
 { // this structure has been changed
 	thinker_t thinker;
@@ -650,11 +623,12 @@ typedef struct mobj_s
 	int lastlook;
 	mapthing_t spawnpoint;
 	uint8_t animation;	// animation system
-	uint8_t custom_result;	// result of custom inventory
+	uint8_t __unused;
 	struct mobj_s *tracer;
 	uint32_t netid;	// unique identification
 	struct inventory_s *inventory;
 	mobjinfo_t *custom_inventory; // activating item, nesting is unsupported
+	uint32_t custom_state; // custom inventory state jumps
 } __attribute__((packed)) mobj_t;
 
 // ASM hooks
@@ -714,9 +688,6 @@ void P_SpawnPlayer(mapthing_t*) __attribute((regparm(2)));
 void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2)));
 void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2)));
 void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2)));
-
-// p_pspr
-void P_SetupPsprites(player_t*) __attribute((regparm(2)));
 
 // p_setup
 void P_SetupLevel() __attribute((regparm(2)));

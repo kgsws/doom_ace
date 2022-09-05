@@ -20,6 +20,8 @@ static uint32_t stbar_y;
 static uint32_t stbar_hp_x;
 static uint32_t stbar_ar_x;
 
+static uint32_t ammo_value;
+
 //
 // draw
 
@@ -92,7 +94,7 @@ void hook_RenderPlayerView(player_t *pl)
 		stbar_big_number_r(stbar_ar_x, stbar_y, pl->armorpoints, 3);
 		V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, *tallpercent);
 	}
-
+/*
 	// AMMO
 	if(deh_weaponinfo[pl->readyweapon].ammo < NUMAMMO)
 		stbar_big_number_r(SCREENWIDTH - 4, stbar_y, pl->ammo[deh_weaponinfo[pl->readyweapon].ammo], -4);
@@ -107,6 +109,7 @@ void hook_RenderPlayerView(player_t *pl)
 			tmp += 8;
 		}
 	}
+*/
 }
 
 //
@@ -118,6 +121,12 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001E950, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_st_init},
 	// hook 3D render
 	{0x0001D361, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_RenderPlayerView},
+	// replace ammo pointer in normal status bar
+	{0x0003ABE2, CODE_HOOK | HOOK_UINT8, 0xB8},
+	{0x0003ABE3, CODE_HOOK | HOOK_UINT32, (uint32_t)&ammo_value},
+	{0x0003ABE7, CODE_HOOK | HOOK_UINT16, 0x0DEB},
+	{0x0003ABFB, CODE_HOOK | HOOK_SET_NOPS, 2},
+	{0x0003A282, CODE_HOOK | HOOK_UINT16, 0x3FEB},
 	// some variables
 	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
 	{0x000752f0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},

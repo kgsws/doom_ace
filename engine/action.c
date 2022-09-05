@@ -7,6 +7,7 @@
 #include "dehacked.h"
 #include "decorate.h"
 #include "action.h"
+#include "map.h"
 #include "mobj.h"
 #include "sound.h"
 #include "textpars.h"
@@ -188,17 +189,17 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 			mo->tics = 1;
 	}
 
-	mo->x += mo->momx >> 1;
-	mo->y += mo->momy >> 1;
-	mo->z += mo->momz >> 1;
-
 	// this is an extra addition
 	// projectile spawn can be called in pickup function,
 	// that creates nested 'P_TryMove' call
 	// which breaks basicaly everything
 	// so let's avoid that
-	if(source->custom_result == 0xFF)
+	if(source->custom_inventory)
 		return;
+
+	mo->x += mo->momx >> 1;
+	mo->y += mo->momy >> 1;
+	mo->z += mo->momz >> 1;
 
 	if(!P_TryMove(mo, mo->x, mo->y))
 	{
@@ -210,28 +211,140 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 }
 
 //
+// weapon (logic)
+
+static const args_singleFixed_t def_LowerRaise =
+{
+	.value = 6 * FRACUNIT
+};
+
+static const dec_args_t args_LowerRaise =
+{
+	.size = sizeof(args_singleFixed_t),
+	.def = &def_LowerRaise,
+	.arg =
+	{
+		{"speed", handle_fixed, offsetof(args_singleFixed_t, value), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	player_t *pl;
+	args_singleFixed_t *arg;
+
+	if(!mo->player)
+		return;
+
+	pl = mo->player;
+	arg = st->arg;
+
+	pl->psprites[0].sy += arg->value;
+
+	if(pl->psprites[0].sy < WEAPONBOTTOM)
+		return;
+
+	pl->psprites[0].sy = WEAPONBOTTOM;
+
+	if(pl->playerstate == PST_DEAD)
+	{
+		if(pl->readyweapon->st_weapon.deadlow)
+			stfunc(mo, pl->readyweapon->st_weapon.deadlow);
+		return;
+	}
+
+	if(!pl->health)
+	{
+		// Voodoo Doll ...
+		for(uint32_t i = 0; i < NUMPSPRITES; i++)
+			pl->psprites[i].state = NULL;
+		return;
+	}
+
+	pl->readyweapon = pl->pendingweapon;
+	pl->pendingweapon = NULL;
+
+	if(!pl->readyweapon)
+		return;
+
+	// TODO: start sound
+	stfunc(mo, pl->readyweapon->st_weapon.raise);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	player_t *pl;
+	args_singleFixed_t *arg;
+
+	if(!mo->player)
+		return;
+
+	pl = mo->player;
+	arg = st->arg;
+
+	pl->psprites[0].sy -= arg->value;
+
+	if(pl->psprites[0].sy > WEAPONTOP)
+		return;
+
+	pl->psprites[0].sy = WEAPONTOP;
+
+	stfunc(mo, pl->readyweapon->st_weapon.ready);
+}
+
+//
+// A_WeaponReady
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	player_t *pl;
+	pspdef_t *psp;
+	angle_t angle;
+
+	if(!mo->player)
+		return;
+
+	pl = mo->player;
+	psp = pl->psprites;
+
+	// not shooting
+	pl->attackdown = 0;
+
+	// weapon bob
+	angle = (128 * *leveltime) & FINEMASK;
+	psp->sx = FRACUNIT + FixedMul(pl->bob, finecosine[angle]);
+	angle &= FINEANGLES / 2 - 1;
+	psp->sy = WEAPONTOP + FixedMul(pl->bob, finesine[angle]);
+}
+
+//
 // basic sounds	// TODO: boss checks
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_Pain(mobj_t *mo, state_t *st, void *stfunc)
+void A_Pain(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	S_StartSound(mo, mo->info->painsound);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_Scream(mobj_t *mo, state_t *st, void *stfunc)
+void A_Scream(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	S_StartSound(mo, mo->info->deathsound);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_XScream(mobj_t *mo, state_t *st, void *stfunc)
+void A_XScream(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	S_StartSound(mo, 31);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_ActiveSound(mobj_t *mo, state_t *st, void *stfunc)
+void A_ActiveSound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	S_StartSound(mo, mo->info->activesound);
 }
@@ -240,7 +353,7 @@ void A_ActiveSound(mobj_t *mo, state_t *st, void *stfunc)
 // A_FaceTarget
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_FaceTarget(mobj_t *mo, state_t *st, void *stfunc)
+void A_FaceTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	if(!mo->target)
 		return;
@@ -257,7 +370,7 @@ void A_FaceTarget(mobj_t *mo, state_t *st, void *stfunc)
 // A_NoBlocking
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_NoBlocking(mobj_t *mo, state_t *st, void *stfunc)
+void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	mo->flags &= ~MF_SOLID;
 
@@ -286,7 +399,7 @@ void A_NoBlocking(mobj_t *mo, state_t *st, void *stfunc)
 // A_Look
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_Look(mobj_t *mo, state_t *st, void *stfunc)
+void A_Look(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	doom_A_Look(mo);
 }
@@ -295,7 +408,7 @@ void A_Look(mobj_t *mo, state_t *st, void *stfunc)
 // A_Chase
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_Chase(mobj_t *mo, state_t *st, void *stfunc)
+void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	// workaround for non-fixed speed
 	fixed_t speed = mo->info->speed;
@@ -347,7 +460,7 @@ static const dec_args_t args_SpawnProjectile =
 };
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_SpawnProjectile(mobj_t *mo, state_t *st, void *stfunc)
+void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	angle_t angle = mo->angle;
 	fixed_t pitch = 0;
@@ -355,21 +468,21 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, void *stfunc)
 	angle_t aaa;
 	fixed_t x, y, z;
 	mobj_t *item, *target;
-	args_SpawnProjectile_t *info = st->arg;
+	args_SpawnProjectile_t *arg = st->arg;
 
 	x = mo->x;
 	y = mo->y;
-	z = mo->z + info->spawnheight;
+	z = mo->z + arg->spawnheight;
 	aaa = mo->angle;
 
-	if(info->flags & CMF_TRACKOWNER && mo->flags & MF_MISSILE)
+	if(arg->flags & CMF_TRACKOWNER && mo->flags & MF_MISSILE)
 	{
 		mo = mo->target;
 		if(!mo)
 			return;
 	}
 
-	if(info->flags & CMF_AIMDIRECTION)
+	if(arg->flags & CMF_AIMDIRECTION)
 		target = NULL;
 	else
 	{
@@ -378,41 +491,41 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, void *stfunc)
 			return;
 	}
 
-	if(target && info->flags & CMF_CHECKTARGETDEAD && target->health <= 0)
+	if(target && arg->flags & CMF_CHECKTARGETDEAD && target->health <= 0)
 		return;
 
-	if(target && info->flags & CMF_AIMOFFSET)
+	if(target && arg->flags & CMF_AIMOFFSET)
 	{
 		angle = R_PointToAngle2(x, y, target->x, target->y);
 		dist = P_AproxDistance(target->x - x, target->y - y);
 	}
 
-	if(info->spawnofs_xy)
+	if(arg->spawnofs_xy)
 	{
 		angle_t a = (aaa - ANG90) >> ANGLETOFINESHIFT;
-		x += FixedMul(info->spawnofs_xy, finecosine[a]);
-		y += FixedMul(info->spawnofs_xy, finesine[a]);
+		x += FixedMul(arg->spawnofs_xy, finecosine[a]);
+		y += FixedMul(arg->spawnofs_xy, finesine[a]);
 	}
 
-	if(!(info->flags & (CMF_AIMOFFSET|CMF_AIMDIRECTION)))
+	if(!(arg->flags & (CMF_AIMOFFSET|CMF_AIMDIRECTION)))
 	{
 		angle = R_PointToAngle2(x, y, target->x, target->y);
 		dist = P_AproxDistance(target->x - x, target->y - y);
 	}
 
-	if(info->flags & CMF_ABSOLUTEANGLE)
-		angle = info->angle;
+	if(arg->flags & CMF_ABSOLUTEANGLE)
+		angle = arg->angle;
 	else
 	{
-		angle += info->angle;
+		angle += arg->angle;
 		if(target && target->flags & MF_SHADOW)
 			angle += (P_Random() - P_Random()) << 20;
 	}
 
-	item = P_SpawnMobj(x, y, z, info->missiletype);
+	item = P_SpawnMobj(x, y, z, arg->missiletype);
 
-	if(info->flags & (CMF_AIMDIRECTION|CMF_ABSOLUTEPITCH))
-		item->momz = -info->pitch;
+	if(arg->flags & (CMF_AIMDIRECTION|CMF_ABSOLUTEPITCH))
+		item->momz = -arg->pitch;
 	else
 	if(item->info->speed)
 	{
@@ -420,7 +533,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, void *stfunc)
 		if(dist <= 0)
 			dist = 1;
 		item->momz = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
-		if(info->flags & CMF_OFFSETPITCH)
+		if(arg->flags & CMF_OFFSETPITCH)
 			item->momz -= pitch;
 	}
 
@@ -444,10 +557,10 @@ static const dec_args_t args_GiveInventory =
 };
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_GiveInventory(mobj_t *mo, state_t *st, void *stfunc)
+void A_GiveInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	args_GiveInventory_t *info = st->arg;
-	mobj_give_inventory(mo, info->type, info->amount);
+	args_GiveInventory_t *arg = st->arg;
+	mobj_give_inventory(mo, arg->type, arg->amount);
 }
 
 //
@@ -467,10 +580,10 @@ static const dec_args_t args_SetAngle =
 };
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_SetAngle(mobj_t *mo, state_t *st, void *stfunc)
+void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	args_SetAngle_t *info = st->arg;
-	mo->angle = info->angle;
+	args_SetAngle_t *arg = st->arg;
+	mo->angle = arg->angle;
 }
 
 //
@@ -555,6 +668,10 @@ args_end:
 
 static const dec_action_t mobj_action[] =
 {
+	// weapon
+	{"a_lower", A_Lower, &args_LowerRaise},
+	{"a_raise", A_Raise, &args_LowerRaise},
+	{"a_weaponready", A_WeaponReady},
 	// basic sounds
 	{"a_pain", A_Pain},
 	{"a_scream", A_Scream},

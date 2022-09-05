@@ -6,6 +6,11 @@ extern void *parse_action_arg;
 
 //
 
+typedef struct
+{
+	fixed_t value;
+} args_singleFixed_t;
+
 //
 
 #define CMF_AIMOFFSET	1

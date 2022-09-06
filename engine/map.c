@@ -96,7 +96,7 @@ static void spawn_map_thing(mapthing_t *mt)
 	{
 		playerstarts[mt->type - 1] = *mt;
 		if(!*deathmatch)
-			P_SpawnPlayer(mt);
+			spawn_player(mt);
 		return;
 	}
 

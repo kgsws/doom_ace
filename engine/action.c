@@ -7,8 +7,8 @@
 #include "dehacked.h"
 #include "decorate.h"
 #include "action.h"
-#include "map.h"
 #include "mobj.h"
+#include "weapon.h"
 #include "sound.h"
 #include "textpars.h"
 
@@ -213,7 +213,7 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 //
 // weapon (logic)
 
-static const args_singleFixed_t def_LowerRaise =
+const args_singleFixed_t def_LowerRaise =
 {
 	.value = 6 * FRACUNIT
 };
@@ -230,11 +230,11 @@ static const dec_args_t args_LowerRaise =
 	}
 };
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl;
-	args_singleFixed_t *arg;
+	const args_singleFixed_t *arg;
 
 	if(!mo->player)
 		return;
@@ -242,6 +242,7 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl = mo->player;
 	arg = st->arg;
 
+	pl->weapon_ready = 0;
 	pl->psprites[0].sy += arg->value;
 
 	if(pl->psprites[0].sy < WEAPONBOTTOM)
@@ -270,15 +271,16 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!pl->readyweapon)
 		return;
 
-	// TODO: start sound
+	S_StartSound(pl->mo, pl->readyweapon->weapon.sound_up);
+
 	stfunc(mo, pl->readyweapon->st_weapon.raise);
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl;
-	args_singleFixed_t *arg;
+	const args_singleFixed_t *arg;
 
 	if(!mo->player)
 		return;
@@ -286,6 +288,7 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl = mo->player;
 	arg = st->arg;
 
+	pl->weapon_ready = 0;
 	pl->psprites[0].sy -= arg->value;
 
 	if(pl->psprites[0].sy > WEAPONTOP)
@@ -297,14 +300,40 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
-// A_WeaponReady
+// weapon (light)
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Light0(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(!mo->player)
+		return;
+	mo->player->extralight = 0;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Light1(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(!mo->player)
+		return;
+	mo->player->extralight = 1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_Light2(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(!mo->player)
+		return;
+	mo->player->extralight = 2;
+}
+
+//
+// weapon (attack)
+
+__attribute((regparm(2),no_caller_saved_registers))
 void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl;
 	pspdef_t *psp;
-	angle_t angle;
 
 	if(!mo->player)
 		return;
@@ -312,14 +341,63 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl = mo->player;
 	psp = pl->psprites;
 
+	// TODO: mobj animation (not shooting)
+
+	// sound
+	if(	pl->readyweapon->weapon.sound_ready &&
+		st == states + pl->readyweapon->st_weapon.ready
+	)
+		S_StartSound(pl->mo, pl->readyweapon->weapon.sound_ready);
+
+	// new selection
+	if(pl->pendingweapon || !pl->health)
+	{
+		stfunc(mo, pl->readyweapon->st_weapon.lower);
+		return;
+	}
+
+	// primary attack
+	if(pl->cmd.buttons & BT_ATTACK)
+	{
+		if(weapon_fire(pl, 1, 0))
+			return;
+	}
+
+	// secondary attack
+	if(pl->cmd.buttons & BT_ALTACK)
+	{
+		if(weapon_fire(pl, 2, 0))
+			return;
+	}
+
 	// not shooting
 	pl->attackdown = 0;
 
-	// weapon bob
-	angle = (128 * *leveltime) & FINEMASK;
-	psp->sx = FRACUNIT + FixedMul(pl->bob, finecosine[angle]);
-	angle &= FINEANGLES / 2 - 1;
-	psp->sy = WEAPONTOP + FixedMul(pl->bob, finesine[angle]);
+	// enable bob
+	pl->weapon_ready = 1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	player_t *pl;
+
+	if(!mo->player)
+		return;
+
+	pl = mo->player;
+
+	if(	pl->cmd.buttons & (BT_ATTACK | BT_ALTACK) &&
+		!pl->pendingweapon &&
+		pl->health
+	) {
+		pl->refire++;
+		weapon_fire(pl, pl->attackdown, 1);
+		return;
+	}
+
+	pl->refire = 0;
+	// TODO: ammo check
 }
 
 //
@@ -468,7 +546,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	angle_t aaa;
 	fixed_t x, y, z;
 	mobj_t *item, *target;
-	args_SpawnProjectile_t *arg = st->arg;
+	const args_SpawnProjectile_t *arg = st->arg;
 
 	x = mo->x;
 	y = mo->y;
@@ -559,7 +637,7 @@ static const dec_args_t args_GiveInventory =
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_GiveInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	args_GiveInventory_t *arg = st->arg;
+	const args_GiveInventory_t *arg = st->arg;
 	mobj_give_inventory(mo, arg->type, arg->amount);
 }
 
@@ -582,7 +660,7 @@ static const dec_args_t args_SetAngle =
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	args_SetAngle_t *arg = st->arg;
+	const args_SetAngle_t *arg = st->arg;
 	mo->angle = arg->angle;
 }
 
@@ -671,7 +749,11 @@ static const dec_action_t mobj_action[] =
 	// weapon
 	{"a_lower", A_Lower, &args_LowerRaise},
 	{"a_raise", A_Raise, &args_LowerRaise},
+	{"a_light0", A_Light0},
+	{"a_light1", A_Light1},
+	{"a_light2", A_Light2},
 	{"a_weaponready", A_WeaponReady},
+	{"a_refire", A_ReFire},
 	// basic sounds
 	{"a_pain", A_Pain},
 	{"a_scream", A_Scream},

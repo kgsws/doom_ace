@@ -47,9 +47,6 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 	mobjinfo_t *info;
 	uint32_t max_count;
 
-	if(!count)
-		return 0;
-
 	// ammo inheritance
 	info = mobjinfo + type;
 	if(info->extra_type == ETYPE_AMMO_LINK)
@@ -73,12 +70,20 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 	if(!max_count)
 		return count;
 
+	// another zero check
+	if(!(info->eflags & MFE_INVENTORY_KEEPDEPLETED) && !count)
+		return 0;
+
 	// find in inventory
 	item = inventory_find(mo, type);
 	if(item)
 	{
 		// found; check & add
 		uint32_t newcount;
+
+		if(!count)
+			// nothing to add
+			return 0;
 
 		newcount = item->count + count;
 		if(newcount > INV_MAX_COUNT)
@@ -142,7 +147,7 @@ uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count)
 	{
 		count -= item->count;
 		item->count = 0;
-		// TODO: remove
+		// TODO: remove (MFE_INVENTORY_KEEPDEPLETED)
 		return count;
 	} else
 	{
@@ -165,5 +170,16 @@ void inventory_clear(mobj_t *mo)
 		item = item->prev;
 		doom_free(item);
 	}
+}
+
+uint32_t inventory_check(mobj_t *mo, uint16_t type)
+{
+	inventory_t *item;
+
+	item = inventory_find(mo, type);
+	if(!item)
+		return 0;
+
+	return item->count;
 }
 

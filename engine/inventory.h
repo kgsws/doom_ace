@@ -20,3 +20,4 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count);
 uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count);
 void inventory_clear(mobj_t *mo);
 
+uint32_t inventory_check(mobj_t *mo, uint16_t type);

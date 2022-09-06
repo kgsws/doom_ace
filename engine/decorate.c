@@ -9,13 +9,14 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "action.h"
-#include "textpars.h"
+#include "weapon.h"
 #include "sound.h"
 #include "map.h"
+#include "textpars.h"
 
 #include "decodoom.h"
 
-#define NUM_STATE_HOOKS	6
+#define NUM_STATE_HOOKS	1
 
 #define NUM_NEW_TYPES	3
 
@@ -82,6 +83,7 @@ typedef struct
 typedef struct
 {
 	uint8_t type;
+	uint8_t use;
 	uint8_t *message;
 } doom_weapon_t;
 
@@ -131,6 +133,13 @@ typedef struct
 	uint8_t sound;
 	uint8_t *message;
 } doom_invspec_t;
+
+typedef struct
+{
+	void *codeptr;
+	void *func;
+	const void *arg;
+} doom_codeptr_t;
 
 //
 
@@ -514,7 +523,7 @@ static const dec_attr_t attr_inventory[] =
 	{"inventory.usesound", DT_SOUND, offsetof(mobjinfo_t, inventory.sound_use)},
 	{"inventory.pickupsound", DT_SOUND, offsetof(mobjinfo_t, inventory.sound_pickup)},
 	{"inventory.pickupmessage", DT_STRING, offsetof(mobjinfo_t, inventory.message)},
-	{"inventory.althudicon", DT_SKIP1, 0}, // TODO
+	{"inventory.althudicon", DT_SKIP1, 0},
 	// terminator
 	{NULL}
 };
@@ -533,6 +542,8 @@ static const dec_attr_t attr_weapon[] =
 	{"weapon.ammotype", DT_MOBJTYPE, offsetof(mobjinfo_t, weapon.ammo_type[0])},
 	{"weapon.ammotype1", DT_MOBJTYPE, offsetof(mobjinfo_t, weapon.ammo_type[0])},
 	{"weapon.ammotype2", DT_MOBJTYPE, offsetof(mobjinfo_t, weapon.ammo_type[1])},
+	{"weapon.readysound", DT_SOUND, offsetof(mobjinfo_t, weapon.sound_ready)},
+	{"weapon.upsound", DT_SOUND, offsetof(mobjinfo_t, weapon.sound_up)},
 	// terminator
 	{NULL}
 };
@@ -740,15 +751,15 @@ static const uint8_t *powerup_special[] =
 // doom weapons
 static const doom_weapon_t doom_weapon[NUMWEAPONS] =
 {
-	{MOBJ_IDX_FIST, NULL}, // Fist (new)
-	{MOBJ_IDX_PISTOL, "Pistol!"}, // Pistol (new)
-	{77, (uint8_t*)0x00023104}, // Shotgun
-	{73, (uint8_t*)0x00023094}, // Chaingun
-	{75, (uint8_t*)0x000230CC}, // RocketLauncher
-	{76, (uint8_t*)0x000230EC}, // PlasmaRifle
-	{72, (uint8_t*)0x00023074}, // BFG9000
-	{74, (uint8_t*)0x000230AC}, // Chainsaw
-	{78, (uint8_t*)0x0002311C}, // SuperShotgun
+	{MOBJ_IDX_FIST, 0, NULL}, // Fist (new)
+	{MOBJ_IDX_PISTOL, 1, "Pistol!"}, // Pistol (new)
+	{77, 1, (uint8_t*)0x00023104}, // Shotgun
+	{73, 1, (uint8_t*)0x00023094}, // Chaingun
+	{75, 1, (uint8_t*)0x000230CC}, // RocketLauncher
+	{76, 1, (uint8_t*)0x000230EC}, // PlasmaRifle
+	{72, 40, (uint8_t*)0x00023074}, // BFG9000
+	{74, 0, (uint8_t*)0x000230AC}, // Chainsaw
+	{78, 2, (uint8_t*)0x0002311C}, // SuperShotgun
 };
 
 // doom ammo
@@ -810,6 +821,21 @@ static const doom_invspec_t doom_invspec[] =
 };
 #define NUM_INVSPEC_ITEMS	(sizeof(doom_invspec) / sizeof(doom_invspec_t))
 
+// doom code pointers
+static const doom_codeptr_t doom_codeptr[] =
+{
+	{(void*)0x0002D490, A_Lower, &def_LowerRaise},
+	{(void*)0x0002D4D0, A_Raise, &def_LowerRaise},
+	{(void*)0x0002D2F0, A_WeaponReady, NULL},
+	{(void*)0x0002D3F0, A_ReFire, NULL},
+	{(void*)0x0002DB40, A_Light0, NULL},
+	{(void*)0x0002DB50, A_Light1, NULL},
+	{(void*)0x0002DB60, A_Light2, NULL},
+	{(void*)0x0002D550, wpn_codeptr, (void*)0x0002D550}, // A_Punch
+	{(void*)0x0002D600, wpn_codeptr, (void*)0x0002D600}, // A_Saw
+};
+#define NUM_CODEPTR_MODS	(sizeof(doom_codeptr) / sizeof(doom_codeptr_t))
+
 //
 // extra storage
 
@@ -836,17 +862,19 @@ static void make_doom_weapon(uint32_t idx)
 	info->extra_type = ETYPE_WEAPON;
 	info->weapon = default_weapon.weapon;
 
-	if(def->type >= NUMMOBJTYPES)
-		return;
-
-	info->weapon = default_weapon.weapon;
-	info->weapon.inventory.message = def->message + doom_data_segment;
+	if(def->type < NUMMOBJTYPES)
+		info->weapon.inventory.message = def->message + doom_data_segment;
 
 	if(def->type == 74)
+	{
 		info->weapon.kickback = 0;
+		info->weapon.sound_ready = 11;
+		info->weapon.sound_up = 10;
+	}
 
 	if(wpn->ammo < NUMAMMO)
 		info->weapon.ammo_type[0] = doom_ammo[wpn->ammo].clp;
+	info->weapon.ammo_use[0] = def->use;
 
 	info->st_weapon.raise = wpn->upstate;
 	info->st_weapon.lower = wpn->downstate;
@@ -2117,6 +2145,17 @@ void init_decorate()
 		states[i].nextstate = deh_states[i].nextstate;
 		states[i].misc1 = deh_states[i].misc1;
 		states[i].misc2 = deh_states[i].misc2;
+
+		// action checks
+		if(states[i].action)
+		for(uint32_t j = 0; j < NUM_CODEPTR_MODS; j++)
+		{
+			if(doom_codeptr[j].codeptr + doom_code_segment == states[i].action)
+			{
+				states[i].action = doom_codeptr[j].func;
+				states[i].arg = doom_codeptr[j].arg;
+			}
+		}
 	}
 
 	// process actors
@@ -2133,7 +2172,7 @@ void init_decorate()
 
 		// state arguments
 		for(uint32_t i = info->state_idx_first; i < info->state_idx_limit; i++)
-			states[i].arg = relocate_estorage(target, states[i].arg);
+			states[i].arg = relocate_estorage(target, (void*)states[i].arg);
 
 		// drop item list
 		if(info->extra_stuff[0])
@@ -2221,12 +2260,7 @@ void init_decorate()
 
 static hook_t hook_states[NUM_STATE_HOOKS] =
 {
-	{0x0002D062, CODE_HOOK | HOOK_UINT32, 0}, // P_SetPsprite
 	{0x000315D9, CODE_HOOK | HOOK_UINT32, 0}, // P_SpawnMobj
-	{0x0002D2FF, CODE_HOOK | HOOK_UINT32, 0x10D8}, // A_WeaponReady
-	{0x0002D307, CODE_HOOK | HOOK_UINT32, 0x10F4}, // A_WeaponReady
-	{0x0002D321, CODE_HOOK | HOOK_UINT32, 0x0754}, // A_WeaponReady
-	{0x0002DAF3, CODE_HOOK | HOOK_UINT32, 0x05B0}, // A_FireCGun
 };
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =

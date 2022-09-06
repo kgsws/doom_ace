@@ -73,6 +73,8 @@ typedef uint32_t angle_t;
 
 #define BT_ATTACK	1
 #define BT_USE	2
+#define BT_ALTACK	64
+#define BT_SPECIAL	128
 
 typedef struct
 {
@@ -170,7 +172,8 @@ typedef struct player_s
 	uint32_t weaponowned[NUMWEAPONS];
 	int ammo[NUMAMMO];
 	int maxammo[NUMAMMO];
-	int attackdown;
+	uint16_t attackdown;
+	uint16_t weapon_ready;
 	int usedown;
 	int cheats;
 	int refire;
@@ -300,6 +303,8 @@ typedef struct
 	uint16_t ammo_use[2];
 	uint16_t ammo_give[2];
 	uint16_t ammo_type[2];
+	uint16_t sound_up;
+	uint16_t sound_ready;
 } ei_weapon_t;
 
 typedef struct
@@ -424,7 +429,7 @@ typedef struct state_s
 {
 	uint16_t sprite;
 	uint16_t frame;
-	void *arg;
+	const void *arg;
 	int32_t tics;
 	union
 	{
@@ -674,6 +679,7 @@ void doom_A_Chase(mobj_t*) __attribute((regparm(2)));
 
 // p_map
 uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
+void P_UseLines(player_t*) __attribute((regparm(2)));
 
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
@@ -682,7 +688,6 @@ void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
 // p_mobj
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2)));
 mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2)));
-void P_SpawnPlayer(mapthing_t*) __attribute((regparm(2)));
 
 // p_inter
 void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2)));
@@ -692,8 +697,16 @@ void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2)));
 // p_setup
 void P_SetupLevel() __attribute((regparm(2)));
 
+// p_spec
+void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2)));
+
 // p_tick
 void P_AddThinker(thinker_t*) __attribute((regparm(2)));
+
+// p_user
+void P_CalcHeight(player_t*) __attribute((regparm(2)));
+void P_MovePlayer(player_t*) __attribute((regparm(2)));
+void P_DeathThink(player_t*) __attribute((regparm(2)));
 
 // r_data
 void R_GenerateLookup(uint32_t) __attribute((regparm(2)));

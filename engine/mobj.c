@@ -286,8 +286,8 @@ static uint32_t give_power(mobj_t *mo, mobjinfo_t *info)
 	if(!(info->eflags & MFE_INVENTORY_ALWAYSPICKUP) && mo->player->powers[info->powerup.type])
 		return 0;
 
-	if(info->powerup.type == pw_invisibility)
-		mo->flags |= MF_SHADOW;
+	if(!mo->player->powers[info->powerup.type])
+		powerup_give(mo->player, info);
 
 	if(info->eflags & MFE_INVENTORY_ADDITIVETIME)
 		mo->player->powers[info->powerup.type] += duration;
@@ -334,7 +334,7 @@ static uint32_t give_special(mobj_t *mo, mobjinfo_t *info)
 			// berserk
 			give_health(mo, 100, 0);
 			mo->player->powers[pw_strength] = 1;
-			if(mo->player->readyweapon != mobjinfo + MOBJ_IDX_FIST && inventory_find(mo, MOBJ_IDX_FIST))
+			if(mo->player->readyweapon != mobjinfo + MOBJ_IDX_FIST && inventory_check(mo, MOBJ_IDX_FIST))
 				mo->player->pendingweapon = mobjinfo + MOBJ_IDX_FIST;
 		break;
 	}
@@ -376,7 +376,7 @@ static uint32_t use_custom_inv(mobj_t *mo, mobjinfo_t *info)
 //
 // hooks
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void spawn_player(mapthing_t *mt)
 {
 	player_t *pl;
@@ -420,8 +420,8 @@ void spawn_player(mapthing_t *mt)
 		else
 			pl->health = info->spawnhealth;
 
-		pl->readyweapon = NULL;
 		pl->pendingweapon = NULL;
+		pl->readyweapon = NULL;
 
 		// default inventory
 		for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
@@ -652,7 +652,11 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 
 	// flash
 	if(!(info->eflags & MFE_INVENTORY_NOSCREENFLASH))
+	{
 		pl->bonuscount += 6;
+		if(pl->bonuscount > 24)
+			pl->bonuscount = 24; // new limit
+	}
 
 	// sound
 	S_StartSound(toucher, info->inventory.sound_pickup);
@@ -678,6 +682,9 @@ static void kill_animation(mobj_t *mo)
 		if(mo->tics <= 0)
 			mo->tics = 1;
 	}
+
+	if(mo->player)
+		mo->player->extralight = 0;
 }
 
 //
@@ -848,7 +855,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		if(kickback != 100)
 			thrust = (thrust * kickback) / 100;
 
-		if(	!(target->flags1 & MF1_NOFORWARDFALL) &&
+		if(	!(target->flags1 & (MF1_NOFORWARDFALL | MF1_INVULNERABLE | MF1_BUDDHA | MF1_NODAMAGE)) &&
 			!(inflictor->flags1 & MF1_NOFORWARDFALL) && // TODO: extra steps for hitscan
 			damage < 40 &&
 			damage > target->health &&
@@ -864,16 +871,15 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		target->momy += FixedMul(thrust, finesine[angle]);
 	}
 
+	if(	target->flags1 & MF1_INVULNERABLE &&
+		damage < 1000000
+	)
+		return;
+
 	if(player)
 	{
 		if(target->subsector->sector->special == 11 && damage >= target->health)
 			damage = target->health - 1;
-
-		if(	damage < 1000000 &&
-			( player->cheats & CF_GODMODE ||
-			player->powers[pw_invulnerability] )
-		)
-			return;
 
 		if(player->armortype)
 		{
@@ -890,24 +896,40 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			damage -= saved;
 		}
 
-		player->health -= damage;
-		if(player->health < 0)
-			player->health = 0;
+		if(!(target->flags1 & MF1_NODAMAGE))
+		{
+			player->health -= damage;
+			if(player->health < 0)
+				player->health = 0;
+
+			player->damagecount += damage;
+			if(player->damagecount > 60)
+				player->damagecount = 60; // this is a bit less
+		}
 
 		player->attacker = source;
-
-		player->damagecount += damage;
-		if(player->damagecount > 100)
-			player->damagecount = 100;
 
 		// I_Tactile ...
 	}
 
-	target->health -= damage;
-	if(target->health <= 0)
+	if(!(target->flags1 & MF1_NODAMAGE))
 	{
-		P_KillMobj(source, target);
-		return;
+		target->health -= damage;
+		if(target->health <= 0)
+		{
+			if(	target->flags1 & MF1_BUDDHA &&
+				damage < 1000000
+			)
+			{
+				target->health = 1;
+				if(player)
+					player->health = 1;
+			} else
+			{
+				P_KillMobj(source, target);
+				return;
+			}
+		}
 	}
 
 	if(	P_Random() < target->info->painchance &&

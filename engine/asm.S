@@ -363,12 +363,36 @@ P_RemoveMobj:
 P_KillMobj:
 	.byte	0xE9
 	.4byte	0x0002A2B0
-////////////////////////////////// P_SpawnPlayer
-.section .text.P_SpawnPlayer
-.global P_SpawnPlayer
-P_SpawnPlayer:
+////////////////////////////////// P_CalcHeight
+.section .text.P_CalcHeight
+.global P_CalcHeight
+P_CalcHeight:
 	.byte	0xE9
-	.4byte	0x000317F0
+	.4byte	0x00033030
+////////////////////////////////// P_PlayerInSpecialSector
+.section .text.P_PlayerInSpecialSector
+.global P_PlayerInSpecialSector
+P_PlayerInSpecialSector:
+	.byte	0xE9
+	.4byte	0x0002FB20
+////////////////////////////////// P_MovePlayer
+.section .text.P_MovePlayer
+.global P_MovePlayer
+P_MovePlayer:
+	.byte	0xE9
+	.4byte	0x00033160
+////////////////////////////////// P_UseLines
+.section .text.P_UseLines
+.global P_UseLines
+P_UseLines:
+	.byte	0xE9
+	.4byte	0x0002BD10
+////////////////////////////////// P_DeathThink
+.section .text.P_DeathThink
+.global P_DeathThink
+P_DeathThink:
+	.byte	0xE9
+	.4byte	0x00033270
 ////////////////////////////////// doom_A_Look
 .section .text.doom_A_Look
 .global doom_A_Look

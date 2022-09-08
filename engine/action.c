@@ -9,6 +9,7 @@
 #include "action.h"
 #include "mobj.h"
 #include "weapon.h"
+#include "inventory.h"
 #include "sound.h"
 #include "textpars.h"
 
@@ -169,7 +170,7 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 //
 // projectile spawn
 
-static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle)
+void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle)
 {
 	S_StartSound(mo, mo->info->seesound);
 
@@ -207,6 +208,106 @@ static void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t an
 			P_DamageMobj(mo, NULL, NULL, 100000);
 		else
 			explode_missile(mo);
+	}
+}
+
+//
+// original weapon attacks
+// these are not available for DECORATE
+// and so are only used in primary fire
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	uint16_t count;
+	uint16_t proj = (uint32_t)st->arg;
+	player_t *pl = mo->player;
+	uint16_t ammo = pl->readyweapon->weapon.ammo_type[0];
+
+	if(proj == 35) // BFG
+		count = dehacked.bfg_cells;
+	else
+		count = 1;
+
+	if(proj == 34) // plasma
+	{
+		uint32_t state;
+		state = pl->readyweapon->st_weapon.flash;
+		state += P_Random() & 1;
+		pl->psprites[1].state = states + state;
+		pl->psprites[1].tics = 0;
+	}
+
+	inventory_take(mo, ammo, count);
+
+	P_SpawnPlayerMissile(mo, proj);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	uint16_t count;
+	uint16_t sound = (uint32_t)st->arg;
+	player_t *pl = mo->player;
+	uint16_t ammo = pl->readyweapon->weapon.ammo_type[0];
+	uint16_t hs, vs;
+	state_t *state;
+
+	if(sound == 4)
+		count = 2;
+	else
+		count = 1;
+
+	if(!inventory_take(mo, ammo, count))
+		return;
+
+	state = states + pl->readyweapon->st_weapon.flash;
+
+	switch(sound)
+	{
+		case 86:
+			state += pl->psprites[0].state - &states[52];
+		case 1:
+			count = 1;
+			hs = pl->refire ? 18 : 0;
+			vs = 0;
+		break;
+		case 2:
+			count = 7;
+			hs = 18;
+			vs = 0;
+		break;
+		default:
+			count = 20;
+			hs = 19;
+			vs = 5;
+		break;
+	}
+
+	S_StartSound(mo, sound);
+
+	// TODO: mobj to 'missile' animation
+
+	pl->psprites[1].state = state;
+	pl->psprites[1].tics = 0;
+
+	P_BulletSlope(mo);
+
+	for(uint32_t i = 0; i < count; i++)
+	{
+		uint16_t damage;
+		angle_t angle;
+		fixed_t slope;
+
+		damage = 5 + 5 * (P_Random() % 3);
+		angle = mo->angle;
+		if(hs)
+			angle += (P_Random() - P_Random()) << hs;
+		slope = *bulletslope;
+		if(vs)
+			slope += (P_Random() - P_Random()) << 5;
+
+		P_LineAttack(mo, angle, MISSILERANGE, slope, damage);
 	}
 }
 
@@ -297,6 +398,40 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl->psprites[0].sy = WEAPONTOP;
 
 	stfunc(mo, pl->readyweapon->st_weapon.ready);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	uint32_t state;
+	player_t *pl;
+
+	if(!mo->player)
+		return;
+
+	// TODO: mobj to 'missile' animation
+
+	pl = mo->player;
+
+	if(pl->attackdown > 1)
+		state = pl->readyweapon->st_weapon.flash_alt;
+	else
+		state = pl->readyweapon->st_weapon.flash;
+
+	if(!state)
+		return;
+
+	// just hope that this is called in 'weapon PSPR'
+	pl->psprites[1].state = states + state;
+	pl->psprites[1].tics = 0;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_CheckReload(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(!mo->player)
+		return;
+	weapon_check_ammo(mo->player);
 }
 
 //
@@ -397,7 +532,7 @@ void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	}
 
 	pl->refire = 0;
-	// TODO: ammo check
+	weapon_check_ammo(pl);
 }
 
 //
@@ -749,6 +884,8 @@ static const dec_action_t mobj_action[] =
 	// weapon
 	{"a_lower", A_Lower, &args_LowerRaise},
 	{"a_raise", A_Raise, &args_LowerRaise},
+	{"a_gunflash", A_GunFlash},
+	{"a_checkreload", A_CheckReload},
 	{"a_light0", A_Light0},
 	{"a_light1", A_Light1},
 	{"a_light2", A_Light2},

@@ -83,7 +83,7 @@ typedef struct
 typedef struct
 {
 	uint8_t type;
-	uint8_t use;
+	uint16_t use;
 	uint8_t *message;
 } doom_weapon_t;
 
@@ -749,7 +749,7 @@ static const uint8_t *powerup_special[] =
 };
 
 // doom weapons
-static const doom_weapon_t doom_weapon[NUMWEAPONS] =
+static doom_weapon_t doom_weapon[NUMWEAPONS] =
 {
 	{MOBJ_IDX_FIST, 0, NULL}, // Fist (new)
 	{MOBJ_IDX_PISTOL, 1, "Pistol!"}, // Pistol (new)
@@ -833,6 +833,19 @@ static const doom_codeptr_t doom_codeptr[] =
 	{(void*)0x0002DB60, A_Light2, NULL},
 	{(void*)0x0002D550, wpn_codeptr, (void*)0x0002D550}, // A_Punch
 	{(void*)0x0002D600, wpn_codeptr, (void*)0x0002D600}, // A_Saw
+	{(void*)0x0002D890, A_OldBullets, (void*)1}, // A_FirePistol
+	{(void*)0x0002D910, A_OldBullets, (void*)2}, // A_FireShotgun
+	{(void*)0x0002D9B0, A_OldBullets, (void*)4}, // A_FireShotgun2
+	{(void*)0x0002DA70, A_OldBullets, (void*)86}, // A_FireCGun
+	{(void*)0x0002D700, A_OldProjectile, (void*)33}, // A_FireMissile
+	{(void*)0x0002D730, A_OldProjectile, (void*)35}, // A_FireBFG
+	{(void*)0x0002D760, A_OldProjectile, (void*)34}, // A_FirePlasma
+	{(void*)0x0002D510, A_GunFlash, NULL},
+	{(void*)0x0002D460, A_CheckReload, NULL},
+	{(void*)0x00028A80, wpn_sound, (void*)5}, // A_OpenShotgun2
+	{(void*)0x00028A90, wpn_sound, (void*)7}, // A_LoadShotgun2
+	{(void*)0x00028AA0, wpn_sound, (void*)6}, // A_CloseShotgun2
+	{(void*)0x0002DC20, wpn_sound, (void*)9}, // A_BFGSound
 };
 #define NUM_CODEPTR_MODS	(sizeof(doom_codeptr) / sizeof(doom_codeptr_t))
 
@@ -873,7 +886,10 @@ static void make_doom_weapon(uint32_t idx)
 	}
 
 	if(wpn->ammo < NUMAMMO)
+	{
 		info->weapon.ammo_type[0] = doom_ammo[wpn->ammo].clp;
+		info->weapon.ammo_give[0] = ((uint32_t*)(0x00012D80 + doom_data_segment))[wpn->ammo] * 2; // clipammo
+	}
 	info->weapon.ammo_use[0] = def->use;
 
 	info->st_weapon.raise = wpn->upstate;
@@ -887,11 +903,14 @@ static void make_doom_ammo(uint32_t idx)
 {
 	const doom_ammo_t *ammo = doom_ammo + idx;
 	mobjinfo_t *info;
+	uint16_t tmp;
+
+	tmp = ((uint32_t*)(0x00012D80 + doom_data_segment))[idx]; // clipammo
 
 	info = mobjinfo + ammo->clp;
 	info->extra_type = ETYPE_AMMO;
 	info->ammo = default_ammo.ammo;
-	info->ammo.inventory.count = ((uint32_t*)(0x00012D80 + doom_data_segment))[idx]; // clipammo
+	info->ammo.inventory.count = tmp;
 	info->ammo.inventory.max_count = ((uint32_t*)(0x00012D70 + doom_data_segment))[idx]; // maxammo
 	info->ammo.count = info->ammo.inventory.count;
 	info->ammo.max_count = info->ammo.inventory.max_count * 2;
@@ -901,8 +920,9 @@ static void make_doom_ammo(uint32_t idx)
 	info = mobjinfo + ammo->box;
 	info->extra_type = ETYPE_AMMO_LINK;
 	info->ammo = default_ammo.ammo;
+	info->inventory.count = tmp * 5;
 	info->inventory.special = ammo->clp;
-	info->ammo.inventory.message = ammo->msg_box + doom_data_segment;
+	info->inventory.message = ammo->msg_box + doom_data_segment;
 	// TODO: icon
 }
 
@@ -2089,6 +2109,7 @@ void init_decorate()
 	mobjinfo[3].flags1 |= MF1_NOTARGET | MF1_QUICKTORETALIATE;
 
 	// doom weapons
+	doom_weapon[6].use = dehacked.bfg_cells;
 	for(uint32_t i = 0; i < NUMWEAPONS; i++)
 		make_doom_weapon(i);
 
@@ -2272,9 +2293,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031E4D, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},
 	{0x00031E4E, CODE_HOOK | HOOK_UINT8, MF1_NOTELEPORT},
 	// disable teleport sounds
-	{0x00031F54, CODE_HOOK | HOOK_SET_NOPS, 10}, // EV_Teleport
-	{0x00031FAE, CODE_HOOK | HOOK_SET_NOPS, 10}, // EV_Teleport
-	{0x00020BA2, CODE_HOOK | HOOK_SET_NOPS, 12}, // G_CheckSpot
+	{0x00031F54, CODE_HOOK | HOOK_UINT16, 0x08EB}, // EV_Teleport
+	{0x00031FAE, CODE_HOOK | HOOK_UINT16, 0x08EB}, // EV_Teleport
+	{0x00020BA2, CODE_HOOK | HOOK_UINT16, 0x0AEB}, // G_CheckSpot
 	// use 'MF1_TELESTOMP' in 'PIT_StompThing'
 	{0x0002ABC7, CODE_HOOK | HOOK_UINT16, 0x43F6},
 	{0x0002ABC9, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},

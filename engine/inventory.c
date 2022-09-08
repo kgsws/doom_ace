@@ -145,14 +145,14 @@ uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count)
 	// remove
 	if(item->count <= count)
 	{
-		count -= item->count;
+		count = item->count;
 		item->count = 0;
 		// TODO: remove (MFE_INVENTORY_KEEPDEPLETED)
 		return count;
 	} else
 	{
 		item->count -= count;
-		return 0;
+		return count;
 	}
 }
 

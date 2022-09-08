@@ -393,6 +393,24 @@ P_UseLines:
 P_DeathThink:
 	.byte	0xE9
 	.4byte	0x00033270
+////////////////////////////////// P_SpawnPlayerMissile
+.section .text.P_SpawnPlayerMissile
+.global P_SpawnPlayerMissile
+P_SpawnPlayerMissile:
+	.byte	0xE9
+	.4byte	0x00031D50
+////////////////////////////////// P_BulletSlope
+.section .text.P_BulletSlope
+.global P_BulletSlope
+P_BulletSlope:
+	.byte	0xE9
+	.4byte	0x0002D7C0
+////////////////////////////////// P_NoiseAlert
+.section .text.P_NoiseAlert
+.global P_NoiseAlert
+P_NoiseAlert:
+	.byte	0xE9
+	.4byte	0x00027020
 ////////////////////////////////// doom_A_Look
 .section .text.doom_A_Look
 .global doom_A_Look

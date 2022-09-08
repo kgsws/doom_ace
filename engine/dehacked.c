@@ -43,6 +43,7 @@ deh_stuff_t dehacked =
 	.max_soulsphere = 200,
 	.hp_soulsphere = 100,
 	.hp_megasphere = 200,
+	.bfg_cells = 40,
 };
 
 uint_fast8_t deh_plr_health = 100;
@@ -73,7 +74,6 @@ static const deh_section_t deh_section[] =
 // section handlers
 static void handle_u32(uint8_t*,void*);
 static void handle_u8(uint8_t*,void*);
-static void handle_bfg(uint8_t*,void*);
 static void handle_species(uint8_t*,void*);
 static void handle_infight(uint8_t*,void*);
 
@@ -160,7 +160,7 @@ static const deh_value_t deh_value_misc[] =
 //	{"IDFA Armor Class", },
 //	{"IDKFA Armor", },
 //	{"IDKFA Armor Class", },
-	{"BFG Cells/Shot", 0, handle_bfg},
+	{"BFG Cells/Shot", (uint32_t)&dehacked.bfg_cells, handle_u32},
 	{"Monsters Infight", 0, handle_species},
 	{"Monsters Ignore Each Other", 0, handle_infight},
 	// terminator
@@ -254,17 +254,6 @@ static void handle_u8(uint8_t *text, void *target)
 		return;
 
 	*((uint8_t*)target) = tmp;
-}
-
-static void handle_bfg(uint8_t *text, void *target)
-{
-	uint32_t tmp;
-
-	if(doom_sscanf(text, "%i", &tmp) != 1) // allow DEC HEX and OCT
-		return;
-
-	*((uint32_t*)(doom_code_segment + 0x0002D484)) = tmp;
-	*((uint8_t*)(doom_code_segment + 0x0002D74D)) = tmp;
 }
 
 static void handle_species(uint8_t *text, void *target)

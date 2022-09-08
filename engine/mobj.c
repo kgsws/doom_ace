@@ -9,11 +9,9 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "mobj.h"
+#include "player.h"
 #include "weapon.h"
 #include "map.h"
-
-uint32_t *playeringame;
-player_t *players;
 
 uint32_t *consoleplayer;
 uint32_t *displayplayer;
@@ -70,7 +68,7 @@ static void set_viewheight(fixed_t wh)
 // state changes
 
 __attribute((regparm(2),no_caller_saved_registers))
-static uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
+uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 {
 	// normal state changes
 	state_t *st;
@@ -186,7 +184,7 @@ static uint32_t give_ammo(mobj_t *mo, uint16_t type, uint16_t count, uint32_t dr
 	uint32_t left;
 
 	if(!type)
-		return 1;
+		return 0;
 
 	if(dropped)
 	{
@@ -586,7 +584,11 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		break;
 		case ETYPE_WEAPON:
 			// weapon
-			given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;
+			given = inventory_give(toucher, mo->type, info->inventory.count);
+			if(!given)
+				// TODO: auto-weapon-switch optional
+				pl->pendingweapon = info;
+			given = given < info->inventory.count;
 			// primary ammo
 			given |= give_ammo(toucher, info->weapon.ammo_type[0], info->weapon.ammo_give[0], mo->flags & MF_DROPPED);
 			// secondary ammo
@@ -961,8 +963,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// import variables
 	{0x0002B3D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&displayplayer},
 	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
-	{0x0002B2D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playeringame},
-	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
 	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
 	// replace 'P_SpawnPlayer'
 	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},

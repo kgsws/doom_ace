@@ -51,6 +51,7 @@ typedef struct
 	uint32_t max_soulsphere;
 	uint32_t hp_soulsphere;
 	uint32_t hp_megasphere;
+	uint32_t bfg_cells;
 	uint8_t no_infight;
 } deh_stuff_t;
 

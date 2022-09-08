@@ -676,10 +676,12 @@ void HU_Start() __attribute((regparm(2)));
 // p_enemy
 void doom_A_Look(mobj_t*) __attribute((regparm(2)));
 void doom_A_Chase(mobj_t*) __attribute((regparm(2)));
+void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2)));
 
 // p_map
 uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
 void P_UseLines(player_t*) __attribute((regparm(2)));
+void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2)));
 
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
@@ -688,6 +690,10 @@ void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
 // p_mobj
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2)));
 mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2)));
+void P_SpawnPlayerMissile(mobj_t*,uint32_t) __attribute((regparm(2)));
+
+// p_pspr
+void P_BulletSlope(mobj_t*) __attribute((regparm(2)));
 
 // p_inter
 void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2)));

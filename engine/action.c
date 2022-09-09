@@ -11,6 +11,7 @@
 #include "weapon.h"
 #include "inventory.h"
 #include "sound.h"
+#include "stbar.h"
 #include "textpars.h"
 
 #define MAKE_FLAG(x)	{.name = #x, .bits = x}
@@ -286,7 +287,9 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	S_StartSound(mo, sound);
 
-	// TODO: mobj to 'missile' animation
+	// mobj to 'missile' animation
+	if(mo->animation != ANIM_MISSILE && mo->info->state_missile)
+		mobj_set_animation(mo, ANIM_MISSILE);
 
 	pl->psprites[1].state = state;
 	pl->psprites[1].tics = 0;
@@ -372,7 +375,9 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!pl->readyweapon)
 		return;
 
-	S_StartSound(pl->mo, pl->readyweapon->weapon.sound_up);
+	pl->stbar_update |= STU_WEAPON;
+
+	S_StartSound(mo, pl->readyweapon->weapon.sound_up);
 
 	stfunc(mo, pl->readyweapon->st_weapon.raise);
 }
@@ -409,7 +414,9 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!mo->player)
 		return;
 
-	// TODO: mobj to 'missile' animation
+	// mobj to 'missile' animation
+	if(mo->animation != ANIM_MISSILE && mo->info->state_missile)
+		mobj_set_animation(mo, ANIM_MISSILE);
 
 	pl = mo->player;
 
@@ -476,13 +483,15 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl = mo->player;
 	psp = pl->psprites;
 
-	// TODO: mobj animation (not shooting)
+	// mobj animation (not shooting)
+	if(mo->animation == ANIM_MELEE || mo->animation == ANIM_MISSILE)
+		mobj_set_animation(mo, ANIM_SPAWN);
 
 	// sound
 	if(	pl->readyweapon->weapon.sound_ready &&
 		st == states + pl->readyweapon->st_weapon.ready
 	)
-		S_StartSound(pl->mo, pl->readyweapon->weapon.sound_ready);
+		S_StartSound(mo, pl->readyweapon->weapon.sound_ready);
 
 	// new selection
 	if(pl->pendingweapon || !pl->health)

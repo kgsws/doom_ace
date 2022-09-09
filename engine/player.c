@@ -6,7 +6,9 @@
 #include "utils.h"
 #include "decorate.h"
 #include "inventory.h"
+#include "mobj.h"
 #include "weapon.h"
+#include "stbar.h"
 #include "cheat.h"
 
 typedef struct
@@ -179,10 +181,13 @@ void player_think(player_t *pl)
 {
 	ticcmd_t *cmd = &pl->cmd;
 
-	if(pl->cheats & CF_NOCLIP)
-		pl->mo->flags |= MF_NOCLIP;
-	else
-		pl->mo->flags &= ~MF_NOCLIP;
+	if(pl->stbar_update)
+	{
+		if(pl - players == *consoleplayer)
+			stbar_update(pl);
+		else
+			pl->stbar_update = 0;
+	}
 
 	if(pl->mo->flags & MF_JUSTATTACKED)
 	{
@@ -243,7 +248,10 @@ void player_think(player_t *pl)
 			if(!pl->powers[i])
 			{
 				if(pw->stop)
+				{
 					pw->stop(pl->mo);
+					cheat_player_flags(pl);
+				}
 			} else
 			if(pw->tick)
 				pw->tick(pl->mo);
@@ -255,12 +263,46 @@ void player_think(player_t *pl)
 }
 
 //
+// level transition
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void player_finish(uint32_t pidx)
+{
+	player_t *pl = players + pidx;
+
+	for(uint32_t i = 0; i < NUMPOWERS; i++)
+	{
+		const powerup_t *pw = powerup + i;
+		if(pl->powers[i])
+		{
+			pl->powers[i] = 0;
+			if(pw->stop && pl->mo)
+				pw->stop(pl->mo);
+		}
+	}
+
+	pl->fixedcolormap = 0;
+	pl->damagecount = 0;
+	pl->bonuscount = 0;
+	pl->extralight = 0;
+
+	if(pl->mo)
+	{
+		inventory_hubstrip(pl->mo);
+		pl->inventory = pl->mo->inventory;
+		pl->mo->inventory = NULL;
+	}
+}
+
+//
 // hooks
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace call to 'P_PlayerThink' in 'P_Ticker'
 	{0x00032FBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_think},
+	// replace call to 'G_PlayerFinishLevel' in 'G_DoCompleted'
+	{0x00020DBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_finish},
 	// import variables
 	{0x0002B2D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playeringame},
 	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},

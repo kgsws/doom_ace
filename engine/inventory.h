@@ -18,6 +18,12 @@ inventory_t *inventory_find(mobj_t *mo, uint16_t type);
 
 uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count);
 uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count);
+void inventory_destroy(inventory_t *items);
 void inventory_clear(mobj_t *mo);
+void inventory_hubstrip(mobj_t *mo);
 
 uint32_t inventory_check(mobj_t *mo, uint16_t type);
+
+// DEBUG
+void inventory_dump(const uint8_t *txt, inventory_t *items);
+

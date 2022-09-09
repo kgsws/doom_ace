@@ -98,6 +98,7 @@ typedef struct
 typedef struct
 {
 	uint8_t type;
+	uint8_t *icon;
 	uint8_t *message;
 } doom_key_t;
 
@@ -774,12 +775,12 @@ static const doom_ammo_t doom_ammo[NUMAMMO] =
 // doom keys
 static const doom_key_t doom_key[NUMCARDS] =
 {
-	{47, (uint8_t*)0x00022DE8}, // BlueCard
-	{49, (uint8_t*)0x00022E04}, // YellowCard
-	{48, (uint8_t*)0x00022E20}, // RedCard
-	{52, (uint8_t*)0x00022E3C}, // BlueSkull
-	{50, (uint8_t*)0x00022E58}, // YellowSkull
-	{51, (uint8_t*)0x00022E78}, // RedSkull
+	{47, "STKEYS0", (uint8_t*)0x00022DE8}, // BlueCard
+	{49, "STKEYS1", (uint8_t*)0x00022E04}, // YellowCard
+	{48, "STKEYS2", (uint8_t*)0x00022E20}, // RedCard
+	{52, "STKEYS3", (uint8_t*)0x00022E3C}, // BlueSkull
+	{50, "STKEYS4", (uint8_t*)0x00022E58}, // YellowSkull
+	{51, "STKEYS5", (uint8_t*)0x00022E78}, // RedSkull
 };
 
 // doom health
@@ -930,11 +931,16 @@ static void make_doom_key(uint32_t idx)
 {
 	const doom_key_t *key = doom_key + idx;
 	mobjinfo_t *info = mobjinfo + key->type;
+	int32_t lump;
+
+	lump = wad_check_lump(key->icon);
+	if(lump < 0)
+		lump = 0;
 
 	info->extra_type = ETYPE_KEY;
 	info->inventory = default_key.inventory;
+	info->inventory.icon = (void*)lump;
 	info->inventory.message = key->message + doom_data_segment;
-	// TODO: icon
 }
 
 static void make_doom_health(uint32_t idx)
@@ -2222,6 +2228,30 @@ void init_decorate()
 
 		switch(info->extra_type)
 		{
+			case ETYPE_PLAYERPAWN:
+				// check weapon slots
+				for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
+				{
+					uint16_t *ptr;
+
+					ptr = info->player.wpn_slot[i];
+					if(!ptr)
+						continue;
+
+					while(*ptr)
+					{
+						uint16_t type = *ptr++;
+						if(mobjinfo[type].extra_type != ETYPE_WEAPON)
+							I_Error("[DECORATE] Non-weapon in weapon slot!");
+					}
+				}
+			break;
+			case ETYPE_WEAPON:
+				if(	(info->weapon.ammo_type[0] && mobjinfo[info->weapon.ammo_type[0]].extra_type != ETYPE_AMMO && mobjinfo[info->weapon.ammo_type[0]].extra_type != ETYPE_AMMO_LINK) ||
+					(info->weapon.ammo_type[1] && mobjinfo[info->weapon.ammo_type[1]].extra_type != ETYPE_AMMO && mobjinfo[info->weapon.ammo_type[1]].extra_type != ETYPE_AMMO_LINK)
+				)
+					I_Error("[DECORATE] Invalid weapon ammo!");
+			break;
 			case ETYPE_AMMO:
 				// ZDoom - allow 0, but no specific number
 				if(info->inventory.hub_count)

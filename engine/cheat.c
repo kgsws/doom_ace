@@ -27,12 +27,25 @@ static uint32_t *message_is_important;
 static mobj_t *tmp_mo;
 
 // cheat list
+static void cf_noclip(player_t*,uint8_t*);
+static void cf_iddqd(player_t*,uint8_t*);
+static void cf_idfa(player_t*,uint8_t*);
+static void cf_idkfa(player_t*,uint8_t*);
+static void cf_buddha(player_t*,uint8_t*);
 static void cf_mdk(player_t*,uint8_t*);
 static void cf_kill(player_t*,uint8_t*);
 static void cf_resurrect(player_t*,uint8_t*);
 static void cf_summon(player_t*,uint8_t*);
 static const cheat_func_t cheat_func[] =
 {
+	// old
+	{"idclip", cf_noclip},
+	{"iddqd", cf_iddqd},
+	{"idfa", cf_idfa},
+	{"idkfa", cf_idkfa},
+	// new
+	{"noclip", cf_noclip},
+	{"buddha", cf_buddha},
 	{"mdk", cf_mdk},
 	{"kill", cf_kill},
 	{"resurrect", cf_resurrect},
@@ -55,28 +68,138 @@ static uint32_t kill_mobj(mobj_t *mo)
 //
 // cheat functions
 
-static void cf_mdk(player_t *pl, uint8_t *name)
+static void cf_noclip(player_t *pl, uint8_t *arg)
+{
+	mobj_t *mo = pl->mo;
+
+	mo->flags ^= MF_NOCLIP;
+	if(mo->flags & MF_NOCLIP)
+	{
+		pl->cheats |= CF_NOCLIP;
+		pl->message = (uint8_t*)0x00023EB8 + doom_data_segment;
+	} else
+	{
+		pl->cheats &= ~CF_NOCLIP;
+		pl->message = (uint8_t*)0x00023ECC + doom_data_segment;
+	}
+}
+
+static void cf_iddqd(player_t *pl, uint8_t *arg)
+{
+	mobj_t *mo = pl->mo;
+
+	mo->flags1 &= ~MF1_BUDDHA;
+	mo->flags1 ^= MF1_INVULNERABLE;
+	if(mo->flags1 & MF1_INVULNERABLE)
+	{
+		mo->health = mo->info->spawnhealth;
+		pl->health = mo->health;
+		pl->cheats &= ~CF_BUDDHA;
+		pl->cheats |= CF_GODMODE;
+		pl->message = (uint8_t*)0x00023E30 + doom_data_segment;
+	} else
+	{
+		pl->cheats &= ~CF_GODMODE;
+		pl->message = (uint8_t*)0x00023E48 + doom_data_segment;
+	}
+}
+
+static void cf_idfa(player_t *pl, uint8_t *arg)
+{
+	mobj_t *mo = pl->mo;
+
+	// give backpack (extra)
+	pl->backpack = 1;
+
+	// give all (allowed) weapons
+	for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
+	{
+		uint16_t *ptr;
+
+		ptr = pl->mo->info->player.wpn_slot[i];
+		if(!ptr)
+			continue;
+
+		while(*ptr)
+		{
+			uint16_t type = *ptr++;
+			mobjinfo_t *info = mobjinfo + type;
+
+			inventory_give(mo, type, INV_MAX_COUNT);
+
+			if(info->weapon.ammo_type[0])
+				inventory_give(mo, info->weapon.ammo_type[0], INV_MAX_COUNT);
+			if(info->weapon.ammo_type[1])
+				inventory_give(mo, info->weapon.ammo_type[1], INV_MAX_COUNT);
+		}
+	}
+
+	// armor
+	pl->armorpoints = 200;
+	pl->armortype = 44;
+
+	pl->message = (uint8_t*)0x00023E60 + doom_data_segment;
+}
+
+static void cf_idkfa(player_t *pl, uint8_t *arg)
+{
+	mobj_t *mo = pl->mo;
+
+	// all weapons & stuff
+	cf_idfa(pl, arg);
+
+	// all keys
+	for(uint32_t i = 0; i < num_mobj_types; i++)
+	{
+		mobjinfo_t *info = mobjinfo + i;
+
+		if(info->extra_type == ETYPE_KEY)
+			inventory_give(mo, i, INV_MAX_COUNT);
+	}
+
+	pl->message = (uint8_t*)0x00023E78 + doom_data_segment;
+}
+
+static void cf_buddha(player_t *pl, uint8_t *arg)
+{
+	mobj_t *mo = pl->mo;
+
+	mo->flags1 &= ~MF1_INVULNERABLE;
+	mo->flags1 ^= MF1_BUDDHA;
+	if(mo->flags1 & MF1_BUDDHA)
+	{
+		pl->cheats &= ~CF_GODMODE;
+		pl->cheats |= CF_BUDDHA;
+		pl->message = "Buddha mode ON";
+	} else
+	{
+		pl->cheats &= ~CF_BUDDHA;
+		pl->message = "Buddha mode OFF";
+	}
+}
+
+static void cf_mdk(player_t *pl, uint8_t *arg)
 {
 	P_BulletSlope(pl->mo);
 	P_LineAttack(pl->mo, pl->mo->angle, MISSILERANGE, *bulletslope, 1000000);
 }
 
-static void cf_kill(player_t *pl, uint8_t *name)
+static void cf_kill(player_t *pl, uint8_t *arg)
 {
-	if(!name[0])
+	if(!arg[0])
 	{
 		mobj_damage(pl->mo, NULL, pl->mo, 1000000, 0);
 		return;
 	}
 
-	if(!strcmp(name, "monsters"))
+	if(!strcmp(arg, "monsters"))
 	{
 		tmp_mo = pl->mo;
 		mobj_for_each(kill_mobj);
 	}
 }
 
-static void cf_resurrect(player_t *pl, uint8_t *name)
+static void cf_resurrect(player_t *pl, uint8_t *arg)
 {
 	mobjinfo_t *info = pl->mo->info;
 	mobj_t *mo = pl->mo;
@@ -97,20 +220,19 @@ static void cf_resurrect(player_t *pl, uint8_t *name)
 	weapon_setup(pl);
 }
 
-static void cf_summon(player_t *pl, uint8_t *name)
+static void cf_summon(player_t *pl, uint8_t *arg)
 {
 	int32_t type;
 	mobj_t *mo;
 	fixed_t x, y, z;
-	uint32_t ang;
 
-	if(!name[0])
+	if(!arg[0])
 	{
 		pl->message = "usage: summon thing_type";
 		return;
 	}
 
-	type = mobj_check_type(tp_hash64(name));
+	type = mobj_check_type(tp_hash64(arg));
 	if(type < 0)
 	{
 		pl->message = "Unknown thing type!";
@@ -128,7 +250,8 @@ static void cf_summon(player_t *pl, uint8_t *name)
 			z += (pl->mo->height / 2) + pl->mo->info->player.attack_offs;
 	} else
 	{
-		ang = mo->angle >> ANGLETOFINESHIFT;
+		uint32_t ang = mo->angle >> ANGLETOFINESHIFT;
+		z = ((mo->radius + mobjinfo[type].radius) * 3) / 2;
 		x = mo->x + FixedMul(z, finecosine[ang]);
 		y = mo->y + FixedMul(z, finesine[ang]);
 		z = mo->z;
@@ -169,6 +292,7 @@ uint32_t cheat_check(uint32_t pidx)
 	{
 		if(!strcmp(cf->name, cb->text))
 		{
+			pl->cheats |= CF_IS_CHEATER; // mark cheaters forever
 			cf->func(pl, arg);
 			break;
 		}
@@ -181,6 +305,18 @@ uint32_t cheat_check(uint32_t pidx)
 		*message_is_important = 1;
 
 	cb->len = -1;
+}
+
+void cheat_player_flags(player_t *pl)
+{
+	mobj_t *mo = pl->mo;
+
+	if(pl->cheats & CF_NOCLIP)
+		mo->flags |= MF_NOCLIP;
+	if(pl->cheats & CF_GODMODE)
+		mo->flags1 |= MF1_INVULNERABLE;
+	if(pl->cheats & CF_BUDDHA)
+		mo->flags1 |= MF1_BUDDHA;
 }
 
 //

@@ -12,6 +12,8 @@
 #include "player.h"
 #include "weapon.h"
 #include "map.h"
+#include "stbar.h"
+#include "cheat.h"
 
 uint32_t *consoleplayer;
 uint32_t *displayplayer;
@@ -399,6 +401,8 @@ void spawn_player(mapthing_t *mt)
 		uint32_t itemcount;
 		uint32_t secretcount;
 
+		inventory_destroy(pl->inventory);
+
 		killcount = pl->killcount;
 		itemcount = pl->itemcount;
 		secretcount = pl->secretcount;
@@ -432,8 +436,20 @@ void spawn_player(mapthing_t *mt)
 			}
 		}
 
-		// if(*deathmatch) // TODO: give all keys
-	}
+		pl->readyweapon = pl->pendingweapon;
+
+		if(*deathmatch)
+		{
+			for(uint32_t i = 0; i < num_mobj_types; i++)
+			{
+				mobjinfo_t *info = mobjinfo + i;
+				if(info->extra_type == ETYPE_KEY)
+					inventory_give(mo, i, INV_MAX_COUNT);
+			}
+		}
+	} else
+		// use existing inventory
+		mo->inventory = pl->inventory;
 
 	// TODO: translation not in flags
 	mo->flags |= idx << 26;
@@ -451,12 +467,16 @@ void spawn_player(mapthing_t *mt)
 	pl->extralight = 0;
 	pl->fixedcolormap = 0;
 	pl->viewheight = info->player.view_height;
+	pl->inventory = NULL;
+	pl->stbar_update = 0;
+
+	cheat_player_flags(pl);
 
 	weapon_setup(pl);
 
 	if(idx == *consoleplayer)
 	{
-		ST_Start();
+		stbar_start(pl);
 		HU_Start();
 		set_viewheight(pl->viewheight);
 	}
@@ -816,6 +836,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	// source = what is responsible
 	player_t *player;
 	int32_t kickback;
+	uint_fast8_t forced;
 
 	if(!(target->flags & MF_SHOOTABLE))
 		return;
@@ -829,6 +850,10 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		target->momy = 0;
 		target->momz = 0;
 	}
+
+	forced = damage >= 1000000;
+	if(damage > 1000000)
+		damage = target->health;
 
 	if(source && source->player && source->player->readyweapon->weapon.kickback)
 		kickback = source->player->readyweapon->weapon.kickback;
@@ -874,7 +899,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	}
 
 	if(	target->flags1 & MF1_INVULNERABLE &&
-		damage < 1000000
+		!forced
 	)
 		return;
 
@@ -920,7 +945,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		if(target->health <= 0)
 		{
 			if(	target->flags1 & MF1_BUDDHA &&
-				damage < 1000000
+				!forced
 			)
 			{
 				target->health = 1;

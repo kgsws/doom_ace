@@ -45,11 +45,7 @@ static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
 
 static uint32_t cb_free_inventory(mobj_t *mo)
 {
-	if(mo->player)
-		return 0;
-
 	inventory_clear(mo);
-
 	return 0;
 }
 
@@ -63,8 +59,6 @@ static void map_load_setup()
 		doom_sprintf(map_name, "MAP%02u", *gamemap);
 	else
 		doom_sprintf(map_name, "E%uM%u", *gameepisode, *gamemap);
-
-	// TODO: copy player *inventory, but check for new game / reset
 
 	// free old inventories
 	mobj_for_each(cb_free_inventory);

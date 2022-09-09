@@ -6,6 +6,31 @@
 #include "utils.h"
 #include "decorate.h"
 #include "inventory.h"
+#include "stbar.h"
+
+//
+// funcs
+
+static inline void inv_check_stbar(player_t *pl, mobjinfo_t *info)
+{
+	if(!info->inventory.icon)
+		return;
+
+	switch(info->extra_type)
+	{
+		case ETYPE_INVENTORY:
+		case ETYPE_INVENTORY_CUSTOM:
+		case ETYPE_ARMOR:
+		case ETYPE_ARMOR_BONUS:
+		case ETYPE_POWERUP:
+			// TODO: +INVBAR flag check
+			pl->stbar_update |= STU_INVENTORY;
+		break;
+		case ETYPE_KEY:
+			pl->stbar_update |= STU_KEYS;
+		break;
+	}
+}
 
 //
 // API
@@ -96,7 +121,7 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 
 		item->count = newcount;
 
-		return ret;
+		goto finished;
 	}
 
 	// not found; create new
@@ -123,6 +148,12 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 
 	mo->inventory = item;
 
+finished:
+	// status bar update
+	if(mo->player)
+		inv_check_stbar(mo->player, info);
+
+	// done
 	return ret;
 }
 
@@ -147,29 +178,49 @@ uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count)
 	{
 		count = item->count;
 		item->count = 0;
-		// TODO: remove (MFE_INVENTORY_KEEPDEPLETED)
-		return count;
+
+		if(info->extra_type != ETYPE_AMMO && !(info->eflags & MFE_INVENTORY_KEEPDEPLETED))
+		{
+			// delete from inventory
+			// but keep 'ammo' for status bar
+			if(item->next)
+				item->next->prev = item->prev;
+			else
+				mo->inventory = item->prev;
+
+			if(item->prev)
+				item->prev->next = item->next;
+
+			doom_free(item);
+		}
 	} else
-	{
 		item->count -= count;
-		return count;
+
+	// status bar update
+	if(mo->player)
+		inv_check_stbar(mo->player, info);
+
+	// done
+	return count;
+}
+
+void inventory_destroy(inventory_t *items)
+{
+	while(items)
+	{
+		inventory_t *tmp = items;
+		items = items->prev;
+		doom_free(tmp);
 	}
 }
 
 void inventory_clear(mobj_t *mo)
 {
-	inventory_t *item;
-
-	if(!mo->inventory)
-		return;
-
-	item = mo->inventory;
-	while(item)
-	{
-		inventory_t *tmp = item;
-		item = item->prev;
-		doom_free(item);
-	}
+	inventory_destroy(mo->inventory);
+	mo->inventory = NULL;
+	// status bar update
+	if(mo->player)
+		mo->player->stbar_update = STU_EVERYTHING;
 }
 
 uint32_t inventory_check(mobj_t *mo, uint16_t type)
@@ -181,5 +232,52 @@ uint32_t inventory_check(mobj_t *mo, uint16_t type)
 		return 0;
 
 	return item->count;
+}
+
+void inventory_hubstrip(mobj_t *mo)
+{
+	mobjinfo_t *info;
+	inventory_t *item;
+
+	item = mo->inventory;
+	while(item)
+	{
+		inventory_t *tmp = item;
+		info = mobjinfo + tmp->type;
+
+		item = item->prev;
+
+		if(tmp->count > info->inventory.hub_count)
+		{
+			tmp->count = info->inventory.hub_count;
+			if(!tmp->count && info->extra_type != ETYPE_AMMO && !(info->eflags & MFE_INVENTORY_KEEPDEPLETED))
+			{
+				// delete from inventory
+				// but keep 'ammo' for status bar
+				if(tmp->next)
+					tmp->next->prev = tmp->prev;
+				else
+					mo->inventory = tmp->prev;
+
+				if(tmp->prev)
+					tmp->prev->next = tmp->next;
+
+				doom_free(tmp);
+			}
+		}
+	}
+}
+
+// DEBUG
+void inventory_dump(const uint8_t *txt, inventory_t *items)
+{
+	uint32_t idx = 0;
+	doom_printf("INV %s\n", txt);
+	while(items)
+	{
+		doom_printf("INV[%02u] t %u c %u\n", idx, items->type, items->count);
+		idx++;
+		items = items->prev;
+	}
 }
 

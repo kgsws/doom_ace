@@ -59,6 +59,8 @@ typedef uint32_t angle_t;
 #define CF_NOCLIP	1
 #define CF_GODMODE	2
 #define CF_NOMOMENTUM	4
+#define CF_BUDDHA	8
+#define CF_IS_CHEATER	0x80000000
 
 //
 // zone
@@ -152,7 +154,7 @@ enum
 };
 
 typedef struct player_s
-{
+{ // this structure has been changed
 	struct mobj_s *mo;
 	uint32_t playerstate;
 	ticcmd_t cmd;
@@ -165,15 +167,15 @@ typedef struct player_s
 	int armortype;
 	int powers[NUMPOWERS];
 	uint32_t cards[NUMCARDS];
-	uint32_t backpack;
+	struct inventory_s *inventory; // for level transition
 	int frags[MAXPLAYERS];
 	struct mobjinfo_s *readyweapon;
 	struct mobjinfo_s *pendingweapon;
-	uint32_t weaponowned[NUMWEAPONS];
-	int ammo[NUMAMMO];
-	int maxammo[NUMAMMO];
+	uint32_t stbar_update;
+	uint32_t __unused[8+4+4];
 	uint16_t attackdown;
-	uint16_t weapon_ready;
+	uint8_t weapon_ready;
+	uint8_t backpack;
 	int usedown;
 	int cheats;
 	int refire;
@@ -283,7 +285,6 @@ typedef struct
 
 typedef struct
 {
-	int32_t icon;
 	uint16_t count;
 	uint16_t max_count;
 	uint16_t hub_count;
@@ -292,6 +293,7 @@ typedef struct
 	uint16_t sound_use;
 	uint16_t sound_pickup;
 	uint16_t special; // backpack, ammo parent ...
+	patch_t *icon;
 	uint8_t *message;
 } ei_inventory_t;
 

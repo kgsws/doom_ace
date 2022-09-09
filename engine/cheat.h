@@ -17,4 +17,5 @@ extern cheat_buf_t *cheat_buf;
 //
 
 uint32_t cheat_check(uint32_t pidx);
+void cheat_player_flags(player_t *pl);
 

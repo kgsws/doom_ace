@@ -125,7 +125,7 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 	}
 
 	// not found; create new
-	item = doom_malloc(sizeof(inventory_t*));
+	item = doom_malloc(sizeof(inventory_t));
 	if(!item)
 		I_Error("Failed to allocate memory for inventory slot!");
 

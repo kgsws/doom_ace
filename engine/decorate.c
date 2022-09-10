@@ -146,7 +146,7 @@ typedef struct
 
 uint32_t mobj_netid;
 
-uint32_t num_spr_names = 138;
+uint32_t num_spr_names = NUMSPRITES;
 uint32_t sprite_table[MAX_SPRITE_NAMES];
 
 static uint32_t **spr_names;
@@ -2068,7 +2068,7 @@ void init_decorate()
 	ldr_alloc_message = "Decorate memory allocation failed!";
 
 	// init sprite names
-	for(uint32_t i = 0; i < num_spr_names; i++)
+	for(uint32_t i = 0; i < NUMSPRITES; i++)
 		sprite_table[i] = *spr_names[i];
 
 	// mobjinfo
@@ -2333,9 +2333,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002ABCB, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// change damage in 'PIT_StompThing'
 	{0x0002ABDE, CODE_HOOK | HOOK_UINT32, 1000000},
-	// change 'sprite' of 'mobj_t' in 'R_PrecacheLevel'
-	{0x00034992, CODE_HOOK | HOOK_UINT32, 0x2443B70F},
-	{0x00034996, CODE_HOOK | HOOK_UINT32, 0x8B012488},
 	// fix 'R_ProjectSprite'; use new 'frame' and 'state', ignore invalid sprites
 	{0x00037D45, CODE_HOOK | HOOK_UINT32, 0x2446B70F},
 	{0x00037D49, CODE_HOOK | HOOK_UINT32, 0x1072E839},

@@ -809,6 +809,19 @@ void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// DEBUG
+
+__attribute((regparm(2),no_caller_saved_registers))
+void debug_codeptr(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	doom_printf("debug_codeptr:\n");
+	doom_printf(" mobj 0x%08X\n", mo);
+	doom_printf(" arg 0x%08X\n", st->arg);
+	doom_printf(" target 0x%08X\n", mo->target);
+	doom_printf(" tracer 0x%08X\n", mo->tracer);
+}
+
+//
 // parser
 
 uint8_t *action_parser(uint8_t *name)

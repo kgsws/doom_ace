@@ -8,11 +8,12 @@
 #include "decorate.h"
 #include "animate.h"
 #include "sound.h"
+#include "map.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
 
-#define LDR_ENGINE_COUNT	6	// dehacked, sndinfo, decorate, texure-init, flat-init, sprite-init
+#define LDR_ENGINE_COUNT	7	// dehacked, sndinfo, decorate, texure-init, flat-init, sprite-init, other-text
 
 typedef struct
 {
@@ -310,6 +311,9 @@ uint32_t ace_main()
 
 	// animations
 	init_animations();
+
+	//
+	gfx_progress(-1);
 
 	// restore 'I_Error' modification
 	utils_install_hooks(restore_loader + 0, 1);

@@ -27,6 +27,7 @@ typedef uint32_t angle_t;
 #define NUM_WPN_SLOTS	10
 #define NUMMOBJTYPES	137
 #define NUMSTATES	967
+#define NUMSPRITES	138
 
 //
 // tables
@@ -60,6 +61,7 @@ typedef uint32_t angle_t;
 #define CF_GODMODE	2
 #define CF_NOMOMENTUM	4
 #define CF_BUDDHA	8
+#define CF_REVENGE	16
 #define CF_IS_CHEATER	0x80000000
 
 //
@@ -629,9 +631,9 @@ typedef struct mobj_s
 	struct player_s *player;
 	int lastlook;
 	mapthing_t spawnpoint;
+	struct mobj_s *tracer;
 	uint8_t animation;	// animation system
 	uint8_t __unused;
-	struct mobj_s *tracer;
 	uint32_t netid;	// unique identification
 	struct inventory_s *inventory;
 	mobjinfo_t *custom_inventory; // activating item, nesting is unsupported
@@ -640,6 +642,7 @@ typedef struct mobj_s
 
 // ASM hooks
 void hook_mobj_damage();
+void hook_obj_key();
 
 // some variables
 extern uint32_t *gamemode;
@@ -674,6 +677,9 @@ void ST_Start() __attribute((regparm(2)));
 
 // hu_stuff
 void HU_Start() __attribute((regparm(2)));
+
+// p_door
+uint32_t EV_DoDoor(line_t*,uint32_t) __attribute((regparm(2)));
 
 // p_enemy
 void doom_A_Look(mobj_t*) __attribute((regparm(2)));

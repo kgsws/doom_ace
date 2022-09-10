@@ -145,6 +145,107 @@ static void spawn_map_thing(mapthing_t *mt)
 		*totalitems = *totalitems + 1;
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+static uint32_t check_door_key(line_t *line, mobj_t *mo)
+{
+	player_t *pl = mo->player;
+	uint16_t k0, k1;
+	uint8_t *text;
+
+	switch(line->special)
+	{
+		case 26:
+		case 32:
+			if(!pl)
+				return 0;
+			k0 = 47;
+			k1 = 52;
+			text = (uint8_t*)0x00022C90 + doom_data_segment;
+		break;
+		case 27:
+		case 34:
+			if(!pl)
+				return 0;
+			k0 = 49;
+			k1 = 50;
+			text = (uint8_t*)0x00022CB8 + doom_data_segment;
+		break;
+		case 28:
+		case 33:
+			if(!pl)
+				return 0;
+			k0 = 48;
+			k1 = 51;
+			text = (uint8_t*)0x00022CE0 + doom_data_segment;
+		break;
+		default:
+			return 1;
+	}
+
+	if(inventory_check(mo, k0))
+		return 1;
+
+	if(inventory_check(mo, k1))
+		return 1;
+
+	pl->message = text;
+	S_StartSound(mo, 34); // TODO: use-fail sound
+
+	return 0;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t check_obj_key(line_t *line, mobj_t *mo)
+{
+	player_t *pl = mo->player;
+	uint16_t k0, k1;
+	uint8_t *text;
+
+	switch(line->special)
+	{
+		case 99:
+		case 133:
+			if(!pl)
+				return 0;
+			k0 = 47;
+			k1 = 52;
+			text = (uint8_t*)0x00022C08 + doom_data_segment;
+		break;
+		case 134:
+		case 135:
+			if(!pl)
+				return 0;
+			k0 = 48;
+			k1 = 51;
+			text = (uint8_t*)0x00022C34 + doom_data_segment;
+		break;
+		case 136:
+		case 137:
+			if(!pl)
+				return 0;
+			k0 = 49;
+			k1 = 50;
+			text = (uint8_t*)0x00022C60 + doom_data_segment;
+		break;
+		default:
+			goto do_door;
+	}
+
+	if(inventory_check(mo, k0))
+		goto do_door;
+
+	if(inventory_check(mo, k1))
+		goto do_door;
+
+	pl->message = text;
+	S_StartSound(mo, 34); // TODO: use-fail sound
+
+	return 0;
+
+do_door:
+	return EV_DoDoor(line, 6); // only 'blazeOpen' is ever used here
+}
+
 //
 // hooks
 
@@ -154,6 +255,15 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
 	// replace call to 'P_SpawnMapThing' in 'P_LoadThings'
 	{0x0002E1F9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spawn_map_thing},
+	// replace key checks in 'EV_VerticalDoor'
+	{0x00026C85, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_door_key},
+	{0x00026C8A, CODE_HOOK | HOOK_UINT16, 0xC085},
+	{0x00026C8D, CODE_HOOK | HOOK_JMP_DOOM, 0x00026E97},
+	{0x00026C8C, CODE_HOOK | HOOK_UINT16, 0x840F},
+	{0x00026C92, CODE_HOOK | HOOK_JMP_DOOM, 0x00026D3E},
+	// replace calls to 'EV_DoLockedDoor'
+	{0x00030B0E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_obj_key},
+	{0x00030E55, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_obj_key},
 	// change map name variable in 'P_SetupLevel'
 	{0x0002E858, CODE_HOOK | HOOK_UINT16, 0x61EB},
 	{0x0002E8BB, CODE_HOOK | HOOK_UINT8, 0xB8},

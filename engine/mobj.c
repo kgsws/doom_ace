@@ -327,8 +327,11 @@ static uint32_t give_special(mobj_t *mo, mobjinfo_t *info)
 			// megasphere
 			mo->health = dehacked.hp_megasphere;
 			mo->player->health = mo->health;
-			mo->player->armorpoints = 200;
-			mo->player->armortype = 44;
+			if(mo->player->armorpoints < 200)
+			{
+				mo->player->armorpoints = 200;
+				mo->player->armortype = 44;
+			}
 		break;
 		case 3:
 			// berserk
@@ -545,22 +548,37 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		return;
 
 	pl = toucher->player;
-/*
+	info = mo->info;
+
 	if(mo->type < NUMMOBJTYPES)
 	{
-		// old items; workaround for 'sprite' changes in 'mobj_t'
+		// old items - type is based on current sprite
+		uint16_t type;
 
-		// TODO: rework
-		uint16_t temp = mo->frame;
-		mo->frame = 0;
-		P_TouchSpecialThing(mo, toucher);
-		mo->frame = temp;
+		// forced height
+		if(diff < 8 * -FRACUNIT)
+			return;
 
-		return;
+		// DEHACKED workaround
+		if(mo->sprite < sizeof(deh_pickup_type))
+			type = deh_pickup_type[mo->sprite];
+		else
+			type = 0;
+
+		if(!type)
+		{
+			// original game would throw an error
+			mo->flags &= ~MF_SPECIAL;
+			// heheh
+			if(!(mo->flags & MF_NOGRAVITY))
+				mo->momz += 8 * FRACUNIT;
+			return;
+		}
+
+		info = mobjinfo + type;
 	}
-*/
+
 	// new inventory stuff
-	info = mo->info;
 
 	switch(info->extra_type)
 	{
@@ -935,6 +953,9 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		}
 
 		player->attacker = source;
+
+		if(source && source != target && player->cheats & CF_REVENGE)
+			mobj_damage(source, NULL, target, 1000000, 0);
 
 		// I_Tactile ...
 	}

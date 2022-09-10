@@ -63,6 +63,8 @@ extern weaponinfo_t *deh_weaponinfo;
 
 extern deh_stuff_t dehacked;
 
+extern const uint8_t deh_pickup_type[NUMSPRITES];
+
 //
 
 void deh_init();

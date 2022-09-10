@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "wadfile.h"
 #include "decorate.h"
+#include "mobj.h"
 #include "ldr_sprite.h"
 
 static fixed_t **spritewidth;
@@ -120,6 +121,30 @@ void load_sprites()
 	wad_handle_range('S', cb_s_load);
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void *precache_setup_sprites(uint8_t *buff)
+{
+	// optionally, it is possible to precache every sprite used in any state
+	// but for now, let's do like Doom did
+
+	memset(buff, 0, num_spr_names);
+
+	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
+	{
+		mobj_t *mo;
+
+		if(th->function != (void*)0x00031490 + doom_code_segment)
+			continue;
+
+		mo = (mobj_t*)th;
+
+		if(mo->sprite >= num_spr_names)
+			continue;
+
+		buff[mo->sprite] = 1;
+	}
+}
+
 //
 // API
 
@@ -154,6 +179,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00034A16, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)vissprite_cache_lump},
 	// replace call to 'W_CacheLumpNum' in 'F_CastDrawer'
 	{0x0001CD89, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)vissprite_cache_lump},
+	// replace call to 'memset' in 'R_PrecacheLevel'
+	{0x00034976, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)precache_setup_sprites},
+	{0x0003497B, CODE_HOOK | HOOK_UINT16, 0x27EB},
 	// disable errors in 'R_InstallSpriteLump'
 	{0x0003769D, CODE_HOOK | HOOK_UINT8, 0xEB},
 	{0x000376C5, CODE_HOOK | HOOK_UINT8, 0xEB},

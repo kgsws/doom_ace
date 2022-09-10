@@ -137,6 +137,13 @@ hook_mobj_damage:
 	ret
 
 //
+// EV_DoLockedDoor hook
+.global hook_obj_key
+hook_obj_key:
+	mov	%ebx, %edx
+	jmp	check_obj_key
+
+//
 // Relocation table for functions with 0, 1 or 2 arguments.
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012
@@ -411,6 +418,12 @@ P_BulletSlope:
 P_NoiseAlert:
 	.byte	0xE9
 	.4byte	0x00027020
+////////////////////////////////// EV_DoDoor
+.section .text.EV_DoDoor
+.global EV_DoDoor
+EV_DoDoor:
+	.byte	0xE9
+	.4byte	0x00026AB0
 ////////////////////////////////// doom_A_Look
 .section .text.doom_A_Look
 .global doom_A_Look

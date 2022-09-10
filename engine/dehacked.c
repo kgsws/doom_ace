@@ -46,8 +46,46 @@ deh_stuff_t dehacked =
 	.bfg_cells = 40,
 };
 
-uint_fast8_t deh_plr_health = 100;
-uint_fast8_t deh_plr_bullets = 50;
+// sprite to type for pickups
+const uint8_t deh_pickup_type[NUMSPRITES] =
+{
+	[55] = 43, // ARM1
+	[56] = 44, // ARM2
+	[60] = 45, // BON1
+	[61] = 46, // BON2
+	[70] = 55, // SOUL
+	[74] = 62, // MEGA
+	[62] = 47, // BKEY
+	[64] = 49, // YKEY
+	[63] = 48, // RKEY
+	[65] = 52, // BSKU
+	[67] = 50, // YSKU
+	[66] = 51, // RSKU
+	[68] = 53, // STIM
+	[69] = 54, // MEDI
+	[71] = 56, // PINV
+	[72] = 57, // PSTR
+	[73] = 58, // PINS
+	[75] = 59, // SUIT
+	[76] = 60, // PMAP
+	[77] = 61, // PVIS
+	[78] = 63, // CLIP
+	[79] = 64, // AMMO
+	[80] = 65, // ROCK
+	[81] = 66, // BROK
+	[82] = 67, // CELL
+	[83] = 68, // CELP
+	[84] = 69, // SHEL
+	[85] = 70, // SBOX
+	[86] = 71, // BPAK
+	[87] = 72, // BFUG
+	[88] = 73, // MGUN
+	[89] = 74, // CSAW
+	[90] = 75, // LAUN
+	[91] = 76, // PLAS
+	[92] = 77, // SHOT
+	[93] = 78, // SGN2
+};
 
 // section info
 static void parser_thing(uint8_t*);
@@ -402,7 +440,7 @@ static void parser_ammo(uint8_t *line)
 
 static void parser_misc(uint8_t *line)
 {
-	common_parser((void*)doom_code_segment, deh_value_misc);
+	common_parser(NULL, deh_value_misc);
 }
 
 static void parser_pointer(uint8_t *line)

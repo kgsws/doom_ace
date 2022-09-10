@@ -36,6 +36,7 @@ static void cf_mdk(player_t*,uint8_t*);
 static void cf_kill(player_t*,uint8_t*);
 static void cf_resurrect(player_t*,uint8_t*);
 static void cf_summon(player_t*,uint8_t*);
+static void cf_revenge(player_t*,uint8_t*);
 static const cheat_func_t cheat_func[] =
 {
 	// old
@@ -50,6 +51,8 @@ static const cheat_func_t cheat_func[] =
 	{"kill", cf_kill},
 	{"resurrect", cf_resurrect},
 	{"summon", cf_summon},
+	// kg
+	{"kgRevenge", cf_revenge},
 	// terminator
 	{NULL}
 };
@@ -135,8 +138,11 @@ static void cf_idfa(player_t *pl, uint8_t *arg)
 	}
 
 	// armor
-	pl->armorpoints = 200;
-	pl->armortype = 44;
+	if(pl->armorpoints < 200)
+	{
+		pl->armorpoints = 200;
+		pl->armortype = 44;
+	}
 
 	pl->message = (uint8_t*)0x00023E60 + doom_data_segment;
 }
@@ -216,6 +222,8 @@ static void cf_resurrect(player_t *pl, uint8_t *arg)
 	mo->flags = info->flags;
 	mo->flags1 = info->flags1;
 
+	cheat_player_flags(pl);
+
 	mobj_set_animation(mo, ANIM_SPAWN);
 	weapon_setup(pl);
 }
@@ -261,6 +269,15 @@ static void cf_summon(player_t *pl, uint8_t *arg)
 	mo->angle = pl->mo->angle;
 	if(mo->flags & MF_MISSILE)
 		missile_stuff(mo, pl->mo, NULL, pl->mo->angle);
+}
+
+static void cf_revenge(player_t *pl, uint8_t *arg)
+{
+	pl->cheats ^= CF_REVENGE;
+	if(pl->cheats & CF_REVENGE)
+		pl->message = "Revenge mode ON";
+	else
+		pl->message = "Revenge mode OFF";
 }
 
 //

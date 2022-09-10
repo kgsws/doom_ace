@@ -73,6 +73,27 @@ typedef uint32_t angle_t;
 #define PU_CACHE	101
 
 //
+// menu
+
+typedef struct menuitem_s
+{
+	int16_t status;
+	uint8_t name[10];
+	void (*func)(uint32_t) __attribute((regparm(2)));
+	uint8_t key;
+} __attribute__((packed)) menuitem_t;
+
+typedef struct menu_s
+{
+	uint16_t count;
+	struct menuitem_s *prev;
+	menuitem_t *items;
+	void (*draw)();
+	int16_t x, y;
+	uint16_t last;
+} __attribute__((packed)) menu_t;
+
+//
 // tics
 
 #define BT_ATTACK	1
@@ -677,6 +698,10 @@ void ST_Start() __attribute((regparm(2)));
 
 // hu_stuff
 void HU_Start() __attribute((regparm(2)));
+
+// m_menu
+void M_WriteText(uint32_t,uint32_t,uint8_t*) __attribute((regparm(2)));
+void M_ClearMenus() __attribute((regparm(2)));
 
 // p_door
 uint32_t EV_DoDoor(line_t*,uint32_t) __attribute((regparm(2)));

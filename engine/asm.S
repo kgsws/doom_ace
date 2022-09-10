@@ -418,6 +418,12 @@ P_BulletSlope:
 P_NoiseAlert:
 	.byte	0xE9
 	.4byte	0x00027020
+////////////////////////////////// M_ClearMenus
+.section .text.M_ClearMenus
+.global M_ClearMenus
+M_ClearMenus:
+	.byte	0xE9
+	.4byte	0x00023F60
 ////////////////////////////////// EV_DoDoor
 .section .text.EV_DoDoor
 .global EV_DoDoor
@@ -494,6 +500,16 @@ P_TryMove:
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x0002B200
+	pop	%ebx
+	ret
+////////////////////////////////// M_WriteText
+.section .text.M_WriteText
+.global M_WriteText
+M_WriteText:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x00022FA0
 	pop	%ebx
 	ret
 ////////////////////////////////// end

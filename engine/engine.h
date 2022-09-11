@@ -79,7 +79,7 @@ typedef struct menuitem_s
 {
 	int16_t status;
 	uint8_t name[10];
-	void (*func)(uint32_t) __attribute((regparm(2)));
+	void (*func)(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 	uint8_t key;
 } __attribute__((packed)) menuitem_t;
 
@@ -459,7 +459,7 @@ typedef struct state_s
 	union
 	{
 		void *action;
-		void (*acp)(struct mobj_s*,struct state_s*,stfunc_t) __attribute((regparm(2)));
+		void (*acp)(struct mobj_s*,struct state_s*,stfunc_t) __attribute((regparm(2),no_caller_saved_registers));
 	};
 	uint32_t nextstate;
 	int32_t misc1;
@@ -673,7 +673,7 @@ extern uint32_t *viewheight;
 extern uint32_t *viewwidth;
 
 // math
-fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2)));
+fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 #define FixedMul(a,b)	(((int64_t)(a) * (int64_t)(b)) >> FRACBITS)
 
 // main.c
@@ -683,98 +683,98 @@ void *ldr_malloc(uint32_t size);
 void *ldr_realloc(void *ptr, uint32_t size);
 
 // i_video
-void I_InitGraphics() __attribute((regparm(2)));
-void I_FinishUpdate() __attribute((regparm(2)));
+void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));
+void I_FinishUpdate() __attribute((regparm(2),no_caller_saved_registers));
 
 // m_argv
-uint32_t M_CheckParm(uint8_t*) __attribute((regparm(2)));
+uint32_t M_CheckParm(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // m_random
-int32_t P_Random() __attribute((regparm(2)));
+int32_t P_Random() __attribute((regparm(2),no_caller_saved_registers));
 
 // st_stuff
-void ST_Init() __attribute((regparm(2)));
-void ST_Start() __attribute((regparm(2)));
+void ST_Init() __attribute((regparm(2),no_caller_saved_registers));
+void ST_Start() __attribute((regparm(2),no_caller_saved_registers));
 
 // hu_stuff
-void HU_Start() __attribute((regparm(2)));
+void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
 
 // m_menu
-void M_WriteText(uint32_t,uint32_t,uint8_t*) __attribute((regparm(2)));
-void M_ClearMenus() __attribute((regparm(2)));
+void M_WriteText(uint32_t,uint32_t,uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
+void M_ClearMenus() __attribute((regparm(2),no_caller_saved_registers));
 
 // p_door
-uint32_t EV_DoDoor(line_t*,uint32_t) __attribute((regparm(2)));
+uint32_t EV_DoDoor(line_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_enemy
-void doom_A_Look(mobj_t*) __attribute((regparm(2)));
-void doom_A_Chase(mobj_t*) __attribute((regparm(2)));
-void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2)));
+void doom_A_Look(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void doom_A_Chase(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_map
-uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2)));
-void P_UseLines(player_t*) __attribute((regparm(2)));
-void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2)));
+uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_UseLines(player_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_maputl
-void P_SetThingPosition(mobj_t*) __attribute((regparm(2)));
-void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2)));
+void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_mobj
-void P_RemoveMobj(mobj_t*) __attribute((regparm(2)));
-mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2)));
-void P_SpawnPlayerMissile(mobj_t*,uint32_t) __attribute((regparm(2)));
+void P_RemoveMobj(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_SpawnPlayerMissile(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_pspr
-void P_BulletSlope(mobj_t*) __attribute((regparm(2)));
+void P_BulletSlope(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_inter
-void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2)));
-void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2)));
-void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2)));
+void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_setup
-void P_SetupLevel() __attribute((regparm(2)));
+void P_SetupLevel() __attribute((regparm(2),no_caller_saved_registers));
 
 // p_spec
-void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2)));
+void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_tick
-void P_AddThinker(thinker_t*) __attribute((regparm(2)));
+void P_AddThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_user
-void P_CalcHeight(player_t*) __attribute((regparm(2)));
-void P_MovePlayer(player_t*) __attribute((regparm(2)));
-void P_DeathThink(player_t*) __attribute((regparm(2)));
+void P_CalcHeight(player_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_MovePlayer(player_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_DeathThink(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_data
-void R_GenerateLookup(uint32_t) __attribute((regparm(2)));
-void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2)));
+void R_GenerateLookup(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_main
-void R_RenderPlayerView(player_t*) __attribute((regparm(2)));
-angle_t R_PointToAngle2(fixed_t,fixed_t,fixed_t,fixed_t) __attribute((regparm(2)));
+void R_RenderPlayerView(player_t*) __attribute((regparm(2),no_caller_saved_registers));
+angle_t R_PointToAngle2(fixed_t,fixed_t,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_things
-void R_DrawMaskedColumn(struct column_s*) __attribute((regparm(2)));
-void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2)));
+void R_DrawMaskedColumn(struct column_s*) __attribute((regparm(2),no_caller_saved_registers));
+void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // s_sound.c
-void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2)));
+void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // v_video
-void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2)));
+void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // w_wad
-int32_t W_CheckNumForName(uint8_t *name) __attribute((regparm(2)));
-void *W_CacheLumpName(uint8_t *name, uint32_t tag) __attribute((regparm(2)));
-void *W_CacheLumpNum(int32_t lump, uint32_t tag) __attribute((regparm(2)));
-uint32_t W_LumpLength(int32_t lump) __attribute((regparm(2)));
-void W_ReadLump(int32_t lump, void *dst) __attribute((regparm(2)));
+int32_t W_CheckNumForName(uint8_t *name) __attribute((regparm(2),no_caller_saved_registers));
+void *W_CacheLumpName(uint8_t *name, uint32_t tag) __attribute((regparm(2),no_caller_saved_registers));
+void *W_CacheLumpNum(int32_t lump, uint32_t tag) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t W_LumpLength(int32_t lump) __attribute((regparm(2),no_caller_saved_registers));
+void W_ReadLump(int32_t lump, void *dst) __attribute((regparm(2),no_caller_saved_registers));
 
 // z_zone
-void *Z_Malloc(uint32_t size, uint32_t tag, void *owner) __attribute((regparm(2)));
-void Z_Free(void *ptr) __attribute((regparm(2)));
+void *Z_Malloc(uint32_t size, uint32_t tag, void *owner) __attribute((regparm(2),no_caller_saved_registers));
+void Z_Free(void *ptr) __attribute((regparm(2),no_caller_saved_registers));
 
 // extra inline
 

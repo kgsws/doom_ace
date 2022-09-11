@@ -50,7 +50,7 @@ extern uint8_t *screen_buffer;
 #define doom_open_WR(n)	doom_open(n, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666)
 
 // asm.S
-void dos_exit(uint32_t) __attribute((regparm(2)));
+void dos_exit(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // Variadic functions require no attributes.
 void I_Error(uint8_t*, ...) __attribute((noreturn));
@@ -60,13 +60,13 @@ int32_t doom_sscanf(const uint8_t*, const uint8_t*, ...);
 int32_t doom_open(const uint8_t *, uint32_t, ...);
 
 // SDK
-void doom_close(int32_t) __attribute((regparm(2)));
-int32_t doom_write(int32_t,void*,uint32_t) __attribute((regparm(2)));
-int32_t doom_read(int32_t,void*,uint32_t) __attribute((regparm(2)));
-int32_t doom_lseek(int32_t,int32_t,int32_t) __attribute((regparm(2)));
-int32_t doom_filelength(int32_t) __attribute((regparm(2)));
+void doom_close(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+int32_t doom_write(int32_t,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+int32_t doom_read(int32_t,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+int32_t doom_lseek(int32_t,int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
+int32_t doom_filelength(int32_t) __attribute((regparm(2),no_caller_saved_registers));
 
-void doom_free(void*) __attribute((regparm(2)));
-void *doom_malloc(uint32_t) __attribute((regparm(2)));
-void *doom_realloc(void*,uint32_t) __attribute((regparm(2)));
+void doom_free(void*) __attribute((regparm(2),no_caller_saved_registers));
+void *doom_malloc(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void *doom_realloc(void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 

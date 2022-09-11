@@ -14,8 +14,6 @@
 
 //
 
-extern uint32_t mobj_netid;
-
 extern uint32_t num_spr_names;
 extern uint32_t sprite_table[MAX_SPRITE_NAMES];
 

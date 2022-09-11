@@ -144,8 +144,6 @@ typedef struct
 
 //
 
-uint32_t mobj_netid;
-
 uint32_t num_spr_names = NUMSPRITES;
 uint32_t sprite_table[MAX_SPRITE_NAMES];
 

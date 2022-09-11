@@ -145,6 +145,22 @@ int32_t texture_num_check(uint8_t *name)
 	return idx;
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+uint64_t texture_get_name(uint32_t idx)
+{
+	texture_t **tex;
+
+	if(!idx)
+		return '-';
+
+	if(idx >= *numtextures)
+		return 0;
+
+	tex = *textures;
+
+	return tex[idx]->wame;
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void load_textures()
 {

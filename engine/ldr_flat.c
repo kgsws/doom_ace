@@ -50,7 +50,7 @@ void *precache_flat(uint32_t idx)
 	return W_CacheLumpNum(flatlump[idx], PU_CACHE);
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 int32_t flat_num_get(uint8_t *name)
 {
 	int32_t ret;
@@ -88,6 +88,19 @@ int32_t flat_num_check(uint8_t *name)
 	} while(idx);
 
 	return -1;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint64_t flat_get_name(uint32_t idx)
+{
+	lumpinfo_t *li;
+
+	if(idx >= *numflats)
+		return 0;
+
+	li = *lumpinfo + flatlump[idx];
+
+	return li->wame;
 }
 
 void init_flats()

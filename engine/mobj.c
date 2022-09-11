@@ -20,6 +20,8 @@ uint32_t *displayplayer;
 
 thinker_t *thinkercap;
 
+uint32_t mobj_netid;
+
 //
 
 static const uint32_t view_height_ptr[] =

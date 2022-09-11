@@ -55,6 +55,45 @@ typedef uint32_t angle_t;
 #define sk_nightmare	4
 
 //
+// game action
+
+#define ga_nothing	0
+#define ga_loadlevel	1
+#define ga_newgame	2
+#define ga_loadgame	3
+#define ga_savegame	4
+#define ga_playdemo	5
+#define ga_completed	6
+#define ga_victory	7
+#define ga_worlddone	8
+#define ga_screenshot	9
+
+//
+// map
+
+#define ML_LABEL	0
+#define ML_THINGS	1
+#define ML_LINEDEFS	2
+#define ML_SIDEDEFS	3
+#define ML_VERTEXES	4
+#define ML_SEGS	5
+#define ML_SSECTORS	6
+#define ML_NODES	7
+#define ML_SECTORS	8
+#define ML_REJECT	9
+#define ML_BLOCKMAP	10
+
+#define ML_BLOCKING	1
+#define ML_BLOCKMONSTERS	2
+#define ML_TWOSIDED	4
+#define ML_DONTPEGTOP	8
+#define ML_DONTPEGBOTTOM	16
+#define ML_SECRET	32
+#define ML_SOUNDBLOCK	64
+#define ML_DONTDRAW	128
+#define ML_MAPPED	256
+
+//
 // cheats
 
 #define CF_NOCLIP	1
@@ -664,9 +703,13 @@ typedef struct mobj_s
 // ASM hooks
 void hook_mobj_damage();
 void hook_obj_key();
+void menu_skip_draw() __attribute((noreturn));
 
 // some variables
+extern uint8_t *screen_buffer;
 extern uint32_t *gamemode;
+extern uint32_t *gameaction;
+extern uint32_t *paused;
 extern fixed_t *finesine;
 extern fixed_t *finecosine;
 extern uint32_t *viewheight;
@@ -685,6 +728,8 @@ void *ldr_realloc(void *ptr, uint32_t size);
 // i_video
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));
 void I_FinishUpdate() __attribute((regparm(2),no_caller_saved_registers));
+void I_UpdateNoBlit() __attribute((regparm(2),no_caller_saved_registers));
+void I_ReadScreen(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // m_argv
 uint32_t M_CheckParm(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
@@ -767,6 +812,7 @@ void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regpar
 
 // w_wad
 int32_t W_CheckNumForName(uint8_t *name) __attribute((regparm(2),no_caller_saved_registers));
+int32_t W_GetNumForName(uint8_t *name) __attribute((regparm(2),no_caller_saved_registers));
 void *W_CacheLumpName(uint8_t *name, uint32_t tag) __attribute((regparm(2),no_caller_saved_registers));
 void *W_CacheLumpNum(int32_t lump, uint32_t tag) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t W_LumpLength(int32_t lump) __attribute((regparm(2),no_caller_saved_registers));

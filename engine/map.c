@@ -27,6 +27,7 @@ uint32_t *totalkills;
 uint32_t *totalitems;
 uint32_t *totalsecret;
 
+uint32_t *numsides;
 uint32_t *numlines;
 uint32_t *numsectors;
 line_t **lines;
@@ -34,7 +35,10 @@ vertex_t **vertexes;
 side_t **sides;
 sector_t **sectors;
 
-static uint8_t map_name[9];
+uint8_t map_lump_name[9];
+int32_t map_lump_idx;
+
+uint_fast8_t map_skip_things;
 
 //
 
@@ -53,15 +57,20 @@ static uint32_t cb_free_inventory(mobj_t *mo)
 // hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
-static void map_load_setup()
+void map_load_setup()
 {
 	if(*gamemode)
-		doom_sprintf(map_name, "MAP%02u", *gamemap);
+		doom_sprintf(map_lump_name, "MAP%02u", *gamemap);
 	else
-		doom_sprintf(map_name, "E%uM%u", *gameepisode, *gamemap);
+		doom_sprintf(map_lump_name, "E%uM%u", *gameepisode, *gamemap);
+
+	map_lump_idx = W_GetNumForName(map_lump_name); // TODO: do not crash
 
 	// free old inventories
 	mobj_for_each(cb_free_inventory);
+
+	// reset netID
+	mobj_netid = 1; // 0 is NULL, so start with 1
 
 	P_SetupLevel();
 }
@@ -89,10 +98,13 @@ static void spawn_map_thing(mapthing_t *mt)
 	if(mt->type && mt->type <= 4)
 	{
 		playerstarts[mt->type - 1] = *mt;
-		if(!*deathmatch)
+		if(!*deathmatch /* && !map_skip_things */)
 			spawn_player(mt);
 		return;
 	}
+
+	if(map_skip_things)
+		return;
 
 	// check network game
 	if(!*netgame && mt->options & 16)
@@ -267,7 +279,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// change map name variable in 'P_SetupLevel'
 	{0x0002E858, CODE_HOOK | HOOK_UINT16, 0x61EB},
 	{0x0002E8BB, CODE_HOOK | HOOK_UINT8, 0xB8},
-	{0x0002E8BC, CODE_HOOK | HOOK_UINT32, (uint32_t)map_name},
+	{0x0002E8BC, CODE_HOOK | HOOK_UINT32, (uint32_t)map_lump_name},
 	// import variables
 	{0x0002C0D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playerstarts},
 	{0x0002C154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatchstarts},
@@ -284,6 +296,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalsecret},
 	{0x0002B3D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalitems},
 	{0x0002B3D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalkills},
+	{0x0002C11C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsides},
 	{0x0002C134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlines},
 	{0x0002C14C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsectors},
 	{0x0002C120, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lines},

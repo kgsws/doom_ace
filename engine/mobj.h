@@ -8,6 +8,8 @@ extern uint32_t *displayplayer;
 
 extern thinker_t *thinkercap;
 
+extern uint32_t mobj_netid;
+
 //
 
 #define mobj_set_animation(mo,anim)	mobj_set_state((mo), STATE_SET_ANIMATION((anim), 0))

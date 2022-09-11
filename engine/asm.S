@@ -113,15 +113,27 @@ bss_end:
 
 	// continue loading Doom
 	mov	doom_code_segment,%eax
-	add	$0x1e4ac,%eax
+	add	$0x1E4AC,%eax
 	jmp	*%eax
 
 	// exit
 .global dos_exit
 dos_exit:
-	and	$0xff,%eax
-	mov	$0x4c,%ah
+	and	$0xFF,%eax
+	mov	$0x4C,%ah
 	int	$0x21
+
+//
+// skip menu cursor and items
+.global menu_skip_draw
+menu_skip_draw:
+	pop	%eax
+	sub	doom_code_segment,%eax
+	cmp	$0x23E90,%eax
+	jne	menu_skip_draw
+	mov	doom_code_segment,%eax
+	add	$0x23F4E,%eax
+	jmp	*%eax
 
 //
 // P_DamageMobj hook
@@ -226,6 +238,18 @@ I_InitGraphics:
 I_FinishUpdate:
 	.byte	0xE9
 	.4byte	0x00019F60
+////////////////////////////////// I_UpdateNoBlit
+.section .text.I_UpdateNoBlit
+.global I_UpdateNoBlit
+I_UpdateNoBlit:
+	.byte	0xE9
+	.4byte	0x00019E60
+////////////////////////////////// I_ReadScreen
+.section .text.I_ReadScreen
+.global I_ReadScreen
+I_ReadScreen:
+	.byte	0xE9
+	.4byte	0x0001A140
 ////////////////////////////////// M_CheckParm
 .section .text.M_CheckParm
 .global M_CheckParm
@@ -286,6 +310,12 @@ R_RenderPlayerView:
 W_CheckNumForName:
 	.byte	0xE9
 	.4byte	0x00038AF0
+////////////////////////////////// W_GetNumForName
+.section .text.W_GetNumForName
+.global W_GetNumForName
+W_GetNumForName:
+	.byte	0xE9
+	.4byte	0x00038B80
 ////////////////////////////////// W_CacheLumpName
 .section .text.W_CacheLumpName
 .global W_CacheLumpName

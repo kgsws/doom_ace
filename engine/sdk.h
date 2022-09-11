@@ -31,10 +31,6 @@ typedef union
 } num32_t;
 
 //
-// variables
-extern uint8_t *screen_buffer;
-
-//
 // Doom Engine Functions
 // Since Doom uses different calling conventions, most functions have to use special GCC attribute.
 // Even then functions with more than two arguments need another workaround. This is done in 'asm.S'.

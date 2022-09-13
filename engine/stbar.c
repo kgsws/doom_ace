@@ -214,6 +214,9 @@ static void update_keys(player_t *pl)
 		if(idx >= MAX_KEY_ICONS)
 			break;
 	}
+
+	if(idx < MAX_KEY_ICONS)
+		keyinv[idx] = NULL;
 }
 
 static void update_weapon(player_t *pl)
@@ -292,5 +295,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000752f0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},
 	{0x00075458, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallpercent},
 	{0x00075458, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallpercent},
+	// allow screen size over 11 // TODO: move to 'render'
+	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
+	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 9},
+	{0x000235F0, CODE_HOOK | HOOK_UINT8, 9},
 };
 

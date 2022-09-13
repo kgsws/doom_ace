@@ -33,6 +33,7 @@ typedef struct
 
 // SDK variables
 
+uint32_t *gamestate;
 uint32_t *gameaction;
 uint32_t *paused;
 uint32_t *gamemode;
@@ -368,6 +369,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002A3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode},
 	{0x0002A3AC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_sw},
 	{0x0002A3B4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_reg},
+	{0x0002B3F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamestate},
 	// read stuff
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},

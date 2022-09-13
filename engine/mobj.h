@@ -25,5 +25,6 @@ void explode_missile(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registe
 uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count);
 
 // helpers
-void mobj_for_each(uint32_t (*cb)(mobj_t*));
+uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*));
+mobj_t *mobj_by_netid(uint32_t netid);
 

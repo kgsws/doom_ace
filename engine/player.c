@@ -25,6 +25,18 @@ typedef struct
 uint32_t *playeringame;
 player_t *players;
 
+// view height patches
+static const uint32_t view_height_ptr[] =
+{
+	0x00031227, // P_ZMovement
+	0x00033088, // P_CalcHeight
+	0x000330EE, // P_CalcHeight
+	0x000330F7, // P_CalcHeight
+	0, // separator (half height)
+	0x00033101, // P_CalcHeight
+	0x0003310D, // P_CalcHeight
+};
+
 // powerups
 static void invul_start(mobj_t*,mobjinfo_t*);
 static void invul_stop(mobj_t*);
@@ -200,6 +212,11 @@ void player_think(player_t *pl)
 
 	cheat_char(pl - players, cmd->chatchar);
 
+	if(pl->damagecount < 0)
+		pl->damagecount = 0;
+	if(pl->bonuscount < 0)
+		pl->bonuscount = 0;
+
 	if(pl->bonuscount) // this is NOT done in 'P_DeathThink'
 		pl->bonuscount--;
 
@@ -291,6 +308,24 @@ static void player_finish(uint32_t pidx)
 		inventory_hubstrip(pl->mo);
 		pl->inventory = pl->mo->inventory;
 		pl->mo->inventory = NULL;
+	}
+}
+
+//
+// API
+
+void player_viewheight(fixed_t wh)
+{
+	// TODO: do this in 'coop spy' too
+	for(uint32_t i = 0; i < sizeof(view_height_ptr) / sizeof(uint32_t); i++)
+	{
+		if(!view_height_ptr[i])
+		{
+			wh /= 2;
+			continue;
+		}
+
+		*((fixed_t*)(view_height_ptr[i] + doom_code_segment)) = wh;
 	}
 }
 

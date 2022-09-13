@@ -55,7 +55,7 @@ typedef uint32_t angle_t;
 #define sk_nightmare	4
 
 //
-// game action
+// game stuff
 
 #define ga_nothing	0
 #define ga_loadlevel	1
@@ -67,6 +67,11 @@ typedef uint32_t angle_t;
 #define ga_victory	7
 #define ga_worlddone	8
 #define ga_screenshot	9
+
+#define GS_LEVEL	0
+#define GS_INTERMISSION	1
+#define GS_FINALE	2
+#define GS_DEMOSCREEN	3
 
 //
 // map
@@ -224,13 +229,13 @@ typedef struct player_s
 	fixed_t viewheight;
 	fixed_t deltaviewheight;
 	fixed_t bob;
-	int health;
-	int armorpoints;
-	int armortype;
-	int powers[NUMPOWERS];
+	int32_t health;
+	int32_t armorpoints;
+	int32_t armortype;
+	int32_t powers[NUMPOWERS];
 	uint32_t cards[NUMCARDS];
 	struct inventory_s *inventory; // for level transition
-	int frags[MAXPLAYERS];
+	int32_t frags[MAXPLAYERS];
 	struct mobjinfo_s *readyweapon;
 	struct mobjinfo_s *pendingweapon;
 	uint32_t stbar_update;
@@ -238,19 +243,19 @@ typedef struct player_s
 	uint16_t attackdown;
 	uint8_t weapon_ready;
 	uint8_t backpack;
-	int usedown;
-	int cheats;
-	int refire;
-	int killcount;
-	int itemcount;
-	int secretcount;
+	int32_t usedown;
+	uint32_t cheats;
+	uint32_t refire;
+	int32_t killcount;
+	int32_t itemcount;
+	int32_t secretcount;
 	char *message;
-	int damagecount;
-	int bonuscount;
+	int32_t damagecount;
+	int32_t bonuscount;
 	struct mobj_s *attacker;
-	int extralight;
-	int fixedcolormap;
-	int colormap;
+	int32_t extralight;
+	int32_t fixedcolormap;
+	int32_t colormap;
 	pspdef_t psprites[NUMPSPRITES];
 	uint32_t didsecret;
 } player_t;
@@ -427,7 +432,7 @@ typedef struct mobjinfo_s
 	uint32_t flags;
 	uint32_t state_raise;
 	// new stuff
-	uint64_t actor_name;
+	uint64_t alias;
 	uint32_t state_idx_first;
 	uint32_t state_idx_limit;
 	uint32_t replacement;
@@ -679,19 +684,20 @@ typedef struct mobj_s
 	uint32_t validcount;
 	uint32_t type;
 	mobjinfo_t *info;
-	int tics;
+	int32_t tics;
 	state_t *state;
 	uint32_t flags;
-	int health;
-	int movedir;
-	int movecount;
+	int32_t health;
+	int32_t movedir;
+	int32_t movecount;
 	struct mobj_s *target;
-	int reactiontime;
-	int threshold;
+	int32_t reactiontime;
+	int32_t threshold;
 	struct player_s *player;
-	int lastlook;
+	int32_t lastlook;
 	mapthing_t spawnpoint;
 	struct mobj_s *tracer;
+	struct mobj_s *master;
 	uint8_t animation;	// animation system
 	uint8_t __unused;
 	uint32_t netid;	// unique identification
@@ -708,6 +714,7 @@ void menu_skip_draw() __attribute((noreturn));
 // some variables
 extern uint8_t *screen_buffer;
 extern uint32_t *gamemode;
+extern uint32_t *gamestate;
 extern uint32_t *gameaction;
 extern uint32_t *paused;
 extern fixed_t *finesine;
@@ -754,6 +761,7 @@ uint32_t EV_DoDoor(line_t*,uint32_t) __attribute((regparm(2),no_caller_saved_reg
 // p_enemy
 void doom_A_Look(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void doom_A_Chase(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void doom_A_BrainAwake(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_map
@@ -797,6 +805,7 @@ void R_GenerateLookup(uint32_t) __attribute((regparm(2),no_caller_saved_register
 void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_main
+void R_ExecuteSetViewSize() __attribute((regparm(2),no_caller_saved_registers));
 void R_RenderPlayerView(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 angle_t R_PointToAngle2(fixed_t,fixed_t,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 

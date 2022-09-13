@@ -98,7 +98,7 @@ static void spawn_map_thing(mapthing_t *mt)
 	if(mt->type && mt->type <= 4)
 	{
 		playerstarts[mt->type - 1] = *mt;
-		if(!*deathmatch /* && !map_skip_things */)
+		if(!*deathmatch && !map_skip_things)
 			spawn_player(mt);
 		return;
 	}

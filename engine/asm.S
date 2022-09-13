@@ -454,6 +454,12 @@ P_NoiseAlert:
 M_ClearMenus:
 	.byte	0xE9
 	.4byte	0x00023F60
+////////////////////////////////// R_ExecuteSetViewSize
+.section .text.R_ExecuteSetViewSize
+.global R_ExecuteSetViewSize
+R_ExecuteSetViewSize:
+	.byte	0xE9
+	.4byte	0x00035A70
 ////////////////////////////////// EV_DoDoor
 .section .text.EV_DoDoor
 .global EV_DoDoor
@@ -472,6 +478,12 @@ doom_A_Look:
 doom_A_Chase:
 	.byte	0xE9
 	.4byte	0x00027790
+////////////////////////////////// doom_A_BrainAwake
+.section .text.doom_A_BrainAwake
+.global doom_A_BrainAwake
+doom_A_BrainAwake:
+	.byte	0xE9
+	.4byte	0x00028AC0
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:

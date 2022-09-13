@@ -692,7 +692,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 	[MOBJ_IDX_FIST - NUMMOBJTYPES] =
 	{
 		// Fist
-		.actor_name = 0x0000000000D33A46,
+		.alias = 0x0000000000D33A46,
 		.spawnhealth = 1000,
 		.reactiontime = 8,
 		.radius = 20 << FRACBITS,
@@ -710,7 +710,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 	[MOBJ_IDX_PISTOL - NUMMOBJTYPES] =
 	{
 		// Pistol
-		.actor_name = 0x0000000B2FD33A50,
+		.alias = 0x0000000B2FD33A50,
 		.spawnhealth = 1000,
 		.reactiontime = 8,
 		.radius = 20 << FRACBITS,
@@ -1752,7 +1752,7 @@ static void cb_count_actors(lumpinfo_t *li)
 		idx = num_mobj_types;
 		num_mobj_types++;
 		mobjinfo = ldr_realloc(mobjinfo, num_mobj_types * sizeof(mobjinfo_t));
-		mobjinfo[idx].actor_name = alias;
+		mobjinfo[idx].alias = alias;
 	}
 
 error_end:
@@ -1889,7 +1889,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		// initialize mobj
 		memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
 		info->doomednum = idx;
-		info->actor_name = alias;
+		info->alias = alias;
 		info->extra_type = etp;
 
 		// reset stuff
@@ -2052,7 +2052,7 @@ int32_t mobj_check_type(uint64_t alias)
 {
 	for(uint32_t i = 0; i < num_mobj_types; i++)
 	{
-		if(mobjinfo[i].actor_name == alias)
+		if(mobjinfo[i].alias == alias)
 			return i;
 	}
 
@@ -2077,7 +2077,7 @@ void init_decorate()
 	{
 		memset(mobjinfo + i, 0, sizeof(mobjinfo_t));
 		memcpy(mobjinfo + i, deh_mobjinfo + i, sizeof(deh_mobjinfo_t));
-		mobjinfo[i].actor_name = doom_actor_name[i];
+		mobjinfo[i].alias = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
 		mobjinfo[i].state_idx_limit = NUMSTATES;
 		mobjinfo[i].state_crush = 895;

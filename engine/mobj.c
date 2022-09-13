@@ -24,17 +24,6 @@ uint32_t mobj_netid;
 
 //
 
-static const uint32_t view_height_ptr[] =
-{
-	0x00031227, // P_ZMovement
-	0x00033088, // P_CalcHeight
-	0x000330EE, // P_CalcHeight
-	0x000330F7, // P_CalcHeight
-	0, // separator (half height)
-	0x00033101, // P_CalcHeight
-	0x0003310D, // P_CalcHeight
-};
-
 // this only exists because original animations are all over the plase in 'mobjinfo_t'
 const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
 {
@@ -49,24 +38,6 @@ const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
 	[ANIM_CRUSH] = offsetof(mobjinfo_t, state_crush),
 	[ANIM_HEAL] = offsetof(mobjinfo_t, state_heal),
 };
-
-//
-// funcs
-
-static void set_viewheight(fixed_t wh)
-{
-	// TODO: do this in 'coop spy' too
-	for(uint32_t i = 0; i < sizeof(view_height_ptr) / sizeof(uint32_t); i++)
-	{
-		if(!view_height_ptr[i])
-		{
-			wh /= 2;
-			continue;
-		}
-
-		*((fixed_t*)(view_height_ptr[i] + doom_code_segment)) = wh;
-	}
-}
 
 //
 // state changes
@@ -483,7 +454,7 @@ void spawn_player(mapthing_t *mt)
 	{
 		stbar_start(pl);
 		HU_Start();
-		set_viewheight(pl->viewheight);
+		player_viewheight(pl->viewheight);
 	}
 }
 
@@ -813,19 +784,48 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 	return 0;
 }
 
-void mobj_for_each(uint32_t (*cb)(mobj_t*))
+uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*))
 {
 	if(!thinkercap->next)
 		// this happens only before any level was loaded
-		return;
+		return 0;
 
 	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
 	{
+		uint32_t ret;
+
 		if(th->function != (void*)0x00031490 + doom_code_segment)
 			continue;
-		if(cb((mobj_t*)th))
-			return;
+
+		ret = cb((mobj_t*)th);
+		if(ret)
+			return ret;
 	}
+
+	return 0;
+}
+
+mobj_t *mobj_by_netid(uint32_t netid)
+{
+	if(!netid)
+		return NULL;
+
+	if(!thinkercap->next)
+		return NULL;
+
+	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
+	{
+		mobj_t *mo;
+
+		if(th->function != (void*)0x00031490 + doom_code_segment)
+			continue;
+
+		mo = (mobj_t*)th;
+		if(mo->netid == netid)
+			return mo;
+	}
+
+	return NULL;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -875,7 +875,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	if(damage > 1000000)
 		damage = target->health;
 
-	if(source && source->player && source->player->readyweapon->weapon.kickback)
+	if(source && source->player && source->player->readyweapon)
 		kickback = source->player->readyweapon->weapon.kickback;
 	else
 		kickback = 100;

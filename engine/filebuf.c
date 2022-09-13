@@ -4,9 +4,11 @@
 #include "sdk.h"
 #include "filebuf.h"
 
-#define BUFFER_SIZE	4096
+#define BUFFER_SIZE	(8*1024)
 
-static uint8_t buffer[BUFFER_SIZE];
+// reuse relocation space
+extern uint8_t _reloc_start[];
+
 static uint8_t *bptr;
 static uint8_t *eptr;
 static int ffd = -1;
@@ -25,8 +27,8 @@ void reader_open(uint8_t *name)
 	if(ffd < 0)
 		I_Error("[READER] Unable to open '%s'!", name);
 
-	eptr = buffer;
-	bptr = buffer;
+	eptr = _reloc_start;
+	bptr = _reloc_start;
 }
 
 void reader_close()
@@ -44,8 +46,8 @@ void reader_close()
 
 uint32_t reader_seek(uint32_t offs)
 {
-	eptr = buffer;
-	bptr = buffer;
+	eptr = _reloc_start;
+	bptr = _reloc_start;
 	return doom_lseek(ffd, offs, SEEK_SET) < 0;
 }
 
@@ -54,8 +56,8 @@ uint32_t reader_get(void *ptr, uint32_t size)
 	int32_t tmp;
 	uint32_t avail = eptr - bptr;
 
-	if(size > sizeof(buffer))
-		I_Error("[READER] Attempt to read more than %uB!", sizeof(buffer));
+	if(size > BUFFER_SIZE)
+		I_Error("[READER] Attempt to read more than %uB!", BUFFER_SIZE);
 
 	if(avail >= size)
 	{
@@ -68,12 +70,12 @@ uint32_t reader_get(void *ptr, uint32_t size)
 	ptr += avail;
 	size -= avail;
 
-	tmp = doom_read(ffd, buffer, sizeof(buffer));
+	tmp = doom_read(ffd, _reloc_start, BUFFER_SIZE);
 	if(tmp < 0)
 		I_Error("[READER] Read failed!");
 
-	bptr = buffer;
-	eptr = buffer + tmp;
+	bptr = _reloc_start;
+	eptr = _reloc_start + tmp;
 
 	memcpy(ptr, bptr, size);
 	bptr += size;
@@ -108,7 +110,7 @@ void writer_open(uint8_t *name)
 	if(ffd < 0)
 		I_Error("[WRITER] Unable to create '%s'!", name);
 
-	bptr = buffer;
+	bptr = _reloc_start;
 }
 
 void writer_close()
@@ -132,27 +134,27 @@ void writer_flush()
 	if(ffd < 0)
 		I_Error("[WRITER] File is not open!");
 
-	if(bptr == buffer)
+	if(bptr == _reloc_start)
 		return;
 
-	size = bptr - buffer;
-	ret = doom_write(ffd, buffer, size);
+	size = bptr - _reloc_start;
+	ret = doom_write(ffd, _reloc_start, size);
 	if(ret != size)
 		I_Error("[WRITER] Write failed!");
 
-	bptr = buffer;
+	bptr = _reloc_start;
 }
 
 void writer_add(void *data, uint32_t size)
 {
 	// TODO: maybe partial writes and buffer fills?
-	uint32_t left = sizeof(buffer) - (bptr - buffer);
+	uint32_t left = BUFFER_SIZE - (bptr - _reloc_start);
 
 	if(ffd < 0)
 		I_Error("[WRITER] File is not open!");
 
-	if(size > sizeof(buffer))
-		I_Error("[WRITER] Attempt to write more than %uB!", sizeof(buffer));
+	if(size > BUFFER_SIZE)
+		I_Error("[WRITER] Attempt to write more than %uB!", BUFFER_SIZE);
 
 	if(size > left)
 		writer_flush();
@@ -163,14 +165,14 @@ void writer_add(void *data, uint32_t size)
 
 void *writer_reserve(uint32_t size)
 {
-	uint32_t left = sizeof(buffer) - (bptr - buffer);
+	uint32_t left = BUFFER_SIZE - (bptr - _reloc_start);
 	void *ret;
 
 	if(ffd < 0)
 		I_Error("[WRITER] File is not open!");
 
-	if(size > sizeof(buffer))
-		I_Error("[WRITER] Attempt to reserve more than %uB!", sizeof(buffer));
+	if(size > BUFFER_SIZE)
+		I_Error("[WRITER] Attempt to reserve more than %uB!", BUFFER_SIZE);
 
 	if(size > left)
 		writer_flush();

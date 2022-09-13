@@ -30,7 +30,7 @@
 #define CHECK_BIT(f,x)	((f) & (1<<(x)))
 enum
 {
-	SF_SEC_TEXTURE_FLOOR = 16,
+	SF_SEC_TEXTURE_FLOOR,
 	SF_SEC_TEXTURE_CEILING,
 	SF_SEC_HEIGHT_FLOOR,
 	SF_SEC_HEIGHT_CEILING,
@@ -41,7 +41,7 @@ enum
 };
 enum
 {
-	SF_SIDE_OFFSX = 16,
+	SF_SIDE_OFFSX,
 	SF_SIDE_OFFSY,
 	SF_SIDE_TEXTURE_TOP,
 	SF_SIDE_TEXTURE_BOT,
@@ -49,7 +49,7 @@ enum
 };
 enum
 {
-	SF_LINE_FLAGS = 16,
+	SF_LINE_FLAGS,
 	SF_LINE_SPECIAL,
 	SF_LINE_TAG,
 };
@@ -108,6 +108,100 @@ typedef struct
 } save_info_t;
 
 //
+
+typedef struct
+{
+	// uint64_t type; // type is loaded first
+	uint32_t netid;
+	//
+	fixed_t x, y, z;
+	angle_t angle;
+	fixed_t floorz;
+	fixed_t ceilingz;
+	fixed_t radius;
+	fixed_t height;
+	fixed_t mx, my, mz;
+	//
+	int32_t health;
+	int32_t movedir;
+	int32_t movecount;
+	int32_t reactiontime;
+	int32_t threshold;
+	int32_t lastlook;
+	//
+	uint32_t state;
+	int32_t tics;
+	//
+	struct
+	{
+		int16_t x;
+		int16_t y;
+		int16_t angle;
+		int16_t options;
+	} spawn;
+	//
+	uint32_t flags;
+	uint32_t flags1;
+	//
+	uint32_t target;
+	uint32_t tracer;
+	uint32_t master;
+	//
+	uint8_t animation;
+	uint8_t __unused;
+	uint16_t player;
+} save_thing_t;
+
+typedef struct
+{
+	uint32_t state;
+	int32_t tics;
+} save_pspr_t;
+
+typedef struct
+{
+	uint32_t mobj;
+	fixed_t viewz;
+	fixed_t viewheight;
+	fixed_t deltaviewheight;
+	//
+	int32_t powers[NUMPOWERS];
+	int32_t health;
+	int32_t armor_points;
+	uint64_t armor_type;
+	uint64_t weapon_ready;
+	uint64_t weapon_pending;
+	//
+	uint32_t cheats;
+	uint32_t refire;
+	//
+	int32_t killcount;
+	int32_t itemcount;
+	int32_t secretcount;
+	//
+	int32_t damagecount;
+	int32_t bonuscount;
+	//
+	fixed_t	pspx;
+	fixed_t	pspy;
+	save_pspr_t pspr[NUMPSPRITES];
+	//
+	uint8_t extralight;
+	uint8_t usedown;
+	uint8_t attackdown;
+	uint8_t backpack;
+	uint8_t state;
+	uint8_t didsecret;
+} save_player_t;
+
+//
+
+static uint32_t *r_setblocks; // TODO: move to 'render'
+static uint8_t **r_rdptr;
+static uint8_t **r_fbptr;
+
+static uint32_t *brain_sound_id;
+static uint32_t *stbar_refresh_force;
 
 static save_name_t *save_name;
 static menuitem_t *load_items;
@@ -216,10 +310,10 @@ static inline void generate_preview_line(int fd, uint32_t y, save_name_t *slot)
 	uint8_t *src;
 
 	dst = screen_buffer;
-	dst += 320 * 200 + sizeof(patch_t) + 160 * sizeof(uint32_t) + 3 + (99 - y);
+	dst += 320 * 200 * 2 + sizeof(patch_t) + 160 * sizeof(uint32_t) + 3 + (99 - y);
 
 	src = screen_buffer;
-	src += 320 * 200 * 2;
+	src += 320 * 200 * 3;
 
 	doom_lseek(fd, slot->pixoffs + y * slot->width * slot->step, SEEK_SET);
 	doom_read(fd, src, 160 * slot->step);
@@ -278,7 +372,7 @@ void draw_check_preview()
 				slot->step = 0;
 		}
 
-		preview_patch = (patch_t*)(screen_buffer + 320 * 200);
+		preview_patch = (patch_t*)(screen_buffer + 320 * 200 * 2);
 		preview_patch->width = 160;
 		preview_patch->height = 100;
 		preview_patch->x = -4;
@@ -345,6 +439,25 @@ void draw_save_menu()
 //
 // save game
 
+static uint32_t sv_convert_state(state_t *st, mobjinfo_t *info)
+{
+	uint32_t state;
+
+	if(!st || !info)
+		return 0x80000000;
+
+	state = st - states;
+
+	if(state < NUMSTATES)
+		return state | 0x80000000;
+	else
+	if(state >= info->state_idx_first && state < info->state_idx_limit)
+		return state - info->state_idx_first;
+	else
+		// this should never happen
+		return 0x80000000;
+}
+
 static inline void sv_put_sectors(int32_t lump)
 {
 	map_sector_t *ms;
@@ -380,7 +493,7 @@ static inline void sv_put_sectors(int32_t lump)
 
 		if(flags)
 		{
-			writer_add_u32(flags | i);
+			writer_add_u32(flags | (i << 16));
 			if(CHECK_BIT(flags, SF_SEC_TEXTURE_FLOOR))
 				writer_add_wame(&tf);
 			if(CHECK_BIT(flags, SF_SEC_TEXTURE_CEILING))
@@ -401,7 +514,7 @@ static inline void sv_put_sectors(int32_t lump)
 	}
 
 	// last entry
-	writer_add_u32(0);
+	writer_add_u16(0);
 }
 
 static inline void sv_put_sidedefs(int32_t lump)
@@ -434,7 +547,7 @@ static inline void sv_put_sidedefs(int32_t lump)
 
 		if(flags)
 		{
-			writer_add_u32(flags | i);
+			writer_add_u32(flags | (i << 16));
 			if(CHECK_BIT(flags, SF_SIDE_OFFSX))
 				writer_add_u32(side->textureoffset);
 			if(CHECK_BIT(flags, SF_SIDE_OFFSY))
@@ -449,7 +562,7 @@ static inline void sv_put_sidedefs(int32_t lump)
 	}
 
 	// last entry
-	writer_add_u32(0);
+	writer_add_u16(0);
 }
 
 static inline void sv_put_linedefs(int32_t lump)
@@ -471,7 +584,7 @@ static inline void sv_put_linedefs(int32_t lump)
 
 		if(flags)
 		{
-			writer_add_u32(flags | i);
+			writer_add_u32(flags | (i << 16));
 			if(CHECK_BIT(flags, SF_LINE_FLAGS))
 				writer_add_u16(line->flags);
 			if(CHECK_BIT(flags, SF_LINE_SPECIAL))
@@ -482,7 +595,155 @@ static inline void sv_put_linedefs(int32_t lump)
 	}
 
 	// last entry
-	writer_add_u32(0);
+	writer_add_u16(0);
+}
+
+static uint32_t svcb_thing(mobj_t *mo)
+{
+	save_thing_t thing;
+	uint32_t state;
+	inventory_t *item;
+
+	writer_add_wame(&mo->info->alias);
+
+	thing.netid = mo->netid;
+
+	thing.x = mo->x;
+	thing.y = mo->y;
+	thing.z = mo->z;
+	thing.angle = mo->angle;
+	thing.floorz = mo->floorz;
+	thing.ceilingz = mo->ceilingz;
+	thing.radius = mo->radius;
+	thing.height = mo->height;
+	thing.mx = mo->momx;
+	thing.my = mo->momy;
+	thing.mz = mo->momz;
+
+	thing.health = mo->health;
+	thing.movedir = mo->movedir;
+	thing.movecount = mo->movecount;
+	thing.reactiontime = mo->reactiontime;
+	thing.threshold = mo->threshold;
+	thing.lastlook = mo->lastlook;
+
+	thing.state = sv_convert_state(mo->state, mo->info);
+	thing.tics = mo->tics;
+
+	thing.spawn.x = mo->spawnpoint.x;
+	thing.spawn.y = mo->spawnpoint.y;
+	thing.spawn.angle = mo->spawnpoint.angle;
+	thing.spawn.options = mo->spawnpoint.options;
+
+	thing.flags = mo->flags;
+	thing.flags1 = mo->flags1;
+
+	thing.target = mo->target ? mo->target->netid : 0;
+	thing.tracer = mo->tracer ? mo->tracer->netid : 0;
+	thing.master = mo->master ? mo->master->netid : 0;
+
+	thing.animation = mo->animation;
+	thing.__unused = 0;
+	if(mo->player)
+		thing.player = 1 + (mo->player - players);
+	else
+		thing.player = 0;
+
+	writer_add(&thing, sizeof(thing));
+
+	// inventory
+
+	if(mo->inventory)
+	{
+		// rewind
+		item = mo->inventory;
+		while(item->prev)
+			item = item->prev;
+
+		// save
+		while(item)
+		{
+			writer_add_wame(&mobjinfo[item->type].alias);
+			writer_add_u16(item->count);
+			item = item->next;
+		}
+	}
+
+	// last item
+	uint64_t alias = 0;
+	writer_add_wame(&alias);
+
+	return 0;
+}
+
+static inline void sv_put_things()
+{
+	mobj_for_each(svcb_thing);
+	// last entry
+	uint64_t alias = 0;
+	writer_add_wame(&alias);
+}
+
+static inline void sv_put_players()
+{
+	save_player_t plr;
+
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		player_t *pl;
+
+		if(!playeringame[i])
+			continue;
+
+		pl = players + i;
+
+		writer_add_u16(i + 1);
+
+		plr.mobj = pl->mo->netid;
+		plr.viewz = pl->viewz;
+		plr.viewheight = pl->viewheight;
+		plr.deltaviewheight = pl->deltaviewheight;
+
+		for(uint32_t j = 0; j < NUMPOWERS; j++)
+			plr.powers[j] = pl->powers[j];
+
+		plr.health = pl->health;
+		plr.armor_points = pl->armorpoints;
+		plr.armor_type = pl->armortype ? mobjinfo[pl->armortype].alias : 0;
+		plr.weapon_ready = pl->readyweapon ? pl->readyweapon->alias : 0;
+		plr.weapon_pending = pl->pendingweapon ? pl->pendingweapon->alias : 0;
+
+		plr.cheats = pl->cheats;
+		plr.refire = pl->refire;
+
+		plr.killcount = pl->killcount;
+		plr.itemcount = pl->itemcount;
+		plr.secretcount = pl->secretcount;
+
+		plr.damagecount = pl->damagecount;
+		plr.bonuscount = pl->bonuscount;
+
+		plr.pspx = pl->psprites[0].sx;
+		plr.pspy = pl->psprites[0].sy;
+
+		for(uint32_t j = 0; j < NUMPSPRITES; j++)
+		{
+			plr.pspr[j].state = sv_convert_state(pl->psprites[j].state, pl->readyweapon);
+			plr.pspr[j].tics = pl->psprites[j].tics;
+		}
+
+		plr.extralight = pl->extralight;
+		plr.usedown = pl->usedown;
+		plr.attackdown = pl->attackdown;
+		plr.backpack = pl->backpack;
+		plr.state = pl->playerstate;
+		plr.didsecret = pl->didsecret;
+
+		writer_add(&plr, sizeof(plr));
+	}
+
+	// last entry
+	writer_add_u16(0);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -491,15 +752,22 @@ void do_save()
 	save_info_t info;
 	uint8_t *src;
 	uint8_t *dst;
+	uint32_t old_size;
 
 	// prepare save slot
 	generate_save_name(*saveslot);
 	*gameaction = ga_nothing;
 
 	// generate preview
+	old_size = *r_setblocks;
+	*r_setblocks = 20; // fullscreen with no status bar
+	R_ExecuteSetViewSize();
 	R_RenderPlayerView(players + *consoleplayer);
-	I_UpdateNoBlit();
+	*r_rdptr = *r_fbptr; // fullscreen hack
 	I_ReadScreen(screen_buffer);
+	*r_setblocks = old_size;
+	R_ExecuteSetViewSize();
+	*stbar_refresh_force = 1;
 
 	// open file
 	writer_open(savename);
@@ -567,6 +835,14 @@ void do_save()
 	sv_put_linedefs(map_lump_idx + ML_LINEDEFS);
 	writer_add_u32(SAVE_VERSION);
 
+	// things
+	sv_put_things();
+	writer_add_u32(SAVE_VERSION);
+
+	// players
+	sv_put_players();
+	writer_add_u32(SAVE_VERSION);
+
 	// DONE
 	writer_close();
 }
@@ -574,25 +850,82 @@ void do_save()
 //
 // load game
 
+static state_t *ld_convert_state(uint32_t state, mobjinfo_t *info, uint32_t allow_null)
+{
+	if(!info)
+		state = 0x80000000;
+
+	if(state & 0x80000000)
+	{
+		state &= 0x7FFFFFFF;
+		if(state >= NUMSTATES)
+			state = 0;
+	} else
+	{
+		state += info->state_idx_first;
+		if(state >= info->state_idx_limit)
+			state = 0;
+	}
+
+	if(!state && allow_null)
+		return NULL;
+
+	return states + state;
+}
+
+static uint32_t ld_get_armor(uint64_t alias)
+{
+	int32_t type;
+	mobjinfo_t *info;
+
+	type = mobj_check_type(alias);
+	if(type < 0)
+		return 0;
+
+	info = mobjinfo + type;
+	if(info->extra_type != ETYPE_ARMOR && info->extra_type != ETYPE_ARMOR_BONUS)
+		return 0;
+
+	return type;
+}
+
+static mobjinfo_t *ld_get_weapon(uint64_t alias)
+{
+	int32_t type;
+	mobjinfo_t *info;
+
+	type = mobj_check_type(alias);
+	if(type < 0)
+		return NULL;
+
+	info = mobjinfo + type;
+	if(info->extra_type != ETYPE_WEAPON)
+		return NULL;
+
+	return info;
+}
+
 static inline uint32_t ld_get_sectors()
 {
-	uint32_t flags;
-
 	while(1)
 	{
-		uint32_t sidx;
+		uint16_t flags;
+		uint16_t idx;
 		sector_t *sec;
 		uint64_t wame;
 
-		reader_get_u32(&flags);
+		if(reader_get_u16(&flags))
+			return 1;
 		if(!flags)
 			break;
 
-		sidx = flags & 0xFFFF;
-		if(sidx >= *numsectors)
+		if(reader_get_u16(&idx))
 			return 1;
 
-		sec = *sectors + sidx;
+		if(idx >= *numsectors)
+			return 1;
+
+		sec = *sectors + idx;
 
 		if(CHECK_BIT(flags, SF_SEC_TEXTURE_FLOOR))
 		{
@@ -636,33 +969,36 @@ static inline uint32_t ld_get_sectors()
 			uint32_t nid;
 			if(reader_get_u32(&nid))
 				return 1;
-			// TODO: pass inside pointer, relocate later
+			sec->soundtarget = (mobj_t*)nid;
 		}
 	}
 
 	// version check
-	return reader_get_u32(&flags) || flags != SAVE_VERSION;
+	uint32_t version;
+	return reader_get_u32(&version) || version != SAVE_VERSION;
 }
 
 static inline uint32_t ld_get_sidedefs()
 {
-	uint32_t flags;
-
 	while(1)
 	{
-		uint32_t sidx;
+		uint16_t flags;
+		uint16_t idx;
 		side_t *side;
 		uint64_t wame;
 
-		reader_get_u32(&flags);
+		if(reader_get_u16(&flags))
+			return 1;
 		if(!flags)
 			break;
 
-		sidx = flags & 0xFFFF;
-		if(sidx >= *numsides)
+		if(reader_get_u16(&idx))
 			return 1;
 
-		side = *sides + sidx;
+		if(idx >= *numsides)
+			return 1;
+
+		side = *sides + idx;
 
 		if(CHECK_BIT(flags, SF_SIDE_OFFSX))
 		{
@@ -695,27 +1031,30 @@ static inline uint32_t ld_get_sidedefs()
 	}
 
 	// version check
-	return reader_get_u32(&flags) || flags != SAVE_VERSION;
+	uint32_t version;
+	return reader_get_u32(&version) || version != SAVE_VERSION;
 }
 
 static inline uint32_t ld_get_linedefs()
 {
-	uint32_t flags;
-
 	while(1)
 	{
-		uint32_t sidx;
+		uint16_t flags;
+		uint16_t idx;
 		line_t *line;
 
-		reader_get_u32(&flags);
+		if(reader_get_u16(&flags))
+			return 1;
 		if(!flags)
 			break;
 
-		sidx = flags & 0xFFFF;
-		if(sidx >= *numlines)
+		if(reader_get_u16(&idx))
 			return 1;
 
-		line = *lines + sidx;
+		if(idx >= *numlines)
+			return 1;
+
+		line = *lines + idx;
 
 		if(CHECK_BIT(flags, SF_LINE_FLAGS))
 		{
@@ -735,7 +1074,217 @@ static inline uint32_t ld_get_linedefs()
 	}
 
 	// version check
-	return reader_get_u32(&flags) || flags != SAVE_VERSION;
+	uint32_t version;
+	return reader_get_u32(&version) || version != SAVE_VERSION;
+}
+
+static uint32_t ldcb_thing(mobj_t *mo)
+{
+	mo->target = mobj_by_netid((uint32_t)mo->target);
+	mo->tracer = mobj_by_netid((uint32_t)mo->tracer);
+	mo->master = mobj_by_netid((uint32_t)mo->master);
+}
+
+static inline uint32_t ld_get_things()
+{
+	save_thing_t thing;
+	uint64_t alias;
+	int32_t type;
+	uint32_t maxnetid = 0;
+	mobj_t *mo;
+	inventory_t *item, *ilst;
+
+	while(1)
+	{
+		if(reader_get_wame(&alias))
+			return 1;
+		if(!alias)
+			break;
+
+		type = mobj_check_type(alias);
+		if(type < 0)
+			return 1;
+
+		reader_get(&thing, sizeof(thing));
+
+		if(thing.netid > maxnetid)
+			maxnetid = thing.netid;
+
+		mo = P_SpawnMobj(thing.x, thing.y, thing.z, type);
+
+		mo->netid = thing.netid;
+
+		mo->angle = thing.angle;
+		mo->floorz = thing.floorz;
+		mo->ceilingz = thing.ceilingz;
+		mo->radius = thing.radius;
+		mo->height = thing.height;
+		mo->momx = thing.mx;
+		mo->momy = thing.my;
+		mo->momz = thing.mz;
+
+		mo->health = thing.health;
+		mo->movedir = thing.movedir;
+		mo->movecount = thing.movecount;
+		mo->reactiontime = thing.reactiontime;
+		mo->threshold = thing.threshold;
+		mo->lastlook = thing.lastlook;
+
+		mo->state = ld_convert_state(thing.state, mo->info, 0);
+		mo->tics = thing.tics;
+		mo->sprite = mo->state->sprite;
+		mo->frame = mo->state->frame;
+
+		mo->spawnpoint.x = thing.spawn.x;
+		mo->spawnpoint.y = thing.spawn.y;
+		mo->spawnpoint.angle = thing.spawn.angle;
+		mo->spawnpoint.type = type;
+		mo->spawnpoint.options = thing.spawn.options;
+
+		mo->flags = thing.flags;
+		mo->flags1 = thing.flags1;
+
+		mo->target = (mobj_t*)thing.target;
+		mo->tracer = (mobj_t*)thing.tracer;
+		mo->master = (mobj_t*)thing.master;
+
+		mo->animation = thing.animation;
+		if(thing.player)
+		{
+			thing.player--;
+			if(thing.player < MAXPLAYERS)
+				mo->player = players + thing.player;
+			else
+				mo->player = NULL;
+		} else
+			mo->player = NULL;
+
+		// inventory
+		ilst = NULL;
+		while(1)
+		{
+			uint16_t count;
+
+			if(reader_get_wame(&alias))
+				return 1;
+			if(!alias)
+				break;
+
+			type = mobj_check_type(alias);
+			if(type < 0)
+				return 1;
+
+			if(reader_get_u16(&count))
+				return 1;
+
+			if(!inventory_is_valid(mobjinfo + type))
+				continue;
+
+			item = doom_malloc(sizeof(inventory_t));
+			item->prev = ilst;
+			item->next = NULL;
+			item->type = type;
+			item->count = count;
+			if(ilst)
+				ilst->next = item;
+			mo->inventory = item;
+			ilst = item;
+		}
+	}
+
+	// relocate mobj pointers
+	mobj_for_each(ldcb_thing);
+
+	// relocate soundtargets
+	for(uint32_t i = 0; i < *numsectors; i++)
+	{
+		sector_t *sec = *sectors + i;
+		sec->soundtarget = mobj_by_netid((uint32_t)sec->soundtarget);
+	}
+
+	mobj_netid = maxnetid + 1;
+
+	// version check
+	return reader_get_u32(&type) || type != SAVE_VERSION;
+}
+
+static inline uint32_t ld_get_players()
+{
+	save_player_t plr;
+
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		playeringame[i] = 0;
+
+	while(1)
+	{
+		uint16_t idx;
+		player_t *pl;
+
+		if(reader_get_u16(&idx))
+			return 1;
+		if(!idx)
+			break;
+
+		idx--;
+		if(idx >= MAXPLAYERS)
+			return 1;
+		pl = players + idx;
+
+		if(reader_get(&plr, sizeof(plr)))
+			return 1;
+
+		if(plr.state >= PST_REBORN)
+			return 1;
+
+		pl->mo = mobj_by_netid(plr.mobj);
+		if(!pl->mo)
+			return 1;
+
+		playeringame[idx] = 1;
+
+		pl->viewz = plr.viewz;
+		pl->viewheight = plr.viewheight;
+		pl->deltaviewheight = plr.deltaviewheight;
+
+		for(uint32_t i = 0; i < NUMPOWERS; i++)
+			pl->powers[i] = plr.powers[i];
+
+		pl->health = plr.health;
+		pl->armorpoints = plr.armor_points;
+		pl->armortype = ld_get_armor(plr.armor_type);
+		pl->readyweapon = ld_get_weapon(plr.weapon_ready);
+		pl->pendingweapon = ld_get_weapon(plr.weapon_pending);
+
+		pl->cheats = plr.cheats;
+		pl->refire = plr.refire;
+
+		pl->killcount = plr.killcount;
+		pl->itemcount = plr.itemcount;
+		pl->secretcount = plr.secretcount;
+
+		pl->damagecount = plr.damagecount;
+		pl->bonuscount = plr.bonuscount;
+
+		pl->psprites[0].sx = plr.pspx;
+		pl->psprites[0].sy = plr.pspy;
+
+		for(uint32_t i = 0; i < NUMPSPRITES; i++)
+		{
+			pl->psprites[i].state = ld_convert_state(plr.pspr[i].state, pl->readyweapon, 1);
+			pl->psprites[i].tics = plr.pspr[i].tics;
+		}
+
+		pl->extralight = plr.extralight;
+		pl->usedown = plr.usedown;
+		pl->attackdown = plr.attackdown;
+		pl->backpack = plr.backpack;
+		pl->playerstate = plr.state;
+		pl->didsecret = plr.didsecret;
+	}
+
+	// version check
+	uint32_t version;
+	return reader_get_u32(&version) || version != SAVE_VERSION;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -744,6 +1293,7 @@ void do_load()
 	uint32_t tmp;
 	bmp_head_t head;
 	save_info_t info;
+	player_t *pl;
 
 	// prepare save slot
 	generate_save_name(*saveslot);
@@ -787,8 +1337,15 @@ void do_load()
 	*totalkills = info.kills;
 	*totalitems = info.items;
 	*totalsecret = info.secret;
+
+	if(*gameskill > sk_nightmare)
+		goto error_fail;
+	if(!info.episode || info.episode > 3)
+		goto error_fail;
+	if(!info.map || info.map > 32)
+		goto error_fail;
+
 	map_load_setup();
-	*prndindex = info.rng;
 
 	// sectors
 	if(ld_get_sectors())
@@ -802,7 +1359,31 @@ void do_load()
 	if(ld_get_linedefs())
 		goto error_fail;
 
+	// things
+	if(ld_get_things())
+		goto error_fail;
+
+	// players
+	if(ld_get_players())
+		goto error_fail;
+	if(!playeringame[*consoleplayer])
+		goto error_fail;
+	pl = players + *consoleplayer;
+	if(pl->mo->info->extra_type != ETYPE_PLAYERPAWN)
+		goto error_fail;
+
+	// count brain targets; hack + silence
+	*brain_sound_id = 0;
+	doom_A_BrainAwake(NULL);
+	*brain_sound_id = 0x60;
+
+	stbar_start(pl);
+	HU_Start();
+	player_viewheight(pl->mo->info->player.view_height);
+
 	// DONE
+	*prndindex = info.rng;
+	*gamestate = GS_LEVEL;
 	map_skip_things = 0;
 	reader_close();
 
@@ -811,6 +1392,7 @@ void do_load()
 	//
 error_fail:
 	// TODO: don't exit
+	reader_close();
 	I_Error("Load failed!");
 }
 
@@ -871,6 +1453,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace 'M_DrawSave' in menu structure
 	{0x0001258C + offsetof(menu_t, draw), DATA_HOOK | HOOK_UINT32, (uint32_t)&draw_save_menu},
 	{0x0001258C + offsetof(menu_t, x), DATA_HOOK | HOOK_UINT16, 183},
+	// brain targets hack
+	{0x00028AFC, CODE_HOOK | HOOK_IMPORT, (uint32_t)&brain_sound_id},
 	// import variables
 	{0x0002B6D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&menu_now},
 	{0x0002B568, DATA_HOOK | HOOK_IMPORT, (uint32_t)&save_name},
@@ -880,5 +1464,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B300, DATA_HOOK | HOOK_IMPORT, (uint32_t)&saveslot},
 	{0x0002AC90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&savedesc},
 	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
+	// extra, temporary
+	{0x00038FE0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_setblocks},
+	{0x000290F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_rdptr},
+	{0x0002914C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_fbptr},
+	{0x00011B4C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&stbar_refresh_force},
 };
 

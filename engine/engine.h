@@ -46,6 +46,14 @@ typedef uint32_t angle_t;
 #define DBITS	(FRACBITS - SLOPEBITS)
 
 //
+// stuff
+
+#define BOXTOP	0
+#define BOXBOTTOM	1
+#define BOXLEFT	2
+#define BOXRIGHT	3
+
+//
 // skill
 
 #define sk_baby	0
@@ -706,6 +714,37 @@ typedef struct mobj_s
 	uint32_t custom_state; // custom inventory state jumps
 } __attribute__((packed)) mobj_t;
 
+//
+// old special effects
+
+typedef struct
+{
+	thinker_t thinker;
+	uint32_t type;
+	sector_t *sector;
+	fixed_t	topheight;
+	fixed_t	speed;
+	int32_t direction;
+	int32_t topwait;
+	int32_t topcountdown;
+} vldoor_t;
+
+typedef struct
+{
+	thinker_t thinker;
+	sector_t *sector;
+	fixed_t speed;
+	fixed_t low;
+	fixed_t high;
+	int32_t wait;
+	int32_t count;
+	uint32_t status;
+	uint32_t oldstatus;
+	uint32_t crush;
+	uint32_t tag;
+	uint32_t type;
+} plat_t;
+
 // ASM hooks
 void hook_mobj_damage();
 void hook_obj_key();
@@ -777,6 +816,9 @@ void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_regis
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_SpawnPlayerMissile(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+
+// p_plat
+void P_AddActivePlat(plat_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_pspr
 void P_BulletSlope(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

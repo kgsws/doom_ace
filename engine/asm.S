@@ -460,6 +460,12 @@ M_ClearMenus:
 R_ExecuteSetViewSize:
 	.byte	0xE9
 	.4byte	0x00035A70
+////////////////////////////////// P_AddActivePlat
+.section .text.P_AddActivePlat
+.global P_AddActivePlat
+P_AddActivePlat:
+	.byte	0xE9
+	.4byte	0x0002CFA0
 ////////////////////////////////// EV_DoDoor
 .section .text.EV_DoDoor
 .global EV_DoDoor

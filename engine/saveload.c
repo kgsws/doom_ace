@@ -9,6 +9,7 @@
 #include "mobj.h"
 #include "player.h"
 #include "weapon.h"
+#include "animate.h"
 #include "stbar.h"
 #include "map.h"
 #include "ldr_flat.h"
@@ -25,6 +26,10 @@
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
 #define SAVE_VERSION	0xE58BAFA1	// increment with 'save_info_t' updates
+
+// doom special thinkers
+#define T_VerticalDoor	0x00026810
+#define T_PlatRaise	0x0002CB30
 
 // save flags
 #define CHECK_BIT(f,x)	((f) & (1<<(x)))
@@ -52,6 +57,31 @@ enum
 	SF_LINE_FLAGS,
 	SF_LINE_SPECIAL,
 	SF_LINE_TAG,
+};
+
+enum
+{
+	// active buttons
+	STH__BUTTON = 0xB6FF,
+	STH_BUTTON_FRONT_TOP,
+	STH_BUTTON_FRONT_BOT,
+	STH_BUTTON_FRONT_MID,
+	STH_BUTTON_BACK_TOP,
+	STH_BUTTON_BACK_BOT,
+	STH_BUTTON_BACK_MID,
+	// doom special effects
+	STH_DOOM__BASE = 0xD4FF,
+	STH_DOOM_CEILING,
+	STH_DOOM_DOOR,
+	STH_DOOM_FLOOR,
+	STH_DOOM_PLAT,
+	STH_DOOM_FLASH,
+	STH_DOOM_STROBE,
+	STH_DOOM_GLOW,
+	// ACE special effects
+	STH_ACE__BASE = 0xABFF,
+	STH_ACE_CEILING,
+	STH_ACE_FLOOR,
 };
 
 //
@@ -193,6 +223,41 @@ typedef struct
 	uint8_t state;
 	uint8_t didsecret;
 } save_player_t;
+
+typedef struct
+{ // STH_BUTTON_*
+	uint64_t texture;
+	uint32_t base;
+	uint16_t animate;
+	uint16_t delay;
+	uint16_t line;
+} save_switch_t;
+
+typedef struct
+{ // STH_DOOM_DOOR
+	uint8_t type;
+	int8_t direction;
+	uint16_t sector;
+	fixed_t topheight;
+	fixed_t speed;
+	uint16_t topwait;
+	uint16_t topcountdown;
+} save_door_t;
+
+typedef struct
+{ // STH_DOOM_PLAT
+	uint8_t type;
+	uint8_t crush;
+	uint8_t status;
+	uint8_t oldstatus;
+	uint16_t wait;
+	uint16_t count;
+	uint16_t sector;
+	uint16_t tag;
+	fixed_t speed;
+	fixed_t low;
+	fixed_t high;
+} save_plat_t;
 
 //
 
@@ -598,6 +663,98 @@ static inline void sv_put_linedefs(int32_t lump)
 	writer_add_u16(0);
 }
 
+static inline void sv_put_buttons()
+{
+	save_switch_t sw;
+
+	for(uint32_t i = 0; i < MAX_BUTTONS; i++)
+	{
+		switch_t *slot = active_switch + i;
+		uint16_t type;
+
+		type = anim_switch_type(slot);
+		if(!type)
+			continue;
+
+		writer_add_u16(STH__BUTTON + type);
+
+		sw.texture = anim_switch_texture(slot);
+		sw.base = slot->base;
+		sw.animate = slot->animate;
+		sw.delay = slot->delay;
+		sw.line = slot->line - *lines;
+
+		writer_add(&sw, sizeof(sw));
+	}
+
+	// no last entry!
+}
+
+static inline void sv_put_specials()
+{
+	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
+	{
+		uint32_t ret;
+		uint32_t type;
+
+		if(th->function)
+			type = (uint32_t)th->function - doom_code_segment;
+		else
+			type = 0;
+
+		switch(type)
+		{
+//			case 0: // [suspended] T_MoveCeiling, T_PlatRaise
+//				search 'activeceilings' or 'activeplats'
+//			case 0x000263D0: // T_MoveCeiling
+//			break;
+			case T_VerticalDoor:
+			{
+				save_door_t sav;
+				vldoor_t *now = (vldoor_t*)th;
+
+				writer_add_u16(STH_DOOM_DOOR);
+
+				sav.type = now->type;
+				sav.direction = now->direction;
+				sav.sector = now->sector - *sectors;
+				sav.topheight = now->topheight;
+				sav.speed = now->speed;
+				sav.topwait = now->topwait;
+				sav.topcountdown = now->topcountdown;
+
+				writer_add(&sav, sizeof(sav));
+			}
+			break;
+			case T_PlatRaise:
+			{
+				save_plat_t sav;
+				plat_t *now = (plat_t*)th;
+
+				writer_add_u16(STH_DOOM_PLAT);
+
+				sav.type = now->type;
+				sav.crush = now->crush;
+				sav.status = now->status;
+				sav.oldstatus = now->oldstatus;
+				sav.wait = now->wait;
+				sav.count = now->count;
+				sav.sector = now->sector - *sectors;
+				sav.tag = now->tag;
+				sav.speed = now->speed;
+				sav.low = now->low;
+				sav.high = now->high;
+
+				writer_add(&sav, sizeof(sav));
+			}
+			break;
+		}
+	}
+
+	// last entry
+	writer_add_u16(0);
+}
+
 static uint32_t svcb_thing(mobj_t *mo)
 {
 	save_thing_t thing;
@@ -835,6 +992,11 @@ void do_save()
 	sv_put_linedefs(map_lump_idx + ML_LINEDEFS);
 	writer_add_u32(SAVE_VERSION);
 
+	// specials
+	sv_put_buttons();
+	sv_put_specials();
+	writer_add_u32(SAVE_VERSION);
+
 	// things
 	sv_put_things();
 	writer_add_u32(SAVE_VERSION);
@@ -1069,6 +1231,116 @@ static inline uint32_t ld_get_linedefs()
 		if(CHECK_BIT(flags, SF_LINE_TAG))
 		{
 			if(reader_get_u16(&line->tag))
+				return 1;
+		}
+	}
+
+	// version check
+	uint32_t version;
+	return reader_get_u32(&version) || version != SAVE_VERSION;
+}
+
+static inline uint32_t ld_get_specials()
+{
+	while(1)
+	{
+		uint16_t type;
+
+		if(reader_get_u16(&type))
+			return 1;
+
+		if(!type)
+			break;
+
+		switch(type)
+		{
+			case STH_BUTTON_FRONT_TOP:
+			case STH_BUTTON_FRONT_BOT:
+			case STH_BUTTON_FRONT_MID:
+			case STH_BUTTON_BACK_TOP:
+			case STH_BUTTON_BACK_BOT:
+			case STH_BUTTON_BACK_MID:
+			{
+				save_switch_t sw;
+				switch_t *slot;
+
+				if(reader_get(&sw, sizeof(sw)))
+					return 1;
+
+				if(sw.line >= *numlines)
+					return 1;
+
+				type -= STH__BUTTON;
+				slot = anim_switch_make(type, *lines + sw.line, sw.texture);
+				if(!slot)
+					break;
+
+				slot->base = sw.base;
+				slot->animate = sw.animate;
+				slot->delay = sw.delay;
+			}
+			break;
+			case STH_DOOM_DOOR:
+			{
+				save_door_t sav;
+				vldoor_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= *numsectors)
+					return 1;
+
+				now = Z_Malloc(sizeof(vldoor_t), PU_LEVEL, NULL);
+
+				now->type = sav.type;
+				now->direction = sav.direction;
+				now->sector = *sectors + sav.sector;
+				now->topheight = sav.topheight;
+				now->speed = sav.speed;
+				now->topwait = sav.topwait;
+				now->topcountdown = sav.topcountdown;
+
+				now->sector->specialdata = now;
+				now->thinker.function = (void*)T_VerticalDoor + doom_code_segment;
+
+				P_AddThinker(&now->thinker);
+			}
+			break;
+			case STH_DOOM_PLAT:
+			{
+				save_plat_t sav;
+				plat_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= *numsectors)
+					return 1;
+
+				now = Z_Malloc(sizeof(plat_t), PU_LEVEL, NULL);
+
+				now->type = sav.type;
+				now->crush = sav.crush;
+				now->status = sav.status;
+				now->oldstatus = sav.oldstatus;
+				now->wait = sav.wait;
+				now->count = sav.count;
+				now->sector = *sectors + sav.sector;
+				now->tag = sav.tag;
+				now->speed = sav.speed;
+				now->low = sav.low;
+				now->high = sav.high;
+
+				now->sector->specialdata = now;
+				now->thinker.function = (void*)T_PlatRaise + doom_code_segment;
+
+				P_AddThinker(&now->thinker);
+				P_AddActivePlat(now);
+			}
+			break;
+			default:
+				// unknown!
 				return 1;
 		}
 	}
@@ -1333,10 +1605,6 @@ void do_load()
 	*deathmatch = !!(info.flags & 8);
 	*gameepisode = info.episode;
 	*gamemap = info.map;
-	*leveltime = info.leveltime;
-	*totalkills = info.kills;
-	*totalitems = info.items;
-	*totalsecret = info.secret;
 
 	if(*gameskill > sk_nightmare)
 		goto error_fail;
@@ -1346,6 +1614,11 @@ void do_load()
 		goto error_fail;
 
 	map_load_setup();
+
+	*leveltime = info.leveltime;
+	*totalkills = info.kills;
+	*totalitems = info.items;
+	*totalsecret = info.secret;
 
 	// sectors
 	if(ld_get_sectors())
@@ -1357,6 +1630,10 @@ void do_load()
 
 	// linedefs
 	if(ld_get_linedefs())
+		goto error_fail;
+
+	// specials
+	if(ld_get_specials())
 		goto error_fail;
 
 	// things

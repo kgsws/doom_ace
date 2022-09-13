@@ -597,8 +597,13 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			// weapon
 			given = inventory_give(toucher, mo->type, info->inventory.count);
 			if(!given)
+			{
 				// TODO: auto-weapon-switch optional
 				pl->pendingweapon = info;
+				if(!pl->psprites[0].state)
+					// fix 'no weapon' state
+					weapon_setup(pl);
+			}
 			given = given < info->inventory.count;
 			// primary ammo
 			given |= give_ammo(toucher, info->weapon.ammo_type[0], info->weapon.ammo_give[0], mo->flags & MF_DROPPED);

@@ -848,6 +848,37 @@ static const doom_codeptr_t doom_codeptr[] =
 };
 #define NUM_CODEPTR_MODS	(sizeof(doom_codeptr) / sizeof(doom_codeptr_t))
 
+// 'DoomPlayer' weapon slots
+static const uint16_t doom_slot_1[] = {MOBJ_IDX_FIST, 74, 0};
+static const uint16_t doom_slot_2[] = {MOBJ_IDX_PISTOL, 0};
+static const uint16_t doom_slot_3[] = {77, 78, 0};
+static const uint16_t doom_slot_4[] = {73, 0};
+static const uint16_t doom_slot_5[] = {75, 0};
+static const uint16_t doom_slot_6[] = {76, 0};
+static const uint16_t doom_slot_7[] = {72, 0};
+static const uint16_t doom_slot_8[] = {74, 0};
+static const uint16_t *doom_weapon_slots[NUM_WPN_SLOTS] =
+{
+	NULL,
+	doom_slot_1,
+	doom_slot_2,
+	doom_slot_3,
+	doom_slot_4,
+	doom_slot_5,
+	doom_slot_6,
+	doom_slot_7,
+	doom_slot_8,
+	NULL,
+};
+
+// 'DoomPlayer' default inventory
+static const plrp_start_item_t doom_start_items[] =
+{
+	{.type = MOBJ_IDX_PISTOL, .count = 1}, // Pistol
+	{.type = MOBJ_IDX_FIST, .count = 1}, // Fist
+	{.type = 63, .count = 50}, // Clip
+};
+
 //
 // extra storage
 
@@ -2105,6 +2136,10 @@ void init_decorate()
 	mobjinfo[0].flags1 |= MF1_TELESTOMP;
 	mobjinfo[0].extra_type = ETYPE_PLAYERPAWN;
 	memcpy(&mobjinfo[0].player, &ei_player, sizeof(ei_player_t));
+	for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
+		mobjinfo[0].player.wpn_slot[i] = (uint16_t*)doom_weapon_slots[i];
+	mobjinfo[0].start_item.start = (void*)doom_start_items;
+	mobjinfo[0].start_item.end = (void*)doom_start_items + sizeof(doom_start_items);
 
 	// lost souls are enemy too
 	mobjinfo[18].flags1 |= MF1_ISMONSTER;

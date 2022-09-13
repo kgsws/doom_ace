@@ -74,23 +74,11 @@ typedef struct aswitch_s
 } aswitch_t;
 
 //
-
-typedef struct
-{
-	uint16_t *dest;
-	aswitch_t *swtch;
-	uint32_t base;
-	degenmobj_t *soundorg;
-	uint16_t animate;
-	uint16_t delay;
-} switch_t;
-
-//
 static void *anim_ptr;
 static void *switch_ptr;
 static void *animations;
 
-static switch_t active_switch[MAX_BUTTONS];
+switch_t active_switch[MAX_BUTTONS];
 
 // built-in animations
 static uint8_t engine_animdefs[] =
@@ -160,7 +148,44 @@ static uint8_t engine_animdefs[] =
 //
 // funcs
 
-uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t diff, int32_t state)
+static switch_t *get_free_switch(uint16_t *dest, fixed_t x, fixed_t y)
+{
+	switch_t *slot = NULL;
+	uint32_t soundtick = BUTTON_SNDTICK + 1;
+
+	// add this switch to active buttons
+	for(uint32_t i = 0; i < MAX_BUTTONS; i++)
+	{
+		switch_t *active = active_switch + i;
+
+		if(active->dest == dest)
+			// found existing; use it
+			return active;
+
+		if(active->dest)
+			// busy
+			continue;
+
+		if(active->soundorg.x == x && active->soundorg.y == y)
+		{
+			// best pick for sound
+			soundtick = 0;
+			slot = active;
+			continue;
+		}
+
+		if(active->soundtick < soundtick)
+		{
+			// found lower priority sound
+			soundtick = active->soundtick;
+			slot = active;
+		}
+	}
+
+	return slot;
+}
+
+static uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t diff, int32_t state, line_t *line)
 {
 	animframe_t *frame;
 
@@ -185,44 +210,45 @@ uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t diff, in
 	{
 		// this is a first step
 		uint32_t animate;
+		switch_t *slot = NULL;
+		fixed_t x, y;
 
-		// check for animation
-		animate = frame != swtch->frame + swtch->count - 1;
+		// get sound origin
+		x = line->bbox[BOXLEFT] + (line->bbox[BOXRIGHT] - line->bbox[BOXLEFT]) / 2;
+		y = line->bbox[BOXBOTTOM] + (line->bbox[BOXTOP] - line->bbox[BOXBOTTOM]) / 2;
 
-		if(animate || state)
+		// find switch slot
+		slot = get_free_switch(dest, x, y);
+		if(slot)
 		{
-			// add this switch to active buttons
-			switch_t *slot = NULL;
+			// check for animation
+			animate = frame != swtch->frame + swtch->count - 1;
 
-			for(uint32_t i = 0; i < MAX_BUTTONS; i++)
+			if(animate || state)
 			{
-				switch_t *active = active_switch + i;
-
-				if(active->dest == dest)
+				if(slot->dest == dest)
 				{
 					// force instant reverse
-					active->delay = 1;
+					slot->delay = 1;
 					return 0;
 				}
 
-				if(!active->dest)
-					// found free slot
-					slot = active;
-			}
-
-			if(slot)
-			{
+				// animated
 				slot->dest = dest;
 				slot->swtch = swtch;
 				slot->base = *leveltime;
-				slot->soundorg = NULL; // TODO: origin from line
 				slot->delay = state ? BUTTON_TIME + swtch->tick_total : 0;
 				slot->animate = animate;
 			}
-		}
 
-		// sound
-		S_StartSound(NULL, swtch->sound); // TODO: origin from line
+			// save sound origin
+			slot->soundorg.x = x;
+			slot->soundorg.y = y;
+			slot->line = line;
+
+			slot->soundtick = BUTTON_SNDTICK;
+			S_StartSound((mobj_t*)&slot->soundorg, swtch->sound);
+		}
 
 		// change texture
 		*dest = frame->pic;
@@ -233,7 +259,7 @@ uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t diff, in
 	// change texture
 	*dest = frame->pic;
 
-	// return 1 if on last frame
+	// return 1 if not on last frame
 	return frame != swtch->frame + swtch->count - 1;
 }
 
@@ -809,6 +835,9 @@ void animate_step()
 		uint32_t diff;
 		switch_t *active = active_switch + i;
 
+		if(active->soundtick)
+			active->soundtick--;
+
 		if(!active->dest)
 			continue;
 
@@ -824,14 +853,14 @@ void animate_step()
 			active->dest = NULL;
 
 			// use reverse animation
-			switch_line_texture(active->swtch->reverse, dest, 0, 0);
+			switch_line_texture(active->swtch->reverse, dest, 0, 0, active->line);
 
 			return;
 		}
 
 		if(active->animate)
 		{
-			active->animate = switch_line_texture(active->swtch, active->dest, *leveltime - active->base, -1);
+			active->animate = switch_line_texture(active->swtch, active->dest, *leveltime - active->base, -1, NULL);
 			if(!active->animate && !active->delay)
 				active->dest = NULL;
 		}
@@ -866,17 +895,17 @@ void do_line_switch(line_t *ln, uint32_t repeat)
 		// check all textures
 		if(swtch->target == side->toptexture)
 		{
-			switch_line_texture(swtch, &side->toptexture, 0, repeat);
+			switch_line_texture(swtch, &side->toptexture, 0, repeat, ln);
 			break;
 		} else
 		if(swtch->target == side->midtexture)
 		{
-			switch_line_texture(swtch, &side->midtexture, 0, repeat);
+			switch_line_texture(swtch, &side->midtexture, 0, repeat, ln);
 			break;
 		} else
 		if(swtch->target == side->bottomtexture)
 		{
-			switch_line_texture(swtch, &side->bottomtexture, 0, repeat);
+			switch_line_texture(swtch, &side->bottomtexture, 0, repeat, ln);
 			break;
 		}
 	}
@@ -947,6 +976,142 @@ void init_animations()
 
 	// correct switch pointer
 	switch_ptr = anim_ptr + 1;
+}
+
+//
+// SAVE
+
+uint16_t anim_switch_type(switch_t *slot)
+{
+	side_t *side;
+	uint16_t num;
+
+	if(!slot->dest)
+		return 0;
+
+	if(!slot->line)
+		return 0;
+
+	if(!slot->swtch)
+		return 0;
+
+	num = slot->line->sidenum[0];
+	if(num < *numsides)
+	{
+		side = *sides + num;
+
+		if(slot->dest == &side->toptexture)
+			return 1;
+		if(slot->dest == &side->bottomtexture)
+			return 2;
+		if(slot->dest == &side->midtexture)
+			return 3;
+	}
+
+	num = slot->line->sidenum[1];
+	if(num < *numsides)
+	{
+		side = *sides + num;
+
+		if(slot->dest == &side->toptexture)
+			return 4;
+		if(slot->dest == &side->bottomtexture)
+			return 5;
+		if(slot->dest == &side->midtexture)
+			return 6;
+	}
+
+	return 0;
+}
+
+uint64_t anim_switch_texture(switch_t *slot)
+{
+	return texture_get_name(slot->swtch->target);
+}
+
+switch_t *anim_switch_make(uint16_t type, line_t *line, uint64_t wame)
+{
+	int32_t target;
+	uint16_t *dest;
+	aswitch_t *swtch = NULL;
+	switch_t *slot = NULL;
+	void *ptr = switch_ptr;
+
+	// check
+	if(line->sidenum[type > 3] >= *numsides)
+		return NULL;
+
+	// get texture
+	target = texture_num_check((uint8_t*)&wame);
+	if(target <= 0)
+		return NULL;
+
+	// get sequence
+	while(1)
+	{
+		aswitch_t *check = ptr;
+
+		if(check->terminator)
+			return NULL;
+
+		if(check->target == target)
+		{
+			swtch = check;
+			break;
+		}
+
+		ptr += sizeof(aswitch_t) + check->count * sizeof(animframe_t);
+	}
+	if(!swtch)
+		return NULL;
+
+	// get target
+
+	switch(type)
+	{
+		case 1:
+			dest = &(*sides)[line->sidenum[0]].toptexture;
+		break;
+		case 2:
+			dest = &(*sides)[line->sidenum[0]].bottomtexture;
+		break;
+		case 3:
+			dest = &(*sides)[line->sidenum[0]].midtexture;
+		break;
+		case 4:
+			dest = &(*sides)[line->sidenum[1]].toptexture;
+		break;
+		case 5:
+			dest = &(*sides)[line->sidenum[1]].bottomtexture;
+		break;
+		case 6:
+			dest = &(*sides)[line->sidenum[1]].midtexture;
+		break;
+	}
+
+	// get free slot
+
+	for(uint32_t i = 0; i < MAX_BUTTONS; i++)
+	{
+		switch_t *active = active_switch + i;
+
+		if(active->dest)
+			continue;
+
+		slot = active;
+		break;
+	}
+
+	// save
+
+	if(slot)
+	{
+		slot->dest = dest;
+		slot->swtch = swtch;
+		slot->line = line;
+	}
+
+	return slot;
 }
 
 //

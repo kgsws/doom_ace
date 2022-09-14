@@ -10,6 +10,7 @@
 #include "mobj.h"
 #include "player.h"
 #include "action.h"
+#include "map.h"
 #include "textpars.h"
 #include "cheat.h"
 
@@ -31,6 +32,7 @@ static void cf_noclip(player_t*,uint8_t*);
 static void cf_iddqd(player_t*,uint8_t*);
 static void cf_idfa(player_t*,uint8_t*);
 static void cf_idkfa(player_t*,uint8_t*);
+static void cf_idclev(player_t*,uint8_t*);
 static void cf_buddha(player_t*,uint8_t*);
 static void cf_mdk(player_t*,uint8_t*);
 static void cf_kill(player_t*,uint8_t*);
@@ -44,8 +46,10 @@ static const cheat_func_t cheat_func[] =
 	{"iddqd", cf_iddqd},
 	{"idfa", cf_idfa},
 	{"idkfa", cf_idkfa},
+	{"idclev", cf_idclev},
 	// new
 	{"noclip", cf_noclip},
+	{"warp", cf_idclev},
 	{"buddha", cf_buddha},
 	{"mdk", cf_mdk},
 	{"kill", cf_kill},
@@ -166,6 +170,31 @@ static void cf_idkfa(player_t *pl, uint8_t *arg)
 	pl->message = (uint8_t*)0x00023E78 + doom_data_segment;
 }
 
+static void cf_idclev(player_t *pl, uint8_t *arg)
+{
+	uint32_t map, epi;
+
+	if(*gamemode)
+	{
+		// map only
+		if(doom_sscanf(arg, "%u", &map) == 1)
+		{
+			G_DeferedInitNew(*gameskill, 1, map);
+			return;
+		}
+	} else
+	{
+		// episode and map
+		if(doom_sscanf(arg, "%u %u", &epi, &map) == 2)
+		{
+			G_DeferedInitNew(*gameskill, epi, map);
+			return;
+		}
+	}
+
+	pl->message = "Wrong level!";
+}
+
 static void cf_buddha(player_t *pl, uint8_t *arg)
 {
 	mobj_t *mo = pl->mo;
@@ -283,12 +312,15 @@ static void cf_revenge(player_t *pl, uint8_t *arg)
 //
 // API
 
-uint32_t cheat_check(uint32_t pidx)
+void cheat_check(uint32_t pidx)
 {
 	const cheat_func_t *cf = cheat_func;
 	cheat_buf_t *cb = cheat_buf + pidx;
 	player_t *pl = players + pidx;
 	uint8_t *arg;
+
+	if(!cb->len)
+		return;
 
 	cb->text[cb->len] = 0;
 

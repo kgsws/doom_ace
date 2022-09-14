@@ -466,6 +466,24 @@ R_ExecuteSetViewSize:
 P_AddActivePlat:
 	.byte	0xE9
 	.4byte	0x0002CFA0
+////////////////////////////////// P_AddActiveCeiling
+.section .text.P_AddActiveCeiling
+.global P_AddActiveCeiling
+P_AddActiveCeiling:
+	.byte	0xE9
+	.4byte	0x00026690
+////////////////////////////////// P_SpawnSpecials
+.section .text.P_SpawnSpecials
+.global P_SpawnSpecials
+P_SpawnSpecials:
+	.byte	0xE9
+	.4byte	0x0002FFF0
+////////////////////////////////// R_PrecacheLevel
+.section .text.R_PrecacheLevel
+.global R_PrecacheLevel
+R_PrecacheLevel:
+	.byte	0xE9
+	.4byte	0x00034780
 ////////////////////////////////// EV_DoDoor
 .section .text.EV_DoDoor
 .global EV_DoDoor
@@ -558,6 +576,16 @@ M_WriteText:
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x00022FA0
+	pop	%ebx
+	ret
+////////////////////////////////// G_DeferedInitNew
+.section .text.G_DeferedInitNew
+.global G_DeferedInitNew
+G_DeferedInitNew:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x00021540
 	pop	%ebx
 	ret
 ////////////////////////////////// end

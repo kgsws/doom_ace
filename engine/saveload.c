@@ -28,8 +28,13 @@
 #define SAVE_VERSION	0xE58BAFA1	// increment with 'save_info_t' updates
 
 // doom special thinkers
+#define T_MoveCeiling	0x000263D0
 #define T_VerticalDoor	0x00026810
+#define T_MoveFloor	0x00029020
 #define T_PlatRaise	0x0002CB30
+#define T_LightFlash	0x0002A7F0
+#define T_StrobeFlash	0x0002A8A0
+#define T_Glow	0x0002AAC0
 
 // save flags
 #define CHECK_BIT(f,x)	((f) & (1<<(x)))
@@ -234,6 +239,19 @@ typedef struct
 } save_switch_t;
 
 typedef struct
+{ // STH_DOOM_CEILING
+	uint8_t type;
+	uint8_t crush;
+	uint16_t sector;
+	fixed_t bottomheight;
+	fixed_t topheight;
+	fixed_t speed;
+	int8_t direction;
+	int8_t olddirection;
+	uint16_t tag;
+} save_ceiling_t;
+
+typedef struct
 { // STH_DOOM_DOOR
 	uint8_t type;
 	int8_t direction;
@@ -243,6 +261,18 @@ typedef struct
 	uint16_t topwait;
 	uint16_t topcountdown;
 } save_door_t;
+
+typedef struct
+{ // STH_DOOM_FLOOR
+	uint8_t type;
+	uint8_t crush;
+	uint8_t direction;
+	uint16_t sector;
+	uint16_t newspecial;
+	uint64_t texture;
+	fixed_t floordestheight;
+	fixed_t speed;
+} save_floor_t;
 
 typedef struct
 { // STH_DOOM_PLAT
@@ -258,6 +288,34 @@ typedef struct
 	fixed_t low;
 	fixed_t high;
 } save_plat_t;
+
+typedef struct
+{ // STH_DOOM_FLASH
+	uint16_t sector;
+	int16_t maxlight;
+	int16_t minlight;
+	uint8_t count;
+	uint8_t maxtime;
+	uint8_t mintime;
+} save_flash_t;
+
+typedef struct
+{ // STH_DOOM_STROBE
+	uint16_t sector;
+	int16_t minlight;
+	int16_t maxlight;
+	uint8_t count;
+	uint8_t darktime;
+	uint8_t brighttime;
+} save_strobe_t;
+
+typedef struct
+{ // STH_DOOM_GLOW
+	uint16_t sector;
+	int16_t minlight;
+	int16_t maxlight;
+	int8_t direction;
+} save_glow_t;
 
 //
 
@@ -704,10 +762,47 @@ static inline void sv_put_specials()
 
 		switch(type)
 		{
-//			case 0: // [suspended] T_MoveCeiling, T_PlatRaise
-//				search 'activeceilings' or 'activeplats'
-//			case 0x000263D0: // T_MoveCeiling
-//			break;
+			case 0: // [suspended]
+			{
+				uint32_t i;
+				// find suspended T_MoveCeiling
+				for(i = 0; i < MAXCEILINGS; i++)
+					if(activeceilings[i] == (ceiling_t*)th)
+						break;
+				if(i < MAXCEILINGS)
+					goto add_ceiling;
+				// find suspended T_PlatRaise
+				for(i = 0; i < MAXPLATS; i++)
+					if(activeplats[i] == (plat_t*)th)
+						break;
+				if(i < MAXPLATS)
+					goto add_plat;
+			}
+			break;
+			case T_MoveCeiling:
+add_ceiling:
+			{
+				save_ceiling_t sav;
+				ceiling_t *now = (ceiling_t*)th;
+
+				writer_add_u16(STH_DOOM_CEILING);
+
+				sav.type = now->type;
+				sav.crush = now->crush;
+				sav.sector = now->sector - *sectors;
+				sav.bottomheight = now->bottomheight;
+				sav.topheight = now->topheight;
+				sav.speed = now->speed;
+				sav.direction = now->direction;
+				sav.olddirection = now->olddirection;
+				sav.tag = now->tag;
+
+				if(!type) // sus!
+					sav.type |= 0x80;
+
+				writer_add(&sav, sizeof(sav));
+			}
+			break;
 			case T_VerticalDoor:
 			{
 				save_door_t sav;
@@ -726,7 +821,27 @@ static inline void sv_put_specials()
 				writer_add(&sav, sizeof(sav));
 			}
 			break;
+			case T_MoveFloor:
+			{
+				save_floor_t sav;
+				floormove_t *now = (floormove_t*)th;
+
+				writer_add_u16(STH_DOOM_FLOOR);
+
+				sav.type = now->type;
+				sav.crush = now->crush;
+				sav.direction = now->direction;
+				sav.sector = now->sector - *sectors;
+				sav.newspecial = now->newspecial;
+				sav.texture = texture_get_name(now->texture);
+				sav.floordestheight = now->floordestheight;
+				sav.speed = now->speed;
+
+				writer_add(&sav, sizeof(sav));
+			}
+			break;
 			case T_PlatRaise:
+add_plat:
 			{
 				save_plat_t sav;
 				plat_t *now = (plat_t*)th;
@@ -744,6 +859,58 @@ static inline void sv_put_specials()
 				sav.speed = now->speed;
 				sav.low = now->low;
 				sav.high = now->high;
+
+				if(!type) // sus!
+					sav.type |= 0x80;
+
+				writer_add(&sav, sizeof(sav));
+			}
+			break;
+			case T_LightFlash:
+			{
+				save_flash_t sav;
+				lightflash_t *now = (lightflash_t*)th;
+
+				writer_add_u16(STH_DOOM_FLASH);
+
+				sav.sector = now->sector - *sectors;
+				sav.maxlight = now->maxlight;
+				sav.minlight = now->minlight;
+				sav.count = now->count;
+				sav.maxtime = now->maxtime;
+				sav.mintime = now->mintime;
+
+				writer_add(&sav, sizeof(sav));
+			}
+			break;
+			case T_StrobeFlash:
+			{
+				save_strobe_t sav;
+				strobe_t *now = (strobe_t*)th;
+
+				writer_add_u16(STH_DOOM_STROBE);
+
+				sav.sector = now->sector - *sectors;
+				sav.minlight = now->minlight;
+				sav.maxlight = now->maxlight;
+				sav.count = now->count;
+				sav.darktime = now->darktime;
+				sav.brighttime = now->brighttime;
+
+				writer_add(&sav, sizeof(sav));
+			}
+			break;
+			case T_Glow:
+			{
+				save_glow_t sav;
+				glow_t *now = (glow_t*)th;
+
+				writer_add_u16(STH_DOOM_GLOW);
+
+				sav.sector = now->sector - *sectors;
+				sav.minlight = now->minlight;
+				sav.maxlight = now->maxlight;
+				sav.direction = now->direction;
 
 				writer_add(&sav, sizeof(sav));
 			}
@@ -1280,6 +1447,39 @@ static inline uint32_t ld_get_specials()
 				slot->delay = sw.delay;
 			}
 			break;
+			case STH_DOOM_CEILING:
+			{
+				save_ceiling_t sav;
+				ceiling_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= *numsectors)
+					return 1;
+
+				now = Z_Malloc(sizeof(ceiling_t), PU_LEVEL, NULL);
+
+				now->type = sav.type & 0x7F;
+				now->crush = sav.crush;
+				now->sector = *sectors + sav.sector;
+				now->bottomheight = sav.bottomheight;
+				now->topheight = sav.topheight;
+				now->speed = sav.speed;
+				now->direction = sav.direction;
+				now->olddirection = sav.olddirection;
+				now->tag = sav.tag;
+
+				now->sector->specialdata = now;
+				now->thinker.function = (void*)T_MoveCeiling + doom_code_segment;
+
+				P_AddThinker(&now->thinker);
+				P_AddActiveCeiling(now);
+
+				if(sav.type & 0x80) // sus!
+					now->thinker.function = NULL;
+			}
+			break;
 			case STH_DOOM_DOOR:
 			{
 				save_door_t sav;
@@ -1307,6 +1507,34 @@ static inline uint32_t ld_get_specials()
 				P_AddThinker(&now->thinker);
 			}
 			break;
+			case STH_DOOM_FLOOR:
+			{
+				save_floor_t sav;
+				floormove_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= *numsectors)
+					return 1;
+
+				now = Z_Malloc(sizeof(floormove_t), PU_LEVEL, NULL);
+
+				now->type = sav.type;
+				now->crush = sav.crush;
+				now->direction = sav.direction;
+				now->sector = *sectors + sav.sector;
+				now->newspecial = sav.newspecial;
+				now->texture = texture_num_get((uint8_t*)&sav.texture);
+				now->floordestheight = sav.floordestheight;
+				now->speed = sav.speed;
+
+				now->sector->specialdata = now;
+				now->thinker.function = (void*)T_MoveFloor + doom_code_segment;
+
+				P_AddThinker(&now->thinker);
+			}
+			break;
 			case STH_DOOM_PLAT:
 			{
 				save_plat_t sav;
@@ -1320,7 +1548,7 @@ static inline uint32_t ld_get_specials()
 
 				now = Z_Malloc(sizeof(plat_t), PU_LEVEL, NULL);
 
-				now->type = sav.type;
+				now->type = sav.type & 0x7F;
 				now->crush = sav.crush;
 				now->status = sav.status;
 				now->oldstatus = sav.oldstatus;
@@ -1337,6 +1565,82 @@ static inline uint32_t ld_get_specials()
 
 				P_AddThinker(&now->thinker);
 				P_AddActivePlat(now);
+
+				if(sav.type & 0x80) // sus!
+					now->thinker.function = NULL;
+			}
+			break;
+			case STH_DOOM_FLASH:
+			{
+				save_flash_t sav;
+				lightflash_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= *numsectors)
+					return 1;
+
+				now = Z_Malloc(sizeof(lightflash_t), PU_LEVEL, NULL);
+
+				now->sector = *sectors + sav.sector;
+				now->maxlight = sav.maxlight;
+				now->minlight = sav.minlight;
+				now->count = sav.count;
+				now->maxtime = sav.maxtime;
+				now->mintime = sav.mintime;
+
+				now->thinker.function = (void*)T_LightFlash + doom_code_segment;
+
+				P_AddThinker(&now->thinker);
+			}
+			break;
+			case STH_DOOM_STROBE:
+			{
+				save_strobe_t sav;
+				strobe_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= *numsectors)
+					return 1;
+
+				now = Z_Malloc(sizeof(strobe_t), PU_LEVEL, NULL);
+
+				now->sector = *sectors + sav.sector;
+				now->minlight = sav.minlight;
+				now->maxlight = sav.maxlight;
+				now->count = sav.count;
+				now->darktime = sav.darktime;
+				now->brighttime = sav.brighttime;
+
+				now->thinker.function = (void*)T_StrobeFlash + doom_code_segment;
+
+				P_AddThinker(&now->thinker);
+			}
+			break;
+			case STH_DOOM_GLOW:
+			{
+				save_glow_t sav;
+				glow_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= *numsectors)
+					return 1;
+
+				now = Z_Malloc(sizeof(glow_t), PU_LEVEL, NULL);
+
+				now->sector = *sectors + sav.sector;
+				now->minlight = sav.minlight;
+				now->maxlight = sav.maxlight;
+				now->direction = sav.direction;
+
+				now->thinker.function = (void*)T_Glow + doom_code_segment;
+
+				P_AddThinker(&now->thinker);
 			}
 			break;
 			default:
@@ -1597,7 +1901,7 @@ void do_load()
 	}
 
 	// load map
-	map_skip_things = 1;
+	map_skip_stuff = 1;
 	*gameskill = info.flags >> 13;
 	*fastparm = info.flags & 1;
 	*respawnparm = !!(info.flags & 2);
@@ -1661,7 +1965,7 @@ void do_load()
 	// DONE
 	*prndindex = info.rng;
 	*gamestate = GS_LEVEL;
-	map_skip_things = 0;
+	map_skip_stuff = 0;
 	reader_close();
 
 	return;

@@ -867,7 +867,7 @@ void animate_step()
 	}
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void clear_buttons()
 {
 	memset(active_switch, 0, sizeof(active_switch));

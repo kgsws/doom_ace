@@ -106,6 +106,9 @@ typedef uint32_t angle_t;
 #define ML_DONTDRAW	128
 #define ML_MAPPED	256
 
+#define MAXCEILINGS	30
+#define MAXPLATS	30
+
 //
 // cheats
 
@@ -722,12 +725,39 @@ typedef struct
 	thinker_t thinker;
 	uint32_t type;
 	sector_t *sector;
+	fixed_t bottomheight;
+	fixed_t topheight;
+	fixed_t speed;
+	uint32_t crush;
+	int32_t direction;
+	uint32_t tag;
+	int32_t olddirection;
+} ceiling_t;
+
+typedef struct
+{
+	thinker_t thinker;
+	uint32_t type;
+	sector_t *sector;
 	fixed_t	topheight;
 	fixed_t	speed;
 	int32_t direction;
 	int32_t topwait;
 	int32_t topcountdown;
 } vldoor_t;
+
+typedef struct
+{
+	thinker_t thinker;
+	uint32_t type;
+	uint32_t crush;
+	sector_t *sector;
+	int32_t direction;
+	uint32_t newspecial;
+	uint16_t texture;
+	fixed_t floordestheight;
+	fixed_t speed;
+} __attribute__((packed)) floormove_t;
 
 typedef struct
 {
@@ -744,6 +774,37 @@ typedef struct
 	uint32_t tag;
 	uint32_t type;
 } plat_t;
+
+typedef struct
+{
+	thinker_t thinker;
+	sector_t *sector;
+	int32_t count;
+	int32_t maxlight;
+	int32_t minlight;
+	uint32_t maxtime;
+	uint32_t mintime;
+} lightflash_t;
+
+typedef struct
+{
+	thinker_t thinker;
+	sector_t *sector;
+	int32_t count;
+	int32_t minlight;
+	int32_t maxlight;
+	uint32_t darktime;
+	uint32_t brighttime;
+} strobe_t;
+
+typedef struct
+{
+	thinker_t thinker;
+	sector_t *sector;
+	int32_t minlight;
+	int32_t maxlight;
+	int32_t direction;
+} glow_t;
 
 // ASM hooks
 void hook_mobj_damage();
@@ -771,6 +832,9 @@ void gfx_progress(int32_t step);
 void *ldr_malloc(uint32_t size);
 void *ldr_realloc(void *ptr, uint32_t size);
 
+// g_game
+void G_DeferedInitNew(uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+
 // i_video
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));
 void I_FinishUpdate() __attribute((regparm(2),no_caller_saved_registers));
@@ -793,6 +857,9 @@ void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
 // m_menu
 void M_WriteText(uint32_t,uint32_t,uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void M_ClearMenus() __attribute((regparm(2),no_caller_saved_registers));
+
+// p_ceiling
+void P_AddActiveCeiling(ceiling_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_door
 uint32_t EV_DoDoor(line_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -833,6 +900,7 @@ void P_SetupLevel() __attribute((regparm(2),no_caller_saved_registers));
 
 // p_spec
 void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_SpawnSpecials() __attribute((regparm(2),no_caller_saved_registers));
 
 // p_tick
 void P_AddThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers));
@@ -845,6 +913,7 @@ void P_DeathThink(player_t*) __attribute((regparm(2),no_caller_saved_registers))
 // r_data
 void R_GenerateLookup(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void R_PrecacheLevel() __attribute((regparm(2),no_caller_saved_registers));
 
 // r_main
 void R_ExecuteSetViewSize() __attribute((regparm(2),no_caller_saved_registers));

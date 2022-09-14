@@ -7,6 +7,7 @@
 #include "map.h"
 #include "mobj.h"
 #include "inventory.h"
+#include "animate.h"
 
 mapthing_t *playerstarts;
 mapthing_t *deathmatchstarts;
@@ -35,10 +36,15 @@ vertex_t **vertexes;
 side_t **sides;
 sector_t **sectors;
 
+plat_t **activeplats;
+ceiling_t **activeceilings;
+
+static uint32_t *precache;
+
 uint8_t map_lump_name[9];
 int32_t map_lump_idx;
 
-uint_fast8_t map_skip_things;
+uint_fast8_t map_skip_stuff;
 
 //
 
@@ -73,6 +79,20 @@ void map_load_setup()
 	mobj_netid = 1; // 0 is NULL, so start with 1
 
 	P_SetupLevel();
+
+	// reset old stuff
+	for(uint32_t i = 0; i < MAXPLATS; i++)
+		activeplats[i] = NULL;
+	for(uint32_t i = 0; i < MAXCEILINGS; i++)
+		activeceilings[i] = NULL;
+
+	// precache
+	if(*precache)
+		R_PrecacheLevel();
+
+	// specials
+	if(!map_skip_stuff)
+		P_SpawnSpecials();
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -98,12 +118,12 @@ static void spawn_map_thing(mapthing_t *mt)
 	if(mt->type && mt->type <= 4)
 	{
 		playerstarts[mt->type - 1] = *mt;
-		if(!*deathmatch && !map_skip_things)
+		if(!*deathmatch && !map_skip_stuff)
 			spawn_player(mt);
 		return;
 	}
 
-	if(map_skip_things)
+	if(map_skip_stuff)
 		return;
 
 	// check network game
@@ -267,6 +287,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
 	// replace call to 'P_SpawnMapThing' in 'P_LoadThings'
 	{0x0002E1F9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spawn_map_thing},
+	// disable call to 'P_SpawnSpecials' and 'R_PrecacheLevel' in 'P_SetupLevel'
+	{0x0002E981, CODE_HOOK | HOOK_UINT16, 0x11EB},
 	// replace key checks in 'EV_VerticalDoor'
 	{0x00026C85, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_door_key},
 	{0x00026C8A, CODE_HOOK | HOOK_UINT16, 0xC085},
@@ -303,5 +325,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002C138, DATA_HOOK | HOOK_IMPORT, (uint32_t)&vertexes},
 	{0x0002C118, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sides},
 	{0x0002C148, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sectors},
+	{0x0002C040, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeplats},
+	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
+	{0x00011B58, DATA_HOOK | HOOK_IMPORT, (uint32_t)&precache},
 };
 

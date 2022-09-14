@@ -81,10 +81,13 @@ extern vertex_t **vertexes;
 extern side_t **sides;
 extern sector_t **sectors;
 
+extern plat_t **activeplats;
+extern ceiling_t **activeceilings;
+
 extern uint8_t map_lump_name[9];
 extern int32_t map_lump_idx;
 
-extern uint_fast8_t map_skip_things;
+extern uint_fast8_t map_skip_stuff;
 
 //
 

@@ -939,6 +939,7 @@ static void make_doom_ammo(uint32_t idx)
 
 	info = mobjinfo + ammo->clp;
 	info->extra_type = ETYPE_AMMO;
+	info->eflags = MFE_INVENTORY_KEEPDEPLETED; // hack for original status bar
 	info->ammo = default_ammo.ammo;
 	info->ammo.inventory.count = tmp;
 	info->ammo.inventory.max_count = ((uint32_t*)(0x00012D70 + doom_data_segment))[idx]; // maxammo

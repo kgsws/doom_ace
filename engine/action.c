@@ -375,7 +375,7 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!pl->readyweapon)
 		return;
 
-	pl->stbar_update |= STU_WEAPON;
+	pl->stbar_update |= STU_WEAPON_NOW;
 
 	S_StartSound(mo, pl->readyweapon->weapon.sound_up);
 

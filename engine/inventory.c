@@ -13,6 +13,9 @@
 
 static inline void inv_check_stbar(player_t *pl, mobjinfo_t *info)
 {
+	if(info->extra_type == ETYPE_WEAPON)
+		pl->stbar_update |= STU_WEAPON;
+
 	if(!info->inventory.icon)
 		return;
 

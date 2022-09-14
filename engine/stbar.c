@@ -9,6 +9,9 @@
 #include "inventory.h"
 
 #define STBAR_Y	(SCREENHEIGHT-2)
+#define ST_Y	(SCREENHEIGHT-32)
+#define BG	4
+#define FG	0
 
 #define NOT_A_NUMBER	0x7FFFFFFF
 #define MAX_KEY_ICONS	(6*6)
@@ -27,7 +30,12 @@ static uint32_t stbar_y;
 static uint32_t stbar_hp_x;
 static uint32_t stbar_ar_x;
 
-static uint32_t ammo_value;
+static uint8_t do_evil_grin;
+
+static st_number_t *w_ready;
+static st_number_t *w_ammo;
+static st_number_t *w_maxammo;
+static st_multicon_t *w_arms;
 
 static uint16_t *ammo_pri;
 static uint16_t *ammo_sec;
@@ -105,24 +113,10 @@ void hook_RenderPlayerView(player_t *pl)
 
 	// status bar on top
 	if(*screenblocks != 11)
-	{
-		// update ammo for old status bar
-		if(ammo_pri)
-			ammo_value = *ammo_pri;
-		else
-		if(ammo_sec)
-			ammo_value = *ammo_sec;
-		else
-			ammo_value = NOT_A_NUMBER;
-		// and do nothing
 		return;
-	}
 
 	if(pl->playerstate != PST_LIVE)
-	{
-		ammo_value = NOT_A_NUMBER;
 		return;
-	}
 
 	// health
 	stbar_big_number_r(stbar_hp_x, stbar_y, pl->health, 3);
@@ -192,8 +186,36 @@ void hook_RenderPlayerView(player_t *pl)
 //
 // update
 
+static void update_weapon(player_t *pl)
+{
+	static uint32_t val[6];
+
+	for(uint32_t i = 0; i < 6; i++)
+	{
+		uint16_t *ptr;
+
+		w_arms[i].inum = val + (i);
+		val[i] = 0;
+
+		ptr = pl->mo->info->player.wpn_slot[i + 2];
+		if(!ptr)
+			continue;
+
+		while(*ptr)
+		{
+			uint16_t type = *ptr++;
+			if(inventory_check(pl->mo, type))
+			{
+				val[i] = 1;
+				break;
+			}
+		}
+	}
+}
+
 static void update_keys(player_t *pl)
 {
+	// TODO: original status bar keys
 	uint32_t idx = 0;
 
 	for(uint32_t i = 0; i < num_mobj_types; i++)
@@ -219,32 +241,51 @@ static void update_keys(player_t *pl)
 		keyinv[idx] = NULL;
 }
 
-static void update_weapon(player_t *pl)
+static void update_backpack(player_t *pl)
+{
+	uint32_t mult;
+	static uint16_t maxammo[NUMAMMO];
+
+	mult = pl->backpack ? 2 : 1;
+
+	for(uint32_t i = 0; i < NUMAMMO; i++)
+	{
+		w_maxammo[i].num = maxammo + i;
+		maxammo[i] = ((uint32_t*)(0x00012D70 + doom_data_segment))[i] * mult; // maxammo
+	}
+}
+
+static void update_ready_weapon(player_t *pl)
 {
 	// weapon changed
 	mobjinfo_t *info = pl->readyweapon;
-	inventory_t *inv;
+	inventory_t *item;
+
+	ammo_pri = NULL;
+	ammo_sec = NULL;
+	w_ready->num = NULL;
 
 	if(!info)
 		return;
 
 	// primary ammo
-	ammo_pri = NULL;
 	if(info->weapon.ammo_type[0])
 	{
-		inv = inventory_find(pl->mo, info->weapon.ammo_type[0]);
-		if(inv)
-			ammo_pri = &inv->count;
+		item = inventory_find(pl->mo, info->weapon.ammo_type[0]);
+		if(item)
+			ammo_pri = &item->count;
 	}
 
 	// secondary ammo
-	ammo_sec = NULL;
 	if(info->weapon.ammo_type[1])
 	{
-		inv = inventory_find(pl->mo, info->weapon.ammo_type[1]);
-		if(inv)
-			ammo_sec = &inv->count;
+		item = inventory_find(pl->mo, info->weapon.ammo_type[1]);
+		if(item)
+			ammo_sec = &item->count;
 	}
+
+	// old stbar ammo pointer
+	w_ready->num = ammo_pri ? ammo_pri : ammo_sec;
 }
 
 //
@@ -258,19 +299,107 @@ void stbar_update(player_t *pl)
 	if(pl->stbar_update & STU_KEYS)
 		update_keys(pl);
 
+	if(pl->stbar_update & STU_BACKPACK)
+		update_backpack(pl);
+
+	if(pl->stbar_update & STU_WEAPON_NOW)
+		update_ready_weapon(pl);
+
+	if(pl->stbar_update & STU_WEAPON_NEW)
+		do_evil_grin = 1;
+
 	pl->stbar_update = 0;
 }
 
 void stbar_start(player_t *pl)
 {
+	inventory_t *item;
+
 	// original status bar
 	ST_Start();
 
-	// update weapon ammo
+	// setup (original) ammo
+	item = inventory_find(pl->mo, 63); // Clip
+	if(item)
+		w_ammo[0].num = &item->count;
+	item = inventory_find(pl->mo, 69); // Shell
+	if(item)
+		w_ammo[1].num = &item->count;
+	item = inventory_find(pl->mo, 67); // RocketAmmo
+	if(item)
+		w_ammo[2].num = &item->count;
+	item = inventory_find(pl->mo, 65); // Cell
+	if(item)
+		w_ammo[3].num = &item->count;
+
+	// update weapon slots
 	update_weapon(pl);
+
+	// update (original) max ammo
+	update_backpack(pl);
+
+	// update current weapon ammo
+	update_ready_weapon(pl);
 
 	// clear keys
 	memset(keyinv, 0, sizeof(keyinv));
+}
+
+//
+// hooks
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void st_draw_num(st_number_t *st, uint32_t refresh)
+{
+	uint32_t w, h;
+	int32_t x;
+	uint32_t value, len;
+
+	// actually do a differential draw
+	if(!refresh)
+	{
+		if(st->num)
+		{
+			// valid number
+			if(*st->num == st->oldnum)
+				return;
+			st->oldnum = *st->num;
+		} else
+		{
+			// not a number
+			if(st->oldnum == 0xFFFFFFFF)
+				return;
+			st->oldnum = 0xFFFFFFFF;
+		}
+	}
+
+	// no more negative numbers
+
+	len = st->width;
+	w = st->p[0]->width;
+	h = st->p[0]->height;
+
+	x = st->x - len * w;
+	V_CopyRect(x, st->y - ST_Y, BG, len * w, h, x, st->y, FG);
+
+	if(!st->num)
+		return;
+
+	value = *st->num;
+	x = st->x;
+
+	if(!value)
+	{
+		V_DrawPatch(x - w, st->y, FG, st->p[0]);
+		return;
+	}
+
+	while(value && len--)
+	{
+		x -= w;
+		V_DrawPatch(x, st->y, FG, st->p[value % 10]);
+		value /= 10;
+	}
 }
 
 //
@@ -280,21 +409,28 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// hook status bar init
 	{0x0001E950, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_st_init},
+	// replace 'STlib_drawNum'
+	{0x0003B020, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)st_draw_num},
 	// hook 3D render
 	{0x0001D361, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_RenderPlayerView},
-	// replace ammo pointer in normal status bar
-	{0x0003ABE2, CODE_HOOK | HOOK_UINT8, 0xB8},
-	{0x0003ABE3, CODE_HOOK | HOOK_UINT32, (uint32_t)&ammo_value},
-	{0x0003ABE7, CODE_HOOK | HOOK_UINT16, 0x0DEB},
+	// remove ammo pointer in normal status bar
+	{0x0003ABE2, CODE_HOOK | HOOK_UINT32, 0x10EBC031},
 	{0x0003ABFB, CODE_HOOK | HOOK_SET_NOPS, 2},
 	{0x0003A282, CODE_HOOK | HOOK_UINT16, 0x3FEB},
-	// change 'not-a-number' value in 'STlib_drawNum'
-	{0x0003B0D3, CODE_HOOK | HOOK_UINT32, NOT_A_NUMBER},
+	// fix evil grin
+	{0x00039FD4, CODE_HOOK | HOOK_UINT8, 0xB8},
+	{0x00039FD5, CODE_HOOK | HOOK_UINT32, (uint32_t)&do_evil_grin},
+	{0x00039FD9, CODE_HOOK | HOOK_UINT32, 0xDB84188A},
+	{0x00039FDD, CODE_HOOK | HOOK_UINT32, 0x08FE5674},
+	{0x00039FE1, CODE_HOOK | HOOK_UINT16, 0x2FEB},
 	// some variables
 	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
 	{0x000752f0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},
 	{0x00075458, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallpercent},
-	{0x00075458, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallpercent},
+	{0x000751C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_ready},
+	{0x00075070, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_ammo},
+	{0x00074FF0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_maxammo},
+	{0x000750F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_arms},
 	// allow screen size over 11 // TODO: move to 'render'
 	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
 	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 9},

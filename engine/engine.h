@@ -718,6 +718,32 @@ typedef struct mobj_s
 } __attribute__((packed)) mobj_t;
 
 //
+// status bar
+
+typedef struct
+{ // this structure has been changed
+	int32_t x;
+	int32_t y;
+	int32_t width;
+	uint32_t oldnum;
+	uint16_t *num;
+	uint32_t *on;
+	patch_t **p;
+	int32_t data;
+} st_number_t;
+
+typedef struct
+{
+	int32_t x;
+	int32_t y;
+	uint32_t oldinum;
+	uint32_t *inum;
+	int32_t on;
+	patch_t **p;
+	int32_t data;
+} st_multicon_t;
+
+//
 // old special effects
 
 typedef struct
@@ -929,6 +955,8 @@ void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_regi
 
 // v_video
 void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));
+void V_DrawPatch(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));
+void V_CopyRect(int32_t,int32_t,int32_t,int32_t,int32_t,int32_t,int32_t,int32_t); // this one is nasty
 
 // w_wad
 int32_t W_CheckNumForName(uint8_t *name) __attribute((regparm(2),no_caller_saved_registers));

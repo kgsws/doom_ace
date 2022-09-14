@@ -152,8 +152,35 @@ hook_mobj_damage:
 // EV_DoLockedDoor hook
 .global hook_obj_key
 hook_obj_key:
-	mov	%ebx, %edx
+	mov	%ebx,%edx
 	jmp	check_obj_key
+
+//
+// V_CopyRect - this one is nasty
+.global V_CopyRect
+V_CopyRect:
+	push	%eax
+	push	%edx
+	push	%ebx
+	push	%ecx
+	mov	0x30(%esp),%eax
+	push	%eax
+	mov	0x30(%esp),%eax
+	push	%eax
+	mov	0x30(%esp),%eax
+	push	%eax
+	mov	0x30(%esp),%eax
+	push	%eax
+	mov	0x24(%esp),%eax
+	mov	0x28(%esp),%edx
+	mov	0x2C(%esp),%ebx
+	mov	0x30(%esp),%ecx
+	call	doom_V_CopyRect
+	pop	%ecx
+	pop	%ebx
+	pop	%edx
+	pop	%eax
+	ret
 
 //
 // Relocation table for functions with 0, 1 or 2 arguments.
@@ -484,6 +511,12 @@ P_SpawnSpecials:
 R_PrecacheLevel:
 	.byte	0xE9
 	.4byte	0x00034780
+////////////////////////////////// doom_V_CopyRect
+.section .text.doom_V_CopyRect
+.global doom_V_CopyRect
+doom_V_CopyRect:
+	.byte	0xE9
+	.4byte	0x00038F10
 ////////////////////////////////// EV_DoDoor
 .section .text.EV_DoDoor
 .global EV_DoDoor
@@ -608,6 +641,19 @@ V_DrawPatchDirect:
 	mov	16(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x000392A0
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// V_DrawPatch
+.section .text.V_DrawPatch
+.global V_DrawPatch
+V_DrawPatch:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00039020
 	pop	%ecx
 	pop	%ebx
 	ret

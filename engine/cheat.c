@@ -11,6 +11,7 @@
 #include "player.h"
 #include "action.h"
 #include "map.h"
+#include "stbar.h"
 #include "textpars.h"
 #include "cheat.h"
 
@@ -114,6 +115,9 @@ static void cf_iddqd(player_t *pl, uint8_t *arg)
 static void cf_idfa(player_t *pl, uint8_t *arg)
 {
 	mobj_t *mo = pl->mo;
+
+	// update status bar after this
+	pl->stbar_update = STU_EVERYTHING;
 
 	// give backpack (extra)
 	pl->backpack = 1;

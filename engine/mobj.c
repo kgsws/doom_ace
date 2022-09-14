@@ -280,7 +280,10 @@ static uint32_t give_special(mobj_t *mo, mobjinfo_t *info)
 		case 0:
 			// backpack
 			if(!mo->player->backpack)
+			{
 				mo->player->backpack = 1;
+				mo->player->stbar_update |= STU_BACKPACK;
+			}
 			// give all existing ammo
 			for(uint32_t idx = 0; idx < num_mobj_types; idx++)
 			{
@@ -400,6 +403,12 @@ void spawn_player(mapthing_t *mt)
 
 		pl->pendingweapon = NULL;
 		pl->readyweapon = NULL;
+
+		// give 'depleted' original ammo; for status bar
+		inventory_give(mo, 63, 0); // Clip
+		inventory_give(mo, 69, 0); // Shell
+		inventory_give(mo, 67, 0); // Cell
+		inventory_give(mo, 65, 0); // RocketAmmo
 
 		// default inventory
 		for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
@@ -598,6 +607,7 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			given = inventory_give(toucher, mo->type, info->inventory.count);
 			if(!given)
 			{
+				pl->stbar_update |= STU_WEAPON_NEW; // evil grin
 				// TODO: auto-weapon-switch optional
 				pl->pendingweapon = info;
 				if(!pl->psprites[0].state)

@@ -371,7 +371,7 @@ typedef struct
 	uint16_t sound_use;
 	uint16_t sound_pickup;
 	uint16_t special; // backpack, ammo parent ...
-	patch_t *icon;
+	int32_t icon;
 	uint8_t *message;
 } ei_inventory_t;
 

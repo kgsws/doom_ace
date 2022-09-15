@@ -5,8 +5,9 @@
 #include "engine.h"
 #include "utils.h"
 #include "decorate.h"
-#include "stbar.h"
 #include "inventory.h"
+#include "wadfile.h"
+#include "stbar.h"
 
 #define STBAR_Y	(SCREENHEIGHT-2)
 #define ST_Y	(SCREENHEIGHT-32)
@@ -37,10 +38,25 @@ static st_number_t *w_ammo;
 static st_number_t *w_maxammo;
 static st_multicon_t *w_arms;
 
+static int32_t *keyboxes;
+
 static uint16_t *ammo_pri;
 static uint16_t *ammo_sec;
 
 static mobjinfo_t *keyinv[MAX_KEY_ICONS];
+
+//
+// icon cache
+
+static patch_t *get_icon_ptr(int32_t lump)
+{
+	if((*lumpcache)[lump])
+		// already cachced, do not change TAG
+		return (*lumpcache)[lump];
+
+	// cache new
+	return W_CacheLumpNum(lump, PU_CACHE);
+}
 
 //
 // draw
@@ -85,19 +101,6 @@ void hook_st_init()
 	stbar_y = STBAR_Y - tallnum_height;
 	stbar_hp_x = 4 + tallnum_width * 3;
 	stbar_ar_x = stbar_hp_x * 2 + tallnum_width + 4;
-
-	// cache all icons
-	for(uint32_t i = 0; i < num_mobj_types; i++)
-	{
-		mobjinfo_t *info = mobjinfo + i;
-		int32_t lump;
-
-		if(!inventory_is_valid(info))
-			continue;
-
-		lump = (int32_t)info->inventory.icon;
-		info->inventory.icon = W_CacheLumpNum(lump, PU_CACHE);
-	}
 }
 
 //
@@ -152,7 +155,7 @@ void hook_RenderPlayerView(player_t *pl)
 		if(!keyinv[i])
 			break;
 
-		patch = keyinv[i]->inventory.icon;
+		patch = get_icon_ptr(keyinv[i]->inventory.icon);
 
 		ox = patch->x;
 		oy = patch->y;
@@ -212,8 +215,10 @@ static void update_weapon(player_t *pl)
 
 static void update_keys(player_t *pl)
 {
-	// TODO: original status bar keys
 	uint32_t idx = 0;
+
+	for(uint32_t i = 0; i < 3; i++)
+		keyboxes[i] = -1;
 
 	for(uint32_t i = 0; i < num_mobj_types; i++)
 	{
@@ -228,6 +233,30 @@ static void update_keys(player_t *pl)
 		if(!inventory_check(pl->mo, i))
 			continue;
 
+		// original status bar
+		switch(i)
+		{
+			case 47:
+				keyboxes[0] = 0;
+			break;
+			case 48:
+				keyboxes[2] = 2;
+			break;
+			case 49:
+				keyboxes[1] = 1;
+			break;
+			case 50:
+				keyboxes[1] = 4;
+			break;
+			case 51:
+				keyboxes[2] = 5;
+			break;
+			case 52:
+				keyboxes[0] = 3;
+			break;
+		}
+
+		// new status bar
 		keyinv[idx++] = info;
 
 		if(idx >= MAX_KEY_ICONS)
@@ -414,6 +443,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003ABE2, CODE_HOOK | HOOK_UINT32, 0x10EBC031},
 	{0x0003ABFB, CODE_HOOK | HOOK_SET_NOPS, 2},
 	{0x0003A282, CODE_HOOK | HOOK_UINT16, 0x3FEB},
+	// disable 'keyboxes' in original status bar
+	{0x0003A2DB, CODE_HOOK | HOOK_UINT16, 0x48EB},
 	// fix evil grin
 	{0x00039FD4, CODE_HOOK | HOOK_UINT8, 0xB8},
 	{0x00039FD5, CODE_HOOK | HOOK_UINT32, (uint32_t)&do_evil_grin},
@@ -428,6 +459,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00075070, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_ammo},
 	{0x00074FF0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_maxammo},
 	{0x000750F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_arms},
+	{0x000753C0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&keyboxes},
 	// allow screen size over 11 // TODO: move to 'render'
 	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
 	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 9},

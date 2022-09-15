@@ -971,7 +971,7 @@ static void make_doom_key(uint32_t idx)
 
 	info->extra_type = ETYPE_KEY;
 	info->inventory = default_key.inventory;
-	info->inventory.icon = (void*)lump;
+	info->inventory.icon = lump;
 	info->inventory.message = key->message + doom_data_segment;
 }
 

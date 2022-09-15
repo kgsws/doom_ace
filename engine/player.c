@@ -18,6 +18,7 @@ typedef struct
 	void (*start)(mobj_t*,mobjinfo_t*);
 	void (*stop)(mobj_t*);
 	void (*tick)(mobj_t*);
+	uint32_t colormap; // hmm
 } powerup_t;
 
 //
@@ -44,12 +45,12 @@ static void invis_start(mobj_t*,mobjinfo_t*);
 static void invis_stop(mobj_t*);
 static const powerup_t powerup[] =
 {
-	[pw_invulnerability] = {"invulnerable", -1, invul_start, invul_stop},
+	[pw_invulnerability] = {"invulnerable", -1, invul_start, invul_stop, NULL, 32},
 	[pw_strength] = {"strength", 1},
 	[pw_invisibility] = {"invisibility", -1, invis_start, invis_stop},
 	[pw_ironfeet] = {"ironfeet", -1},
 	[pw_allmap] = {NULL},
-	[pw_infrared] = {"lightamp", -1},
+	[pw_infrared] = {"lightamp", -1, NULL, NULL, NULL, 1},
 };
 
 //
@@ -254,7 +255,8 @@ void player_think(player_t *pl)
 
 	weapon_move_pspr(pl);
 
-	// TODO: colormaps
+	// powers
+	pl->fixedcolormap = 0;
 	for(uint32_t i = 0; i < NUMPOWERS; i++)
 	{
 		if(pl->powers[i])
@@ -270,8 +272,14 @@ void player_think(player_t *pl)
 					cheat_player_flags(pl);
 				}
 			} else
-			if(pw->tick)
-				pw->tick(pl->mo);
+			{
+				if(pw->tick)
+					pw->tick(pl->mo);
+				// TODO: colormaps should not be hardcoded
+				// TODO: MFE_INVENTORY_NOSCREENBLINK
+				if(!pl->fixedcolormap && (pl->powers[i] > 128 || pl->powers[i] & 8))
+					pl->fixedcolormap = pw->colormap;
+			}
 		}
 	}
 

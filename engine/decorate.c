@@ -457,6 +457,12 @@ static const dec_flag_t mobj_flags1[] =
 	{"dontthrust", MF1_DONTTHRUST},
 	{"nodamagethrust", MF1_NODAMAGETHRUST},
 	{"dontgib", MF1_DONTGIB}, // TODO: implement in crusher
+	{"invulnerable", MF1_INVULNERABLE},
+	{"buddha", MF1_BUDDHA},
+	{"nodamage", MF1_NODAMAGE},
+	{"reflective", MF1_REFLECTIVE},
+	{"boss", MF1_BOSS}, // TODO: implement in A_Look (see sound)
+	{"noradiusdmg", MF1_NORADIUSDMG}, // TODO: implement in explosion
 	// terminator
 	{NULL}
 };
@@ -2150,6 +2156,10 @@ void init_decorate()
 
 	// archvile stuff
 	mobjinfo[3].flags1 |= MF1_NOTARGET | MF1_QUICKTORETALIATE;
+
+	// boss stuff
+	mobjinfo[19].flags1 |= MF1_BOSS | MF1_NORADIUSDMG;
+	mobjinfo[21].flags1 |= MF1_BOSS | MF1_NORADIUSDMG;
 
 	// doom weapons
 	doom_weapon[6].use = dehacked.bfg_cells;

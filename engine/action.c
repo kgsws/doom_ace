@@ -569,7 +569,7 @@ void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
-// basic sounds	// TODO: boss checks
+// basic sounds
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Pain(mobj_t *mo, state_t *st, stfunc_t stfunc)
@@ -580,7 +580,7 @@ void A_Pain(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Scream(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	S_StartSound(mo, mo->info->deathsound);
+	S_StartSound(mo->flags1 & MF1_BOSS ? NULL : mo, mo->info->deathsound);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

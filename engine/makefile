@@ -3,7 +3,7 @@ OBJ = asm.o main.o utils.o bugfix.o wadfile.o ldr_texture.o ldr_flat.o ldr_sprit
 CC = gcc -m32 -march=i386
 OPT = -O2 -g0
 BOTH = -fno-pie
-CFLAGS = ${BOTH} ${OPT} -mgeneral-regs-only -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-protector -Wno-address-of-packed-member
+CFLAGS = ${BOTH} ${OPT} -mgeneral-regs-only -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-protector -fcf-protection=none -Wno-address-of-packed-member -U_FORTIFY_SOURCE
 
 build: ${program}
 

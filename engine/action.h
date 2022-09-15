@@ -13,6 +13,19 @@ typedef struct
 
 //
 
+#define CHAN_BODY	0
+#define CHAN_WEAPON	1
+#define CHAN_VOICE	2
+#define CHAN_ITEM	3
+
+typedef struct
+{
+	uint16_t sound;
+	uint32_t slot;
+} args_StartSound_t;
+
+//
+
 #define CMF_AIMOFFSET	1
 #define CMF_AIMDIRECTION	2
 #define CMF_TRACKOWNER	4
@@ -22,10 +35,15 @@ typedef struct
 #define CMF_SAVEPITCH	64
 #define CMF_ABSOLUTEANGLE	128
 
+#define FPF_AIMATANGLE	1
+#define FPF_TRANSFERTRANSLATION	2
+#define FPF_NOAUTOAIM	4
+
 typedef struct
 {
 	uint16_t missiletype;
-	uint8_t ptr;
+	uint8_t ptr; // for monsters
+	uint8_t noammo; // for players
 	fixed_t spawnheight;
 	fixed_t spawnofs_xy;
 	angle_t angle;

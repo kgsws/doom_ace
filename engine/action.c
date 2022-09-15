@@ -47,6 +47,8 @@ typedef struct
 
 //
 
+static mobj_t **linetarget;
+
 static const uint8_t *action_name;
 
 void *parse_action_func;
@@ -66,6 +68,12 @@ static const dec_arg_flag_t flags_empty[] =
 //
 // argument parsers
 
+static uint8_t *handle_sound(uint8_t *kw, const dec_arg_t *arg)
+{
+	*((uint16_t*)(parse_action_arg + arg->offset)) = sfx_by_alias(tp_hash64(kw));
+	return tp_get_keyword();
+}
+
 static uint8_t *handle_mobjtype(uint8_t *kw, const dec_arg_t *arg)
 {
 	int32_t type;
@@ -77,6 +85,33 @@ static uint8_t *handle_mobjtype(uint8_t *kw, const dec_arg_t *arg)
 	*((uint16_t*)(parse_action_arg + arg->offset)) = type;
 
 	return tp_get_keyword();
+}
+
+static uint8_t *handle_bool(uint8_t *kw, const dec_arg_t *arg)
+{
+	uint32_t tmp;
+
+	if(!strcmp(kw, "true"))
+		tmp = 1;
+	else
+	if(!strcmp(kw, "false"))
+		tmp = 0;
+	else
+	if(doom_sscanf(kw, "%d", &tmp) != 1)
+		I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+
+	*((uint8_t*)(parse_action_arg + arg->offset)) = !!tmp;
+
+	return tp_get_keyword();
+}
+
+static uint8_t *handle_bool_invert(uint8_t *kw, const dec_arg_t *arg)
+{
+	kw = handle_bool(kw, arg);
+
+	*((uint8_t*)(parse_action_arg + arg->offset)) ^= 1;
+
+	return kw;
 }
 
 static uint8_t *handle_u16(uint8_t *kw, const dec_arg_t *arg)
@@ -337,14 +372,11 @@ static const dec_args_t args_LowerRaise =
 __attribute((regparm(2),no_caller_saved_registers))
 void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	player_t *pl;
-	const args_singleFixed_t *arg;
+	player_t *pl = mo->player;
+	const args_singleFixed_t *arg = st->arg;
 
-	if(!mo->player)
+	if(!pl)
 		return;
-
-	pl = mo->player;
-	arg = st->arg;
 
 	pl->weapon_ready = 0;
 	pl->psprites[0].sy += arg->value;
@@ -385,14 +417,11 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	player_t *pl;
-	const args_singleFixed_t *arg;
+	player_t *pl = mo->player;
+	const args_singleFixed_t *arg = st->arg;
 
-	if(!mo->player)
+	if(!pl)
 		return;
-
-	pl = mo->player;
-	arg = st->arg;
 
 	pl->weapon_ready = 0;
 	pl->psprites[0].sy -= arg->value;
@@ -409,16 +438,14 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	uint32_t state;
-	player_t *pl;
+	player_t *pl = mo->player;
 
-	if(!mo->player)
+	if(!pl)
 		return;
 
 	// mobj to 'missile' animation
 	if(mo->animation != ANIM_MISSILE && mo->info->state_missile)
 		mobj_set_animation(mo, ANIM_MISSILE);
-
-	pl = mo->player;
 
 	if(pl->attackdown > 1)
 		state = pl->readyweapon->st_weapon.flash_alt;
@@ -474,13 +501,12 @@ void A_Light2(mobj_t *mo, state_t *st, stfunc_t stfunc)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	player_t *pl;
+	player_t *pl = mo->player;
 	pspdef_t *psp;
 
-	if(!mo->player)
+	if(!pl)
 		return;
 
-	pl = mo->player;
 	psp = pl->psprites;
 
 	// mobj animation (not shooting)
@@ -524,12 +550,10 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	player_t *pl;
+	player_t *pl = mo->player;
 
-	if(!mo->player)
+	if(!pl)
 		return;
-
-	pl = mo->player;
 
 	if(	pl->cmd.buttons & (BT_ATTACK | BT_ALTACK) &&
 		!pl->pendingweapon &&
@@ -569,6 +593,39 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_ActiveSound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	S_StartSound(mo, mo->info->activesound);
+}
+
+//
+// A_StartSound
+
+static const dec_arg_flag_t flags_StartSound[] =
+{
+	MAKE_FLAG(CHAN_BODY), // default, 0
+	MAKE_FLAG(CHAN_WEAPON),
+	MAKE_FLAG(CHAN_VOICE),
+	MAKE_FLAG(CHAN_ITEM),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_StartSound =
+{
+	.size = sizeof(args_StartSound_t),
+	.arg =
+	{
+		{"sound", handle_sound, offsetof(args_StartSound_t, sound)},
+		{"slot", handle_flags, offsetof(args_StartSound_t, slot), 1, flags_StartSound},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_StartSound(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	// NOTE: sound slots are not implemented, yet
+	const args_StartSound_t *arg = st->arg;
+	S_StartSound(mo, arg->sound);
 }
 
 //
@@ -675,6 +732,7 @@ static const dec_args_t args_SpawnProjectile =
 		{"spawnofs_xy", handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
 		{"angle", handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
 		{"flags", handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_SpawnProjectile},
+		{"pitch", handle_fixed, offsetof(args_SpawnProjectile_t, pitch), 1},
 //		{"ptr", handle_pointer, offsetof(args_SpawnProjectile_t, ptr), 1},
 		// terminator
 		{NULL}
@@ -687,15 +745,13 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	angle_t angle = mo->angle;
 	fixed_t pitch = 0;
 	int32_t dist = 0;
-	angle_t aaa;
 	fixed_t x, y, z;
-	mobj_t *item, *target;
+	mobj_t *th, *target;
 	const args_SpawnProjectile_t *arg = st->arg;
 
 	x = mo->x;
 	y = mo->y;
 	z = mo->z + arg->spawnheight;
-	aaa = mo->angle;
 
 	if(arg->flags & CMF_TRACKOWNER && mo->flags & MF_MISSILE)
 	{
@@ -724,7 +780,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(arg->spawnofs_xy)
 	{
-		angle_t a = (aaa - ANG90) >> ANGLETOFINESHIFT;
+		angle_t a = (mo->angle - ANG90) >> ANGLETOFINESHIFT;
 		x += FixedMul(arg->spawnofs_xy, finecosine[a]);
 		y += FixedMul(arg->spawnofs_xy, finesine[a]);
 	}
@@ -744,22 +800,138 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			angle += (P_Random() - P_Random()) << 20;
 	}
 
-	item = P_SpawnMobj(x, y, z, arg->missiletype);
+	th = P_SpawnMobj(x, y, z, arg->missiletype);
 
 	if(arg->flags & (CMF_AIMDIRECTION|CMF_ABSOLUTEPITCH))
-		item->momz = -arg->pitch;
+		th->momz = -arg->pitch;
 	else
-	if(item->info->speed)
+	if(th->info->speed)
 	{
-		dist /= item->info->speed;
+		dist /= th->info->speed;
 		if(dist <= 0)
 			dist = 1;
-		item->momz = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
+		th->momz = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
 		if(arg->flags & CMF_OFFSETPITCH)
-			item->momz -= pitch;
+			th->momz -= pitch;
 	}
 
-	missile_stuff(item, mo, target, angle);
+	missile_stuff(th, mo, target, angle);
+}
+
+//
+// A_FireProjectile
+
+static const dec_arg_flag_t flags_FireProjectile[] =
+{
+	MAKE_FLAG(FPF_AIMATANGLE),
+	MAKE_FLAG(FPF_TRANSFERTRANSLATION),
+	MAKE_FLAG(FPF_NOAUTOAIM),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_FireProjectile =
+{
+	.size = sizeof(args_SpawnProjectile_t),
+	.arg =
+	{
+		{"missiletype", handle_mobjtype, offsetof(args_SpawnProjectile_t, missiletype)},
+		{"angle", handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
+		{"useammo", handle_bool_invert, offsetof(args_SpawnProjectile_t, noammo), 1},
+		{"spawnofs_xy", handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
+		{"spawnheight", handle_fixed, offsetof(args_SpawnProjectile_t, spawnheight), 1},
+		{"flags", handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_FireProjectile},
+		{"pitch", handle_fixed, offsetof(args_SpawnProjectile_t, pitch), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	player_t *pl = mo->player;
+	const args_SpawnProjectile_t *arg = st->arg;
+	mobj_t *th;
+	uint32_t angle;
+	fixed_t slope;
+	fixed_t x, y, z;
+
+	if(!pl)
+		return;
+
+	if(!mo->custom_inventory && !arg->noammo)
+	{
+		mobjinfo_t *weap = pl->readyweapon;
+		uint32_t take;
+		// ammo check
+		if(!weapon_has_ammo(mo, weap, pl->attackdown))
+			return;
+		// which ammo
+		take = pl->attackdown;
+		if(take > 1)
+		{
+			if(weap->eflags & MFE_WEAPON_ALT_USES_BOTH)
+				take |= 1;
+		} else
+		{
+			if(weap->eflags & MFE_WEAPON_PRIMARY_USES_BOTH)
+				take |= 2;
+		}
+		// ammo use
+		if(take & 1 && weap->weapon.ammo_type[0])
+			inventory_take(mo, weap->weapon.ammo_type[0], weap->weapon.ammo_use[0]);
+		if(take & 2 && weap->weapon.ammo_type[1])
+			inventory_take(mo, weap->weapon.ammo_type[1], weap->weapon.ammo_use[1]);
+	}
+
+	angle = mo->angle;
+
+	if(arg->flags & FPF_AIMATANGLE)
+		angle += arg->angle;
+
+	// TODO: autoaim optional
+	slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
+	if(!*linetarget)
+	{
+		angle += 1 << 26;
+		slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
+
+		if(!*linetarget)
+		{
+			angle -= 2 << 26;
+			slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
+
+			if(!*linetarget)
+			{
+				slope = 0;
+				angle = mo->angle;
+				if(arg->flags & FPF_AIMATANGLE)
+					angle += arg->angle;
+			}
+		}
+	}
+
+	if(arg->angle && !(arg->flags & FPF_AIMATANGLE))
+		angle = mo->angle + arg->angle;
+
+	x = mo->x;
+	y = mo->y;
+	z = mo->z;
+	z += mo->height / 2;
+	z += mo->info->player.attack_offs;
+	z += arg->spawnheight;
+
+	if(arg->spawnofs_xy)
+	{
+		angle_t a = (mo->angle - ANG90) >> ANGLETOFINESHIFT;
+		x += FixedMul(arg->spawnofs_xy, finecosine[a]);
+		y += FixedMul(arg->spawnofs_xy, finesine[a]);
+	}
+
+	th = P_SpawnMobj(x, y, z, arg->missiletype);
+	missile_stuff(th, mo, *linetarget, angle);
+	th->momz = FixedMul(th->info->speed, slope);
 }
 
 //
@@ -913,11 +1085,12 @@ static const dec_action_t mobj_action[] =
 	{"a_light2", A_Light2},
 	{"a_weaponready", A_WeaponReady},
 	{"a_refire", A_ReFire},
-	// basic sounds
+	// sound
 	{"a_pain", A_Pain},
 	{"a_scream", A_Scream},
 	{"a_xscream", A_XScream},
 	{"a_activesound", A_ActiveSound},
+	{"a_startsound", A_StartSound, &args_StartSound},
 	// basic control
 	{"a_facetarget", A_FaceTarget},
 	{"a_noblocking", A_NoBlocking},
@@ -926,11 +1099,22 @@ static const dec_action_t mobj_action[] =
 	{"a_chase", A_Chase},
 	// enemy attack
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
+	// player attack
+	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	// misc
 	{"a_setangle", A_SetAngle, &args_SetAngle},
 	// inventory
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	// terminator
 	{NULL}
+};
+
+//
+// hooks
+
+static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
+{
+	// import variables
+	{0x0002B9F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&linetarget},
 };
 

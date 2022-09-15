@@ -163,46 +163,6 @@ void weapon_move_pspr(player_t *pl)
 }
 
 //
-// ammo check
-
-static uint32_t have_ammo(mobj_t *mo, mobjinfo_t *info, uint32_t check)
-{
-	uint16_t ammo_have[2];
-
-	// primary ammo
-	if(!info->weapon.ammo_type[0] || !info->weapon.ammo_use[0] || info->eflags & MFE_WEAPON_AMMO_OPTIONAL)
-		ammo_have[0] = 1;
-	else
-		ammo_have[0] = inventory_check(mo, info->weapon.ammo_type[0]) >= info->weapon.ammo_use[0];
-
-	// secondary ammo
-	if(!info->weapon.ammo_type[1] || !info->weapon.ammo_use[1] || info->eflags & MFE_WEAPON_ALT_AMMO_OPTIONAL)
-		ammo_have[1] = 1;
-	else
-		ammo_have[1] = inventory_check(mo, info->weapon.ammo_type[1]) >= info->weapon.ammo_use[1];
-
-	// check primary
-	if(info->st_weapon.fire && (check & 1))
-	{
-		if(	ammo_have[0] &&
-			(ammo_have[1] || !(info->eflags & MFE_WEAPON_PRIMARY_USES_BOTH))
-		)
-			return 1;
-	}
-
-	// check secondary
-	if(info->st_weapon.fire_alt && (check & 2))
-	{
-		if(	ammo_have[1] &&
-			(ammo_have[0] || !(info->eflags & MFE_WEAPON_ALT_USES_BOTH))
-		)
-			return 1;
-	}
-
-	return 0;
-}
-
-//
 // API
 
 void weapon_setup(player_t *pl)
@@ -281,7 +241,7 @@ uint32_t weapon_check_ammo(player_t *pl)
 	if(!pl->attackdown)
 		return 0;
 
-	if(have_ammo(pl->mo, weap, pl->attackdown))
+	if(weapon_has_ammo(pl->mo, weap, pl->attackdown))
 		return 1;
 
 	pl->attackdown = 0;
@@ -311,7 +271,7 @@ uint32_t weapon_check_ammo(player_t *pl)
 			if(!inventory_check(pl->mo, type))
 				continue;
 
-			if(have_ammo(pl->mo, info, 3))
+			if(weapon_has_ammo(pl->mo, info, 3))
 			{
 				selection_order = info->weapon.selection_order;
 				weap = info;
@@ -324,6 +284,43 @@ uint32_t weapon_check_ammo(player_t *pl)
 	// just hope that this was not called in 'flash PSPR'
 	pl->psprites[0].state = NULL;
 	pl->psprites[0].tics = pl->readyweapon->st_weapon.lower;
+
+	return 0;
+}
+
+uint32_t weapon_has_ammo(mobj_t *mo, mobjinfo_t *info, uint32_t check)
+{
+	uint16_t ammo_have[2];
+
+	// primary ammo
+	if(!info->weapon.ammo_type[0] || !info->weapon.ammo_use[0] || info->eflags & MFE_WEAPON_AMMO_OPTIONAL)
+		ammo_have[0] = 1;
+	else
+		ammo_have[0] = inventory_check(mo, info->weapon.ammo_type[0]) >= info->weapon.ammo_use[0];
+
+	// secondary ammo
+	if(!info->weapon.ammo_type[1] || !info->weapon.ammo_use[1] || info->eflags & MFE_WEAPON_ALT_AMMO_OPTIONAL)
+		ammo_have[1] = 1;
+	else
+		ammo_have[1] = inventory_check(mo, info->weapon.ammo_type[1]) >= info->weapon.ammo_use[1];
+
+	// check primary
+	if(info->st_weapon.fire && (check & 1))
+	{
+		if(	ammo_have[0] &&
+			(ammo_have[1] || !(info->eflags & MFE_WEAPON_PRIMARY_USES_BOTH))
+		)
+			return 1;
+	}
+
+	// check secondary
+	if(info->st_weapon.fire_alt && (check & 2))
+	{
+		if(	ammo_have[1] &&
+			(ammo_have[0] || !(info->eflags & MFE_WEAPON_ALT_USES_BOTH))
+		)
+			return 1;
+	}
 
 	return 0;
 }

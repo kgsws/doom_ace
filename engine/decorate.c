@@ -2121,7 +2121,8 @@ void init_decorate()
 		sfx_rng_fix(&mobjinfo[i].deathsound, 70);
 
 		// basically everything is randomized
-		mobjinfo[i].flags1 = MF1_RANDOMIZE;
+		// basically everything can be seeker missile
+		mobjinfo[i].flags1 = MF1_RANDOMIZE | MF1_SEEKERMISSILE;
 
 		// mark enemies
 		if(mobjinfo[i].flags & MF_COUNTKILL)

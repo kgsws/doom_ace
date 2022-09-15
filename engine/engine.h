@@ -899,6 +899,7 @@ void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_regis
 // p_map
 uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_UseLines(player_t*) __attribute((regparm(2),no_caller_saved_registers));
+fixed_t P_AimLineAttack(mobj_t*,angle_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_maputl

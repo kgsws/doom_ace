@@ -621,6 +621,16 @@ G_DeferedInitNew:
 	.4byte	0x00021540
 	pop	%ebx
 	ret
+////////////////////////////////// P_AimLineAttack
+.section .text.P_AimLineAttack
+.global P_AimLineAttack
+P_AimLineAttack:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002BB80
+	pop	%ebx
+	ret
 ////////////////////////////////// end
 .section .text.__reloc_code_arg3_end
 __reloc_code_arg3_end:

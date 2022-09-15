@@ -134,13 +134,10 @@ void hook_RenderPlayerView(player_t *pl)
 	if(ammo_pri)
 	{
 		stbar_big_number_r(SCREENWIDTH - 4, ty, *ammo_pri, -4);
-		ty -= tallnum_height;
+		ty -= tallnum_height + 1;
 	}
 	if(ammo_sec)
-	{
 		stbar_big_number_r(SCREENWIDTH - 4, ty, *ammo_sec, -4);
-		ty -= tallnum_height;
-	}
 
 	// keys
 	cm = 0;

@@ -163,6 +163,46 @@ void weapon_move_pspr(player_t *pl)
 }
 
 //
+// ammo check
+
+static uint32_t have_ammo(mobj_t *mo, mobjinfo_t *info, uint32_t check)
+{
+	uint16_t ammo_have[2];
+
+	// primary ammo
+	if(!info->weapon.ammo_type[0] || !info->weapon.ammo_use[0] || info->eflags & MFE_WEAPON_AMMO_OPTIONAL)
+		ammo_have[0] = 1;
+	else
+		ammo_have[0] = inventory_check(mo, info->weapon.ammo_type[0]) >= info->weapon.ammo_use[0];
+
+	// secondary ammo
+	if(!info->weapon.ammo_type[1] || !info->weapon.ammo_use[1] || info->eflags & MFE_WEAPON_ALT_AMMO_OPTIONAL)
+		ammo_have[1] = 1;
+	else
+		ammo_have[1] = inventory_check(mo, info->weapon.ammo_type[1]) >= info->weapon.ammo_use[1];
+
+	// check primary
+	if(info->st_weapon.fire && (check & 1))
+	{
+		if(	ammo_have[0] &&
+			(ammo_have[1] || !(info->eflags & MFE_WEAPON_PRIMARY_USES_BOTH))
+		)
+			return 1;
+	}
+
+	// check secondary
+	if(info->st_weapon.fire_alt && (check & 2))
+	{
+		if(	ammo_have[1] &&
+			(ammo_have[0] || !(info->eflags & MFE_WEAPON_ALT_USES_BOTH))
+		)
+			return 1;
+	}
+
+	return 0;
+}
+
+//
 // API
 
 void weapon_setup(player_t *pl)
@@ -233,30 +273,57 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 
 uint32_t weapon_check_ammo(player_t *pl)
 {
-	// TODO: MFE_WEAPON_PRIMARY_USES_BOTH, MFE_WEAPON_ALT_USES_BOTH
 	uint32_t count;
 	uint16_t type;
-	mobjinfo_t *info = pl->readyweapon;
+	uint16_t selection_order = 0xFFFF;
+	mobjinfo_t *weap = pl->readyweapon;
 
 	if(!pl->attackdown)
 		return 0;
 
-	type = info->weapon.ammo_type[pl->attackdown-1];
-	if(!type)
-		return 1;
-
-	count = inventory_check(pl->mo, type);
-	if(count >= info->weapon.ammo_use[pl->attackdown-1])
+	if(have_ammo(pl->mo, weap, pl->attackdown))
 		return 1;
 
 	pl->attackdown = 0;
 
-	// TODO: propper selection
-	pl->pendingweapon = info;
+	// find next suitable weapon
+	for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
+	{
+		uint16_t *ptr;
+
+		ptr = pl->mo->info->player.wpn_slot[i];
+		if(!ptr)
+			continue;
+
+		while(*ptr)
+		{
+			uint16_t type = *ptr++;
+			mobjinfo_t *info = mobjinfo + type;
+
+			if(info == pl->readyweapon)
+				continue;
+
+			// priority
+			if(info->weapon.selection_order > selection_order)
+				continue;
+
+			// check
+			if(!inventory_check(pl->mo, type))
+				continue;
+
+			if(have_ammo(pl->mo, info, 3))
+			{
+				selection_order = info->weapon.selection_order;
+				weap = info;
+			}
+		}
+	}
+
+	pl->pendingweapon = weap;
 
 	// just hope that this was not called in 'flash PSPR'
 	pl->psprites[0].state = NULL;
-	pl->psprites[0].tics = info->st_weapon.lower;
+	pl->psprites[0].tics = pl->readyweapon->st_weapon.lower;
 
 	return 0;
 }

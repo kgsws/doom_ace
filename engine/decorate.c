@@ -83,6 +83,7 @@ typedef struct
 typedef struct
 {
 	uint8_t type;
+	uint8_t selection;
 	uint16_t use;
 	uint8_t *message;
 } doom_weapon_t;
@@ -750,15 +751,15 @@ static const uint8_t *powerup_special[] =
 // doom weapons
 static doom_weapon_t doom_weapon[NUMWEAPONS] =
 {
-	{MOBJ_IDX_FIST, 0, NULL}, // Fist (new)
-	{MOBJ_IDX_PISTOL, 1, "Pistol!"}, // Pistol (new)
-	{77, 1, (uint8_t*)0x00023104}, // Shotgun
-	{73, 1, (uint8_t*)0x00023094}, // Chaingun
-	{75, 1, (uint8_t*)0x000230CC}, // RocketLauncher
-	{76, 1, (uint8_t*)0x000230EC}, // PlasmaRifle
-	{72, 40, (uint8_t*)0x00023074}, // BFG9000
-	{74, 0, (uint8_t*)0x000230AC}, // Chainsaw
-	{78, 2, (uint8_t*)0x0002311C}, // SuperShotgun
+	{MOBJ_IDX_FIST, 37, 0, NULL}, // Fist (new)
+	{MOBJ_IDX_PISTOL, 19, 1, "Pistol!"}, // Pistol (new)
+	{77, 13, 1, (uint8_t*)0x00023104}, // Shotgun
+	{73, 7, 1, (uint8_t*)0x00023094}, // Chaingun
+	{75, 25, 1, (uint8_t*)0x000230CC}, // RocketLauncher
+	{76, 1, 1, (uint8_t*)0x000230EC}, // PlasmaRifle
+	{72, 28, 40, (uint8_t*)0x00023074}, // BFG9000
+	{74, 22, 0, (uint8_t*)0x000230AC}, // Chainsaw
+	{78, 4, 2, (uint8_t*)0x0002311C}, // SuperShotgun
 };
 
 // doom ammo
@@ -920,6 +921,7 @@ static void make_doom_weapon(uint32_t idx)
 		info->weapon.ammo_type[0] = doom_ammo[wpn->ammo].clp;
 		info->weapon.ammo_give[0] = ((uint32_t*)(0x00012D80 + doom_data_segment))[wpn->ammo] * 2; // clipammo
 	}
+	info->weapon.selection_order = (uint16_t)def->selection * 100;
 	info->weapon.ammo_use[0] = def->use;
 
 	info->st_weapon.raise = wpn->upstate;

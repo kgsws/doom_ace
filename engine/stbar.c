@@ -281,6 +281,11 @@ static void update_backpack(player_t *pl)
 	}
 }
 
+static void update_inventory(player_t *pl)
+{
+
+}
+
 static void update_ready_weapon(player_t *pl)
 {
 	// weapon changed
@@ -309,6 +314,8 @@ static void update_ready_weapon(player_t *pl)
 		if(item)
 			ammo_sec = &item->count;
 	}
+	if(ammo_sec == ammo_pri)
+		ammo_sec = NULL;
 
 	// old stbar ammo pointer
 	w_ready->num = ammo_pri ? ammo_pri : ammo_sec;
@@ -327,6 +334,9 @@ void stbar_update(player_t *pl)
 
 	if(pl->stbar_update & STU_BACKPACK)
 		update_backpack(pl);
+
+	if(pl->stbar_update & STU_INVENTORY)
+		update_inventory(pl);
 
 	if(pl->stbar_update & STU_WEAPON_NOW)
 		update_ready_weapon(pl);

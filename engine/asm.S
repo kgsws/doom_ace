@@ -511,6 +511,12 @@ P_SpawnSpecials:
 R_PrecacheLevel:
 	.byte	0xE9
 	.4byte	0x00034780
+////////////////////////////////// G_BuildTiccmd
+.section .text.G_BuildTiccmd
+.global G_BuildTiccmd
+G_BuildTiccmd:
+	.byte	0xE9
+	.4byte	0x0001FB10
 ////////////////////////////////// doom_V_CopyRect
 .section .text.doom_V_CopyRect
 .global doom_V_CopyRect

@@ -23,6 +23,9 @@ typedef struct
 
 //
 
+static uint32_t *gamekeydown;
+static uint32_t *mousebuttons;
+
 uint32_t *playeringame;
 player_t *players;
 
@@ -92,9 +95,9 @@ void powerup_give(player_t *pl, mobjinfo_t *info)
 }
 
 //
-// weapon change by ticcmd
+// buttons in ticcmd
 
-static inline void weapon_change(player_t *pl, ticcmd_t *cmd)
+static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 {
 	uint32_t slot;
 	uint16_t *ptr;
@@ -102,10 +105,14 @@ static inline void weapon_change(player_t *pl, ticcmd_t *cmd)
 	uint16_t now;
 	mobjinfo_t *select;
 
-	if(!(cmd->buttons & 4))
-		return;
+	slot = (cmd->buttons & BT_ACTIONMASK) >> BT_ACTIONSHIFT;
 
-	slot = ((cmd->buttons >> 3) & 7) + 1; // old handling, will be replaced soon
+	if(!slot)
+		return;
+	slot--;
+
+	if(slot >= NUM_WPN_SLOTS)
+		return;
 
 	ptr = pl->mo->info->player.wpn_slot[slot];
 	if(!ptr)
@@ -241,7 +248,7 @@ void player_think(player_t *pl)
 	if(cmd->buttons & BT_SPECIAL)
 		cmd->buttons = 0;
 
-	weapon_change(pl, cmd);
+	check_buttons(pl, cmd);
 
 	if(cmd->buttons & BT_USE)
 	{
@@ -285,6 +292,60 @@ void player_think(player_t *pl)
 
 	if(pl->damagecount) // this IS done in 'P_DeathThink'
 		pl->damagecount--;
+}
+
+//
+// input
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void build_ticcmd(ticcmd_t *cmd)
+{
+	// first, use the original function
+	G_BuildTiccmd(cmd);
+
+	// second, modify stuff
+	if(cmd->buttons & BT_SPECIAL)
+		return;
+
+	// mask off weapon chagnes
+	cmd->buttons &= BT_ATTACK | BT_USE | BT_ALTACK;
+
+	// secondary attack
+	if(mousebuttons[1] || gamekeydown[0])
+		cmd->buttons |= BT_ALTACK;
+
+	// new weapon changes
+	for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
+	{
+		if(gamekeydown['0' + i])
+		{
+			gamekeydown['0' + i] = 0;
+			cmd->buttons |= (i + 1) << BT_ACTIONSHIFT;
+			// no inventory input
+			return;
+		}
+	}
+
+	// inventory prev
+	if(gamekeydown[','])
+	{
+		gamekeydown[','] = 0;
+		cmd->buttons |= BT_ACT_INV_PREV << BT_ACTIONSHIFT;
+	}
+
+	// inventory next
+	if(gamekeydown['.'])
+	{
+		gamekeydown['.'] = 0;
+		cmd->buttons |= BT_ACT_INV_NEXT << BT_ACTIONSHIFT;
+	}
+
+	// inventory use
+	if(gamekeydown['\r'])
+	{
+		gamekeydown['\r'] = 0;
+		cmd->buttons |= BT_ACT_INV_USE << BT_ACTIONSHIFT;
+	}
 }
 
 //
@@ -346,8 +407,13 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00032FBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_think},
 	// replace call to 'G_PlayerFinishLevel' in 'G_DoCompleted'
 	{0x00020DBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_finish},
+	// replace call to 'G_BuildTiccmd'
+	{0x0001D5B2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},
+	{0x0001F220, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},
 	// import variables
 	{0x0002B2D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playeringame},
 	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
+	{0x0002A880, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamekeydown},
+	{0x0002AC84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mousebuttons},
 };
 

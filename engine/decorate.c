@@ -16,9 +16,9 @@
 
 #include "decodoom.h"
 
-#define NUM_STATE_HOOKS	1
-
 #define NUM_NEW_TYPES	3
+
+#define NUM_STATE_HOOKS	1
 
 enum
 {
@@ -472,7 +472,7 @@ static const dec_flag_t inventory_flags[] =
 	{"inventory.ignoreskill", MFE_INVENTORY_IGNORESKILL},
 	{"inventory.autoactivate", MFE_INVENTORY_AUTOACTIVATE},
 	{"inventory.alwayspickup", MFE_INVENTORY_ALWAYSPICKUP},
-//	{"inventory.invbar", MFE_INVENTORY_INVBAR},
+	{"inventory.invbar", MFE_INVENTORY_INVBAR},
 //	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER}, // not available, not planned
 //	{"inventory.persistentpower", MFE_INVENTORY_PERSISTENTPOWER},
 //	{"inventory.bigpowerup", MFE_INVENTORY_BIGPOWERUP},
@@ -689,12 +689,10 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 	[MOBJ_IDX_UNKNOWN - NUMMOBJTYPES] =
 	{
 		.spawnhealth = 1000,
-		.reactiontime = 8,
-		.radius = 20 << FRACBITS,
-		.height = 16 << FRACBITS,
 		.mass = 100,
 		.flags = MF_NOGRAVITY | MF_NOBLOCKMAP,
 		.state_spawn = 149, // TODO: custom sprite
+		.state_idx_limit = NUMSTATES,
 	},
 	[MOBJ_IDX_FIST - NUMMOBJTYPES] =
 	{
@@ -707,6 +705,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.mass = 100,
 		.flags = MF_SPECIAL,
 		.state_crush = 895,
+		.state_idx_limit = NUMSTATES,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
 		.weapon.inventory.max_count = 1,
@@ -725,6 +724,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.mass = 100,
 		.flags = MF_SPECIAL,
 		.state_crush = 895,
+		.state_idx_limit = NUMSTATES,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
 		.weapon.inventory.max_count = 1,

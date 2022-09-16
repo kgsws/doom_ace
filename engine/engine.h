@@ -25,9 +25,12 @@ typedef uint32_t angle_t;
 
 // do not change
 #define NUM_WPN_SLOTS	10
+
+// original values
 #define NUMMOBJTYPES	137
 #define NUMSTATES	967
 #define NUMSPRITES	138
+#define MAXEVENTS	64
 
 //
 // tables
@@ -80,6 +83,11 @@ typedef uint32_t angle_t;
 #define GS_INTERMISSION	1
 #define GS_FINALE	2
 #define GS_DEMOSCREEN	3
+
+#define ev_keydown	0
+#define ev_keyup	1
+#define ev_mouse	2
+#define ev_joystick	3
 
 //
 // map
@@ -148,6 +156,14 @@ typedef struct menu_s
 	uint16_t last;
 } __attribute__((packed)) menu_t;
 
+typedef struct
+{
+	uint32_t type;
+	uint32_t data1;
+	uint32_t data2;
+	uint32_t data3;
+} event_t;
+
 //
 // tics
 
@@ -155,6 +171,12 @@ typedef struct menu_s
 #define BT_USE	2
 #define BT_ALTACK	64
 #define BT_SPECIAL	128
+#define BT_ACTIONMASK	0b00111100
+#define BT_ACTIONSHIFT	2
+
+#define BT_ACT_INV_PREV	15
+#define BT_ACT_INV_NEXT	14
+#define BT_ACT_INV_USE	13
 
 typedef struct
 {
@@ -245,12 +267,14 @@ typedef struct player_s
 	int32_t armortype;
 	int32_t powers[NUMPOWERS];
 	uint32_t cards[NUMCARDS];
-	struct inventory_s *inventory; // for level transition
+	uint32_t __unused_bkpk;
 	int32_t frags[MAXPLAYERS];
 	struct mobjinfo_s *readyweapon;
 	struct mobjinfo_s *pendingweapon;
 	uint32_t stbar_update;
-	uint32_t __unused[8+4+4];
+	struct inventory_s *inventory; // for level transition
+	struct inventory_s *inv_sel; // current selection
+	uint32_t __unused[6+4+4];
 	uint16_t attackdown;
 	uint8_t weapon_ready;
 	uint8_t backpack;
@@ -843,6 +867,7 @@ extern uint32_t *gamemode;
 extern uint32_t *gamestate;
 extern uint32_t *gameaction;
 extern uint32_t *paused;
+extern uint32_t *menuactive;
 extern fixed_t *finesine;
 extern fixed_t *finecosine;
 extern uint32_t *viewheight;
@@ -860,6 +885,7 @@ void *ldr_realloc(void *ptr, uint32_t size);
 
 // g_game
 void G_DeferedInitNew(uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // i_video
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));

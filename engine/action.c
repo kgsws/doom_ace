@@ -930,8 +930,11 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	}
 
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
-	missile_stuff(th, mo, *linetarget, angle);
-	th->momz = FixedMul(th->info->speed, slope);
+	if(th->flags & MF_MISSILE)
+	{
+		missile_stuff(th, mo, *linetarget, angle);
+		th->momz = FixedMul(th->info->speed, slope);
+	}
 }
 
 //

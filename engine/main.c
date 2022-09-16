@@ -36,6 +36,7 @@ typedef struct
 uint32_t *gamestate;
 uint32_t *gameaction;
 uint32_t *paused;
+uint32_t *menuactive;
 uint32_t *gamemode;
 static uint32_t *gamemode_sw;
 static uint32_t *gamemode_reg;
@@ -366,6 +367,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
 	{0x0002B404, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameaction},
 	{0x0002B408, DATA_HOOK | HOOK_IMPORT, (uint32_t)&paused},
+	{0x0002B6CC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&menuactive},
 	{0x0002A3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode},
 	{0x0002A3AC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_sw},
 	{0x0002A3B4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_reg},

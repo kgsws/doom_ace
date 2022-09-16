@@ -26,8 +26,8 @@ static inline void inv_check_stbar(player_t *pl, mobjinfo_t *info)
 		case ETYPE_ARMOR:
 		case ETYPE_ARMOR_BONUS:
 		case ETYPE_POWERUP:
-			// TODO: +INVBAR flag check
-			pl->stbar_update |= STU_INVENTORY;
+			if(info->eflags & MFE_INVENTORY_INVBAR)
+				pl->stbar_update |= STU_INVENTORY;
 		break;
 		case ETYPE_KEY:
 			pl->stbar_update |= STU_KEYS;

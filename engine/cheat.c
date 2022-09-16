@@ -380,8 +380,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// disable original cheats
 	{0x00039B08, CODE_HOOK | HOOK_UINT16, 0xE990},
 	{0x00025403, CODE_HOOK | HOOK_UINT16, 0xE990},
-	// enable chat in singleplayer
-	{0x0003BA10, CODE_HOOK | HOOK_UINT16, 0x07EB},
+	// enable chat in singleplayer, disable 'enter' to repeat last message
+	{0x0003B9EE, CODE_HOOK | HOOK_UINT16, 0x29EB},
+	// change chat key // TODO: customizable
+	{0x0003BA1B, CODE_HOOK | HOOK_UINT8, '`'},
 	// enable lowercase
 	{0x0003BC1F, CODE_HOOK | HOOK_UINT16, 0x15EB},
 	{0x0003C26B, CODE_HOOK | HOOK_UINT8, 0x7E},

@@ -478,6 +478,7 @@ typedef struct mobjinfo_s
 	uint32_t replacement;
 	uint32_t flags1;
 	uint32_t eflags;
+	fixed_t step_height;
 	// extra stuff list
 	union
 	{

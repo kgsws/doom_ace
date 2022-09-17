@@ -681,6 +681,13 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 		.attr[1] = attr_powerup,
 		.flag[0] = inventory_flags,
 	},
+	[ETYPE_HEALTH_PICKUP] =
+	{
+		.name = "HealthPickup",
+		.def = &default_inventory,
+		.attr[0] = attr_inventory,
+		.flag[0] = inventory_flags,
+	},
 };
 
 // internal types
@@ -2248,7 +2255,7 @@ void init_decorate()
 		for(uint32_t i = info->state_idx_first; i < info->state_idx_limit; i++)
 			states[i].arg = relocate_estorage(target, (void*)states[i].arg);
 
-		// drop item list
+		// drop item list / start inventory list
 		if(info->extra_stuff[0])
 		{
 			info->extra_stuff[0] = relocate_estorage(target, info->extra_stuff[0]);

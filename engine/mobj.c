@@ -662,6 +662,18 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
 				return;
 		break;
+		case ETYPE_HEALTH_PICKUP:
+			given = 0;
+			// autoactivate
+			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
+				given = give_health(toucher, info->spawnhealth, toucher->info->spawnhealth);
+			// give as item
+			if(!given)
+				given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;
+			// check
+			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+				return;
+		break;
 		default:
 			// this should not be set
 			mo->flags &= ~MF_SPECIAL;
@@ -733,8 +745,13 @@ void mobj_use_item(mobj_t *mo, inventory_t *item)
 		case ETYPE_ARMOR_BONUS:
 			if(!give_armor(mo, info))
 				return;
+		break;
 		case ETYPE_POWERUP:
 			if(!give_power(mo, info))
+				return;
+		break;
+		case ETYPE_HEALTH_PICKUP:
+			if(!give_health(mo, info->spawnhealth, mo->info->spawnhealth))
 				return;
 		break;
 	}
@@ -808,6 +825,22 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
 			{
 				given = give_power(mo, info);
+				if(given)
+					count--;
+			}
+			// give as item(s)
+			if(!given || count)
+				given |= inventory_give(mo, type, count) < count;
+			// check
+			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+				return 0;
+			return 1;
+		case ETYPE_HEALTH_PICKUP:
+			given = 0;
+			// autoactivate
+			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
+			{
+				given = give_health(mo, info->spawnhealth, mo->info->spawnhealth);
 				if(given)
 					count--;
 			}

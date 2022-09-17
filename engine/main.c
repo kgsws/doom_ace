@@ -33,6 +33,8 @@ typedef struct
 
 // SDK variables
 
+uint32_t *wipegamestate;
+uint32_t *gametic;
 uint32_t *gamestate;
 uint32_t *gameaction;
 uint32_t *paused;
@@ -81,6 +83,15 @@ void finish_loading()
 	// restore 'I_FinishUpdate' modification
 	utils_install_hooks(restore_loader + 1, 1);
 	doom_printf("LOADING FINISHED\n");
+}
+
+//
+// error message (in game)
+
+void error_message(uint8_t *text)
+{
+	D_StartTitle();
+	M_StartMessage(text, NULL, 0);
 }
 
 //
@@ -372,6 +383,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002A3AC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_sw},
 	{0x0002A3B4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_reg},
 	{0x0002B3F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamestate},
+	{0x00011B40, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wipegamestate},
+	{0x0002B3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gametic},
 	// read stuff
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},

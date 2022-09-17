@@ -54,6 +54,15 @@ typedef struct
 
 //
 
+typedef struct
+{
+	thinker_t thinker;
+	line_t *line;
+	int8_t x, y;
+} line_scroll_t;
+
+//
+
 extern mapthing_t *playerstarts;
 extern mapthing_t *deathmatchstarts;
 extern mapthing_t **deathmatch_p;
@@ -92,4 +101,7 @@ extern uint_fast8_t map_skip_stuff;
 //
 
 void map_load_setup() __attribute((regparm(2),no_caller_saved_registers));
+
+// thinker
+void think_line_scroll(line_scroll_t *ls) __attribute((regparm(2),no_caller_saved_registers));
 

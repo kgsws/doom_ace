@@ -30,8 +30,9 @@ extern switch_t active_switch[MAX_BUTTONS];
 
 void init_animations();
 
-// level transition
-void clear_buttons() __attribute((regparm(2),no_caller_saved_registers));
+// level think
+void animate_step();
+void clear_buttons();
 
 // save
 uint16_t anim_switch_type(switch_t *slot);

@@ -148,9 +148,9 @@ typedef struct menuitem_s
 
 typedef struct menu_s
 {
-	uint16_t count;
-	struct menuitem_s *prev;
-	menuitem_t *items;
+	uint16_t numitems;
+	struct menu_s *prev;
+	menuitem_t *menuitems;
 	void (*draw)();
 	int16_t x, y;
 	uint16_t last;
@@ -192,7 +192,11 @@ typedef struct thinker_s
 {
 	struct thinker_s *prev;
 	struct thinker_s *next;
-	void *function;
+	union
+	{
+		void *function;
+		void (*func)(struct thinker_s*) __attribute((regparm(2),no_caller_saved_registers));
+	};
 } thinker_t;
 
 //
@@ -860,10 +864,11 @@ typedef struct
 // ASM hooks
 void hook_mobj_damage();
 void hook_obj_key();
-void menu_skip_draw() __attribute((noreturn));
 
 // some variables
 extern uint8_t *screen_buffer;
+extern uint32_t *wipegamestate;
+extern uint32_t *gametic;
 extern uint32_t *gamemode;
 extern uint32_t *gamestate;
 extern uint32_t *gameaction;
@@ -883,6 +888,10 @@ extern uint8_t *ldr_alloc_message;
 void gfx_progress(int32_t step);
 void *ldr_malloc(uint32_t size);
 void *ldr_realloc(void *ptr, uint32_t size);
+void error_message(uint8_t*);
+
+// d_main
+void D_StartTitle() __attribute((regparm(2),no_caller_saved_registers));
 
 // g_game
 void G_DeferedInitNew(uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -910,6 +919,7 @@ void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
 // m_menu
 void M_WriteText(uint32_t,uint32_t,uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void M_ClearMenus() __attribute((regparm(2),no_caller_saved_registers));
+void M_StartMessage(uint8_t*,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_ceiling
 void P_AddActiveCeiling(ceiling_t*) __attribute((regparm(2),no_caller_saved_registers));
@@ -957,6 +967,7 @@ void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2),no_caller_saved_
 void P_SpawnSpecials() __attribute((regparm(2),no_caller_saved_registers));
 
 // p_tick
+void P_RunThinkers() __attribute((regparm(2),no_caller_saved_registers));
 void P_AddThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_user

@@ -124,18 +124,6 @@ dos_exit:
 	int	$0x21
 
 //
-// skip menu cursor and items
-.global menu_skip_draw
-menu_skip_draw:
-	pop	%eax
-	sub	doom_code_segment,%eax
-	cmp	$0x23E90,%eax
-	jne	menu_skip_draw
-	mov	doom_code_segment,%eax
-	add	$0x23F4E,%eax
-	jmp	*%eax
-
-//
 // P_DamageMobj hook
 .global hook_mobj_damage
 hook_mobj_damage:
@@ -391,12 +379,24 @@ P_Random:
 M_Random:
 	.byte	0xE9
 	.4byte	0x00024180
+////////////////////////////////// D_StartTitle
+.section .text.D_StartTitle
+.global D_StartTitle
+D_StartTitle:
+	.byte	0xE9
+	.4byte	0x0001D810
 ////////////////////////////////// P_AddThinker
 .section .text.P_AddThinker
 .global P_AddThinker
 P_AddThinker:
 	.byte	0xE9
 	.4byte	0x00032ED0
+////////////////////////////////// P_RunThinkers
+.section .text.P_RunThinkers
+.global P_RunThinkers
+P_RunThinkers:
+	.byte	0xE9
+	.4byte	0x00032F10
 ////////////////////////////////// P_SetThingPosition
 .section .text.P_SetThingPosition
 .global P_SetThingPosition
@@ -615,6 +615,16 @@ M_WriteText:
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x00022FA0
+	pop	%ebx
+	ret
+////////////////////////////////// M_StartMessage
+.section .text.M_StartMessage
+.global M_StartMessage
+M_StartMessage:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x00022EA0
 	pop	%ebx
 	ret
 ////////////////////////////////// G_DeferedInitNew

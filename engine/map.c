@@ -4,10 +4,11 @@
 #include "engine.h"
 #include "utils.h"
 #include "decorate.h"
-#include "map.h"
 #include "mobj.h"
 #include "inventory.h"
 #include "animate.h"
+#include "think.h"
+#include "map.h"
 
 mapthing_t *playerstarts;
 mapthing_t *deathmatchstarts;
@@ -60,6 +61,37 @@ static uint32_t cb_free_inventory(mobj_t *mo)
 }
 
 //
+// line scroller
+
+__attribute((regparm(2),no_caller_saved_registers))
+void think_line_scroll(line_scroll_t *ls)
+{
+	side_t *side = *sides + ls->line->sidenum[0];
+	side->textureoffset += (fixed_t)ls->x * FRACUNIT;
+	side->rowoffset += (fixed_t)ls->y * FRACUNIT;
+}
+
+static inline void spawn_line_scroll()
+{
+	for(uint32_t i = 0; i < *numlines; i++)
+	{
+		line_t *ln = *lines + i;
+
+		if(ln->special == 48)
+		{
+			line_scroll_t *ls;
+
+			ls = Z_Malloc(sizeof(line_scroll_t), PU_LEVEL, NULL);
+			ls->line = ln;
+			ls->x = 1;
+			ls->y = 0;
+			ls->thinker.function = think_line_scroll;
+			think_add(&ls->thinker);
+		}
+	}
+}
+
+//
 // hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -78,13 +110,18 @@ void map_load_setup()
 	// reset netID
 	mobj_netid = 1; // 0 is NULL, so start with 1
 
+	think_clear();
+
 	P_SetupLevel();
 
-	// reset old stuff
+	// reset some stuff
 	for(uint32_t i = 0; i < MAXPLATS; i++)
 		activeplats[i] = NULL;
+
 	for(uint32_t i = 0; i < MAXCEILINGS; i++)
 		activeceilings[i] = NULL;
+
+	clear_buttons();
 
 	// precache
 	if(*precache)
@@ -92,7 +129,10 @@ void map_load_setup()
 
 	// specials
 	if(!map_skip_stuff)
+	{
 		P_SpawnSpecials();
+		spawn_line_scroll();
+	}
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -289,6 +329,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002E1F9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spawn_map_thing},
 	// disable call to 'P_SpawnSpecials' and 'R_PrecacheLevel' in 'P_SetupLevel'
 	{0x0002E981, CODE_HOOK | HOOK_UINT16, 0x11EB},
+	// disable line scroller and stuff cleanup in 'P_SpawnSpecials'
+	{0x00030155, CODE_HOOK | HOOK_JMP_DOOM, 0x000301E1},
 	// replace key checks in 'EV_VerticalDoor'
 	{0x00026C85, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_door_key},
 	{0x00026C8A, CODE_HOOK | HOOK_UINT16, 0xC085},

@@ -16,6 +16,8 @@
 #include "ldr_texture.h"
 #include "filebuf.h"
 #include "stbar.h"
+#include "think.h"
+#include "menu.h"
 #include "saveload.h"
 
 #define SAVE_SLOT_COUNT	6
@@ -26,7 +28,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA1	// increment with 'save_info_t' updates
+#define SAVE_VERSION	0xE58BAFA2	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -86,6 +88,7 @@ enum
 	STH_DOOM_GLOW,
 	// ACE special effects
 	STH_ACE__BASE = 0xABFF,
+	STH_ACE_LINE_SCROLL,
 	STH_ACE_CEILING,
 	STH_ACE_FLOOR,
 };
@@ -228,6 +231,8 @@ typedef struct
 	uint8_t backpack;
 	uint8_t state;
 	uint8_t didsecret;
+	//
+	uint16_t inv_sel;
 } save_player_t;
 
 typedef struct
@@ -318,6 +323,12 @@ typedef struct
 	int8_t direction;
 } save_glow_t;
 
+typedef struct
+{ // STH_ACE_LINE_SCROLL
+	uint16_t line;
+	int8_t x, y;
+} save_line_scroll_t;
+
 //
 
 static uint32_t *r_setblocks; // TODO: move to 'render'
@@ -329,7 +340,6 @@ static uint32_t *brain_sound_id;
 static save_name_t *save_name;
 static menuitem_t *load_items;
 static menu_t *load_menu;
-static uint16_t *menu_now;
 
 static uint8_t *savename;
 static uint8_t *savedesc;
@@ -474,8 +484,7 @@ static void draw_slot_bg(uint32_t x, uint32_t y, uint32_t width)
 	V_DrawPatchDirect(last, y, 0, W_CacheLumpName((uint8_t*)0x00022478 + doom_data_segment, PU_CACHE));
 }
 
-static __attribute((noreturn))
-void draw_check_preview()
+static void draw_check_preview()
 {
 	if(show_save_slot != *menu_now)
 	{
@@ -538,8 +547,6 @@ void draw_check_preview()
 	draw_slot_bg(5, 142, 164);
 
 	V_DrawPatchDirect(0, 0, 0, preview_patch);
-
-	menu_skip_draw();
 }
 
 //
@@ -748,8 +755,29 @@ static inline void sv_put_buttons()
 	// no last entry!
 }
 
+static inline void sv_put_thinkers()
+{
+	for(thinker_t *th = thcap.next; th != &thcap; th = th->next)
+	{
+		if(th->function == think_line_scroll)
+		{
+			save_line_scroll_t sav;
+			line_scroll_t *now = (line_scroll_t*)th;
+
+			writer_add_u16(STH_ACE_LINE_SCROLL);
+
+			sav.line = now->line - *lines;
+			sav.x = now->x;
+			sav.y = now->y;
+
+			writer_add(&sav, sizeof(sav));
+		}
+	}
+}
+
 static inline void sv_put_specials()
 {
+	// only old Doom level specials
 	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
 	{
 		uint32_t ret;
@@ -760,26 +788,25 @@ static inline void sv_put_specials()
 		else
 			type = 0;
 
-		switch(type)
+		if(!type) // [suspended]
 		{
-			case 0: // [suspended]
-			{
-				uint32_t i;
-				// find suspended T_MoveCeiling
-				for(i = 0; i < MAXCEILINGS; i++)
-					if(activeceilings[i] == (ceiling_t*)th)
-						break;
-				if(i < MAXCEILINGS)
-					goto add_ceiling;
-				// find suspended T_PlatRaise
-				for(i = 0; i < MAXPLATS; i++)
-					if(activeplats[i] == (plat_t*)th)
-						break;
-				if(i < MAXPLATS)
-					goto add_plat;
-			}
-			break;
-			case T_MoveCeiling:
+			uint32_t i;
+
+			// find suspended T_MoveCeiling
+			for(i = 0; i < MAXCEILINGS; i++)
+				if(activeceilings[i] == (ceiling_t*)th)
+					break;
+			if(i < MAXCEILINGS)
+				goto add_ceiling;
+			// find suspended T_PlatRaise
+			for(i = 0; i < MAXPLATS; i++)
+				if(activeplats[i] == (plat_t*)th)
+					break;
+			if(i < MAXPLATS)
+				goto add_plat;
+		} else
+		if(type == T_MoveCeiling)
+		{
 add_ceiling:
 			{
 				save_ceiling_t sav;
@@ -802,45 +829,44 @@ add_ceiling:
 
 				writer_add(&sav, sizeof(sav));
 			}
-			break;
-			case T_VerticalDoor:
-			{
-				save_door_t sav;
-				vldoor_t *now = (vldoor_t*)th;
+		} else
+		if(type == T_VerticalDoor)
+		{
+			save_door_t sav;
+			vldoor_t *now = (vldoor_t*)th;
 
-				writer_add_u16(STH_DOOM_DOOR);
+			writer_add_u16(STH_DOOM_DOOR);
 
-				sav.type = now->type;
-				sav.direction = now->direction;
-				sav.sector = now->sector - *sectors;
-				sav.topheight = now->topheight;
-				sav.speed = now->speed;
-				sav.topwait = now->topwait;
-				sav.topcountdown = now->topcountdown;
+			sav.type = now->type;
+			sav.direction = now->direction;
+			sav.sector = now->sector - *sectors;
+			sav.topheight = now->topheight;
+			sav.speed = now->speed;
+			sav.topwait = now->topwait;
+			sav.topcountdown = now->topcountdown;
 
-				writer_add(&sav, sizeof(sav));
-			}
-			break;
-			case T_MoveFloor:
-			{
-				save_floor_t sav;
-				floormove_t *now = (floormove_t*)th;
+			writer_add(&sav, sizeof(sav));
+		} else
+		if(type == T_MoveFloor)
+		{
+			save_floor_t sav;
+			floormove_t *now = (floormove_t*)th;
 
-				writer_add_u16(STH_DOOM_FLOOR);
+			writer_add_u16(STH_DOOM_FLOOR);
 
-				sav.type = now->type;
-				sav.crush = now->crush;
-				sav.direction = now->direction;
-				sav.sector = now->sector - *sectors;
-				sav.newspecial = now->newspecial;
-				sav.texture = texture_get_name(now->texture);
-				sav.floordestheight = now->floordestheight;
-				sav.speed = now->speed;
+			sav.type = now->type;
+			sav.crush = now->crush;
+			sav.direction = now->direction;
+			sav.sector = now->sector - *sectors;
+			sav.newspecial = now->newspecial;
+			sav.texture = texture_get_name(now->texture);
+			sav.floordestheight = now->floordestheight;
+			sav.speed = now->speed;
 
-				writer_add(&sav, sizeof(sav));
-			}
-			break;
-			case T_PlatRaise:
+			writer_add(&sav, sizeof(sav));
+		} else
+		if(type == T_PlatRaise)
+		{
 add_plat:
 			{
 				save_plat_t sav;
@@ -865,56 +891,52 @@ add_plat:
 
 				writer_add(&sav, sizeof(sav));
 			}
-			break;
-			case T_LightFlash:
-			{
-				save_flash_t sav;
-				lightflash_t *now = (lightflash_t*)th;
+		} else
+		if(type == T_LightFlash)
+		{
+			save_flash_t sav;
+			lightflash_t *now = (lightflash_t*)th;
 
-				writer_add_u16(STH_DOOM_FLASH);
+			writer_add_u16(STH_DOOM_FLASH);
 
-				sav.sector = now->sector - *sectors;
-				sav.maxlight = now->maxlight;
-				sav.minlight = now->minlight;
-				sav.count = now->count;
-				sav.maxtime = now->maxtime;
-				sav.mintime = now->mintime;
+			sav.sector = now->sector - *sectors;
+			sav.maxlight = now->maxlight;
+			sav.minlight = now->minlight;
+			sav.count = now->count;
+			sav.maxtime = now->maxtime;
+			sav.mintime = now->mintime;
 
-				writer_add(&sav, sizeof(sav));
-			}
-			break;
-			case T_StrobeFlash:
-			{
-				save_strobe_t sav;
-				strobe_t *now = (strobe_t*)th;
+			writer_add(&sav, sizeof(sav));
+		} else
+		if(type == T_StrobeFlash)
+		{
+			save_strobe_t sav;
+			strobe_t *now = (strobe_t*)th;
 
-				writer_add_u16(STH_DOOM_STROBE);
+			writer_add_u16(STH_DOOM_STROBE);
 
-				sav.sector = now->sector - *sectors;
-				sav.minlight = now->minlight;
-				sav.maxlight = now->maxlight;
-				sav.count = now->count;
-				sav.darktime = now->darktime;
-				sav.brighttime = now->brighttime;
+			sav.sector = now->sector - *sectors;
+			sav.minlight = now->minlight;
+			sav.maxlight = now->maxlight;
+			sav.count = now->count;
+			sav.darktime = now->darktime;
+			sav.brighttime = now->brighttime;
 
-				writer_add(&sav, sizeof(sav));
-			}
-			break;
-			case T_Glow:
-			{
-				save_glow_t sav;
-				glow_t *now = (glow_t*)th;
+			writer_add(&sav, sizeof(sav));
+		} else
+		if(type == T_Glow)
+		{
+			save_glow_t sav;
+			glow_t *now = (glow_t*)th;
 
-				writer_add_u16(STH_DOOM_GLOW);
+			writer_add_u16(STH_DOOM_GLOW);
 
-				sav.sector = now->sector - *sectors;
-				sav.minlight = now->minlight;
-				sav.maxlight = now->maxlight;
-				sav.direction = now->direction;
+			sav.sector = now->sector - *sectors;
+			sav.minlight = now->minlight;
+			sav.maxlight = now->maxlight;
+			sav.direction = now->direction;
 
-				writer_add(&sav, sizeof(sav));
-			}
-			break;
+			writer_add(&sav, sizeof(sav));
 		}
 	}
 
@@ -1063,6 +1085,8 @@ static inline void sv_put_players()
 		plr.state = pl->playerstate;
 		plr.didsecret = pl->didsecret;
 
+		plr.inv_sel = pl->inv_sel ? pl->inv_sel->type : 0;
+
 		writer_add(&plr, sizeof(plr));
 	}
 
@@ -1077,12 +1101,15 @@ void do_save()
 	uint8_t *src;
 	uint8_t *dst;
 	uint32_t old_size;
+	uint32_t old_cmap;
 
 	// prepare save slot
 	generate_save_name(*saveslot);
 	*gameaction = ga_nothing;
 
-	// generate preview
+	// generate preview - so much stuff to make it look cool
+	old_cmap = players[*consoleplayer].fixedcolormap;
+	players[*consoleplayer].fixedcolormap = 0;
 	old_size = *r_setblocks;
 	*r_setblocks = 20; // fullscreen with no status bar
 	R_ExecuteSetViewSize();
@@ -1091,6 +1118,7 @@ void do_save()
 	I_ReadScreen(screen_buffer);
 	*r_setblocks = old_size;
 	R_ExecuteSetViewSize();
+	players[*consoleplayer].fixedcolormap = old_cmap;
 	*stbar_refresh_force = 1;
 
 	// open file
@@ -1161,6 +1189,7 @@ void do_save()
 
 	// specials
 	sv_put_buttons();
+	sv_put_thinkers();
 	sv_put_specials();
 	writer_add_u32(SAVE_VERSION);
 
@@ -1447,6 +1476,30 @@ static inline uint32_t ld_get_specials()
 				slot->delay = sw.delay;
 			}
 			break;
+			// new thinkers
+			case STH_ACE_LINE_SCROLL:
+			{
+				save_line_scroll_t sav;
+				line_scroll_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.line >= *numlines)
+					return 1;
+
+				now = Z_Malloc(sizeof(line_scroll_t), PU_LEVEL, NULL);
+
+				now->line = *lines + sav.line;
+				now->x = sav.x;
+				now->y = sav.y;
+
+				now->thinker.function = think_line_scroll;
+
+				think_add(&now->thinker);
+			}
+			break;
+			// old thinkers
 			case STH_DOOM_CEILING:
 			{
 				save_ceiling_t sav;
@@ -1856,6 +1909,8 @@ static inline uint32_t ld_get_players()
 		pl->backpack = plr.backpack;
 		pl->playerstate = plr.state;
 		pl->didsecret = plr.didsecret;
+
+		pl->inv_sel = inventory_find(pl->mo, plr.inv_sel);
 	}
 
 	// version check
@@ -1972,9 +2027,8 @@ void do_load()
 
 	//
 error_fail:
-	// TODO: don't exit
 	reader_close();
-	I_Error("Load failed!");
+	error_message("Unable to load this slot!");
 }
 
 //
@@ -2030,14 +2084,13 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00022196, CODE_HOOK | HOOK_UINT32, (uint32_t)empty_slot},
 	// replace 'M_DrawLoad' in menu structure
 	{0x00012510 + offsetof(menu_t, draw), DATA_HOOK | HOOK_UINT32, (uint32_t)&draw_load_menu},
-	{0x00012510 + offsetof(menu_t, x), DATA_HOOK | HOOK_UINT16, 183},
+	{0x00012510 + offsetof(menu_t, x), DATA_HOOK | HOOK_UINT16, -1},
 	// replace 'M_DrawSave' in menu structure
 	{0x0001258C + offsetof(menu_t, draw), DATA_HOOK | HOOK_UINT32, (uint32_t)&draw_save_menu},
-	{0x0001258C + offsetof(menu_t, x), DATA_HOOK | HOOK_UINT16, 183},
+	{0x0001258C + offsetof(menu_t, x), DATA_HOOK | HOOK_UINT16, -1},
 	// brain targets hack
 	{0x00028AFC, CODE_HOOK | HOOK_IMPORT, (uint32_t)&brain_sound_id},
 	// import variables
-	{0x0002B6D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&menu_now},
 	{0x0002B568, DATA_HOOK | HOOK_IMPORT, (uint32_t)&save_name},
 	{0x000124A8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&load_items},
 	{0x00012510, DATA_HOOK | HOOK_IMPORT, (uint32_t)&load_menu},

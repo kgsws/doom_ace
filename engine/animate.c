@@ -765,115 +765,6 @@ error_anim_count:
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void animate_step()
-{
-	void *ptr = animations;
-
-	// animations
-	while(ptr)
-	{
-		animation_t *anim = ptr;
-
-		switch(anim->head.type)
-		{
-			case ANIM_TYPE_FLAT_SINGLE:
-			case ANIM_TYPE_TEXTURE_SINGLE:
-			{
-				uint32_t tick_offs;
-				animframe_t *frame;
-
-				// pointer offset
-				ptr += sizeof(anim_header_t) + sizeof(animt_single_t) + anim->head.count * sizeof(animframe_t);
-
-				// tick offset
-				tick_offs = *leveltime % anim->single.tick_total;
-
-				// find current frame
-				for(uint32_t i = 0; i < anim->head.count; i++)
-				{
-					if(anim->single.frame[i].tick <= tick_offs)
-						frame = anim->single.frame + i;
-					else
-						break;
-				}
-
-				if(anim->head.type == ANIM_TYPE_FLAT_SINGLE)
-					(*flattranslation)[anim->head.target] = frame->pic;
-				else
-					(*texturetranslation)[anim->head.target] = frame->pic;
-			}
-			break;
-			case ANIM_TYPE_FLAT_RANGE:
-			case ANIM_TYPE_TEXTURE_RANGE:
-			{
-				uint32_t count = anim->head.count;
-				uint32_t offset = *leveltime / anim->range.tics;
-
-				// pointer offset
-				ptr += sizeof(anim_header_t) + sizeof(animt_range_t) + (count * 2 - 1) * sizeof(uint16_t);
-
-				for(uint32_t i = anim->head.target; i < anim->head.target + anim->head.count; i++)
-				{
-					uint32_t idx = (offset + i) % anim->head.count;
-
-					if(anim->head.type == ANIM_TYPE_FLAT_RANGE)
-						(*flattranslation)[i] = anim->range.pic[idx];
-					else
-						(*texturetranslation)[i] = anim->range.pic[idx];
-				}
-			}
-			break;
-			default:
-				ptr = NULL;
-			break;
-		}
-	}
-
-	// buttons
-	for(uint32_t i = 0; i < MAX_BUTTONS; i++)
-	{
-		uint32_t diff;
-		switch_t *active = active_switch + i;
-
-		if(active->soundtick)
-			active->soundtick--;
-
-		if(!active->dest)
-			continue;
-
-		diff = *leveltime - active->base;
-
-		if(active->delay && diff >= active->delay)
-		{
-			// restore this button
-			uint16_t *dest = active->dest;
-			void *ptr = switch_ptr;
-
-			// cancel
-			active->dest = NULL;
-
-			// use reverse animation
-			switch_line_texture(active->swtch->reverse, dest, 0, 0, active->line);
-
-			return;
-		}
-
-		if(active->animate)
-		{
-			active->animate = switch_line_texture(active->swtch, active->dest, *leveltime - active->base, -1, NULL);
-			if(!active->animate && !active->delay)
-				active->dest = NULL;
-		}
-	}
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
-void clear_buttons()
-{
-	memset(active_switch, 0, sizeof(active_switch));
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
 void do_line_switch(line_t *ln, uint32_t repeat)
 {
 	void *ptr = switch_ptr;
@@ -976,6 +867,113 @@ void init_animations()
 
 	// correct switch pointer
 	switch_ptr = anim_ptr + 1;
+}
+
+void animate_step()
+{
+	void *ptr = animations;
+
+	// animations
+	while(ptr)
+	{
+		animation_t *anim = ptr;
+
+		switch(anim->head.type)
+		{
+			case ANIM_TYPE_FLAT_SINGLE:
+			case ANIM_TYPE_TEXTURE_SINGLE:
+			{
+				uint32_t tick_offs;
+				animframe_t *frame;
+
+				// pointer offset
+				ptr += sizeof(anim_header_t) + sizeof(animt_single_t) + anim->head.count * sizeof(animframe_t);
+
+				// tick offset
+				tick_offs = *leveltime % anim->single.tick_total;
+
+				// find current frame
+				for(uint32_t i = 0; i < anim->head.count; i++)
+				{
+					if(anim->single.frame[i].tick <= tick_offs)
+						frame = anim->single.frame + i;
+					else
+						break;
+				}
+
+				if(anim->head.type == ANIM_TYPE_FLAT_SINGLE)
+					(*flattranslation)[anim->head.target] = frame->pic;
+				else
+					(*texturetranslation)[anim->head.target] = frame->pic;
+			}
+			break;
+			case ANIM_TYPE_FLAT_RANGE:
+			case ANIM_TYPE_TEXTURE_RANGE:
+			{
+				uint32_t count = anim->head.count;
+				uint32_t offset = *leveltime / anim->range.tics;
+
+				// pointer offset
+				ptr += sizeof(anim_header_t) + sizeof(animt_range_t) + (count * 2 - 1) * sizeof(uint16_t);
+
+				for(uint32_t i = anim->head.target; i < anim->head.target + anim->head.count; i++)
+				{
+					uint32_t idx = (offset + i) % anim->head.count;
+
+					if(anim->head.type == ANIM_TYPE_FLAT_RANGE)
+						(*flattranslation)[i] = anim->range.pic[idx];
+					else
+						(*texturetranslation)[i] = anim->range.pic[idx];
+				}
+			}
+			break;
+			default:
+				ptr = NULL;
+			break;
+		}
+	}
+
+	// buttons
+	for(uint32_t i = 0; i < MAX_BUTTONS; i++)
+	{
+		uint32_t diff;
+		switch_t *active = active_switch + i;
+
+		if(active->soundtick)
+			active->soundtick--;
+
+		if(!active->dest)
+			continue;
+
+		diff = *leveltime - active->base;
+
+		if(active->delay && diff >= active->delay)
+		{
+			// restore this button
+			uint16_t *dest = active->dest;
+			void *ptr = switch_ptr;
+
+			// cancel
+			active->dest = NULL;
+
+			// use reverse animation
+			switch_line_texture(active->swtch->reverse, dest, 0, 0, active->line);
+
+			return;
+		}
+
+		if(active->animate)
+		{
+			active->animate = switch_line_texture(active->swtch, active->dest, *leveltime - active->base, -1, NULL);
+			if(!active->animate && !active->delay)
+				active->dest = NULL;
+		}
+	}
+}
+
+void clear_buttons()
+{
+	memset(active_switch, 0, sizeof(active_switch));
 }
 
 //
@@ -1125,13 +1123,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002E9A5, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace 'P_ChangeSwitchTexture'
 	{0x00030310, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)do_line_switch},
-	// replace animation loop in 'P_UpdateSpecials'
-	{0x0002FC72, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)animate_step},
-	{0x0002FC77, CODE_HOOK | HOOK_JMP_DOOM, 0x0002FCDB},
+	// disable animation loop in 'P_UpdateSpecials'
+	{0x0002FC72, CODE_HOOK | HOOK_JMP_DOOM, 0x0002FCDB},
 	// disable button loop in 'P_UpdateSpecials'
 	{0x0002FD12, CODE_HOOK | HOOK_JMP_DOOM, 0x0002FE06},
-	// replace button cleanup in 'P_SpawnSpecials'
-	{0x000301C1, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)clear_buttons},
-	{0x000301C6, CODE_HOOK | HOOK_JMP_DOOM, 0x000301E1},
 };
 

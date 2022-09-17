@@ -11,28 +11,82 @@
 //
 // funcs
 
-static inline void inv_check_stbar(player_t *pl, mobjinfo_t *info)
+static inline void inv_check_player(mobj_t *mo, mobjinfo_t *info, inventory_t *item, uint32_t take)
 {
+	// update player status bar
+	// update player inventory bar
+	player_t *pl = mo->player;
+
+	if(!pl)
+		return;
+
 	if(info->extra_type == ETYPE_WEAPON)
+	{
 		pl->stbar_update |= STU_WEAPON;
+		return;
+	}
 
 	if(!info->inventory.icon)
 		return;
 
-	switch(info->extra_type)
+	if(info->extra_type == ETYPE_KEY)
 	{
-		case ETYPE_INVENTORY:
-		case ETYPE_INVENTORY_CUSTOM:
-		case ETYPE_ARMOR:
-		case ETYPE_ARMOR_BONUS:
-		case ETYPE_POWERUP:
-			if(info->eflags & MFE_INVENTORY_INVBAR)
-				pl->stbar_update |= STU_INVENTORY;
-		break;
-		case ETYPE_KEY:
-			pl->stbar_update |= STU_KEYS;
-		break;
+		pl->stbar_update |= STU_KEYS;
+		return;
 	}
+
+	if(!(info->eflags & MFE_INVENTORY_INVBAR))
+		// this also filters out ammo
+		return;
+
+	if(take)
+	{
+		if(pl->inv_sel != item)
+			return;
+
+		// currently selected item was taken
+
+		// pick next
+		item = item->next;
+		while(item)
+		{
+			info = mobjinfo + item->type;
+
+			if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
+			{
+				// got one
+				pl->inv_sel = item;
+				return;
+			}
+
+			item = item->next;
+		}
+
+		// pick previous
+		item = pl->inv_sel->prev;
+		while(item)
+		{
+			info = mobjinfo + item->type;
+
+			if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
+			{
+				// got one
+				pl->inv_sel = item;
+				return;
+			}
+
+			item = item->prev;
+		}
+
+		// not found
+		pl->inv_sel = NULL;
+		return;
+	}
+
+	if(pl->inv_sel)
+		return;
+
+	pl->inv_sel = item;
 }
 
 //
@@ -152,9 +206,8 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 	mo->inventory = item;
 
 finished:
-	// status bar update
-	if(mo->player)
-		inv_check_stbar(mo->player, info);
+	// player update
+	inv_check_player(mo, info, item, 0);
 
 	// done
 	return ret;
@@ -176,9 +229,12 @@ uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count)
 	if(!item)
 		return 0;
 
-	// remove
 	if(item->count <= count)
 	{
+		// player update
+		inv_check_player(mo, info, item, 1);
+
+		// removed
 		count = item->count;
 		item->count = 0;
 
@@ -198,10 +254,6 @@ uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count)
 		}
 	} else
 		item->count -= count;
-
-	// status bar update
-	if(mo->player)
-		inv_check_stbar(mo->player, info);
 
 	// done
 	return count;

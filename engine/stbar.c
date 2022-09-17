@@ -14,22 +14,34 @@
 #define BG	4
 #define FG	0
 
+#define INVBAR_Y	(SCREENHEIGHT-16)
+#define INVBAR_STEP	32
+#define INVBAR_COUNT	7
+#define INVBAR_CENTER	(SCREENWIDTH / 2)
+#define INVBAR_START	((INVBAR_CENTER - ((INVBAR_COUNT * INVBAR_STEP) / 2)) + (INVBAR_STEP / 2))
+#define INVBAR_END	(INVBAR_START + INVBAR_COUNT * INVBAR_STEP)
+
 #define NOT_A_NUMBER	0x7FFFFFFF
 #define MAX_KEY_ICONS	(6*6)
 
 //
 
+uint32_t *stbar_refresh_force;
+
 static uint32_t *screenblocks;
 
 static patch_t **tallnum;
 static patch_t **tallpercent;
+static patch_t **shortnum;
 
-static uint32_t tallnum_height;
-static uint32_t tallnum_width;
+static uint_fast8_t invbar_was_on;
 
-static uint32_t stbar_y;
-static uint32_t stbar_hp_x;
-static uint32_t stbar_ar_x;
+static uint16_t stbar_t_y;
+static uint16_t stbar_t_hp_x;
+static uint16_t stbar_t_ar_x;
+static uint16_t stbar_s_y;
+static uint16_t stbar_s_hp_x;
+static uint16_t stbar_s_ar_x;
 
 static uint8_t do_evil_grin;
 
@@ -39,6 +51,9 @@ static st_number_t *w_maxammo;
 static st_multicon_t *w_arms;
 
 static int32_t *keyboxes;
+
+static int32_t inv_box;
+static int32_t inv_sel;
 
 static uint16_t *ammo_pri;
 static uint16_t *ammo_sec;
@@ -61,7 +76,7 @@ static patch_t *get_icon_ptr(int32_t lump)
 //
 // draw
 
-static void stbar_big_number_r(int x, int y, int value, int digits)
+static void stbar_draw_number_r(int32_t x, int32_t y, int32_t value, int32_t digits, patch_t **numfont)
 {
 	if(digits < 0)
 		// negative digit count means also show zero
@@ -75,12 +90,37 @@ static void stbar_big_number_r(int x, int y, int value, int digits)
 
 	while(digits--)
 	{
-		x -= tallnum_width;
-		V_DrawPatchDirect(x, y, 0, tallnum[value % 10]);
+		x -= numfont[0]->width;
+		V_DrawPatchDirect(x, y, 0, numfont[value % 10]);
 		value /= 10;
 		if(!value)
 			return;
 	}
+}
+
+static void stbar_draw_center(int32_t x, int32_t y, int32_t lump)
+{
+	patch_t *patch;
+	int16_t ox, oy;
+
+	patch = get_icon_ptr(lump);
+
+	ox = patch->x;
+	oy = patch->y;
+	patch->x = patch->width / 2;
+	patch->y = patch->height / 2;
+
+	V_DrawPatchDirect(x, y, 0, patch);
+
+	patch->x = ox;
+	patch->y = oy;
+}
+
+static void sbar_draw_invslot(int32_t x, int32_t y, mobjinfo_t *info, inventory_t *item)
+{
+	stbar_draw_center(x, y, info->inventory.icon);
+	if(!item->count || info->inventory.max_count > 1)
+		stbar_draw_number_r(x + (INVBAR_STEP / 2) - 1, y - shortnum[0]->height + (INVBAR_STEP / 2) - 2, item->count, 5, shortnum);
 }
 
 //
@@ -89,60 +129,99 @@ static void stbar_big_number_r(int x, int y, int value, int digits)
 static __attribute((regparm(2),no_caller_saved_registers))
 void hook_st_init()
 {
+	uint32_t width;
+	uint32_t height;
+
 	// call original first
 	ST_Init();
 
 	// initialize
 	doom_printf("[ACE] init status bar\n");
 
-	tallnum_height = tallnum[0]->height;
-	tallnum_width = tallnum[0]->width;
+	width = tallnum[0]->width;
+	height = tallnum[0]->height;
 
-	stbar_y = STBAR_Y - tallnum_height;
-	stbar_hp_x = 4 + tallnum_width * 3;
-	stbar_ar_x = stbar_hp_x * 2 + tallnum_width + 4;
+	stbar_t_y = STBAR_Y - height;
+	stbar_t_hp_x = 4 + width * 3;
+	stbar_t_ar_x = stbar_t_hp_x * 2 + width + 4;
+
+	width = shortnum[0]->width;
+	height = shortnum[0]->height;
+
+	stbar_s_y = STBAR_Y - height;
+	stbar_s_hp_x = 4 + width * 3;
+	stbar_s_ar_x = stbar_s_hp_x * 2 + width + 4;
+
+	// inventory
+	inv_box = W_CheckNumForName("ARTIBOX");
+	if(inv_box < 0)
+		inv_box = W_GetNumForName("STFB1");
+	inv_sel = W_CheckNumForName("SELECTBO");
+	if(inv_sel < 0)
+		inv_sel = W_GetNumForName("STFB0");
 }
 
 //
-// hooks
+// fullscreen status bar
 
-static __attribute((regparm(2),no_caller_saved_registers))
-void hook_RenderPlayerView(player_t *pl)
+static inline void draw_full_stbar(player_t *pl)
 {
-	uint32_t tx, ty, cc, cm;
+	uint32_t ty;
+	uint16_t stbar_y, stbar_hp_x, stbar_ar_x;
+	patch_t **numfont;
 
-	// actually render 3D view
-	R_RenderPlayerView(pl);
-
-	// status bar on top
-	if(*screenblocks != 11)
+	if(*screenblocks < 11)
 		return;
 
-	if(pl->playerstate != PST_LIVE)
+	if(*screenblocks > 12)
 		return;
+
+	if(*screenblocks > 11)
+	{
+		stbar_y = stbar_s_y;
+		stbar_hp_x = stbar_s_hp_x;
+		stbar_ar_x = stbar_s_ar_x;
+		numfont = shortnum;
+	} else
+	{
+		stbar_y = stbar_t_y;
+		stbar_hp_x = stbar_t_hp_x;
+		stbar_ar_x = stbar_t_ar_x;
+		numfont = tallnum;
+
+		V_DrawPatchDirect(stbar_hp_x, stbar_y, 0, *tallpercent);
+		if(pl->armorpoints)
+			V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, *tallpercent);
+	}
 
 	// health
-	stbar_big_number_r(stbar_hp_x, stbar_y, pl->health, 3);
-	V_DrawPatchDirect(stbar_hp_x, stbar_y, 0, *tallpercent);
+	stbar_draw_number_r(stbar_hp_x, stbar_y, pl->health, 3, numfont);
 
 	// armor
 	if(pl->armorpoints)
-	{
-		stbar_big_number_r(stbar_ar_x, stbar_y, pl->armorpoints, 3);
-		V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, *tallpercent);
-	}
+		stbar_draw_number_r(stbar_ar_x, stbar_y, pl->armorpoints, 3, numfont);
 
 	// AMMO
 	ty = stbar_y;
 	if(ammo_pri)
 	{
-		stbar_big_number_r(SCREENWIDTH - 4, ty, *ammo_pri, -4);
-		ty -= tallnum_height + 1;
+		stbar_draw_number_r(SCREENWIDTH - 4, ty, *ammo_pri, -4, numfont);
+		ty -= numfont[0]->height + 1;
 	}
 	if(ammo_sec)
-		stbar_big_number_r(SCREENWIDTH - 4, ty, *ammo_sec, -4);
+		stbar_draw_number_r(SCREENWIDTH - 4, ty, *ammo_sec, -4, numfont);
+}
 
-	// keys
+//
+// key overlay
+
+static inline void draw_keybar(player_t *pl, uint32_t skip)
+{
+	uint32_t tx, ty, cc, cm;
+
+	if(*screenblocks > 12)
+		return;
+
 	cm = 0;
 	cc = 0;
 	tx = SCREENWIDTH - 1;
@@ -154,6 +233,10 @@ void hook_RenderPlayerView(player_t *pl)
 
 		if(!keyinv[i])
 			break;
+
+		if(skip && keyinv[i] - mobjinfo < NUMMOBJTYPES)
+			// skip original keys
+			continue;
 
 		patch = get_icon_ptr(keyinv[i]->inventory.icon);
 
@@ -181,6 +264,109 @@ void hook_RenderPlayerView(player_t *pl)
 			cm = 0;
 		}
 	}
+}
+
+//
+// inventory bar
+
+static inline void draw_invbar(player_t *pl)
+{
+	if(pl->inv_tick)
+	{
+		mobjinfo_t *info;
+		inventory_t *item;
+		uint32_t idx;
+
+		if(*screenblocks < 11)
+			invbar_was_on = 1;
+
+		for(uint32_t x = INVBAR_START; x < INVBAR_END; x += INVBAR_STEP)
+			stbar_draw_center(x, INVBAR_Y, inv_box);
+		stbar_draw_center(INVBAR_CENTER, INVBAR_Y, inv_sel);
+
+		if(pl->inv_sel)
+		{
+			// previous items
+			item = pl->inv_sel->prev;
+			idx = 0;
+			while(item && idx < INVBAR_COUNT / 2)
+			{
+				info = mobjinfo + item->type;
+				if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
+				{
+					sbar_draw_invslot(INVBAR_CENTER - INVBAR_STEP - idx * INVBAR_STEP, INVBAR_Y, info, item);
+					idx++;
+				}
+				item = item->prev;
+			}
+
+			// next items
+			item = pl->inv_sel->next;
+			idx = 0;
+			while(item && idx < INVBAR_COUNT / 2)
+			{
+				info = mobjinfo + item->type;
+				if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
+				{
+					sbar_draw_invslot(INVBAR_CENTER + INVBAR_STEP + idx * INVBAR_STEP, INVBAR_Y, info, item);
+					idx++;
+				}
+				item = item->next;
+			}
+
+			// current selection
+			info = mobjinfo + pl->inv_sel->type;
+			sbar_draw_invslot(INVBAR_CENTER, INVBAR_Y, info, pl->inv_sel);
+		}
+
+		return;
+	}
+
+	if(*screenblocks < 11 && invbar_was_on)
+	{
+		invbar_was_on = 0;
+		*stbar_refresh_force = 1;
+	}
+
+	if(pl->inv_sel)
+	{
+		if(*screenblocks == 11)
+		{
+			// current selection
+			mobjinfo_t *info = mobjinfo + pl->inv_sel->type;
+			sbar_draw_invslot(INVBAR_CENTER, INVBAR_Y, info, pl->inv_sel);
+		}
+	}
+}
+
+//
+// hooks
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void hook_RenderPlayerView(player_t *pl)
+{
+	// actually render 3D view
+	R_RenderPlayerView(pl);
+
+	// nothing else if dead
+	if(pl->playerstate != PST_LIVE)
+	{
+		if(*screenblocks < 11 && invbar_was_on)
+		{
+			invbar_was_on = 0;
+			*stbar_refresh_force = 1;
+		}
+		return;
+	}
+
+	// keys overlay
+	draw_keybar(pl, *screenblocks < 11);
+
+	// status bar
+	draw_full_stbar(pl);
+
+	// inventory bar
+	draw_invbar(pl);
 }
 
 //
@@ -281,11 +467,6 @@ static void update_backpack(player_t *pl)
 	}
 }
 
-static void update_inventory(player_t *pl)
-{
-
-}
-
 static void update_ready_weapon(player_t *pl)
 {
 	// weapon changed
@@ -334,9 +515,6 @@ void stbar_update(player_t *pl)
 
 	if(pl->stbar_update & STU_BACKPACK)
 		update_backpack(pl);
-
-	if(pl->stbar_update & STU_INVENTORY)
-		update_inventory(pl);
 
 	if(pl->stbar_update & STU_WEAPON_NOW)
 		update_ready_weapon(pl);
@@ -463,16 +641,18 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00039FE1, CODE_HOOK | HOOK_UINT16, 0x2FEB},
 	// some variables
 	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
-	{0x000752f0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},
+	{0x000752C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&shortnum},
+	{0x000752F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},
 	{0x00075458, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallpercent},
 	{0x000751C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_ready},
 	{0x00075070, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_ammo},
 	{0x00074FF0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_maxammo},
 	{0x000750F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_arms},
 	{0x000753C0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&keyboxes},
+	{0x00011B50, DATA_HOOK | HOOK_IMPORT, (uint32_t)&stbar_refresh_force},
 	// allow screen size over 11 // TODO: move to 'render'
 	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
-	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 9},
-	{0x000235F0, CODE_HOOK | HOOK_UINT8, 9},
+	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 10},
+	{0x000235F0, CODE_HOOK | HOOK_UINT8, 10},
 };
 

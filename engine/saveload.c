@@ -15,6 +15,7 @@
 #include "ldr_flat.h"
 #include "ldr_texture.h"
 #include "filebuf.h"
+#include "stbar.h"
 #include "saveload.h"
 
 #define SAVE_SLOT_COUNT	6
@@ -324,7 +325,6 @@ static uint8_t **r_rdptr;
 static uint8_t **r_fbptr;
 
 static uint32_t *brain_sound_id;
-static uint32_t *stbar_refresh_force;
 
 static save_name_t *save_name;
 static menuitem_t *load_items;
@@ -2049,6 +2049,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00038FE0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_setblocks},
 	{0x000290F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_rdptr},
 	{0x0002914C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_fbptr},
-	{0x00011B4C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&stbar_refresh_force},
 };
 

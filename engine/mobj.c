@@ -454,6 +454,7 @@ void spawn_player(mapthing_t *mt)
 	pl->viewheight = info->player.view_height;
 	pl->inventory = NULL;
 	pl->stbar_update = 0;
+	pl->inv_tick = 0;
 
 	cheat_player_flags(pl);
 
@@ -718,6 +719,28 @@ static void kill_animation(mobj_t *mo)
 
 //
 // API
+
+void mobj_use_item(mobj_t *mo, inventory_t *item)
+{
+	mobjinfo_t *info = mobjinfo + item->type;
+	switch(info->extra_type)
+	{
+		case ETYPE_INVENTORY_CUSTOM:
+			if(!use_custom_inv(mo, info))
+				return;
+		break;
+		case ETYPE_ARMOR:
+		case ETYPE_ARMOR_BONUS:
+			if(!give_armor(mo, info))
+				return;
+		case ETYPE_POWERUP:
+			if(!give_power(mo, info))
+				return;
+		break;
+	}
+
+	inventory_take(mo, item->type, 1);
+}
 
 uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 {

@@ -10,6 +10,7 @@
 #include "weapon.h"
 #include "stbar.h"
 #include "cheat.h"
+#include "player.h"
 
 typedef struct
 {
@@ -109,8 +110,61 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 
 	if(!slot)
 		return;
-	slot--;
 
+	if(slot == BT_ACT_INV_PREV)
+	{
+		pl->inv_tick = PLAYER_INVBAR_TICS;
+
+		if(pl->inv_sel)
+		{
+			inventory_t *item = pl->inv_sel->prev;
+
+			while(item)
+			{
+				mobjinfo_t *info = mobjinfo + item->type;
+				if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
+				{
+					pl->inv_sel = item;
+					break;
+				}
+				item = item->prev;
+			}
+		}
+
+		return;
+	}
+
+	if(slot == BT_ACT_INV_NEXT)
+	{
+		pl->inv_tick = PLAYER_INVBAR_TICS;
+
+		if(pl->inv_sel)
+		{
+			inventory_t *item = pl->inv_sel->next;
+
+			while(item)
+			{
+				mobjinfo_t *info = mobjinfo + item->type;
+				if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
+				{
+					pl->inv_sel = item;
+					break;
+				}
+				item = item->next;
+			}
+		}
+
+		return;
+	}
+
+	if(slot == BT_ACT_INV_USE)
+	{
+		if(pl->inv_sel && pl->inv_sel->count)
+			mobj_use_item(pl->mo, pl->inv_sel);
+		return;
+	}
+
+	slot--;
 	if(slot >= NUM_WPN_SLOTS)
 		return;
 
@@ -231,6 +285,7 @@ void player_think(player_t *pl)
 	if(pl->playerstate == PST_DEAD)
 	{
 		pl->weapon_ready = 0;
+		pl->inv_tick = 0;
 		P_DeathThink(pl);
 		return;
 	}
@@ -244,6 +299,9 @@ void player_think(player_t *pl)
 
 	if(pl->mo->subsector->sector->special)
 		P_PlayerInSpecialSector(pl);
+
+	if(pl->inv_tick)
+		pl->inv_tick--;
 
 	if(cmd->buttons & BT_SPECIAL)
 		cmd->buttons = 0;

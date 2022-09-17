@@ -267,17 +267,17 @@ typedef struct player_s
 	int32_t armortype;
 	int32_t powers[NUMPOWERS];
 	uint32_t cards[NUMCARDS];
-	uint32_t __unused_bkpk;
+	uint32_t backpack;
 	int32_t frags[MAXPLAYERS];
 	struct mobjinfo_s *readyweapon;
 	struct mobjinfo_s *pendingweapon;
 	uint32_t stbar_update;
 	struct inventory_s *inventory; // for level transition
 	struct inventory_s *inv_sel; // current selection
-	uint32_t __unused[6+4+4];
+	uint32_t inv_tick; // inventory selection visible
+	uint32_t __unused[5+4+4];
 	uint16_t attackdown;
-	uint8_t weapon_ready;
-	uint8_t backpack;
+	uint16_t weapon_ready;
 	int32_t usedown;
 	uint32_t cheats;
 	uint32_t refire;

@@ -336,7 +336,7 @@ static mobjinfo_t default_powerup =
 	.height = 16 << FRACBITS,
 	.mass = 100,
 	.flags = MF_SPECIAL,
-	.eflags = MFE_INVENTORY_AUTOACTIVATE | MFE_INVENTORY_ALWAYSPICKUP,
+	.eflags = MFE_INVENTORY_ALWAYSPICKUP,
 	.state_crush = 895,
 	.powerup.inventory.count = 1,
 	.powerup.inventory.max_count = 25,
@@ -475,7 +475,7 @@ static const dec_flag_t inventory_flags[] =
 	{"inventory.invbar", MFE_INVENTORY_INVBAR},
 //	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER}, // not available, not planned
 //	{"inventory.persistentpower", MFE_INVENTORY_PERSISTENTPOWER},
-//	{"inventory.bigpowerup", MFE_INVENTORY_BIGPOWERUP},
+	{"inventory.bigpowerup", MFE_INVENTORY_BIGPOWERUP}, // not implemented
 //	{"inventory.neverrespawn", MFE_INVENTORY_NEVERRESPAWN},
 //	{"inventory.keepdepleted", MFE_INVENTORY_KEEPDEPLETED},
 	{"inventory.additivetime", MFE_INVENTORY_ADDITIVETIME},
@@ -2298,8 +2298,10 @@ void init_decorate()
 					(info->weapon.ammo_type[1] && mobjinfo[info->weapon.ammo_type[1]].extra_type != ETYPE_AMMO && mobjinfo[info->weapon.ammo_type[1]].extra_type != ETYPE_AMMO_LINK)
 				)
 					I_Error("[DECORATE] Invalid weapon ammo!");
+				info->eflags &= ~MFE_INVENTORY_INVBAR;
 			break;
 			case ETYPE_AMMO:
+				info->eflags &= ~MFE_INVENTORY_INVBAR;
 				// ZDoom - allow 0, but no specific number
 				if(info->inventory.hub_count)
 					info->inventory.hub_count = INV_MAX_COUNT;
@@ -2319,6 +2321,7 @@ void init_decorate()
 			}
 			break;
 			case ETYPE_KEY:
+				info->eflags &= ~MFE_INVENTORY_INVBAR;
 				info->inventory.count = 1;
 				info->inventory.max_count = 1;
 				// ZDoom - allow 0, but no specific number

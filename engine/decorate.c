@@ -193,6 +193,7 @@ static const mobjinfo_t default_mobj =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.state_crush = 895,
 };
@@ -204,6 +205,7 @@ static const mobjinfo_t default_player =
 	.radius = 16 << FRACBITS,
 	.height = 56 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.painchance = 255,
 	.speed = 1 << FRACBITS,
@@ -222,6 +224,7 @@ static const mobjinfo_t default_health =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.state_crush = 895,
@@ -238,6 +241,7 @@ static mobjinfo_t default_inventory =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.state_crush = 895,
@@ -255,6 +259,7 @@ static const mobjinfo_t default_weapon =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.state_crush = 895,
@@ -273,6 +278,7 @@ static mobjinfo_t default_ammo =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.state_crush = 895,
@@ -290,6 +296,7 @@ static const mobjinfo_t default_key =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.flags = MF_SPECIAL | MF_NOTDMATCH,
 	.flags1 = MF1_DONTGIB,
@@ -307,6 +314,7 @@ static mobjinfo_t default_armor =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_AUTOACTIVATE,
@@ -325,6 +333,7 @@ static mobjinfo_t default_armor_bonus =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_AUTOACTIVATE | MFE_INVENTORY_ALWAYSPICKUP,
@@ -344,6 +353,7 @@ static mobjinfo_t default_powerup =
 	.radius = 20 << FRACBITS,
 	.height = 16 << FRACBITS,
 	.step_height = 24 * FRACUNIT,
+	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_ALWAYSPICKUP,
@@ -410,6 +420,7 @@ static const dec_attr_t attr_mobj[] =
 	{"seesound", DT_SOUND, offsetof(mobjinfo_t, seesound)},
 	//
 	{"maxstepheight", DT_FIXED, offsetof(mobjinfo_t, step_height)},
+	{"maxdropoffheight", DT_FIXED, offsetof(mobjinfo_t, dropoff)},
 	//
 	{"monster", DT_MONSTER},
 	{"projectile", DT_PROJECTILE},
@@ -2139,6 +2150,7 @@ void init_decorate()
 		mobjinfo[i].alias = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
 		mobjinfo[i].step_height = 24 * FRACUNIT;
+		mobjinfo[i].dropoff = 24 * FRACUNIT;
 		mobjinfo[i].state_crush = 895;
 		mobjinfo[i].state_idx_limit = NUMSTATES;
 
@@ -2390,7 +2402,14 @@ static uint32_t check_step_height(fixed_t floorz, mobj_t *mo)
 		return 0;
 	}
 
+	// step height
 	if(floorz - mo->z > mo->info->step_height)
+		return 1;
+
+	// dropoff
+	if(	!(mo->flags & (MF_DROPOFF|MF_FLOAT)) &&
+		floorz - *tmdropoffz > mo->info->dropoff
+	)
 		return 1;
 
 	return 0;
@@ -2413,7 +2432,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B27C, CODE_HOOK | HOOK_UINT16, 0xF289},
 	{0x0002B27E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_step_height},
 	{0x0002B283, CODE_HOOK | HOOK_UINT16, 0xC085},
-	{0x0002B285, CODE_HOOK | HOOK_UINT32, 0x1FEB0974},
+	{0x0002B285, CODE_HOOK | HOOK_UINT32, 0x1FEB2B74},
 	// use 'MF1_NOTELEPORT' in 'EV_Teleport'
 	{0x00031E4D, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},
 	{0x00031E4E, CODE_HOOK | HOOK_UINT8, MF1_NOTELEPORT},

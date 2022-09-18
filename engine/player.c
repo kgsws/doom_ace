@@ -10,6 +10,7 @@
 #include "weapon.h"
 #include "stbar.h"
 #include "cheat.h"
+#include "controls.h"
 #include "player.h"
 
 typedef struct
@@ -23,9 +24,6 @@ typedef struct
 } powerup_t;
 
 //
-
-static uint32_t *gamekeydown;
-static uint32_t *mousebuttons;
 
 uint32_t *playeringame;
 player_t *players;
@@ -369,7 +367,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 	cmd->buttons &= BT_ATTACK | BT_USE | BT_ALTACK;
 
 	// secondary attack
-	if(mousebuttons[1] || gamekeydown[0])
+	if(mousebuttons[1] || gamekeydown[key_fire_alt])
 		cmd->buttons |= BT_ALTACK;
 
 	// new weapon changes
@@ -385,23 +383,23 @@ static void build_ticcmd(ticcmd_t *cmd)
 	}
 
 	// inventory prev
-	if(gamekeydown[','])
+	if(gamekeydown[key_inv_next])
 	{
-		gamekeydown[','] = 0;
+		gamekeydown[key_inv_next] = 0;
 		cmd->buttons |= BT_ACT_INV_PREV << BT_ACTIONSHIFT;
 	}
 
 	// inventory next
-	if(gamekeydown['.'])
+	if(gamekeydown[key_inv_next])
 	{
-		gamekeydown['.'] = 0;
+		gamekeydown[key_inv_next] = 0;
 		cmd->buttons |= BT_ACT_INV_NEXT << BT_ACTIONSHIFT;
 	}
 
 	// inventory use
-	if(gamekeydown['\r'])
+	if(gamekeydown[key_inv_use])
 	{
-		gamekeydown['\r'] = 0;
+		gamekeydown[key_inv_use] = 0;
 		cmd->buttons |= BT_ACT_INV_USE << BT_ACTIONSHIFT;
 	}
 }
@@ -471,7 +469,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// import variables
 	{0x0002B2D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playeringame},
 	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
-	{0x0002A880, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamekeydown},
-	{0x0002AC84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mousebuttons},
 };
 

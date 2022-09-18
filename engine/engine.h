@@ -141,7 +141,11 @@ typedef uint32_t angle_t;
 typedef struct menuitem_s
 {
 	int16_t status;
-	uint8_t name[10];
+	union
+	{
+		uint8_t name[10];
+		uint8_t *text;
+	} __attribute__((packed));
 	void (*func)(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 	uint8_t key;
 } __attribute__((packed)) menuitem_t;
@@ -151,7 +155,7 @@ typedef struct menu_s
 	uint16_t numitems;
 	struct menu_s *prev;
 	menuitem_t *menuitems;
-	void (*draw)();
+	void (*draw)() __attribute((regparm(2),no_caller_saved_registers));
 	int16_t x, y;
 	uint16_t last;
 } __attribute__((packed)) menu_t;
@@ -479,6 +483,7 @@ typedef struct mobjinfo_s
 	uint32_t flags1;
 	uint32_t eflags;
 	fixed_t step_height;
+	fixed_t dropoff;
 	// extra stuff list
 	union
 	{
@@ -865,6 +870,7 @@ typedef struct
 // ASM hooks
 void hook_mobj_damage();
 void hook_obj_key();
+void skip_message_cancel() __attribute((noreturn));
 
 // some variables
 extern uint8_t *screen_buffer;

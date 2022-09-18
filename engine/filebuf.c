@@ -5,6 +5,7 @@
 #include "filebuf.h"
 
 #define BUFFER_SIZE	(8*1024)
+#define buffer	_reloc_start
 
 // reuse relocation space
 extern uint8_t _reloc_start[];
@@ -27,8 +28,8 @@ void reader_open(uint8_t *name)
 	if(ffd < 0)
 		I_Error("[READER] Unable to open '%s'!", name);
 
-	eptr = _reloc_start;
-	bptr = _reloc_start;
+	eptr = buffer;
+	bptr = buffer;
 }
 
 void reader_close()
@@ -46,8 +47,8 @@ void reader_close()
 
 uint32_t reader_seek(uint32_t offs)
 {
-	eptr = _reloc_start;
-	bptr = _reloc_start;
+	eptr = buffer;
+	bptr = buffer;
 	return doom_lseek(ffd, offs, SEEK_SET) < 0;
 }
 
@@ -70,12 +71,12 @@ uint32_t reader_get(void *ptr, uint32_t size)
 	ptr += avail;
 	size -= avail;
 
-	tmp = doom_read(ffd, _reloc_start, BUFFER_SIZE);
+	tmp = doom_read(ffd, buffer, BUFFER_SIZE);
 	if(tmp < 0)
 		I_Error("[READER] Read failed!");
 
-	bptr = _reloc_start;
-	eptr = _reloc_start + tmp;
+	bptr = buffer;
+	eptr = buffer + tmp;
 
 	memcpy(ptr, bptr, size);
 	bptr += size;
@@ -110,7 +111,7 @@ void writer_open(uint8_t *name)
 	if(ffd < 0)
 		I_Error("[WRITER] Unable to create '%s'!", name);
 
-	bptr = _reloc_start;
+	bptr = buffer;
 }
 
 void writer_close()
@@ -134,21 +135,21 @@ void writer_flush()
 	if(ffd < 0)
 		I_Error("[WRITER] File is not open!");
 
-	if(bptr == _reloc_start)
+	if(bptr == buffer)
 		return;
 
-	size = bptr - _reloc_start;
-	ret = doom_write(ffd, _reloc_start, size);
+	size = bptr - buffer;
+	ret = doom_write(ffd, buffer, size);
 	if(ret != size)
 		I_Error("[WRITER] Write failed!");
 
-	bptr = _reloc_start;
+	bptr = buffer;
 }
 
 void writer_add(void *data, uint32_t size)
 {
 	// TODO: maybe partial writes and buffer fills?
-	uint32_t left = BUFFER_SIZE - (bptr - _reloc_start);
+	uint32_t left = BUFFER_SIZE - (bptr - buffer);
 
 	if(ffd < 0)
 		I_Error("[WRITER] File is not open!");
@@ -165,7 +166,7 @@ void writer_add(void *data, uint32_t size)
 
 void *writer_reserve(uint32_t size)
 {
-	uint32_t left = BUFFER_SIZE - (bptr - _reloc_start);
+	uint32_t left = BUFFER_SIZE - (bptr - buffer);
 	void *ret;
 
 	if(ffd < 0)

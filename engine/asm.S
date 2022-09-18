@@ -124,6 +124,18 @@ dos_exit:
 	int	$0x21
 
 //
+// skip menu cursor and items
+.global skip_message_cancel
+skip_message_cancel:
+	pop	%eax
+	sub	doom_code_segment,%eax
+	cmp	$0x2342B,%eax
+	jne	skip_message_cancel
+	mov	doom_code_segment,%eax
+	add	$0x2344B,%eax
+	jmp	*%eax
+
+//
 // P_DamageMobj hook
 .global hook_mobj_damage
 hook_mobj_damage:

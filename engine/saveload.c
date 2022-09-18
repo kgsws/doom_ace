@@ -459,41 +459,16 @@ static inline void generate_preview_line(int fd, uint32_t y, save_name_t *slot)
 	}
 }
 
-static void draw_slot_bg(uint32_t x, uint32_t y, uint32_t width)
-{
-	patch_t *pc;
-	uint32_t count;
-	uint32_t last;
-
-	y += 7;
-
-	last = x + width - 8;
-	width -= 7;
-	count = width / 8;
-
-	pc = W_CacheLumpName((uint8_t*)0x0002246C + doom_data_segment, PU_CACHE);
-
-	V_DrawPatchDirect(x, y, 0, W_CacheLumpName((uint8_t*)0x00022460 + doom_data_segment, PU_CACHE));
-
-	for(uint32_t i = 0; i < count; i++)
-	{
-		x += 8;
-		V_DrawPatchDirect(x, y, 0, pc);
-	}
-
-	V_DrawPatchDirect(last, y, 0, W_CacheLumpName((uint8_t*)0x00022478 + doom_data_segment, PU_CACHE));
-}
-
 static void draw_check_preview()
 {
-	if(show_save_slot != *menu_now)
+	if(show_save_slot != *menu_item_now)
 	{
 		// generate preview patch in RAM
 		int fd;
 		uint8_t *base;
 		save_name_t *slot;
 
-		show_save_slot = *menu_now;
+		show_save_slot = *menu_item_now;
 		slot = save_name + show_save_slot;
 
 		if(slot->step)
@@ -538,13 +513,13 @@ static void draw_check_preview()
 		if(i == show_save_slot)
 			x -= 4;
 
-		draw_slot_bg(x, y, 150);
+		menu_draw_slot_bg(x, y, 150);
 		M_WriteText(x+1, y, save_name[i].text);
 	}
 
 	for(uint32_t i = 0; i < 7; i++)
-		draw_slot_bg(5, 52 + i * 14, 164);
-	draw_slot_bg(5, 142, 164);
+		menu_draw_slot_bg(5, 52 + i * 14, 164);
+	menu_draw_slot_bg(5, 142, 164);
 
 	V_DrawPatchDirect(0, 0, 0, preview_patch);
 }

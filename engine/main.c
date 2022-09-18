@@ -9,6 +9,7 @@
 #include "animate.h"
 #include "sound.h"
 #include "map.h"
+#include "menu.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
@@ -326,6 +327,9 @@ uint32_t ace_main()
 
 	// animations
 	init_animations();
+
+	// menu
+	init_menu();
 
 	//
 	gfx_progress(-1);

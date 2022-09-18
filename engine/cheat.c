@@ -382,7 +382,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00025403, CODE_HOOK | HOOK_UINT16, 0xE990},
 	// enable chat in singleplayer, disable 'enter' to repeat last message
 	{0x0003B9EE, CODE_HOOK | HOOK_UINT16, 0x29EB},
-	// change chat key // TODO: customizable
+	// change chat key
 	{0x0003BA1B, CODE_HOOK | HOOK_UINT8, '`'},
 	// enable lowercase
 	{0x0003BC1F, CODE_HOOK | HOOK_UINT16, 0x15EB},
@@ -399,7 +399,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003B78E, CODE_HOOK | HOOK_JMP_DOOM, 0x0003B8C7},
 	{0x0003B64F, CODE_HOOK | HOOK_UINT16, 0x1AEB},
 	// import variables
-	{0x000756F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&cheat_buf}, // size: 0x1D4
+	{0x000756F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&cheat_buf}, // size: 0x1D4 (w_inputbuffer)
 	{0x000756F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&message_is_important},
 };
 

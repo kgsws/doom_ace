@@ -27,8 +27,7 @@
 //
 
 uint32_t *stbar_refresh_force;
-
-static uint32_t *screenblocks;
+uint32_t *screenblocks;
 
 static patch_t **tallnum;
 static patch_t **tallpercent;

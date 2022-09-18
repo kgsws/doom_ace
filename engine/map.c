@@ -42,6 +42,8 @@ ceiling_t **activeceilings;
 
 static uint32_t *precache;
 
+fixed_t *tmdropoffz;
+
 uint8_t map_lump_name[9];
 int32_t map_lump_idx;
 
@@ -370,5 +372,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002C040, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeplats},
 	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
 	{0x00011B58, DATA_HOOK | HOOK_IMPORT, (uint32_t)&precache},
+	// more variables
+	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 };
 

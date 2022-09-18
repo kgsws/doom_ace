@@ -93,6 +93,8 @@ extern sector_t **sectors;
 extern plat_t **activeplats;
 extern ceiling_t **activeceilings;
 
+extern fixed_t *tmdropoffz;
+
 extern uint8_t map_lump_name[9];
 extern int32_t map_lump_idx;
 

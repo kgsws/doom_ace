@@ -928,6 +928,9 @@ void M_WriteText(uint32_t,uint32_t,uint8_t*) __attribute((regparm(2),no_caller_s
 void M_ClearMenus() __attribute((regparm(2),no_caller_saved_registers));
 void M_StartMessage(uint8_t*,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
+// m_misc
+void M_LoadDefaults() __attribute((regparm(2),no_caller_saved_registers));
+
 // p_ceiling
 void P_AddActiveCeiling(ceiling_t*) __attribute((regparm(2),no_caller_saved_registers));
 

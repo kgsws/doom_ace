@@ -113,7 +113,7 @@ bss_end:
 
 	// continue loading Doom
 	mov	doom_code_segment,%eax
-	add	$0x1E4AC,%eax
+	add	$0x0001E4B1,%eax
 	jmp	*%eax
 
 	// exit
@@ -205,6 +205,12 @@ doom_sprintf:
 doom_sscanf:
 	.byte	0xE9
 	.4byte	0x00040AD4
+////////////////////////////////// doom_fprintf
+.section .text.doom_fprintf
+.global doom_fprintf
+doom_fprintf:
+	.byte	0xE9
+	.4byte	0x0004104F
 ////////////////////////////////// doom_free
 .section .text.doom_free
 .global doom_free
@@ -241,6 +247,18 @@ doom_close:
 doom_filelength:
 	.byte	0xE9
 	.4byte	0x000419EF
+////////////////////////////////// doom_fopen
+.section .text.doom_fopen
+.global doom_fopen
+doom_fopen:
+	.byte	0xE9
+	.4byte	0x00040217
+////////////////////////////////// doom_fclose
+.section .text.doom_fclose
+.global doom_fclose
+doom_fclose:
+	.byte	0xE9
+	.4byte	0x0004043A
 ////////////////////////////////// FixedDiv
 .section .text.FixedDiv
 .global FixedDiv
@@ -301,6 +319,12 @@ R_GetColumn:
 R_DrawMaskedColumn:
 	.byte	0xE9
 	.4byte	0x00037AA0
+////////////////////////////////// M_LoadDefaults
+.section .text.M_LoadDefaults
+.global M_LoadDefaults
+M_LoadDefaults:
+	.byte	0xE9
+	.4byte	0x000243C0
 ////////////////////////////////// ST_Init
 .section .text.ST_Init
 .global ST_Init

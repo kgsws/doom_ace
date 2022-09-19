@@ -602,7 +602,7 @@ static void dehacked_parse(uint8_t *text, uint32_t size)
 //
 // API
 
-void deh_init()
+void init_dehacked()
 {
 	int32_t lump;
 	uint32_t size;

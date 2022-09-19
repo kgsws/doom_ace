@@ -116,14 +116,14 @@ static menuitem_t mouse_items[] =
 		.key = 'l'
 	},
 	{
-		.text = "BTN MIDDLE",
-		.status = 2,
-		.key = 'm'
-	},
-	{
 		.text = "BTN RIGHT",
 		.status = 2,
 		.key = 'r'
+	},
+	{
+		.text = "BTN MIDDLE",
+		.status = 2,
+		.key = 'm'
 	},
 };
 
@@ -318,7 +318,7 @@ void controls_draw()
 		if(yy >= 40)
 		{
 			M_WriteText(CONTROL_X, yy, (uint8_t*)control_list[i].name);
-			M_WriteText(CONTROL_X_DEF, yy, control_id_name(*control_list[i].ptr));
+			M_WriteText(CONTROL_X_DEF, yy, control_key_name(*control_list[i].ptr));
 		}
 
 		yy += LINEHEIGHT_SMALL;
@@ -339,6 +339,10 @@ void mouse_draw()
 	// sensitivity
 	doom_sprintf(tmp, "%u", *mouseSensitivity);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, tmp);
+
+	// buttons
+	for(uint32_t i = 0; i < NUM_MOUSE_BTNS; i++)
+		M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * (i+1), control_btn_name(i));
 }
 
 //

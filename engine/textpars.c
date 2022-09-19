@@ -440,5 +440,38 @@ void tp_load_lump(lumpinfo_t *li)
 
 	backup_char = 0;
 	pushed_kw = 0;
+
+	tp_enable_math = 0;
+	tp_enable_newline = 0;
+}
+
+uint32_t tp_load_file(const uint8_t *path)
+{
+	int32_t fd;
+	int32_t len;
+
+	fd = doom_open_RD(path);
+	if(fd < 0)
+		return 1;
+
+	len = doom_read(fd, TP_MEMORY_ADDR, TP_MEMORY_SIZE);
+	if(len <= 0)
+	{
+		doom_close(fd);
+		return 1;
+	}
+
+	doom_close(fd);
+
+	tp_text_ptr = TP_MEMORY_ADDR;
+	tp_text_ptr[len] = 0;
+
+	backup_char = 0;
+	pushed_kw = 0;
+
+	tp_enable_math = 0;
+	tp_enable_newline = 0;
+
+	return 0;
 }
 

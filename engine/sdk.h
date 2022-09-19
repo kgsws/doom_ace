@@ -54,6 +54,7 @@ int32_t doom_printf(const uint8_t*, ...);
 int32_t doom_sprintf(uint8_t*, const uint8_t*, ...);
 int32_t doom_sscanf(const uint8_t*, const uint8_t*, ...);
 int32_t doom_open(const uint8_t *, uint32_t, ...);
+int32_t doom_fprintf(void*, const uint8_t*, ...);
 
 // SDK
 void doom_close(int32_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -61,6 +62,8 @@ int32_t doom_write(int32_t,void*,uint32_t) __attribute((regparm(2),no_caller_sav
 int32_t doom_read(int32_t,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 int32_t doom_lseek(int32_t,int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
 int32_t doom_filelength(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void *doom_fopen(const uint8_t*,const uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
+void doom_fclose(void*) __attribute((regparm(2),no_caller_saved_registers));
 
 void doom_free(void*) __attribute((regparm(2),no_caller_saved_registers));
 void *doom_malloc(uint32_t) __attribute((regparm(2),no_caller_saved_registers));

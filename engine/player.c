@@ -356,6 +356,8 @@ void player_think(player_t *pl)
 __attribute((regparm(2),no_caller_saved_registers))
 static void build_ticcmd(ticcmd_t *cmd)
 {
+	static uint8_t mouse_inv_use;
+
 	// first, use the original function
 	G_BuildTiccmd(cmd);
 
@@ -367,7 +369,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 	cmd->buttons &= BT_ATTACK | BT_USE | BT_ALTACK;
 
 	// secondary attack
-	if(mousebuttons[1] || gamekeydown[key_fire_alt])
+	if(mousebuttons[mouseb_fire_alt] || gamekeydown[key_fire_alt])
 		cmd->buttons |= BT_ALTACK;
 
 	// new weapon changes
@@ -383,9 +385,9 @@ static void build_ticcmd(ticcmd_t *cmd)
 	}
 
 	// inventory prev
-	if(gamekeydown[key_inv_next])
+	if(gamekeydown[key_inv_prev])
 	{
-		gamekeydown[key_inv_next] = 0;
+		gamekeydown[key_inv_prev] = 0;
 		cmd->buttons |= BT_ACT_INV_PREV << BT_ACTIONSHIFT;
 	}
 
@@ -397,11 +399,13 @@ static void build_ticcmd(ticcmd_t *cmd)
 	}
 
 	// inventory use
-	if(gamekeydown[key_inv_use])
+	if(gamekeydown[key_inv_use] || (!mouse_inv_use && mousebuttons[mouseb_inv_use]))
 	{
+		mouse_inv_use = 1;
 		gamekeydown[key_inv_use] = 0;
 		cmd->buttons |= BT_ACT_INV_USE << BT_ACTIONSHIFT;
-	}
+	} else
+		mouse_inv_use = !!mousebuttons[mouseb_inv_use];
 }
 
 //

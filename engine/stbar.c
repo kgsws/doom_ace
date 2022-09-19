@@ -125,14 +125,10 @@ static void sbar_draw_invslot(int32_t x, int32_t y, mobjinfo_t *info, inventory_
 //
 // init
 
-static __attribute((regparm(2),no_caller_saved_registers))
-void hook_st_init()
+void stbar_init()
 {
 	uint32_t width;
 	uint32_t height;
-
-	// call original first
-	ST_Init();
 
 	// initialize
 	doom_printf("[ACE] init status bar\n");
@@ -620,8 +616,6 @@ void st_draw_num(st_number_t *st, uint32_t refresh)
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// hook status bar init
-	{0x0001E950, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_st_init},
 	// replace 'STlib_drawNum'
 	{0x0003B020, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)st_draw_num},
 	// hook 3D render

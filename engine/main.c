@@ -10,6 +10,8 @@
 #include "sound.h"
 #include "map.h"
 #include "menu.h"
+#include "stbar.h"
+#include "config.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
@@ -301,8 +303,11 @@ uint32_t ace_main()
 
 	finecosine = finesine + (FINEANGLES / 4);
 
+	// config
+	init_config();
+
 	// dehacked
-	deh_init();
+	init_dehacked();
 	gfx_progress(-1);
 
 	// sound
@@ -343,6 +348,16 @@ uint32_t ace_main()
 //
 // hooks
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void late_init()
+{
+	// call original first
+	ST_Init();
+
+	// call other init
+	stbar_init();
+}
+
 static const hook_t restore_loader[] =
 {
 	// 'I_Error' patch
@@ -353,6 +368,8 @@ static const hook_t restore_loader[] =
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// late init stuff
+	{0x0001E950, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)late_init},
 	// add custom loading, skip "commercial" text and PWAD warning
 	{0x0001E4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0001E70C},
 	// change '-config' to '-cfg'

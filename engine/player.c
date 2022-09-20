@@ -365,12 +365,16 @@ static void build_ticcmd(ticcmd_t *cmd)
 	if(cmd->buttons & BT_SPECIAL)
 		return;
 
-	// mask off weapon chagnes
-	cmd->buttons &= BT_ATTACK | BT_USE | BT_ALTACK;
+	// use (mouse)
+	if(mousebuttons[mouseb_use])
+		cmd->buttons |= BT_USE;
 
 	// secondary attack
 	if(mousebuttons[mouseb_fire_alt] || gamekeydown[key_fire_alt])
 		cmd->buttons |= BT_ALTACK;
+
+	// mask off weapon chagnes
+	cmd->buttons &= BT_ATTACK | BT_USE | BT_ALTACK;
 
 	// new weapon changes
 	for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)

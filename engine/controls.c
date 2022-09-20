@@ -19,25 +19,9 @@ uint8_t key_inv_next = '.';
 uint8_t key_inv_prev = ',';
 uint8_t key_cheats = '`';
 
-int32_t mouseb_fire_alt;
-int32_t mouseb_inv_use;
-
-uint8_t mouse_button[3] =
-{
-	ctrl_mouseb_fire,
-	ctrl_mouseb_fire_alt,
-	ctrl_mouseb_inv_use,
-};
-
-mouse_ctrl_t mouse_list[NUM_MOUSE_CTRLS] =
-{
-	[ctrl_mouseb_none] = {"---"},
-	[ctrl_mouseb_fire] = {"Attack"},
-	[ctrl_mouseb_fire_alt] = {"Alt Attack", &mouseb_fire_alt},
-	[ctrl_mouseb_inv_use] = {"Inventory Use", &mouseb_inv_use},
-	[ctrl_mouseb_strafe] = {"Strafe"},
-	[ctrl_mouseb_forward] = {"Move Forward"},
-};
+int32_t mouseb_fire_alt = 1;
+int32_t mouseb_use = -1;
+int32_t mouseb_inv_use = 2;
 
 key_ctrl_t control_list[NUM_CONTROLS] =
 {
@@ -70,27 +54,33 @@ const uint8_t *ctrl_group[NUM_CTRL_GROUPS] =
 	"Misc",
 };
 
+static int32_t *const mouse_ptr[NUM_MOUSE_CTRL] =
+{
+	NULL, // mouseb_fire
+	&mouseb_fire_alt,
+	&mouseb_use,
+	&mouseb_inv_use,
+	NULL, // mouseb_strafe
+};
+
+static const uint8_t *mouse_btn[NUM_MOUSE_BTNS+1] =
+{
+	"-",
+	"L",
+	"R",
+	"M",
+};
+
 //
 // API
 
 void control_setup()
 {
-	// clear mouse
-	for(uint32_t i = 1; i < NUM_MOUSE_CTRLS; i++)
-		*mouse_list[i].ptr = -1;
-
-	// assign function from config
-	for(uint32_t i = 0; i < sizeof(mouse_button); i++)
+	// check mouse
+	for(uint32_t i = 1; i < NUM_MOUSE_CTRL; i++)
 	{
-		int32_t idx = mouse_button[i];
-
-		if(!idx)
-			continue;
-
-		if(idx >= NUM_MOUSE_CTRLS)
-			continue;
-
-		*mouse_list[idx].ptr = i;
+		if(*mouse_ptr[i] < -1 || *mouse_ptr[i] >= NUM_MOUSE_BTNS)
+			*mouse_ptr[i] = -1;
 	}
 }
 
@@ -148,9 +138,9 @@ uint8_t *control_key_name(uint8_t id)
 	return name_tmp;
 }
 
-uint8_t *control_btn_name(uint8_t btn)
+uint8_t *control_btn_name(uint8_t id)
 {
-	return (uint8_t*)mouse_list[mouse_button[btn]].name;
+	return (uint8_t*)mouse_btn[*mouse_ptr[id] + 1];
 }
 
 //
@@ -174,8 +164,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B370, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_strafe].ptr},
 	{0x0003BA1B, CODE_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_cheats].ptr},
 	// original mouse buttons
-	{0x0002B380, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mouse_list[ctrl_mouseb_fire].ptr},
-	{0x0002B36C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mouse_list[ctrl_mouseb_strafe].ptr},
-	{0x0002B358, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mouse_list[ctrl_mouseb_forward].ptr},
+	{0x0002B380, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mouse_ptr[0]},
+	{0x0002B36C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mouse_ptr[4]},
 };
 

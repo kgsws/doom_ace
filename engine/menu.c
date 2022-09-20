@@ -107,23 +107,31 @@ static menuitem_t mouse_items[] =
 {
 	{
 		.text = "SENSITIVITY",
-		.status = 2,
-		.key = 's'
+		.status = 2
 	},
 	{
-		.text = "BTN LEFT",
-		.status = 2,
-		.key = 'l'
+		.text = NULL,
+		.status = -1
 	},
 	{
-		.text = "BTN RIGHT",
-		.status = 2,
-		.key = 'r'
+		.text = "ATTACK",
+		.status = 2
 	},
 	{
-		.text = "BTN MIDDLE",
-		.status = 2,
-		.key = 'm'
+		.text = "ALT ATTACK",
+		.status = 2
+	},
+	{
+		.text = "USE",
+		.status = 2
+	},
+	{
+		.text = "INVENTORY",
+		.status = 2
+	},
+	{
+		.text = "STRAFE",
+		.status = 2
 	},
 };
 
@@ -341,8 +349,8 @@ void mouse_draw()
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, tmp);
 
 	// buttons
-	for(uint32_t i = 0; i < NUM_MOUSE_BTNS; i++)
-		M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * (i+1), control_btn_name(i));
+	for(uint32_t i = 0; i < NUM_MOUSE_CTRL; i++)
+		M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * (i+2), control_btn_name(i));
 }
 
 //
@@ -407,17 +415,6 @@ void menu_items_draw(menu_t *menu)
 
 void init_menu()
 {
-	// relocations
-
-	options_items[0].func = (void*)0x00022A60 + doom_code_segment; // M_EndGame
-	options_items[1].func = (void*)0x000229D0 + doom_code_segment; // M_ChangeMessages
-	options_items[2].func = (void*)0x00022D00 + doom_code_segment; // M_SizeDisplay
-	options_items[3].func = (void*)0x000225C0 + doom_code_segment; // M_Sound
-
-	mouse_items[0].func = (void*)0x00022C60 + doom_code_segment; // M_ChangeSensitivity
-
-	// graphics
-
 	small_selector = W_GetNumForName("STCFN042"); // it's from font, use PU_STATIC
 
 	title_options = W_GetNumForName((uint8_t*)0x00012247 + doom_data_segment);
@@ -478,5 +475,11 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00012222, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skull_name},
 	{0x0002B6B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&showMessages},
 	{0x0002B6C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mouseSensitivity},
+	// import functions
+	{0x00022A60, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[0].func},
+	{0x000229D0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[1].func},
+	{0x00022D00, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[2].func},
+	{0x000225C0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[3].func},
+	{0x00022C60, CODE_HOOK | HOOK_IMPORT, (uint32_t)&mouse_items[0].func},
 };
 

@@ -65,6 +65,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// invert 'run key' logic (auto run)
 	{0x0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},
+	// disable 'store demo' feature
+	{0x0001D113, CODE_HOOK | HOOK_UINT16, 0x4CEB},
 	// fix blaze door double closing sound
 	{0x0002690A, CODE_HOOK | HOOK_UINT16, 0x0BEB},
 	// fix 'A_Tracer' - make it leveltime based

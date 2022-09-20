@@ -41,8 +41,8 @@ static config_entry_t game_config[] =
 	{"input.key.strafe.right", (void*)0x0002B390, TYPE_U8, 1},
 	{"input.key.turn.left", (void*)0x0002B364, TYPE_U8, 1},
 	{"input.key.turn.right", (void*)0x0002B394, TYPE_U8, 1},
-	{"input.key.attack.primary", (void*)0x0002B384, TYPE_U8, 1},
-	{"input.key.attack.secondary", &key_fire_alt, TYPE_U8},
+	{"input.key.atk.pri", (void*)0x0002B384, TYPE_U8, 1},
+	{"input.key.atk.sec", &key_fire_alt, TYPE_U8},
 	{"input.key.use", (void*)0x0002B354, TYPE_U8, 1},
 	{"input.key.inv.use", &key_inv_use, TYPE_U8},
 	{"input.key.inv.next", &key_inv_next, TYPE_U8},
@@ -53,9 +53,11 @@ static config_entry_t game_config[] =
 	// mouse
 	{"input.mouse.enable", (void*)0x0002B6E8, TYPE_S32, 1},
 	{"input.mouse.sensitivity", (void*)0x0002B6C8, TYPE_S32, 1},
-	{"input.mouse.left", &mouse_button[0], TYPE_U8},
-	{"input.mouse.right", &mouse_button[1], TYPE_U8},
-	{"input.mouse.middle", &mouse_button[2], TYPE_U8},
+	{"input.mouse.atk.pri", (void*)0x0002B380, TYPE_S32, 1},
+	{"input.mouse.atk.sec", &mouseb_fire_alt, TYPE_S32},
+	{"input.mouse.use", &mouseb_use, TYPE_S32},
+	{"input.mouse.inv.use", &mouseb_inv_use, TYPE_S32},
+	{"input.mouse.strafe", (void*)0x0002B36C, TYPE_S32, 1},
 	// joystick
 	{"input.joy.enable", (void*)0x0002B6EC, TYPE_S32, 1},
 	{"input.joy.fire", (void*)0x0002B37C, TYPE_S32, 1},
@@ -79,6 +81,8 @@ static config_entry_t game_config[] =
 	// terminator
 	{NULL}
 };
+
+static const hook_t def_set[];
 
 //
 // API
@@ -145,9 +149,8 @@ void init_config()
 		M_LoadDefaults();
 	}
 
-	// TODO: forced values
-	// detaillevel = 1
-	// snd_sfxdevice = disable PC speaker
+	// forced values
+	utils_install_hooks(def_set, 0);
 
 	// check controls
 	control_setup();
@@ -186,6 +189,16 @@ void config_save()
 
 //
 // hooks
+
+static const hook_t def_set[] =
+{
+	// mousebstrafe = -1
+	{0x0002B36C, DATA_HOOK | HOOK_UINT32, -1},
+	// detaillevel = 0
+	{0x0002B6AC, DATA_HOOK | HOOK_UINT32, 0},
+	// terminator
+	{0}
+};
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {

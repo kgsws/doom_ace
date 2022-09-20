@@ -2,6 +2,7 @@
 ////
 
 #define NUM_MOUSE_BTNS	3
+#define NUM_MOUSE_CTRL	5
 
 enum
 {
@@ -37,18 +38,6 @@ enum
 	NUM_CONTROLS
 };
 
-enum
-{
-	ctrl_mouseb_none,
-	ctrl_mouseb_fire,
-	ctrl_mouseb_fire_alt,
-	ctrl_mouseb_inv_use,
-	ctrl_mouseb_strafe,
-	ctrl_mouseb_forward,
-	//
-	NUM_MOUSE_CTRLS
-};
-
 typedef struct
 {
 	uint32_t group;
@@ -56,15 +45,8 @@ typedef struct
 	uint8_t *ptr;
 } key_ctrl_t;
 
-typedef struct
-{
-	const uint8_t *name;
-	int32_t *ptr;
-} mouse_ctrl_t;
-
 //
 
-extern mouse_ctrl_t mouse_list[NUM_MOUSE_CTRLS];
 extern key_ctrl_t control_list[NUM_CONTROLS];
 extern const uint8_t *ctrl_group[NUM_CTRL_GROUPS];
 
@@ -77,6 +59,7 @@ extern uint8_t key_cheats;
 extern uint8_t mouse_button[3];
 
 extern int32_t mouseb_fire_alt;
+extern int32_t mouseb_use;
 extern int32_t mouseb_inv_use;
 
 extern uint32_t *gamekeydown;
@@ -87,5 +70,5 @@ extern uint32_t *mousebuttons;
 void control_setup();
 void control_clear_key(uint8_t id);
 uint8_t *control_key_name(uint8_t id);
-uint8_t *control_btn_name(uint8_t btn);
+uint8_t *control_btn_name(uint8_t id);
 

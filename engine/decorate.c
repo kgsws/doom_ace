@@ -12,6 +12,7 @@
 #include "weapon.h"
 #include "sound.h"
 #include "map.h"
+#include "config.h"
 #include "textpars.h"
 
 #include "decodoom.h"
@@ -720,7 +721,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 	{
 		.spawnhealth = 1000,
 		.mass = 100,
-		.flags = MF_NOGRAVITY | MF_NOBLOCKMAP,
+		.flags = MF_NOGRAVITY,
 		.state_spawn = 149, // TODO: custom sprite
 		.state_idx_limit = NUMSTATES,
 	},
@@ -1056,7 +1057,7 @@ static void make_doom_powerup(uint32_t idx)
 	mobjinfo_t *info = mobjinfo + pw->type;
 
 	info->extra_type = ETYPE_POWERUP;
-	info->eflags = default_powerup.eflags;
+	info->eflags = default_powerup.eflags | MFE_INVENTORY_AUTOACTIVATE;
 	info->powerup = default_powerup.powerup;
 	info->powerup.inventory.max_count = 0;
 	info->powerup.type = pw->power;
@@ -2232,7 +2233,8 @@ void init_decorate()
 	// PASS 1
 
 	// count actors, allocate actor names
-	wad_handle_lump("DECORATE", cb_count_actors);
+	if(mod_config.enable_decorate)
+		wad_handle_lump("DECORATE", cb_count_actors);
 
 	//
 	// PASS 2
@@ -2265,7 +2267,8 @@ void init_decorate()
 	}
 
 	// process actors
-	wad_handle_lump("DECORATE", cb_parse_actors);
+	if(mod_config.enable_decorate)
+		wad_handle_lump("DECORATE", cb_parse_actors);
 
 	//
 	// PASS 3
@@ -2382,7 +2385,8 @@ void init_decorate()
 	//
 	// KEYCONF
 
-	parse_keyconf();
+	if(mod_config.enable_decorate)
+		parse_keyconf();
 
 	if(!num_player_classes)
 		I_Error("No player classes defined!");

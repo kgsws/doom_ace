@@ -32,7 +32,15 @@ typedef struct
 
 //
 
-static config_entry_t game_config[] =
+mod_config_t mod_config =
+{
+	.enable_decorate = 1,
+	.enable_dehacked = 1,
+};
+
+//
+
+static config_entry_t config_game[] =
 {
 	// keys
 	{"input.key.move.forward", (void*)0x0002B344, TYPE_U8, 1},
@@ -82,7 +90,50 @@ static config_entry_t game_config[] =
 	{NULL}
 };
 
+static config_entry_t config_mod[] =
+{
+	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
+	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
+};
+
 static const hook_t def_set[];
+
+//
+// funcs
+
+static uint32_t parse_value(config_entry_t *conf)
+{
+	uint8_t *kw, *kv;
+	int32_t value;
+
+	while(conf->name)
+	{
+		kw = tp_get_keyword_lc();
+		if(!kw)
+			break;
+
+		kv = tp_get_keyword_lc();
+		if(!kv)
+			break;
+
+		if(!strcmp(conf->name, kw))
+		{
+			switch(conf->type)
+			{
+				case TYPE_U8:
+					if(doom_sscanf(kv, "%d", &value) == 1 && value >= 0 && value < 256)
+						*conf->u8 = value;
+				break;
+				case TYPE_S32:
+					if(doom_sscanf(kv, "%d", &value) == 1)
+						*conf->s32 = value;
+				break;
+			}
+			break;
+		}
+		conf++;
+	}
+}
 
 //
 // API
@@ -90,11 +141,10 @@ static const hook_t def_set[];
 void init_config()
 {
 	config_entry_t *conf;
-	uint8_t *kw, *kv;
-	int32_t value;
+	int32_t lump;
 
 	// relocate pointers
-	conf = game_config;
+	conf = config_game;
 	while(conf->name)
 	{
 		if(conf->relocate == 1)
@@ -109,39 +159,7 @@ void init_config()
 	if(!tp_load_file(ACE_CONFIG_FILE))
 	{
 		doom_printf("[ACE] loading game config ...\n");
-
-		// process config
-		while(1)
-		{
-			kw = tp_get_keyword_lc();
-			if(!kw)
-				break;
-
-			kv = tp_get_keyword_lc();
-			if(!kv)
-				break;
-
-			conf = game_config;
-			while(conf->name)
-			{
-				if(!strcmp(conf->name, kw))
-				{
-					switch(conf->type)
-					{
-						case TYPE_U8:
-							if(doom_sscanf(kv, "%d", &value) == 1 && value >= 0 && value < 256)
-								*conf->u8 = value;
-						break;
-						case TYPE_S32:
-							if(doom_sscanf(kv, "%d", &value) == 1)
-								*conf->s32 = value;
-						break;
-					}
-					break;
-				}
-				conf++;
-			}
-		}
+		while(parse_value(config_game));
 	} else
 	{
 		// try to load original config
@@ -151,6 +169,15 @@ void init_config()
 
 	// forced values
 	utils_install_hooks(def_set, 0);
+
+	// mod configuration
+	lump = wad_check_lump("ACE_CONF");
+	if(lump >= 0)
+	{
+		doom_printf("[ACE] loading mod config ...\n");
+		tp_load_lump(*lumpinfo + lump);
+		while(parse_value(config_mod));
+	}
 
 	// check controls
 	control_setup();
@@ -168,7 +195,7 @@ void config_save()
 
 	doom_fprintf(f, "// ACE Engine config file //\n");
 
-	conf = game_config;
+	conf = config_game;
 	while(conf->name)
 	{
 		doom_fprintf(f, "%s\t", conf->name);

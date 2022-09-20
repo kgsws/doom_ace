@@ -4,8 +4,9 @@
 #include "engine.h"
 #include "utils.h"
 #include "wadfile.h"
-#include "dehacked.h"
 #include "textpars.h"
+#include "config.h"
+#include "dehacked.h"
 
 #define POINTER_COUNT	448
 
@@ -608,6 +609,9 @@ void init_dehacked()
 	uint32_t size;
 	uint8_t *data;
 	void *syst;
+
+	if(!mod_config.enable_dehacked)
+		return;
 
 	lump = wad_check_lump("DEHACKED");
 	if(lump < 0)

@@ -47,6 +47,7 @@ typedef struct
 
 //
 
+extern int32_t *const ctrl_mouse_ptr[NUM_MOUSE_CTRL];
 extern key_ctrl_t control_list[NUM_CONTROLS];
 extern const uint8_t *ctrl_group[NUM_CTRL_GROUPS];
 

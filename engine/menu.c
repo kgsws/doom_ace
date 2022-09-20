@@ -103,6 +103,7 @@ static menu_t controls_menu =
 
 // MOUSE
 
+static void mouse_change(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static menuitem_t mouse_items[] =
 {
 	{
@@ -115,23 +116,28 @@ static menuitem_t mouse_items[] =
 	},
 	{
 		.text = "ATTACK",
-		.status = 2
+		.status = 2,
+		.func = mouse_change
 	},
 	{
 		.text = "ALT ATTACK",
-		.status = 2
+		.status = 2,
+		.func = mouse_change
 	},
 	{
 		.text = "USE",
-		.status = 2
+		.status = 2,
+		.func = mouse_change
 	},
 	{
 		.text = "INVENTORY",
-		.status = 2
+		.status = 2,
+		.func = mouse_change
 	},
 	{
 		.text = "STRAFE",
-		.status = 2
+		.status = 2,
+		.func = mouse_change
 	},
 };
 
@@ -335,6 +341,28 @@ void controls_draw()
 
 //
 // menu 'mouse'
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void mouse_change(uint32_t dir)
+{
+	uint32_t sel = *menu_item_now - 2;
+	int32_t value;
+
+	value = *ctrl_mouse_ptr[sel];
+	if(dir)
+	{
+		value++;
+		if(value == NUM_MOUSE_BTNS)
+			value = -1;
+	} else
+	{
+		value--;
+		if(value < -1)
+			value = NUM_MOUSE_BTNS - 1;
+	}
+
+	*ctrl_mouse_ptr[sel] = value;
+}
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void mouse_draw()

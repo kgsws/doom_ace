@@ -7,6 +7,7 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "wadfile.h"
+#include "map.h"
 #include "stbar.h"
 
 #define STBAR_Y	(SCREENHEIGHT-2)
@@ -342,6 +343,10 @@ void hook_RenderPlayerView(player_t *pl)
 {
 	// actually render 3D view
 	R_RenderPlayerView(pl);
+
+	// nothing else in TITLEMAP
+	if(is_title_map)
+		return;
 
 	// nothing else if dead
 	if(pl->playerstate != PST_LIVE)

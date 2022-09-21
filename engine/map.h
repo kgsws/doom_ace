@@ -90,6 +90,8 @@ extern vertex_t **vertexes;
 extern side_t **sides;
 extern sector_t **sectors;
 
+extern uint32_t *prndindex;
+
 extern plat_t **activeplats;
 extern ceiling_t **activeceilings;
 
@@ -99,8 +101,11 @@ extern uint8_t map_lump_name[9];
 extern int32_t map_lump_idx;
 
 extern uint_fast8_t map_skip_stuff;
+extern uint_fast8_t is_title_map;
 
 //
+
+void map_start_title();
 
 void map_load_setup() __attribute((regparm(2),no_caller_saved_registers));
 

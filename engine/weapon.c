@@ -170,6 +170,13 @@ void weapon_setup(player_t *pl)
 	for(uint32_t i = 0; i < NUMPSPRITES; i++)
 		pl->psprites[i].state = NULL;
 
+	if(is_title_map)
+	{
+		pl->readyweapon = NULL;
+		pl->pendingweapon = NULL;
+		return;
+	}
+
 	if(!pl->pendingweapon)
 		pl->pendingweapon = pl->readyweapon;
 

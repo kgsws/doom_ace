@@ -888,6 +888,8 @@ extern uint32_t *gamestate;
 extern uint32_t *gameaction;
 extern uint32_t *paused;
 extern uint32_t *menuactive;
+extern uint32_t *demosequence;
+extern uint32_t *advancedemo;
 extern fixed_t *finesine;
 extern fixed_t *finecosine;
 extern angle_t *tantoangle;
@@ -904,7 +906,7 @@ void *ldr_realloc(void *ptr, uint32_t size);
 void error_message(uint8_t*);
 
 // d_main
-void D_StartTitle() __attribute((regparm(2),no_caller_saved_registers));
+void D_AdvanceDemo() __attribute((regparm(2),no_caller_saved_registers));
 
 // g_game
 void G_DeferedInitNew(uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));

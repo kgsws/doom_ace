@@ -43,6 +43,8 @@ uint32_t *gameaction;
 uint32_t *paused;
 uint32_t *menuactive;
 uint32_t *gamemode;
+uint32_t *demosequence;
+uint32_t *advancedemo;
 static uint32_t *gamemode_sw;
 static uint32_t *gamemode_reg;
 
@@ -92,7 +94,7 @@ void finish_loading()
 
 void error_message(uint8_t *text)
 {
-	D_StartTitle();
+	map_start_title();
 	M_StartMessage(text, NULL, 0);
 }
 
@@ -403,6 +405,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B3F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamestate},
 	{0x00011B40, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wipegamestate},
 	{0x0002B3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gametic},
+	{0x0002A384, DATA_HOOK | HOOK_IMPORT, (uint32_t)&demosequence},
+	{0x0002A38C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&advancedemo},
 	// read stuff
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},

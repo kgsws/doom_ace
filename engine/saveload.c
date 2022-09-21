@@ -346,8 +346,6 @@ static uint8_t *savename;
 static uint8_t *savedesc;
 static uint32_t *saveslot;
 
-static uint32_t *prndindex;
-
 static patch_t *preview_patch;
 static uint_fast8_t show_save_slot = -1;
 
@@ -2075,7 +2073,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002A780, DATA_HOOK | HOOK_IMPORT, (uint32_t)&savename},
 	{0x0002B300, DATA_HOOK | HOOK_IMPORT, (uint32_t)&saveslot},
 	{0x0002AC90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&savedesc},
-	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
 	// extra, temporary
 	{0x00038FE0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_setblocks},
 	{0x000290F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_rdptr},

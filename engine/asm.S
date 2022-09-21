@@ -433,12 +433,6 @@ P_Random:
 M_Random:
 	.byte	0xE9
 	.4byte	0x00024180
-////////////////////////////////// D_StartTitle
-.section .text.D_StartTitle
-.global D_StartTitle
-D_StartTitle:
-	.byte	0xE9
-	.4byte	0x0001D810
 ////////////////////////////////// P_AddThinker
 .section .text.P_AddThinker
 .global P_AddThinker

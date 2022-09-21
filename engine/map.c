@@ -8,6 +8,8 @@
 #include "inventory.h"
 #include "animate.h"
 #include "think.h"
+#include "player.h"
+#include "demo.h"
 #include "map.h"
 
 mapthing_t *playerstarts;
@@ -37,6 +39,8 @@ vertex_t **vertexes;
 side_t **sides;
 sector_t **sectors;
 
+uint32_t *prndindex;
+
 plat_t **activeplats;
 ceiling_t **activeceilings;
 
@@ -49,10 +53,15 @@ uint8_t map_lump_name[9];
 int32_t map_lump_idx;
 
 uint_fast8_t map_skip_stuff;
+uint_fast8_t is_title_map;
 
 //
 
 static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
+
+//
+static const hook_t patch_new[];
+static const hook_t patch_old[];
 
 //
 // callbacks
@@ -100,10 +109,20 @@ static inline void spawn_line_scroll()
 __attribute((regparm(2),no_caller_saved_registers))
 void map_load_setup()
 {
-	if(*gamemode)
-		doom_sprintf(map_lump_name, "MAP%02u", *gamemap);
-	else
-		doom_sprintf(map_lump_name, "E%uM%u", *gameepisode, *gamemap);
+	if(*gameepisode)
+	{
+		if(*gamemode)
+			doom_sprintf(map_lump_name, "MAP%02u", *gamemap);
+		else
+			doom_sprintf(map_lump_name, "E%uM%u", *gameepisode, *gamemap);
+		is_title_map = 0;
+	} else
+	{
+		doom_sprintf(map_lump_name, "TITLEMAP");
+		*gameepisode = 1;
+		*usergame = 0;
+		is_title_map = 1;
+	}
 
 	map_lump_idx = W_GetNumForName(map_lump_name); // TODO: do not crash
 
@@ -114,6 +133,12 @@ void map_load_setup()
 	mobj_netid = 1; // 0 is NULL, so start with 1
 
 	think_clear();
+
+	// apply game patches
+	if(*demoplayback == DEMO_OLD)
+		utils_install_hooks(patch_old, 0);
+	else
+		utils_install_hooks(patch_new, 0);
 
 	P_SetupLevel();
 
@@ -324,10 +349,79 @@ do_door:
 }
 
 //
+// TITLEMAP
+
+void map_start_title()
+{
+	int32_t lump;
+
+	lump = W_CheckNumForName("TITLEMAP");
+	if(lump < 0)
+	{
+		*gameaction = ga_nothing;
+		*demosequence = -1;
+		*advancedemo = 1;
+		return;
+	}
+
+	if(*gameepisode)
+		*wipegamestate = -1;
+	else
+		*wipegamestate = GS_LEVEL;
+	*gamestate = GS_LEVEL;
+
+	*gameskill = sk_hard;
+	*fastparm = 0;
+	*respawnparm = 0;
+	*nomonsters = 0;
+	*deathmatch = 0;
+	*gameepisode = 0;
+	*gamemap = 1;
+	*prndindex = 0;
+	*paused = 0;
+	// viewactive = 1
+	// automapactive = 0
+
+	*consoleplayer = 0;
+	memset(players, 0, sizeof(player_t) * MAXPLAYERS);
+	players[0].playerstate = PST_REBORN;
+
+	memset(playeringame, 0, sizeof(uint32_t) * MAXPLAYERS);
+	playeringame[0] = 1;
+
+	map_load_setup();
+}
+
+//
 // hooks
+
+static const hook_t patch_new[] =
+{
+	// fix 'A_Tracer' - make it leveltime based
+	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80},
+	// terminator
+	{0}
+};
+
+static const hook_t patch_old[] =
+{
+	// restore 'A_Tracer'
+	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B3BC},
+	// terminator
+	{0}
+};
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// replace 'D_StartTitle'
+	{0x00022A4E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_start_title},
+	{0x0001EB1F, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_start_title},
+	// replace 'demoplayback' check for 'usergame' in 'G_Responder'
+	{0x000201CE, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B40C},
+	{0x000201D3, CODE_HOOK | HOOK_UINT8, 0x74},
+	// replace 'demoplayback' check for 'usergame' in 'P_Ticker'
+	{0x00032F83, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B40C},
+	{0x00032F88, CODE_HOOK | HOOK_UINT8, 0x74},
 	// replace call to 'P_SetupLevel' in 'G_DoLoadLevel'
 	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
 	// replace call to 'P_SpawnMapThing' in 'P_LoadThings'
@@ -376,6 +470,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
 	{0x00011B58, DATA_HOOK | HOOK_IMPORT, (uint32_t)&precache},
 	{0x0002B40C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usergame},
+	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
 	// more variables
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 };

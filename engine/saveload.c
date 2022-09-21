@@ -28,7 +28,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA2	// increment with updates
+#define SAVE_VERSION	0xE58BAFA3	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -155,6 +155,7 @@ typedef struct
 	//
 	fixed_t x, y, z;
 	angle_t angle;
+	fixed_t pitch;
 	fixed_t floorz;
 	fixed_t ceilingz;
 	fixed_t radius;
@@ -933,6 +934,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 	thing.y = mo->y;
 	thing.z = mo->z;
 	thing.angle = mo->angle;
+	thing.pitch = mo->pitch;
 	thing.floorz = mo->floorz;
 	thing.ceilingz = mo->ceilingz;
 	thing.radius = mo->radius;
@@ -1719,6 +1721,7 @@ static inline uint32_t ld_get_things()
 		mo->netid = thing.netid;
 
 		mo->angle = thing.angle;
+		mo->pitch = thing.pitch;
 		mo->floorz = thing.floorz;
 		mo->ceilingz = thing.ceilingz;
 		mo->radius = thing.radius;

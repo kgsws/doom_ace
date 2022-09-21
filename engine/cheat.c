@@ -219,8 +219,17 @@ static void cf_buddha(player_t *pl, uint8_t *arg)
 
 static void cf_mdk(player_t *pl, uint8_t *arg)
 {
-	P_BulletSlope(pl->mo);
-	P_LineAttack(pl->mo, pl->mo->angle, MISSILERANGE, *bulletslope, 1000000);
+	fixed_t slope;
+
+	if(pl->info_flags & PLF_AUTO_AIM)
+		slope = P_AimLineAttack(pl->mo, pl->mo->angle, 1024 * FRACUNIT);
+	else
+		*linetarget = NULL;
+
+	if(!*linetarget)
+		slope = pl->mo->pitch;
+
+	P_LineAttack(pl->mo, pl->mo->angle, MISSILERANGE, slope, 1000000);
 }
 
 static void cf_kill(player_t *pl, uint8_t *arg)
@@ -301,7 +310,7 @@ static void cf_summon(player_t *pl, uint8_t *arg)
 	mo = P_SpawnMobj(x, y, z, type);
 	mo->angle = pl->mo->angle;
 	if(mo->flags & MF_MISSILE)
-		missile_stuff(mo, pl->mo, NULL, pl->mo->angle);
+		missile_stuff(mo, pl->mo, NULL, pl->mo->angle, pl->mo->pitch);
 }
 
 static void cf_revenge(player_t *pl, uint8_t *arg)

@@ -178,16 +178,21 @@ typedef struct
 #define BT_ACTIONMASK	0b00111100
 #define BT_ACTIONSHIFT	2
 
+#define BTS_PLAYER_FLAG	64
+#define BTS_FLAG_SET	32
+
+#define BT_SPECIALMASK	0b01100011
+
 #define BT_ACT_INV_PREV	15
 #define BT_ACT_INV_NEXT	14
 #define BT_ACT_INV_USE	13
 
 typedef struct
-{
+{ // this structure has been changed
 	int8_t forwardmove;
 	int8_t sidemove;
 	int16_t angleturn;
-	int16_t consistancy;
+	int16_t pitchturn;
 	uint8_t chatchar;
 	uint8_t buttons;
 } ticcmd_t;
@@ -283,7 +288,8 @@ typedef struct player_s
 	struct inventory_s *inventory; // for level transition
 	struct inventory_s *inv_sel; // current selection
 	uint32_t inv_tick; // inventory selection visible
-	uint32_t __unused[5+4+4];
+	uint32_t info_flags;
+	uint32_t __unused[4+4+4];
 	uint16_t attackdown;
 	uint16_t weapon_ready;
 	int32_t usedown;
@@ -747,6 +753,7 @@ typedef struct mobj_s
 	uint8_t animation;	// animation system
 	uint8_t __unused;
 	uint32_t netid;	// unique identification
+	fixed_t pitch;
 	struct inventory_s *inventory;
 	mobjinfo_t *custom_inventory; // activating item, nesting is unsupported
 	uint32_t custom_state; // custom inventory state jumps
@@ -883,8 +890,7 @@ extern uint32_t *paused;
 extern uint32_t *menuactive;
 extern fixed_t *finesine;
 extern fixed_t *finecosine;
-extern uint32_t *viewheight;
-extern uint32_t *viewwidth;
+extern angle_t *tantoangle;
 
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -922,9 +928,10 @@ void ST_Start() __attribute((regparm(2),no_caller_saved_registers));
 
 // hu_stuff
 void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
+uint8_t HU_dequeueChatChar() __attribute((regparm(2),no_caller_saved_registers));
 
 // m_menu
-void M_WriteText(uint32_t,uint32_t,uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
+void M_WriteText(uint32_t,uint32_t,const uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void M_ClearMenus() __attribute((regparm(2),no_caller_saved_registers));
 void M_StartMessage(uint8_t*,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
@@ -994,10 +1001,12 @@ void R_PrecacheLevel() __attribute((regparm(2),no_caller_saved_registers));
 void R_ExecuteSetViewSize() __attribute((regparm(2),no_caller_saved_registers));
 void R_RenderPlayerView(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 angle_t R_PointToAngle2(fixed_t,fixed_t,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
+void R_SetupFrame(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_things
 void R_DrawMaskedColumn(struct column_s*) __attribute((regparm(2),no_caller_saved_registers));
 void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void R_DrawPlayerSprites() __attribute((regparm(2),no_caller_saved_registers));
 
 // s_sound.c
 void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));

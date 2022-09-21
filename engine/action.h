@@ -71,11 +71,13 @@ typedef struct
 
 //
 
+extern mobj_t **linetarget;
+
 extern const args_singleFixed_t def_LowerRaise;
 
 //
 
-void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle);
+void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, fixed_t pitch);
 
 //
 

@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "stbar.h"
 #include "controls.h"
+#include "player.h"
 #include "menu.h"
 
 #define CONTROL_Y_BASE	(40 + LINEHEIGHT_SMALL * 3)
@@ -18,6 +19,7 @@ static menu_t **currentMenu;
 static uint64_t *skull_name;
 static uint32_t *showMessages;
 static uint32_t *mouseSensitivity;
+static uint8_t *auto_run;
 
 static int32_t title_options;
 static int32_t title_controls;
@@ -27,6 +29,8 @@ static int32_t small_selector;
 
 static uint16_t control_old;
 static int16_t control_pos;
+
+static const uint8_t *const off_on[] = {"OFF", "ON"};
 
 // OPTIONS
 
@@ -154,27 +158,32 @@ static menu_t mouse_menu =
 
 // PLAYER
 
+static void player_change(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static menuitem_t player_items[] =
 {
 	{
 		.text = "AUTO RUN",
 		.status = 1,
+		.func = player_change,
 		.key = 'r'
 	},
 	{
 		.text = "AUTO SWITCH",
 		.status = 1,
+		.func = player_change,
 		.key = 's'
-	},
-	{
-		.text = "MOUSE LOOK",
-		.status = 1,
-		.key = 'l'
 	},
 	{
 		.text = "AUTO AIM",
 		.status = 1,
+		.func = player_change,
 		.key = 'a'
+	},
+	{
+		.text = "MOUSE LOOK",
+		.status = 1,
+		.func = player_change,
+		.key = 'l'
 	},
 };
 
@@ -228,7 +237,7 @@ void options_draw()
 	V_DrawPatchDirect(108, 15, 0, W_CacheLumpNum(title_options, PU_CACHE));
 
 	// messages
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, *showMessages ? "ON" : "OFF");
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, off_on[!!*showMessages]);
 
 	// screen size
 	doom_sprintf(tmp, "%u", *screenblocks);
@@ -321,7 +330,7 @@ void controls_draw()
 				break;
 
 			if(yy >= 40)
-				M_WriteText(CONTROL_X + 40, yy, (uint8_t*)ctrl_group[old]);
+				M_WriteText(CONTROL_X + 40, yy, ctrl_group[old]);
 
 			yy += LINEHEIGHT_SMALL;
 		}
@@ -331,7 +340,7 @@ void controls_draw()
 
 		if(yy >= 40)
 		{
-			M_WriteText(CONTROL_X, yy, (uint8_t*)control_list[i].name);
+			M_WriteText(CONTROL_X, yy, control_list[i].name);
 			M_WriteText(CONTROL_X_DEF, yy, control_key_name(*control_list[i].ptr));
 		}
 
@@ -385,10 +394,45 @@ void mouse_draw()
 // menu 'player'
 
 static __attribute((regparm(2),no_caller_saved_registers))
+void player_change(uint32_t sel)
+{
+	switch(sel)
+	{
+		case 0:
+			*auto_run = !*auto_run;
+			return;
+		case 1:
+			plcfg.auto_switch = !plcfg.auto_switch;
+		break;
+		case 2:
+			plcfg.auto_aim = !plcfg.auto_aim;
+		break;
+		case 3:
+			plcfg.mouse_look = !plcfg.mouse_look;
+		break;
+	}
+
+	// this has to be sent in tick message
+	player_flags_changed = 1;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 void player_draw()
 {
 	// title
 	V_DrawPatchDirect(119, 15, 0, W_CacheLumpNum(title_player, PU_CACHE));
+
+	// auto run
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[*auto_run == 1]);
+
+	// auto switch
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, off_on[!!plcfg.auto_switch]);
+
+	// auto aim
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, off_on[!!plcfg.auto_aim]);
+
+	// mouse look
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, off_on[!!plcfg.mouse_look]);
 }
 
 //
@@ -503,6 +547,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00012222, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skull_name},
 	{0x0002B6B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&showMessages},
 	{0x0002B6C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mouseSensitivity},
+	{0x0001FBC5, CODE_HOOK | HOOK_IMPORT, (uint32_t)&auto_run},
 	// import functions
 	{0x00022A60, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[0].func},
 	{0x000229D0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[1].func},

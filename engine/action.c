@@ -8,6 +8,7 @@
 #include "decorate.h"
 #include "action.h"
 #include "mobj.h"
+#include "player.h"
 #include "weapon.h"
 #include "inventory.h"
 #include "sound.h"
@@ -47,7 +48,7 @@ typedef struct
 
 //
 
-static mobj_t **linetarget;
+mobj_t **linetarget;
 
 static const uint8_t *action_name;
 
@@ -204,10 +205,45 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 }
 
 //
+// pitch to angle
+
+static inline uint32_t SlopeDiv(unsigned num, unsigned den)
+{
+	unsigned ans;
+
+	if(den < 512)
+		return SLOPERANGE;
+
+	ans = (num << 3) / (den >> 8);
+
+	return ans <= SLOPERANGE ? ans : SLOPERANGE;
+}
+
+static angle_t pitch_to_angle(fixed_t pitch)
+{
+	if(pitch > 0)
+	{
+		if(pitch < FRACUNIT)
+			return tantoangle[SlopeDiv(pitch, FRACUNIT)];
+		else
+			return ANG90 - 1 - tantoangle[SlopeDiv(FRACUNIT, pitch)];
+	} else
+	{
+		pitch = -pitch;
+		if(pitch < FRACUNIT)
+			return -tantoangle[SlopeDiv(pitch, FRACUNIT)];
+		else
+			return ANG270 + tantoangle[SlopeDiv(FRACUNIT, pitch)];
+	}
+}
+
+//
 // projectile spawn
 
-void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle)
+void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, fixed_t pitch)
 {
+	fixed_t speed = mo->info->speed;
+
 	S_StartSound(mo, mo->info->seesound);
 
 	mo->target = source;
@@ -215,9 +251,17 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle)
 		mo->tracer = target;
 	mo->angle = angle;
 
+	if(pitch)
+	{
+		angle_t ang;
+		ang = pitch_to_angle(pitch) >> ANGLETOFINESHIFT;
+		mo->momz = FixedMul(speed, finesine[ang]);
+		speed = FixedMul(speed, finecosine[ang]);
+	}
+
 	angle >>= ANGLETOFINESHIFT;
-	mo->momx = FixedMul(mo->info->speed, finecosine[angle]);
-	mo->momy = FixedMul(mo->info->speed, finesine[angle]);
+	mo->momx = FixedMul(speed, finecosine[angle]);
+	mo->momy = FixedMul(speed, finesine[angle]);
 
 	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
 	{
@@ -810,12 +854,13 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		dist /= th->info->speed;
 		if(dist <= 0)
 			dist = 1;
-		th->momz = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
+		dist = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
+		th->momz = FixedDiv(dist, th->info->speed);
 		if(arg->flags & CMF_OFFSETPITCH)
 			th->momz -= pitch;
 	}
 
-	missile_stuff(th, mo, target, angle);
+	missile_stuff(th, mo, target, angle, th->momz);
 }
 
 //
@@ -890,26 +935,37 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(arg->flags & FPF_AIMATANGLE)
 		angle += arg->angle;
 
-	// TODO: autoaim optional
-	slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
-	if(!*linetarget)
+	if(pl->info_flags & PLF_AUTO_AIM)
 	{
-		angle += 1 << 26;
+		// autoaim enabled
 		slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
-
 		if(!*linetarget)
 		{
-			angle -= 2 << 26;
+			angle += 1 << 26;
 			slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
 
 			if(!*linetarget)
 			{
-				slope = 0;
-				angle = mo->angle;
-				if(arg->flags & FPF_AIMATANGLE)
-					angle += arg->angle;
+				angle -= 2 << 26;
+				slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
+
+				if(!*linetarget)
+				{
+					slope = mo->pitch;
+					angle = mo->angle;
+					if(arg->flags & FPF_AIMATANGLE)
+						angle += arg->angle;
+				}
 			}
 		}
+	} else
+	{
+		// autoaim disabled
+		slope = mo->pitch;
+		// seeker missile check
+		*linetarget = NULL;
+		if(mobjinfo[arg->missiletype].flags1 & MF1_SEEKERMISSILE)
+			P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
 	}
 
 	if(arg->angle && !(arg->flags & FPF_AIMATANGLE))
@@ -931,10 +987,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
 	if(th->flags & MF_MISSILE)
-	{
-		missile_stuff(th, mo, *linetarget, angle);
-		th->momz = FixedMul(th->info->speed, slope);
-	}
+		missile_stuff(th, mo, *linetarget, angle, slope);
 }
 
 //

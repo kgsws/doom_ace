@@ -25,8 +25,27 @@ typedef struct
 
 //
 
+uint_fast8_t player_flags_changed = 1; // force update
+
 uint32_t *playeringame;
 player_t *players;
+
+static int32_t *mousey;
+
+player_info_t player_info[MAXPLAYERS] =
+{
+	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
+	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
+	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
+	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
+};
+
+player_config_t plcfg =
+{
+	.auto_switch = 0,
+	.auto_aim = 0,
+	.mouse_look = 1,
+};
 
 // view height patches
 static const uint32_t view_height_ptr[] =
@@ -251,11 +270,12 @@ static inline void cheat_char(uint32_t pidx, uint8_t cc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void player_think(player_t *pl)
 {
+	uint32_t idx = pl - players;
 	ticcmd_t *cmd = &pl->cmd;
 
 	if(pl->stbar_update)
 	{
-		if(pl - players == *consoleplayer)
+		if(idx == *consoleplayer)
 			stbar_update(pl);
 		else
 			pl->stbar_update = 0;
@@ -270,7 +290,7 @@ void player_think(player_t *pl)
 		pl->mo->flags &= ~MF_JUSTATTACKED;
 	}
 
-	cheat_char(pl - players, cmd->chatchar);
+	cheat_char(idx, cmd->chatchar);
 
 	if(pl->damagecount < 0)
 		pl->damagecount = 0;
@@ -282,16 +302,45 @@ void player_think(player_t *pl)
 
 	if(pl->playerstate == PST_DEAD)
 	{
+		if(pl->info_flags & PLF_MOUSE_LOOK)
+		{
+			if(pl->mo->pitch > PLAYER_LOOK_DEAD)
+			{
+				pl->mo->pitch -= PLAYER_LOOK_STEP;
+				if(pl->mo->pitch < PLAYER_LOOK_DEAD)
+					pl->mo->pitch = PLAYER_LOOK_DEAD;
+			} else
+			if(pl->mo->pitch < PLAYER_LOOK_DEAD)
+			{
+				pl->mo->pitch += PLAYER_LOOK_STEP;
+				if(pl->mo->pitch > PLAYER_LOOK_DEAD)
+					pl->mo->pitch = PLAYER_LOOK_DEAD;
+			}
+		} else
+			pl->mo->pitch = 0;
 		pl->weapon_ready = 0;
 		pl->inv_tick = 0;
 		P_DeathThink(pl);
 		return;
 	}
 
-	if(pl->mo->reactiontime)
-		pl->mo->reactiontime--;
-	else
+	if(!pl->mo->reactiontime)
+	{
 		P_MovePlayer(pl);
+		if(pl->info_flags & PLF_MOUSE_LOOK)
+		{
+			if(cmd->pitchturn)
+			{
+				pl->mo->pitch += (fixed_t)cmd->pitchturn;
+				if(pl->mo->pitch > PLAYER_LOOK_TOP)
+					pl->mo->pitch = PLAYER_LOOK_TOP;
+				if(pl->mo->pitch < PLAYER_LOOK_BOT)
+					pl->mo->pitch = PLAYER_LOOK_BOT;
+			}
+		} else
+			pl->mo->pitch = 0;
+	} else
+		pl->mo->reactiontime--;
 
 	P_CalcHeight(pl);
 
@@ -302,7 +351,22 @@ void player_think(player_t *pl)
 		pl->inv_tick--;
 
 	if(cmd->buttons & BT_SPECIAL)
+	{
+		if(cmd->buttons & BTS_PLAYER_FLAG)
+		{
+			// change player flag
+			uint32_t flag = 1 << (cmd->buttons & 31);
+			player_info_t *pli = player_info + idx;
+
+			if(cmd->buttons & BTS_FLAG_SET)
+				pli->flags |= flag;
+			else
+				pli->flags &= ~flag;
+
+			pl->info_flags = pli->flags;
+		}
 		cmd->buttons = 0;
+	}
 
 	check_buttons(pl, cmd);
 
@@ -362,8 +426,51 @@ static void build_ticcmd(ticcmd_t *cmd)
 	G_BuildTiccmd(cmd);
 
 	// second, modify stuff
+	cmd->chatchar = 0;
+
+	// do nothing on special request
 	if(cmd->buttons & BT_SPECIAL)
 		return;
+
+	// check for menu changes
+	if(player_flags_changed)
+	{
+		// send info change over ticcmd
+		// can send only one change at the time
+		player_info_t *pli = player_info + *consoleplayer;
+
+		if((pli->flags & PLF_AUTO_SWITCH) != (plcfg.auto_switch << plf_auto_switch))
+		{
+			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
+			if(plcfg.auto_switch)
+				cmd->buttons |= BTS_FLAG_SET;
+			cmd->buttons |= plf_auto_switch;
+			return;
+		} else
+		if((pli->flags & PLF_AUTO_AIM) != (plcfg.auto_aim << plf_auto_aim))
+		{
+			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
+			if(plcfg.auto_aim)
+				cmd->buttons |= BTS_FLAG_SET;
+			cmd->buttons |= plf_auto_aim;
+			return;
+		} else
+		if((pli->flags & PLF_MOUSE_LOOK) != (plcfg.mouse_look << plf_mouse_look))
+		{
+			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
+			if(plcfg.mouse_look)
+				cmd->buttons |= BTS_FLAG_SET;
+			cmd->buttons |= plf_mouse_look;
+			return;
+		}
+
+		// clear after all flags are updated
+		player_flags_changed = 0;
+	}
+
+	// mouse look
+	cmd->pitchturn = *mousey * 32;
+	*mousey = 0;
 
 	// use (mouse)
 	if(mousebuttons[mouseb_use])
@@ -410,6 +517,10 @@ static void build_ticcmd(ticcmd_t *cmd)
 		cmd->buttons |= BT_ACT_INV_USE << BT_ACTIONSHIFT;
 	} else
 		mouse_inv_use = !!mousebuttons[mouseb_inv_use];
+
+	// cheat char
+	if(!*paused)
+		cmd->chatchar = HU_dequeueChatChar();
 }
 
 //
@@ -474,8 +585,20 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace call to 'G_BuildTiccmd'
 	{0x0001D5B2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},
 	{0x0001F220, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},
+	// disable 'mousey' in 'G_BuildTiccmd'
+	{0x0001FF60, CODE_HOOK | HOOK_SET_NOPS, 7},
+	{0x0001FF94, CODE_HOOK | HOOK_SET_NOPS, 5},
+	// disable 'consistancy' check in 'G_Ticker'
+	{0x000206BB, CODE_HOOK | HOOK_UINT16, 0x7CEB},
+	// remove call to 'HU_dequeueChatChar' in 'G_BuildTiccmd'
+	{0x0001FD81, CODE_HOOK | HOOK_SET_NOPS, 8},
+	// change 'BT_SPECIAL' check in 'G_Ticker'
+	{0x0002079A, CODE_HOOK | HOOK_UINT8, BT_SPECIALMASK},
 	// import variables
 	{0x0002B2D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playeringame},
 	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
+	{0x0002B3D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&displayplayer},
+	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
+	{0x0002B33C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mousey},
 };
 

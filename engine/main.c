@@ -48,8 +48,7 @@ static uint32_t *gamemode_reg;
 
 fixed_t *finesine;
 fixed_t *finecosine;
-uint32_t *viewheight;
-uint32_t *viewwidth;
+angle_t *tantoangle;
 
 //
 
@@ -301,8 +300,6 @@ uint32_t ace_main()
 	//
 	// LOADING
 
-	finecosine = finesine + (FINEANGLES / 4);
-
 	// config
 	init_config();
 
@@ -395,8 +392,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles},
 	// SDK variables
 	{0x00005A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finesine},
-	{0x00032304, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewheight},
-	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
+	{0x00007A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finecosine},
+	{0x0000FA84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tantoangle},
 	{0x0002B404, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameaction},
 	{0x0002B408, DATA_HOOK | HOOK_IMPORT, (uint32_t)&paused},
 	{0x0002B6CC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&menuactive},

@@ -379,18 +379,21 @@ void spawn_player(mapthing_t *mt)
 		uint32_t killcount;
 		uint32_t itemcount;
 		uint32_t secretcount;
+		uint32_t is_cheater;
 
 		inventory_destroy(pl->inventory);
 
 		killcount = pl->killcount;
 		itemcount = pl->itemcount;
 		secretcount = pl->secretcount;
+		is_cheater = pl->cheats & CF_IS_CHEATER;
 
 		memset(pl, 0, sizeof(player_t));
 
 		pl->killcount = killcount;
 		pl->itemcount = itemcount;
 		pl->secretcount = secretcount;
+		pl->cheats = is_cheater;
 
 		pl->usedown = 1;
 		pl->attackdown = 1;
@@ -455,6 +458,7 @@ void spawn_player(mapthing_t *mt)
 	pl->inventory = NULL;
 	pl->stbar_update = 0;
 	pl->inv_tick = 0;
+	pl->info_flags = player_info[idx].flags;
 
 	cheat_player_flags(pl);
 
@@ -1081,8 +1085,6 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// import variables
-	{0x0002B3D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&displayplayer},
-	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
 	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
 	// replace 'P_SpawnPlayer'
 	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},

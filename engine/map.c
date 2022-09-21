@@ -41,6 +41,7 @@ plat_t **activeplats;
 ceiling_t **activeceilings;
 
 static uint32_t *precache;
+static uint32_t *usergame;
 
 fixed_t *tmdropoffz;
 
@@ -134,7 +135,9 @@ void map_load_setup()
 	{
 		P_SpawnSpecials();
 		spawn_line_scroll();
-	}
+	} else
+		// certainly playing when loading a save
+		*usergame = 1;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -372,6 +375,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002C040, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeplats},
 	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
 	{0x00011B58, DATA_HOOK | HOOK_IMPORT, (uint32_t)&precache},
+	{0x0002B40C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usergame},
 	// more variables
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 };

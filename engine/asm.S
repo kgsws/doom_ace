@@ -343,6 +343,12 @@ ST_Start:
 HU_Start:
 	.byte	0xE9
 	.4byte	0x0003B530
+////////////////////////////////// HU_dequeueChatChar
+.section .text.HU_dequeueChatChar
+.global HU_dequeueChatChar
+HU_dequeueChatChar:
+	.byte	0xE9
+	.4byte	0x0003B920
 ////////////////////////////////// P_SetupLevel
 .section .text.P_SetupLevel
 .global P_SetupLevel
@@ -355,6 +361,18 @@ P_SetupLevel:
 R_RenderPlayerView:
 	.byte	0xE9
 	.4byte	0x00035FB0
+////////////////////////////////// R_SetupFrame
+.section .text.R_SetupFrame
+.global R_SetupFrame
+R_SetupFrame:
+	.byte	0xE9
+	.4byte	0x00035E80
+////////////////////////////////// R_DrawPlayerSprites
+.section .text.R_DrawPlayerSprites
+.global R_DrawPlayerSprites
+R_DrawPlayerSprites:
+	.byte	0xE9
+	.4byte	0x00038210
 ////////////////////////////////// W_CheckNumForName
 .section .text.W_CheckNumForName
 .global W_CheckNumForName

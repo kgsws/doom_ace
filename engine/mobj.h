@@ -3,11 +3,7 @@
 
 //
 
-extern uint32_t *consoleplayer;
-extern uint32_t *displayplayer;
-
 extern thinker_t *thinkercap;
-
 extern uint32_t mobj_netid;
 
 //

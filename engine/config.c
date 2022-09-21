@@ -5,6 +5,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "wadfile.h"
+#include "player.h"
 #include "textpars.h"
 #include "controls.h"
 #include "config.h"
@@ -86,6 +87,11 @@ static config_entry_t config_game[] =
 	{"screen.messages", (void*)0x0002B6B0, TYPE_S32, 1},
 	{"screen.size", (void*)0x0002B698, TYPE_S32, 1},
 	{"screen.gamma", (void*)0x00074FC0, TYPE_S32, 1},
+	// player
+	{"player.autorun", (void*)0x0001FBC5, TYPE_U8, 2},
+	{"player.autoswitch", &plcfg.auto_switch, TYPE_U8},
+	{"player.autoaim", &plcfg.auto_aim, TYPE_U8},
+	{"player.mouselook", &plcfg.mouse_look, TYPE_U8},
 	// terminator
 	{NULL}
 };
@@ -140,6 +146,7 @@ static uint32_t parse_value(config_entry_t *conf)
 
 void init_config()
 {
+	player_info_t *pli;
 	config_entry_t *conf;
 	int32_t lump;
 
@@ -181,6 +188,19 @@ void init_config()
 
 	// check controls
 	control_setup();
+
+	// player setup
+	pli = player_info + *consoleplayer;
+	plcfg.auto_switch = !!plcfg.auto_switch;
+	plcfg.auto_aim = !!plcfg.auto_aim;
+	plcfg.mouse_look = !!plcfg.mouse_look;
+/*
+	// PLAYER FLAGS ARE FORCED TO UPDATE WHEN GAME STARTS
+	// TODO: do this when sending net-game info, with player class
+	pli->flags |= (uint32_t)plcfg.auto_switch << plf_auto_switch;
+	pli->flags |= (uint32_t)plcfg.auto_aim << plf_auto_aim;
+	pli->flags |= (uint32_t)plcfg.mouse_look << plf_mouse_look;
+*/
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -231,5 +251,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// repace 'M_SaveDefaults'
 	{0x00024300, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)config_save},
+	// invert 'run key' logic (auto run)
+	{0x0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},
 };
 

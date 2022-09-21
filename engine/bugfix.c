@@ -67,8 +67,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001D113, CODE_HOOK | HOOK_UINT16, 0x4CEB},
 	// fix blaze door double closing sound
 	{0x0002690A, CODE_HOOK | HOOK_UINT16, 0x0BEB},
-	// fix 'A_Tracer' - make it leveltime based
-//	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80}, // TODO
 	// fix 'OUCH' face; this intentionaly fixes only 'OUCH' caused by enemies
 	{0x0003A079, CODE_HOOK | HOOK_UINT8, 0xD7},
 	{0x0003A081, CODE_HOOK | HOOK_UINT8, 0xFF},

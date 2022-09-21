@@ -13,6 +13,7 @@
 #include "weapon.h"
 #include "map.h"
 #include "stbar.h"
+#include "demo.h"
 #include "cheat.h"
 
 uint32_t *consoleplayer;
@@ -613,8 +614,9 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			if(!given)
 			{
 				pl->stbar_update |= STU_WEAPON_NEW; // evil grin
-				// TODO: auto-weapon-switch optional
-				pl->pendingweapon = info;
+				// auto-weapon-switch optional
+				if(*demoplayback == DEMO_OLD || pl->info_flags & PLF_AUTO_SWITCH)
+					pl->pendingweapon = info;
 				if(!pl->psprites[0].state)
 					// fix 'no weapon' state
 					weapon_setup(pl);

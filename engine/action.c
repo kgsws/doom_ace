@@ -13,6 +13,7 @@
 #include "inventory.h"
 #include "sound.h"
 #include "stbar.h"
+#include "demo.h"
 #include "textpars.h"
 
 #define MAKE_FLAG(x)	{.name = #x, .bits = x}
@@ -238,6 +239,52 @@ static angle_t pitch_to_angle(fixed_t pitch)
 }
 
 //
+// player aim
+
+static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_t seeker)
+{
+	// TODO: cachce result for same-tick projectiles?
+	mobj_t *mo = pl->mo;
+	fixed_t sl;
+	angle_t an = *angle;
+
+	if(pl->info_flags & PLF_AUTO_AIM)
+	{
+		// autoaim enabled
+		sl = P_AimLineAttack(mo, an, 1024 * FRACUNIT);
+		if(!*linetarget)
+		{
+			an += 1 << 26;
+			sl = P_AimLineAttack(mo, an, 1024 * FRACUNIT);
+
+			if(!*linetarget)
+			{
+				an -= 2 << 26;
+				sl = P_AimLineAttack(mo, an, 1024 * FRACUNIT);
+
+				if(!*linetarget)
+				{
+					*slope = mo->pitch;
+					return 0;
+				}
+			}
+		}
+		*slope = sl;
+		*angle = an;
+		return 1;
+	} else
+	{
+		// autoaim disabled
+		*slope = mo->pitch;
+		// seeker missile check
+		*linetarget = NULL;
+		if(seeker)
+			P_AimLineAttack(mo, an, 1024 * FRACUNIT);
+		return 0;
+	}
+}
+
+//
 // projectile spawn
 
 void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, fixed_t pitch)
@@ -303,6 +350,9 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	uint16_t proj = (uint32_t)st->arg;
 	player_t *pl = mo->player;
 	uint16_t ammo = pl->readyweapon->weapon.ammo_type[0];
+	fixed_t slope, z;
+	angle_t angle;
+	mobj_t *th;
 
 	if(proj == 35) // BFG
 		count = dehacked.bfg_cells;
@@ -320,7 +370,21 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	inventory_take(mo, ammo, count);
 
-	P_SpawnPlayerMissile(mo, proj);
+	if(*demoplayback == DEMO_OLD)
+	{
+		P_SpawnPlayerMissile(mo, proj);
+		return;
+	}
+
+	angle = mo->angle;
+	player_aim(pl, &angle, &slope, 0);
+
+	z = mo->z;
+	z += mo->height / 2;
+	z += mo->info->player.attack_offs;
+
+	th = P_SpawnMobj(mo->x, mo->y, z, proj);
+	missile_stuff(th, mo, NULL, angle, slope);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -332,6 +396,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	uint16_t ammo = pl->readyweapon->weapon.ammo_type[0];
 	uint16_t hs, vs;
 	state_t *state;
+	angle_t angle;
 
 	if(sound == 4)
 		count = 2;
@@ -373,23 +438,28 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl->psprites[1].state = state;
 	pl->psprites[1].tics = 0;
 
-	P_BulletSlope(mo);
+	angle = mo->angle;
+
+	if(*demoplayback == DEMO_OLD)
+		P_BulletSlope(mo);
+	else
+		player_aim(pl, &angle, bulletslope, 0);
 
 	for(uint32_t i = 0; i < count; i++)
 	{
 		uint16_t damage;
-		angle_t angle;
-		fixed_t slope;
+		angle_t aaa;
+		fixed_t sss;
 
 		damage = 5 + 5 * (P_Random() % 3);
-		angle = mo->angle;
+		aaa = angle;
 		if(hs)
-			angle += (P_Random() - P_Random()) << hs;
-		slope = *bulletslope;
+			aaa += (P_Random() - P_Random()) << hs;
+		sss = *bulletslope;
 		if(vs)
-			slope += (P_Random() - P_Random()) << 5;
+			sss += (P_Random() - P_Random()) << 5;
 
-		P_LineAttack(mo, angle, MISSILERANGE, slope, damage);
+		P_LineAttack(mo, aaa, MISSILERANGE, sss, damage);
 	}
 }
 
@@ -935,38 +1005,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(arg->flags & FPF_AIMATANGLE)
 		angle += arg->angle;
 
-	if(pl->info_flags & PLF_AUTO_AIM)
-	{
-		// autoaim enabled
-		slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
-		if(!*linetarget)
-		{
-			angle += 1 << 26;
-			slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
-
-			if(!*linetarget)
-			{
-				angle -= 2 << 26;
-				slope = P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
-
-				if(!*linetarget)
-				{
-					slope = mo->pitch;
-					angle = mo->angle;
-					if(arg->flags & FPF_AIMATANGLE)
-						angle += arg->angle;
-				}
-			}
-		}
-	} else
-	{
-		// autoaim disabled
-		slope = mo->pitch;
-		// seeker missile check
-		*linetarget = NULL;
-		if(mobjinfo[arg->missiletype].flags1 & MF1_SEEKERMISSILE)
-			P_AimLineAttack(mo, angle, 1024 * FRACUNIT);
-	}
+	player_aim(pl, &angle, &slope, mobjinfo[arg->missiletype].flags1 & MF1_SEEKERMISSILE);
 
 	if(arg->angle && !(arg->flags & FPF_AIMATANGLE))
 		angle = mo->angle + arg->angle;

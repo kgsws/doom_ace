@@ -352,7 +352,7 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	player_t *pl = mo->player;
 	uint16_t ammo = pl->readyweapon->weapon.ammo_type[0];
 	fixed_t slope, z;
-	angle_t angle;
+	angle_t angle, pitch;
 	mobj_t *th;
 
 	if(proj == 35) // BFG
@@ -377,15 +377,18 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 	}
 
+	pitch = 0;
 	angle = mo->angle;
-	player_aim(pl, &angle, &slope, 0);
+
+	if(!player_aim(pl, &angle, &slope, 0))
+		pitch = mo->pitch;
 
 	z = mo->z;
 	z += mo->height / 2;
 	z += mo->info->player.attack_offs;
 
 	th = P_SpawnMobj(mo->x, mo->y, z, proj);
-	missile_stuff(th, mo, NULL, angle, 0, slope);
+	missile_stuff(th, mo, NULL, angle, pitch, slope);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -443,9 +446,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(*demoplayback != DEMO_OLD)
 	{
-		if(	!player_aim(pl, &angle, bulletslope, 0) &&
-			!(pl->info_flags & PLF_AUTO_AIM)
-		)
+		if(!player_aim(pl, &angle, bulletslope, 0))
 			*bulletslope = finesine[mo->pitch >> ANGLETOFINESHIFT];
 	} else
 		P_BulletSlope(mo);
@@ -1011,9 +1012,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(arg->flags & FPF_AIMATANGLE)
 		angle += arg->angle;
 
-	if(	!player_aim(pl, &angle, &slope, mobjinfo[arg->missiletype].flags1 & MF1_SEEKERMISSILE) &&
-		!(pl->info_flags & PLF_AUTO_AIM)
-	)
+	if(!player_aim(pl, &angle, &slope, mobjinfo[arg->missiletype].flags1 & MF1_SEEKERMISSILE))
 		pitch += mo->pitch;
 
 	if(arg->angle && !(arg->flags & FPF_AIMATANGLE))

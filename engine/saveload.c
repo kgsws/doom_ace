@@ -38,6 +38,7 @@
 #define T_LightFlash	0x0002A7F0
 #define T_StrobeFlash	0x0002A8A0
 #define T_Glow	0x0002AAC0
+#define T_FireFlicker	0x0002A750
 
 // save flags
 #define CHECK_BIT(f,x)	((f) & (1<<(x)))
@@ -86,6 +87,7 @@ enum
 	STH_DOOM_FLASH,
 	STH_DOOM_STROBE,
 	STH_DOOM_GLOW,
+	STH_DOOM_FLICKER,
 	// ACE special effects
 	STH_ACE__BASE = 0xABFF,
 	STH_ACE_LINE_SCROLL,
@@ -323,6 +325,14 @@ typedef struct
 	int16_t maxlight;
 	int8_t direction;
 } save_glow_t;
+
+typedef struct
+{ // STH_DOOM_FLICKER
+	uint16_t sector;
+	int16_t maxlight;
+	int16_t minlight;
+	uint8_t count;
+} save_flicker_t;
 
 typedef struct
 { // STH_ACE_LINE_SCROLL
@@ -909,6 +919,20 @@ add_plat:
 			sav.minlight = now->minlight;
 			sav.maxlight = now->maxlight;
 			sav.direction = now->direction;
+
+			writer_add(&sav, sizeof(sav));
+		} else
+		if(type == T_FireFlicker)
+		{
+			save_flicker_t sav;
+			fireflicker_t *now = (fireflicker_t*)th;
+
+			writer_add_u16(STH_DOOM_FLICKER);
+
+			sav.sector = now->sector - *sectors;
+			sav.maxlight = now->maxlight;
+			sav.minlight = now->minlight;
+			sav.count = now->count;
 
 			writer_add(&sav, sizeof(sav));
 		}
@@ -1667,6 +1691,29 @@ static inline uint32_t ld_get_specials()
 				now->direction = sav.direction;
 
 				now->thinker.function = (void*)T_Glow + doom_code_segment;
+
+				P_AddThinker(&now->thinker);
+			}
+			break;
+			case STH_DOOM_FLICKER:
+			{
+				save_flicker_t sav;
+				fireflicker_t *now;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= *numsectors)
+					return 1;
+
+				now = Z_Malloc(sizeof(fireflicker_t), PU_LEVEL, NULL);
+
+				now->sector = *sectors + sav.sector;
+				now->maxlight = sav.maxlight;
+				now->minlight = sav.minlight;
+				now->count = sav.count;
+
+				now->thinker.function = (void*)T_FireFlicker + doom_code_segment;
 
 				P_AddThinker(&now->thinker);
 			}

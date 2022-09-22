@@ -304,18 +304,20 @@ void player_think(player_t *pl)
 	{
 		if(pl->info_flags & PLF_MOUSE_LOOK)
 		{
-			if(pl->mo->pitch > PLAYER_LOOK_DEAD)
+			int32_t pitch = pl->mo->pitch;
+			if(pitch > PLAYER_LOOK_DEAD)
 			{
-				pl->mo->pitch -= PLAYER_LOOK_STEP;
-				if(pl->mo->pitch < PLAYER_LOOK_DEAD)
-					pl->mo->pitch = PLAYER_LOOK_DEAD;
+				pitch -= PLAYER_LOOK_STEP;
+				if(pitch < PLAYER_LOOK_DEAD)
+					pitch = PLAYER_LOOK_DEAD;
 			} else
-			if(pl->mo->pitch < PLAYER_LOOK_DEAD)
+			if(pitch < PLAYER_LOOK_DEAD)
 			{
-				pl->mo->pitch += PLAYER_LOOK_STEP;
-				if(pl->mo->pitch > PLAYER_LOOK_DEAD)
-					pl->mo->pitch = PLAYER_LOOK_DEAD;
+				pitch += PLAYER_LOOK_STEP;
+				if(pitch > PLAYER_LOOK_DEAD)
+					pitch = PLAYER_LOOK_DEAD;
 			}
+			pl->mo->pitch = (angle_t)pitch;
 		} else
 			pl->mo->pitch = 0;
 		pl->weapon_ready = 0;
@@ -331,11 +333,12 @@ void player_think(player_t *pl)
 		{
 			if(cmd->pitchturn)
 			{
-				pl->mo->pitch += (fixed_t)cmd->pitchturn;
-				if(pl->mo->pitch > PLAYER_LOOK_TOP)
-					pl->mo->pitch = PLAYER_LOOK_TOP;
-				if(pl->mo->pitch < PLAYER_LOOK_BOT)
-					pl->mo->pitch = PLAYER_LOOK_BOT;
+				int32_t pitch = pl->mo->pitch + (int32_t)(cmd->pitchturn << 16);
+				if(pitch > PLAYER_LOOK_TOP)
+					pitch = PLAYER_LOOK_TOP;
+				if(pitch < PLAYER_LOOK_BOT)
+					pitch = PLAYER_LOOK_BOT;
+				pl->mo->pitch = (angle_t)pitch;
 			}
 		} else
 			pl->mo->pitch = 0;
@@ -469,7 +472,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 	}
 
 	// mouse look
-	cmd->pitchturn = *mousey * 32;
+	cmd->pitchturn = *mousey * 8;
 	*mousey = 0;
 
 	// use (mouse)

@@ -77,7 +77,7 @@ extern const args_singleFixed_t def_LowerRaise;
 
 //
 
-void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, fixed_t pitch);
+void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, angle_t pitch, fixed_t slope);
 
 //
 

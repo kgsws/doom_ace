@@ -227,7 +227,7 @@ static void cf_mdk(player_t *pl, uint8_t *arg)
 		*linetarget = NULL;
 
 	if(!*linetarget)
-		slope = pl->mo->pitch;
+		slope = finesine[pl->mo->pitch >> ANGLETOFINESHIFT];
 
 	P_LineAttack(pl->mo, pl->mo->angle, MISSILERANGE, slope, 1000000);
 }
@@ -310,7 +310,7 @@ static void cf_summon(player_t *pl, uint8_t *arg)
 	mo = P_SpawnMobj(x, y, z, type);
 	mo->angle = pl->mo->angle;
 	if(mo->flags & MF_MISSILE)
-		missile_stuff(mo, pl->mo, NULL, pl->mo->angle, pl->mo->pitch);
+		missile_stuff(mo, pl->mo, NULL, pl->mo->angle, pl->mo->pitch, 0);
 }
 
 static void cf_revenge(player_t *pl, uint8_t *arg)

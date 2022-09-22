@@ -25,7 +25,7 @@ static fixed_t mlook_pitch;
 static __attribute((regparm(2),no_caller_saved_registers))
 void custom_SetupFrame(player_t *pl)
 {
-	fixed_t pn = pl->mo->pitch / 410; // TODO: depends on view height
+	fixed_t pn = finesine[pl->mo->pitch >> ANGLETOFINESHIFT] / 410; // TODO: depends on view height
 
 	if(mlook_pitch != pn)
 	{

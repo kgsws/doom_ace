@@ -206,7 +206,7 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 }
 
 //
-// pitch to angle
+// slope to angle
 
 static inline uint32_t SlopeDiv(unsigned num, unsigned den)
 {
@@ -220,21 +220,21 @@ static inline uint32_t SlopeDiv(unsigned num, unsigned den)
 	return ans <= SLOPERANGE ? ans : SLOPERANGE;
 }
 
-static angle_t pitch_to_angle(fixed_t pitch)
+static angle_t slope_to_angle(fixed_t slope)
 {
-	if(pitch > 0)
+	if(slope > 0)
 	{
-		if(pitch < FRACUNIT)
-			return tantoangle[SlopeDiv(pitch, FRACUNIT)];
+		if(slope < FRACUNIT)
+			return tantoangle[SlopeDiv(slope, FRACUNIT)];
 		else
-			return ANG90 - 1 - tantoangle[SlopeDiv(FRACUNIT, pitch)];
+			return ANG90 - 1 - tantoangle[SlopeDiv(FRACUNIT, slope)];
 	} else
 	{
-		pitch = -pitch;
-		if(pitch < FRACUNIT)
-			return -tantoangle[SlopeDiv(pitch, FRACUNIT)];
+		slope = -slope;
+		if(slope < FRACUNIT)
+			return -tantoangle[SlopeDiv(slope, FRACUNIT)];
 		else
-			return ANG270 + tantoangle[SlopeDiv(FRACUNIT, pitch)];
+			return ANG270 + tantoangle[SlopeDiv(FRACUNIT, slope)];
 	}
 }
 
@@ -243,7 +243,7 @@ static angle_t pitch_to_angle(fixed_t pitch)
 
 static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_t seeker)
 {
-	// TODO: cachce result for same-tick projectiles?
+	// TODO: cachce result for same-tick attacks?
 	mobj_t *mo = pl->mo;
 	fixed_t sl;
 	angle_t an = *angle;
@@ -264,7 +264,7 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 
 				if(!*linetarget)
 				{
-					*slope = mo->pitch;
+					*slope = 0;
 					return 0;
 				}
 			}
@@ -275,7 +275,7 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 	} else
 	{
 		// autoaim disabled
-		*slope = mo->pitch;
+		*slope = 0;
 		// seeker missile check
 		*linetarget = NULL;
 		if(seeker)
@@ -287,7 +287,7 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 //
 // projectile spawn
 
-void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, fixed_t pitch)
+void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, angle_t pitch, fixed_t slope)
 {
 	fixed_t speed = mo->info->speed;
 
@@ -298,12 +298,13 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, fi
 		mo->tracer = target;
 	mo->angle = angle;
 
-	if(pitch)
+	if(slope || pitch)
 	{
-		angle_t ang;
-		ang = pitch_to_angle(pitch) >> ANGLETOFINESHIFT;
-		mo->momz = FixedMul(speed, finesine[ang]);
-		speed = FixedMul(speed, finecosine[ang]);
+		if(slope)
+			pitch += slope_to_angle(slope);
+		pitch >>= ANGLETOFINESHIFT;
+		mo->momz = FixedMul(speed, finesine[pitch]);
+		speed = FixedMul(speed, finecosine[pitch]);
 	}
 
 	angle >>= ANGLETOFINESHIFT;
@@ -384,7 +385,7 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	z += mo->info->player.attack_offs;
 
 	th = P_SpawnMobj(mo->x, mo->y, z, proj);
-	missile_stuff(th, mo, NULL, angle, slope);
+	missile_stuff(th, mo, NULL, angle, 0, slope);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -440,10 +441,14 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	angle = mo->angle;
 
-	if(*demoplayback == DEMO_OLD)
+	if(*demoplayback != DEMO_OLD)
+	{
+		if(	!player_aim(pl, &angle, bulletslope, 0) &&
+			!(pl->info_flags & PLF_AUTO_AIM)
+		)
+			*bulletslope = finesine[mo->pitch >> ANGLETOFINESHIFT];
+	} else
 		P_BulletSlope(mo);
-	else
-		player_aim(pl, &angle, bulletslope, 0);
 
 	for(uint32_t i = 0; i < count; i++)
 	{
@@ -846,7 +851,7 @@ static const dec_args_t args_SpawnProjectile =
 		{"spawnofs_xy", handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
 		{"angle", handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
 		{"flags", handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_SpawnProjectile},
-		{"pitch", handle_fixed, offsetof(args_SpawnProjectile_t, pitch), 1},
+		{"pitch", handle_angle, offsetof(args_SpawnProjectile_t, pitch), 1},
 //		{"ptr", handle_pointer, offsetof(args_SpawnProjectile_t, ptr), 1},
 		// terminator
 		{NULL}
@@ -917,7 +922,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
 
 	if(arg->flags & (CMF_AIMDIRECTION|CMF_ABSOLUTEPITCH))
-		th->momz = -arg->pitch;
+		pitch = -arg->pitch;
 	else
 	if(th->info->speed)
 	{
@@ -927,10 +932,10 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		dist = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
 		th->momz = FixedDiv(dist, th->info->speed);
 		if(arg->flags & CMF_OFFSETPITCH)
-			th->momz -= pitch;
+			pitch = -arg->pitch;
 	}
 
-	missile_stuff(th, mo, target, angle, th->momz);
+	missile_stuff(th, mo, target, angle, pitch, th->momz);
 }
 
 //
@@ -956,7 +961,7 @@ static const dec_args_t args_FireProjectile =
 		{"spawnofs_xy", handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
 		{"spawnheight", handle_fixed, offsetof(args_SpawnProjectile_t, spawnheight), 1},
 		{"flags", handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_FireProjectile},
-		{"pitch", handle_fixed, offsetof(args_SpawnProjectile_t, pitch), 1},
+		{"pitch", handle_angle, offsetof(args_SpawnProjectile_t, pitch), 1},
 		// terminator
 		{NULL}
 	}
@@ -968,7 +973,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	player_t *pl = mo->player;
 	const args_SpawnProjectile_t *arg = st->arg;
 	mobj_t *th;
-	uint32_t angle;
+	angle_t angle, pitch;
 	fixed_t slope;
 	fixed_t x, y, z;
 
@@ -1000,12 +1005,16 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			inventory_take(mo, weap->weapon.ammo_type[1], weap->weapon.ammo_use[1]);
 	}
 
+	pitch = -arg->pitch;
 	angle = mo->angle;
 
 	if(arg->flags & FPF_AIMATANGLE)
 		angle += arg->angle;
 
-	player_aim(pl, &angle, &slope, mobjinfo[arg->missiletype].flags1 & MF1_SEEKERMISSILE);
+	if(	!player_aim(pl, &angle, &slope, mobjinfo[arg->missiletype].flags1 & MF1_SEEKERMISSILE) &&
+		!(pl->info_flags & PLF_AUTO_AIM)
+	)
+		pitch += mo->pitch;
 
 	if(arg->angle && !(arg->flags & FPF_AIMATANGLE))
 		angle = mo->angle + arg->angle;
@@ -1026,7 +1035,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
 	if(th->flags & MF_MISSILE)
-		missile_stuff(th, mo, *linetarget, angle, slope);
+		missile_stuff(th, mo, *linetarget, angle, pitch, slope);
 }
 
 //

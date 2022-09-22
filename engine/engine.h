@@ -753,7 +753,7 @@ typedef struct mobj_s
 	uint8_t animation;	// animation system
 	uint8_t __unused;
 	uint32_t netid;	// unique identification
-	fixed_t pitch;
+	angle_t pitch;
 	struct inventory_s *inventory;
 	mobjinfo_t *custom_inventory; // activating item, nesting is unsupported
 	uint32_t custom_state; // custom inventory state jumps

@@ -485,9 +485,11 @@ static const dec_flag_t mobj_flags1[] =
 	{"invulnerable", MF1_INVULNERABLE},
 	{"buddha", MF1_BUDDHA},
 	{"nodamage", MF1_NODAMAGE},
-	{"reflective", MF1_REFLECTIVE},
+	{"reflective", MF1_REFLECTIVE}, // TODO: implement
 	{"boss", MF1_BOSS}, // TODO: implement in A_Look (see sound)
 	{"noradiusdmg", MF1_NORADIUSDMG}, // TODO: implement in explosion
+	{"extremedeath", MF1_EXTREMEDEATH},
+	{"noextremedeath", MF1_NOEXTREMEDEATH},
 	// terminator
 	{NULL}
 };

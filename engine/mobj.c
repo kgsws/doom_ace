@@ -23,6 +23,8 @@ thinker_t *thinkercap;
 
 uint32_t mobj_netid;
 
+static uint_fast8_t kill_xdeath;
+
 //
 
 // this only exists because original animations are all over the plase in 'mobjinfo_t'
@@ -719,7 +721,11 @@ static void kill_animation(mobj_t *mo)
 {
 	// custom death animations can be added
 
-	if(mo->info->state_xdeath && mo->health < -mo->info->spawnhealth)
+	if(	mo->info->state_xdeath &&
+		(	kill_xdeath == 1 ||
+			(!kill_xdeath && mo->health < -mo->info->spawnhealth)
+		)
+	)
 		set_mobj_animation(mo, ANIM_XDEATH);
 	else
 		set_mobj_animation(mo, ANIM_DEATH);
@@ -972,10 +978,18 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		angle_t angle;
 		int32_t thrust;
 
+		angle = R_PointToAngle2(inflictor->x, inflictor->y, target->x, target->y);
 		thrust = damage > 10000 ? 10000 : damage;
 
-		angle = R_PointToAngle2(inflictor->x, inflictor->y, target->x, target->y);
-		thrust = thrust * (FRACUNIT >> 3) * 100 / target->info->mass;
+		if(*demoplayback != DEMO_OLD)
+		{
+			thrust = (thrust * (FRACUNIT >> 5) * 100 / target->info->mass);
+			if(thrust > (30 * FRACUNIT) >> 2)
+				thrust = 30 * FRACUNIT;
+			else
+				thrust <<= 2;
+		} else
+			thrust = thrust * (FRACUNIT >> 3) * 100 / target->info->mass;
 
 		if(kickback != 100)
 			thrust = (thrust * kickback) / 100;
@@ -1054,6 +1068,15 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 					player->health = 1;
 			} else
 			{
+				kill_xdeath = 0;
+				if(inflictor)
+				{
+					if(inflictor->flags1 & MF1_NOEXTREMEDEATH)
+						kill_xdeath = -1;
+					else
+					if(inflictor->flags1 & MF1_EXTREMEDEATH)
+						kill_xdeath = 1;
+				}
 				P_KillMobj(source, target);
 				return;
 			}

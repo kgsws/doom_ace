@@ -25,6 +25,7 @@ typedef struct
 
 cheat_buf_t *cheat_buf;
 
+static uint32_t *am_cheating;
 static uint32_t *message_is_important;
 static mobj_t *tmp_mo;
 
@@ -34,6 +35,7 @@ static void cf_iddqd(player_t*,uint8_t*);
 static void cf_idfa(player_t*,uint8_t*);
 static void cf_idkfa(player_t*,uint8_t*);
 static void cf_idclev(player_t*,uint8_t*);
+static void cf_iddt(player_t*,uint8_t*);
 static void cf_buddha(player_t*,uint8_t*);
 static void cf_mdk(player_t*,uint8_t*);
 static void cf_kill(player_t*,uint8_t*);
@@ -48,6 +50,7 @@ static const cheat_func_t cheat_func[] =
 	{"idfa", cf_idfa},
 	{"idkfa", cf_idkfa},
 	{"idclev", cf_idclev},
+	{"iddt", cf_iddt},
 	// new
 	{"noclip", cf_noclip},
 	{"warp", cf_idclev},
@@ -197,6 +200,15 @@ static void cf_idclev(player_t *pl, uint8_t *arg)
 	}
 
 	pl->message = "Wrong level!";
+}
+
+static void cf_iddt(player_t *pl, uint8_t *arg)
+{
+	uint32_t cheating = *am_cheating + 1;
+	if(cheating > 2)
+		*am_cheating = 0;
+	else
+		*am_cheating = cheating;
 }
 
 static void cf_buddha(player_t *pl, uint8_t *arg)
@@ -410,5 +422,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// import variables
 	{0x000756F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&cheat_buf}, // size: 0x1D4 (w_inputbuffer)
 	{0x000756F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&message_is_important},
+	{0x00012C50, DATA_HOOK | HOOK_IMPORT, (uint32_t)&am_cheating},
 };
 

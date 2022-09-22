@@ -82,6 +82,9 @@ extern uint32_t *totalkills;
 extern uint32_t *totalitems;
 extern uint32_t *totalsecret;
 
+extern uint32_t *skytexture;
+extern uint32_t *skyflatnum;
+
 extern uint32_t *numsides;
 extern uint32_t *numlines;
 extern uint32_t *numsectors;

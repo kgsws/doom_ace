@@ -511,6 +511,12 @@ P_DeathThink:
 P_SpawnPlayerMissile:
 	.byte	0xE9
 	.4byte	0x00031D50
+////////////////////////////////// P_LineOpening
+.section .text.P_LineOpening
+.global P_LineOpening
+P_LineOpening:
+	.byte	0xE9
+	.4byte	0x0002C340
 ////////////////////////////////// P_BulletSlope
 .section .text.P_BulletSlope
 .global P_BulletSlope

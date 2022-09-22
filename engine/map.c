@@ -31,6 +31,9 @@ uint32_t *totalkills;
 uint32_t *totalitems;
 uint32_t *totalsecret;
 
+uint32_t *skytexture;
+uint32_t *skyflatnum;
+
 uint32_t *numsides;
 uint32_t *numlines;
 uint32_t *numsectors;
@@ -44,10 +47,10 @@ uint32_t *prndindex;
 plat_t **activeplats;
 ceiling_t **activeceilings;
 
-static uint32_t *precache;
 static uint32_t *usergame;
 
 fixed_t *tmdropoffz;
+fixed_t *openrange;
 
 uint8_t map_lump_name[9];
 int32_t map_lump_idx;
@@ -109,6 +112,8 @@ static inline void spawn_line_scroll()
 __attribute((regparm(2),no_caller_saved_registers))
 void map_load_setup()
 {
+	uint32_t precache;
+
 	if(*gameepisode)
 	{
 		if(*gamemode)
@@ -116,12 +121,14 @@ void map_load_setup()
 		else
 			doom_sprintf(map_lump_name, "E%uM%u", *gameepisode, *gamemap);
 		is_title_map = 0;
+		precache = !*demoplayback;
 	} else
 	{
 		doom_sprintf(map_lump_name, "TITLEMAP");
 		*gameepisode = 1;
 		*usergame = 0;
 		is_title_map = 1;
+		precache = 0;
 	}
 
 	map_lump_idx = W_GetNumForName(map_lump_name); // TODO: do not crash
@@ -151,8 +158,7 @@ void map_load_setup()
 
 	clear_buttons();
 
-	// precache
-	if(*precache)
+	if(precache)
 		R_PrecacheLevel();
 
 	// specials
@@ -395,10 +401,68 @@ void map_start_title()
 //
 // hooks
 
+__attribute((regparm(2),no_caller_saved_registers))
+static void check_slide_line(line_t *li)
+{
+	if(li->flags & ML_BLOCKING)
+	{
+		// fake opening, making the line blocking
+		*openrange = 0;
+		return;
+	}
+
+	P_LineOpening(li);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void projectile_sky_flat(mobj_t *mo)
+{
+	if(mo->subsector && !(mo->flags1 & MF1_SKYEXPLODE))
+	{
+		sector_t *sec = mo->subsector->sector;
+		if(mo->z <= sec->floorheight)
+		{
+			if(sec->floorpic == *skyflatnum)
+			{
+				P_RemoveMobj(mo);
+				return;
+			}
+		} else
+		{
+			if(sec->ceilingpic == *skyflatnum)
+			{
+				P_RemoveMobj(mo);
+				return;
+			}
+		}
+	}
+
+	explode_missile(mo);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void projectile_sky_wall(mobj_t *mo)
+{
+	if(mo->flags1 & MF1_SKYEXPLODE)
+		explode_missile(mo);
+	else
+		P_RemoveMobj(mo);
+}
+
+//
+// hooks
+
 static const hook_t patch_new[] =
 {
 	// fix 'A_Tracer' - make it leveltime based
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80},
+	// replace call to 'P_LineOpening' in 'PTR_SlideTraverse'
+	{0x0002B4F2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_slide_line},
+	// fix typo in 'P_DivlineSide'
+	{0x0002EA00, CODE_HOOK | HOOK_UINT16, 0xCA39},
+	// projectile sky explosion
+	{0x0003137E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)projectile_sky_flat},
+	{0x00031089, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)projectile_sky_wall},
 	// terminator
 	{0}
 };
@@ -407,6 +471,13 @@ static const hook_t patch_old[] =
 {
 	// restore 'A_Tracer'
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B3BC},
+	// restore call to 'P_LineOpening' in 'PTR_SlideTraverse'
+	{0x0002B4F2, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C340},
+	// restore typo in 'P_DivlineSide'
+	{0x0002EA00, CODE_HOOK | HOOK_UINT16, 0xC839},
+	// projectile sky explosion
+	{0x0003137E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)explode_missile},
+	{0x00031089, CODE_HOOK | HOOK_CALL_DOOM, 0x00031660},
 	// terminator
 	{0}
 };
@@ -459,6 +530,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalsecret},
 	{0x0002B3D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalitems},
 	{0x0002B3D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalkills},
+	{0x0005A170, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skytexture},
+	{0x0005A164, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skyflatnum},
 	{0x0002C11C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsides},
 	{0x0002C134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlines},
 	{0x0002C14C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsectors},
@@ -468,10 +541,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002C148, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sectors},
 	{0x0002C040, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeplats},
 	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
-	{0x00011B58, DATA_HOOK | HOOK_IMPORT, (uint32_t)&precache},
 	{0x0002B40C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usergame},
 	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
 	// more variables
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
+	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},
 };
 

@@ -874,6 +874,15 @@ typedef struct
 	int32_t direction;
 } glow_t;
 
+typedef struct
+{
+	thinker_t thinker;
+	sector_t *sector;
+	int32_t count;
+	int32_t maxlight;
+	int32_t minlight;
+} fireflicker_t;
+
 // ASM hooks
 void hook_mobj_damage();
 void hook_obj_key();
@@ -961,6 +970,7 @@ void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_LineOpening(line_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_mobj
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

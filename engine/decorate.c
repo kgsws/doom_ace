@@ -490,6 +490,7 @@ static const dec_flag_t mobj_flags1[] =
 	{"noradiusdmg", MF1_NORADIUSDMG}, // TODO: implement in explosion
 	{"extremedeath", MF1_EXTREMEDEATH},
 	{"noextremedeath", MF1_NOEXTREMEDEATH},
+	{"skyexplode", MF1_SKYEXPLODE},
 	// terminator
 	{NULL}
 };

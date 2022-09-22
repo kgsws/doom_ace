@@ -332,7 +332,7 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 
 	if(!P_TryMove(mo, mo->x, mo->y))
 	{
-		if(mo->flags1 & MF_SHOOTABLE)
+		if(mo->flags & MF_SHOOTABLE)
 			P_DamageMobj(mo, NULL, NULL, 100000);
 		else
 			explode_missile(mo);
@@ -671,11 +671,17 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
+	uint32_t btn;
 
 	if(!pl)
 		return;
 
-	if(	pl->cmd.buttons & (BT_ATTACK | BT_ALTACK) &&
+	if(pl->attackdown > 1)
+		btn = BT_ALTACK;
+	else
+		btn = BT_ATTACK;
+
+	if(	pl->cmd.buttons & btn &&
 		!pl->pendingweapon &&
 		pl->health
 	) {

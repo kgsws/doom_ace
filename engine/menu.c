@@ -361,7 +361,7 @@ void change_gamma(uint32_t dir)
 
 	if(dir)
 	{
-		if(value < 5)
+		if(value < 4)
 			value++;
 		else
 			value = 0;
@@ -370,7 +370,7 @@ void change_gamma(uint32_t dir)
 		if(value)
 			value--;
 		else
-			value = 5;
+			value = 4;
 	}
 
 	*usegamma = value;

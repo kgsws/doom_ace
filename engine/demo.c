@@ -121,6 +121,7 @@ static void do_play_demo()
 	}
 
 	*demoplayback = DEMO_OLD;
+	*prndindex = 0;
 
 	map_load_setup();
 

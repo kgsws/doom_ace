@@ -122,7 +122,6 @@ void map_load_setup()
 	// viewactive = 1
 	// automapactive = 0
 	*paused = 0;
-	*prndindex = 0;
 	*gamestate = GS_LEVEL;
 
 	if(*gameepisode)
@@ -393,6 +392,7 @@ void map_start_title()
 	*deathmatch = 0;
 	*gameepisode = 0;
 	*gamemap = 1;
+	*prndindex = 0;
 
 	*consoleplayer = 0;
 	memset(players, 0, sizeof(player_t) * MAXPLAYERS);

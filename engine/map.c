@@ -152,7 +152,7 @@ void map_load_setup()
 		utils_install_hooks(patch_old, 0);
 	else
 		utils_install_hooks(patch_new, 0);
-doom_printf("DEMO %u\n", *demoplayback);
+
 	P_SetupLevel();
 
 	// reset some stuff

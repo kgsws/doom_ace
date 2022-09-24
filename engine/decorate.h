@@ -4,7 +4,7 @@
 #define MAX_SPRITE_NAMES	1024
 #define MAX_PLAYER_CLASSES	512
 
-#define EXTRA_STORAGE_PTR	((void*)0x0002D0A0 + doom_data_segment)
+#define EXTRA_STORAGE_PTR	((void*)0x0002D0A0 + doom_data_segment)	// drawsegs
 #define EXTRA_STORAGE_SIZE	12288
 #define EXTRA_STORAGE_END	(EXTRA_STORAGE_PTR + EXTRA_STORAGE_SIZE)
 

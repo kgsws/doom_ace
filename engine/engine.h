@@ -383,6 +383,21 @@ enum
 	NUM_EXTRA_TYPES,
 };
 
+enum
+{
+	PLR_SND_DEATH,
+	PLR_SND_XDEATH,
+	PLR_SND_GIBBED,
+	PLR_SND_PAIN25,
+	PLR_SND_PAIN50,
+	PLR_SND_PAIN75,
+	PLR_SND_PAIN100,
+	PLR_SND_LAND,
+	PLR_SND_USEFAIL,
+	//
+	NUM_PLAYER_SOUNDS
+};
+
 typedef struct
 {
 	uint16_t type;
@@ -402,6 +417,19 @@ typedef struct
 	uint16_t *wpn_slot[NUM_WPN_SLOTS];
 	fixed_t view_height;
 	fixed_t attack_offs;
+	union
+	{
+		struct
+		{
+			uint16_t death;
+			uint16_t xdeath;
+			uint16_t gibbed;
+			uint16_t pain[4];
+			uint16_t land;
+			uint16_t usefail;
+		} sound;
+		uint16_t sound_slot[NUM_PLAYER_SOUNDS];
+	};
 } ei_player_t;
 
 typedef struct

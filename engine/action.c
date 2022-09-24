@@ -711,6 +711,14 @@ void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Pain(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	if(mo->info->extra_type == ETYPE_PLAYERPAWN)
+	{
+		uint32_t hp = (mo->health - 1) / 25;
+		if(hp > 3)
+			hp = 3;
+		S_StartSound(mo, mo->info->player.sound.pain[hp]);
+		return;
+	}
 	S_StartSound(mo, mo->info->painsound);
 }
 
@@ -723,7 +731,26 @@ void A_Scream(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_XScream(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	if(mo->info->extra_type == ETYPE_PLAYERPAWN)
+	{
+		S_StartSound(mo, mo->info->player.sound.gibbed);
+		return;
+	}
 	S_StartSound(mo, 31);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_PlayerScream(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(mo->info->extra_type == ETYPE_PLAYERPAWN)
+	{
+		if(mo->health < -mo->info->spawnhealth / 2)
+			S_StartSound(mo, mo->info->player.sound.xdeath);
+		else
+			S_StartSound(mo, mo->info->player.sound.death);
+		return;
+	}
+	S_StartSound(mo, mo->info->deathsound);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -1209,6 +1236,7 @@ static const dec_action_t mobj_action[] =
 	{"a_pain", A_Pain},
 	{"a_scream", A_Scream},
 	{"a_xscream", A_XScream},
+	{"a_playerscream", A_PlayerScream},
 	{"a_activesound", A_ActiveSound},
 	{"a_startsound", A_StartSound, &args_StartSound},
 	// basic control

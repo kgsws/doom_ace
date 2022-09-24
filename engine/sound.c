@@ -43,24 +43,28 @@ static const sfxinfo_t sfx_rng[NUMSFX_RNG] =
 		.usefulness = -1,
 		.rng_count = 3,
 		.rng_id = {36, 37, 38},
+		.lumpnum = -1
 	},
 	{ // bgsit
 		.priority = 98,
 		.usefulness = -1,
 		.rng_count = 2,
 		.rng_id = {39, 40},
+		.lumpnum = -1
 	},
 	{ // podth
 		.priority = 70,
 		.usefulness = -1,
 		.rng_count = 3,
 		.rng_id = {59, 60, 61},
+		.lumpnum = -1
 	},
 	{ // bgdth
 		.priority = 70,
 		.usefulness = -1,
 		.rng_count = 2,
 		.rng_id = {62, 63},
+		.lumpnum = -1
 	},
 };
 
@@ -260,6 +264,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 					I_Error("[SNDINFO] Illegal replacement of '%.8s' by random in '%s' detected!", (*lumpinfo)[sfx->lumpnum].name, name);
 
 				// modify
+				sfx->lumpnum = -1;
 				sfx->rng_count = count;
 				for(uint32_t i = 0; i < count; i++)
 					sfx->rng_id[i] = id[i];
@@ -276,7 +281,49 @@ static void cb_sndinfo(lumpinfo_t *li)
 					goto error_end;
 				continue;
 			} else
-				I_Error("[SNDINFO] Unsuported directive '%s'!", kw);
+			if(!strcmp(kw + 1, "playersound"))
+			{
+				uint8_t *pcl, *slt;
+				uint8_t text[PLAYER_SOUND_CLASS_LEN + PLAYER_SOUND_SLOT_LEN];
+
+				// sound class
+				pcl = tp_get_keyword_lc();
+				if(!pcl)
+					goto error_end;
+				if(strlen(pcl) >= PLAYER_SOUND_CLASS_LEN)
+					I_Error("[SNDINFO] Too long string '%s'!", pcl);
+
+				// gender
+				kw = tp_get_keyword_lc();
+				if(!kw)
+					goto error_end;
+				if(strcmp(kw, "other"))
+					I_Error("[SNDINFO] Unsupported gender '%s'!", kw);
+
+				// sound slot
+				slt = tp_get_keyword_lc();
+				if(!slt)
+					goto error_end;
+				if(strlen(slt) >= PLAYER_SOUND_SLOT_LEN)
+					I_Error("[SNDINFO] Too long string '%s'!", slt);
+
+				// sound lump
+				kw = tp_get_keyword();
+				if(!kw)
+					goto error_end;
+
+				// get lump
+				lump = wad_check_lump(kw);
+
+				// slot name
+				doom_sprintf(text, "%s#%s", pcl, slt);
+
+				// update existing or create new entry
+				sfx_by_lump(text, lump);
+
+				continue;
+			} else
+				I_Error("[SNDINFO] Unsupported directive '%s'!", kw);
 		}
 
 		name = kw;
@@ -353,10 +400,19 @@ void init_sound()
 		uint8_t *name;
 
 		if(S_sfx[i].link)
-			name = S_sfx[i].link->name;
-		else
-			name = S_sfx[i].name;
-		strncpy(temp + 2, name, 6);
+		{
+			sfxinfo[i].alias = 0;
+			sfxinfo[i].priority = S_sfx[i].priority;
+			sfxinfo[i].reserved = 0;
+			sfxinfo[i].rng_count = 1;
+			sfxinfo[i].rng_id[0] = S_sfx[i].link - S_sfx;
+			sfxinfo[i].data = NULL;
+			sfxinfo[i].usefulness = -1;
+			sfxinfo[i].lumpnum = -1;
+			continue;
+		}
+
+		strncpy(temp + 2, S_sfx[i].name, 6);
 
 		sfxinfo[i].alias = 0;
 		sfxinfo[i].priority = S_sfx[i].priority;
@@ -372,6 +428,29 @@ void init_sound()
 
 	// process SNDINFO
 	wad_handle_lump("SNDINFO", cb_sndinfo);
+
+	// link sounds - make sure each lump is referenced only ONCE
+	// orignal Doom sound cache would break otherwise
+	for(uint32_t i = NUMSFX + NUMSFX_RNG; i < numsfx; i++)
+	{
+		sfxinfo_t *sfx = sfxinfo + i;
+
+		if(sfx->lumpnum < 0)
+			continue;
+
+		// find this lump in previous sounds
+		for(uint32_t j = i-1; j; j--)
+		{
+			if(sfx->lumpnum == sfxinfo[j].lumpnum)
+			{
+				// 'random' with count of one works as a redirect
+				sfx->lumpnum = -1;
+				sfx->rng_count = 1;
+				sfx->rng_id[0] = j;
+				break;
+			}
+		}
+	}
 
 	// patch CODE
 	for(uint32_t i = 0; i < NUM_SFX_HOOKS; i++)

@@ -5,11 +5,14 @@ OPT = -O2 -g0
 BOTH = -fno-pie
 CFLAGS = ${BOTH} ${OPT} -mgeneral-regs-only -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-protector -fcf-protection=none -Wno-address-of-packed-member -U_FORTIFY_SOURCE
 
-build: ${program}
+build: ${program}.lmp
 
 clean:
-	rm -f *.o ${program} ${program}.bin
+	rm -f *.o ${program} ${program}.rel ${program}.bin
 
-${program}: ${OBJ}
+${program}.lmp: ${OBJ}
 	${CC} ${OBJ} ${LIBS} ${BOTH} -o ${program} -nostdlib -Wl,--gc-sections -Wl,--no-ld-generated-unwind-info -Wl,--no-dynamic-linker -Wl,--omagic -Wl,-T linker.ld
-	objcopy -O binary --only-section=.text --only-section=.rel.dyn --only-section=.hooks --only-section=.rodata --only-section=.data ${program} ${program}.bin
+	objcopy -O binary --only-section=.text --only-section=.hooks --only-section=.rodata --only-section=.data ${program} ${program}.bin
+	objcopy -O binary --only-section=.rel.dyn ${program} ${program}.rel
+	./lumpgen.py ${program}.bin ${program}.rel ${program}.lmp
+

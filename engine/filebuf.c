@@ -2,12 +2,13 @@
 ////
 // File writer and reader with buffering.
 #include "sdk.h"
+#include "utils.h"
 #include "engine.h"
 #include "wadfile.h"
 #include "filebuf.h"
 
-#define BUFFER_SIZE	(8*1024)
-#define buffer	_reloc_start
+#define BUFFER_SIZE	(4*1024)
+#define buffer	((uint8_t*)0x0000005A210 + doom_data_segment)	// vissprites
 
 // reuse relocation space
 extern uint8_t _reloc_start[];

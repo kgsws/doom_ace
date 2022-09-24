@@ -1,6 +1,9 @@
 // kgsws' ACE Engine
 ////
 
+#define PLAYER_SOUND_CLASS_LEN	64
+#define PLAYER_SOUND_SLOT_LEN	12
+
 void init_sound();
 
 void sfx_rng_fix(uint16_t *idx, uint32_t pmatch);

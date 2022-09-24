@@ -27,26 +27,6 @@ SECTIONS
 	}
 	. = ALIGN(32);
 
-	_reloc_start = .;
-	.rel.dyn        :
-	{
-		*(.rel.init)
-		*(.rel.text .rel.text.* .rel.gnu.linkonce.t.*)
-		*(.rel.fini)
-		*(.rel.rodata .rel.rodata.* .rel.gnu.linkonce.r.*)
-		*(.rel.data.rel.ro .rel.data.rel.ro.* .rel.gnu.linkonce.d.rel.ro.*)
-		*(.rel.data .rel.data.* .rel.gnu.linkonce.d.*)
-		*(.rel.tdata .rel.tdata.* .rel.gnu.linkonce.td.*)
-		*(.rel.tbss .rel.tbss.* .rel.gnu.linkonce.tb.*)
-		*(.rel.ctors)
-		*(.rel.dtors)
-		*(.rel.got)
-		*(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)
-		*(.rel.ifunc)
-	}
-	_reloc_end = .;
-	. = ALIGN(32);
-
 	_hooks_start = .;
 	.hooks          :
 	{
@@ -78,6 +58,24 @@ SECTIONS
 	}
 	_bss_end = .;
 	_size_of_bss = _bss_end - _bss_start;
+
+	/* [kg] this will be processed by python script */
+	.rel.dyn        :
+	{
+		*(.rel.init)
+		*(.rel.text .rel.text.* .rel.gnu.linkonce.t.*)
+		*(.rel.fini)
+		*(.rel.rodata .rel.rodata.* .rel.gnu.linkonce.r.*)
+		*(.rel.data.rel.ro .rel.data.rel.ro.* .rel.gnu.linkonce.d.rel.ro.*)
+		*(.rel.data .rel.data.* .rel.gnu.linkonce.d.*)
+		*(.rel.tdata .rel.tdata.* .rel.gnu.linkonce.td.*)
+		*(.rel.tbss .rel.tbss.* .rel.gnu.linkonce.tb.*)
+		*(.rel.ctors)
+		*(.rel.dtors)
+		*(.rel.got)
+		*(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)
+		*(.rel.ifunc)
+	}
 
 	/* [kg] we do not care about any of these */
 

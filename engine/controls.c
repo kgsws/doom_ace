@@ -6,10 +6,6 @@
 #include "utils.h"
 #include "controls.h"
 
-// reuse relocation space
-extern uint8_t _reloc_start[];
-#define name_tmp	_reloc_start
-
 uint32_t *gamekeydown;
 uint32_t *mousebuttons;
 
@@ -96,6 +92,8 @@ void control_clear_key(uint8_t id)
 
 uint8_t *control_key_name(uint8_t id)
 {
+	static uint8_t name_tmp[8];
+
 	switch(id)
 	{
 		case 0:

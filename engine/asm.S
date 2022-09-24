@@ -28,18 +28,14 @@ _start:
 	mov	%edi,doom_data_segment(%ecx)
 
 	// relocate ACE
-	// this takes data from ELF
-	// this is only handles one type of relocation
-	lea	_reloc_start(%ecx),%ebx
-	lea	_reloc_end(%ecx),%edx
+	// relocations have to be processed by python script
+	lea	_bss_start(%ecx),%ebx
 rel_ace_loop:
-	cmp	%edx,%ebx
-	jge	rel_ace_end
 	mov	(%ebx),%eax
 	test	%eax,%eax
 	jz	rel_ace_end
 	add	%ecx,(%ecx,%eax,1)
-	add	$8,%ebx
+	add	$4,%ebx
 	jmp	rel_ace_loop
 rel_ace_end:
 	// everything after this point was relocated

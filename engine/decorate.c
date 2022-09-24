@@ -36,6 +36,7 @@ enum
 	DT_MONSTER,
 	DT_PROJECTILE,
 	DT_MOBJTYPE,
+	DT_SOUND_CLASS,
 	DT_DROPITEM,
 	DT_PP_WPN_SLOT,
 	DT_PP_INV_SLOT,
@@ -175,16 +176,26 @@ static uint32_t parse_last_anim;
 static void *extra_stuff_cur;
 static void *extra_stuff_next;
 
-static uint32_t parse_states();
+static uint32_t parse_player_sounds(uint8_t*);
 static uint32_t parse_dropitem();
 static uint32_t parse_wpn_slot();
 static uint32_t parse_inv_slot();
+static uint32_t parse_states();
 
 // 'DoomPlayer' stuff
 static const ei_player_t ei_player =
 {
 	.view_height = 41 * FRACUNIT,
 	.attack_offs = 8 * FRACUNIT,
+	.sound =
+	{
+		.death = 57,
+		.xdeath = 58,
+		.gibbed = 31,
+		.pain = {25, 25, 25, 25},
+		.land = 34,
+		.usefail = 81,
+	}
 };
 
 // default mobj
@@ -535,6 +546,7 @@ static const dec_attr_t attr_player[] =
 {
 	{"player.viewheight", DT_FIXED, offsetof(mobjinfo_t, player.view_height)},
 	{"player.attackzoffset", DT_FIXED, offsetof(mobjinfo_t, player.attack_offs)},
+	{"player.soundclass", DT_SOUND_CLASS},
 	//
 	{"player.weaponslot", DT_PP_WPN_SLOT},
 	{"player.startitem", DT_PP_INV_SLOT},
@@ -610,6 +622,20 @@ static const dec_attr_t attr_powerup[] =
 	{"powerup.strength", DT_U16, offsetof(mobjinfo_t, powerup.strength)},
 	// terminator
 	{NULL}
+};
+
+// player sound slots
+static const uint8_t *player_sound_slot[NUM_PLAYER_SOUNDS] =
+{
+	[PLR_SND_DEATH] = "*death",
+	[PLR_SND_XDEATH] = "*xdeath",
+	[PLR_SND_GIBBED] = "*gibbed",
+	[PLR_SND_PAIN25] = "*pain25",
+	[PLR_SND_PAIN50] = "*pain50",
+	[PLR_SND_PAIN75] = "*pain75",
+	[PLR_SND_PAIN100] = "*pain100",
+	[PLR_SND_LAND] = "*land",
+	[PLR_SND_USEFAIL] = "*usefail",
 };
 
 // actor inheritance
@@ -1231,6 +1257,12 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 				I_Error("[DECORATE] Unable to find ammo type '%s' in '%s'!", kw, parse_actor_name);
 			*((uint16_t*)dest) = num.s32;
 		break;
+		case DT_SOUND_CLASS:
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			return parse_player_sounds(kw);
+		break;
 		case DT_DROPITEM:
 			if(parse_mobj_info->extra_type == ETYPE_PLAYERPAWN)
 				I_Error("[DECORATE] Attempt to add DropItem to player class '%s'!", parse_actor_name);
@@ -1318,6 +1350,22 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 
 //
 // dropitem parser
+
+static uint32_t parse_player_sounds(uint8_t *snd_class)
+{
+	uint8_t text[PLAYER_SOUND_CLASS_LEN + PLAYER_SOUND_SLOT_LEN];
+
+	if(strlen(snd_class) >= PLAYER_SOUND_CLASS_LEN)
+		return 1;
+
+	for(uint32_t i = 0; i < NUM_PLAYER_SOUNDS; i++)
+	{
+		doom_sprintf(text, "%s#%s", snd_class, player_sound_slot[i]);
+		parse_mobj_info->player.sound_slot[i] = sfx_by_name(text);
+	}
+
+	return 0;
+}
 
 static uint32_t parse_dropitem()
 {
@@ -2411,7 +2459,7 @@ static uint32_t check_step_height(fixed_t floorz, mobj_t *mo)
 		return 0;
 	}
 
-	// step height
+	// step height // TODO: there is also check in slide move handler
 	if(floorz - mo->z > mo->info->step_height)
 		return 1;
 
@@ -2422,6 +2470,20 @@ static uint32_t check_step_height(fixed_t floorz, mobj_t *mo)
 		return 1;
 
 	return 0;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void sound_noway(mobj_t *mo)
+{
+	S_StartSound(mo, mo->info->player.sound.usefail);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void sound_oof(mobj_t *mo)
+{
+	if(mo->health <= 0)
+		return;
+	S_StartSound(mo, mo->info->player.sound.land);
 }
 
 //
@@ -2456,6 +2518,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002ABCB, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// change damage in 'PIT_StompThing'
 	{0x0002ABDE, CODE_HOOK | HOOK_UINT32, 1000000},
+	// change 'sfx_noway' in 'PTR_UseTraverse'
+	{0x0002BCCA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_noway},
+	// change 'sfx_oof' in 'P_ZMovement'
+	{0x000312F6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_oof},
 	// fix 'R_ProjectSprite'; use new 'frame' and 'state', ignore invalid sprites
 	{0x00037D45, CODE_HOOK | HOOK_UINT32, 0x2446B70F},
 	{0x00037D49, CODE_HOOK | HOOK_UINT32, 0x1072E839},

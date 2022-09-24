@@ -10,6 +10,7 @@
 #include "weapon.h"
 #include "stbar.h"
 #include "cheat.h"
+#include "config.h"
 #include "controls.h"
 #include "player.h"
 
@@ -38,13 +39,6 @@ player_info_t player_info[MAXPLAYERS] =
 	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
 	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
 	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
-};
-
-player_config_t plcfg =
-{
-	.auto_switch = 0,
-	.auto_aim = 0,
-	.mouse_look = 1,
 };
 
 // view height patches
@@ -442,26 +436,26 @@ static void build_ticcmd(ticcmd_t *cmd)
 		// can send only one change at the time
 		player_info_t *pli = player_info + *consoleplayer;
 
-		if((pli->flags & PLF_AUTO_SWITCH) != (plcfg.auto_switch << plf_auto_switch))
+		if((pli->flags & PLF_AUTO_SWITCH) != (extra_config.auto_switch << plf_auto_switch))
 		{
 			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
-			if(plcfg.auto_switch)
+			if(extra_config.auto_switch)
 				cmd->buttons |= BTS_FLAG_SET;
 			cmd->buttons |= plf_auto_switch;
 			return;
 		} else
-		if((pli->flags & PLF_AUTO_AIM) != (plcfg.auto_aim << plf_auto_aim))
+		if((pli->flags & PLF_AUTO_AIM) != (extra_config.auto_aim << plf_auto_aim))
 		{
 			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
-			if(plcfg.auto_aim)
+			if(extra_config.auto_aim)
 				cmd->buttons |= BTS_FLAG_SET;
 			cmd->buttons |= plf_auto_aim;
 			return;
 		} else
-		if((pli->flags & PLF_MOUSE_LOOK) != (plcfg.mouse_look << plf_mouse_look))
+		if((pli->flags & PLF_MOUSE_LOOK) != (!!(extra_config.mouse_look) << plf_mouse_look))
 		{
 			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
-			if(plcfg.mouse_look)
+			if(extra_config.mouse_look)
 				cmd->buttons |= BTS_FLAG_SET;
 			cmd->buttons |= plf_mouse_look;
 			return;

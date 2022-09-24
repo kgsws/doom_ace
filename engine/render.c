@@ -5,19 +5,85 @@
 #include "engine.h"
 #include "utils.h"
 #include "wadfile.h"
+#include "config.h"
+#include "player.h"
 #include "render.h"
 
 uint32_t *viewheight;
 uint32_t *viewwidth;
 
-static fixed_t *centery;
-static fixed_t *centeryfrac;
-static fixed_t *yslope;
+int32_t *centerx;
+int32_t *centery;
+
+int32_t *viewwindowx;
+int32_t *viewwindowy;
+
+uint32_t *screenblocks;
+
+uint32_t *usegamma;
+
+fixed_t *centeryfrac;
+fixed_t *yslope;
 
 static fixed_t cy_weapon;
 static fixed_t cy_look;
 
 static fixed_t mlook_pitch;
+
+uint8_t r_palette[768];
+
+//
+// API
+
+uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
+{
+	uint8_t ret = 0;
+	uint32_t best = 0xFFFFFFFF;
+	uint8_t *pal = r_palette;
+
+	for(uint32_t i = 0; i < 256; i++)
+	{
+		int32_t tmp;
+		uint32_t value;
+
+		if(pal[0] == r && pal[1] == g && pal[2] == b)
+			return i;
+
+		tmp = pal[0];
+		tmp -= r;
+		tmp *= tmp;
+		value = tmp;
+
+		tmp = pal[1];
+		tmp -= g;
+		tmp *= tmp;
+		value += tmp;
+
+		tmp = pal[2];
+		tmp -= b;
+		tmp *= tmp;
+		value += tmp;
+
+		pal += 3;
+
+		if(value < best)
+		{
+			ret = i;
+			best = value;
+		}
+	}
+
+	return ret;
+}
+
+void r_init_palette(uint8_t *palette)
+{
+	memcpy(r_palette, palette, 768);
+}
+
+void init_render()
+{
+}
 
 //
 // hooks
@@ -25,7 +91,12 @@ static fixed_t mlook_pitch;
 static __attribute((regparm(2),no_caller_saved_registers))
 void custom_SetupFrame(player_t *pl)
 {
-	fixed_t pn = finesine[pl->mo->pitch >> ANGLETOFINESHIFT] / 410; // TODO: depends on view height
+	fixed_t pn;
+
+	if(extra_config.mouse_look > 1)
+		pn = 0;
+	else
+		pn = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT] / 410; // TODO: depends on view height
 
 	if(mlook_pitch != pn)
 	{
@@ -86,9 +157,14 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00035C1A, CODE_HOOK | HOOK_UINT16, 0x5AEB},
 	// required variables
 	{0x0003952C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centeryfrac},
+	{0x00039534, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centerx},
 	{0x00039538, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centery},
+	{0x00032310, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwindowx},
+	{0x00032314, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwindowy},
 	{0x0004F920, DATA_HOOK | HOOK_IMPORT, (uint32_t)&yslope},
 	{0x00032304, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewheight},
 	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
+	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
+	{0x00074FC0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usegamma},
 };
 

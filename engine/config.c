@@ -33,6 +33,18 @@ typedef struct
 
 //
 
+extra_config_t extra_config =
+{
+	.auto_switch = 0,
+	.auto_aim = 0,
+	.mouse_look = 1,
+	.center_weapon = 1,
+	.crosshair_type = 1,
+	.crosshair_red = 255,
+	.crosshair_green = 255,
+	.crosshair_blue = 0,
+};
+
 mod_config_t mod_config =
 {
 	.enable_decorate = 1,
@@ -84,14 +96,19 @@ static config_entry_t config_game[] =
 	{"sound.sb.dma", (void*)0x000291E0, TYPE_S32, 1},
 	{"sound.m.port", (void*)0x000291E4, TYPE_S32, 1},
 	// screen
-	{"screen.messages", (void*)0x0002B6B0, TYPE_S32, 1},
-	{"screen.size", (void*)0x0002B698, TYPE_S32, 1},
-	{"screen.gamma", (void*)0x00074FC0, TYPE_S32, 1},
+	{"display.messages", (void*)0x0002B6B0, TYPE_S32, 1},
+	{"display.size", (void*)0x0002B698, TYPE_S32, 1},
+	{"display.gamma", (void*)0x00074FC0, TYPE_S32, 1},
+	{"display.xhair.type", &extra_config.crosshair_type, TYPE_U8},
+	{"display.xhair.red", &extra_config.crosshair_red, TYPE_U8},
+	{"display.xhair.green", &extra_config.crosshair_green, TYPE_U8},
+	{"display.xhair.blue", &extra_config.crosshair_blue, TYPE_U8},
 	// player
 	{"player.autorun", (void*)0x0001FBC5, TYPE_U8, 2},
-	{"player.autoswitch", &plcfg.auto_switch, TYPE_U8},
-	{"player.autoaim", &plcfg.auto_aim, TYPE_U8},
-	{"player.mouselook", &plcfg.mouse_look, TYPE_U8},
+	{"player.autoaim", &extra_config.auto_aim, TYPE_U8},
+	{"player.mouselook", &extra_config.mouse_look, TYPE_U8},
+	{"player.weapon.switch", &extra_config.auto_switch, TYPE_U8},
+	{"player.weapon.center", &extra_config.center_weapon, TYPE_U8},
 	// terminator
 	{NULL}
 };
@@ -191,15 +208,16 @@ void init_config()
 
 	// player setup
 	pli = player_info + *consoleplayer;
-	plcfg.auto_switch = !!plcfg.auto_switch;
-	plcfg.auto_aim = !!plcfg.auto_aim;
-	plcfg.mouse_look = !!plcfg.mouse_look;
+	extra_config.auto_switch = !!extra_config.auto_switch;
+	extra_config.auto_aim = !!extra_config.auto_aim;
+	if(extra_config.mouse_look > 2)
+		extra_config.mouse_look = 0;
 /*
 	// PLAYER FLAGS ARE FORCED TO UPDATE WHEN GAME STARTS
 	// TODO: do this when sending net-game info, with player class
-	pli->flags |= (uint32_t)plcfg.auto_switch << plf_auto_switch;
-	pli->flags |= (uint32_t)plcfg.auto_aim << plf_auto_aim;
-	pli->flags |= (uint32_t)plcfg.mouse_look << plf_mouse_look;
+	pli->flags |= (uint32_t)extra_config.auto_switch << plf_auto_switch;
+	pli->flags |= (uint32_t)extra_config.auto_aim << plf_auto_aim;
+	pli->flags |= (uint32_t)!!(extra_config.mouse_look) << plf_mouse_look;
 */
 }
 

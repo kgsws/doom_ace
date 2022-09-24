@@ -4,9 +4,11 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "config.h"
 #include "stbar.h"
 #include "controls.h"
 #include "player.h"
+#include "render.h"
 #include "menu.h"
 
 #define CONTROL_Y_BASE	(40 + LINEHEIGHT_SMALL * 3)
@@ -22,6 +24,7 @@ static uint32_t *mouseSensitivity;
 static uint8_t *auto_run;
 
 static int32_t title_options;
+static int32_t title_display;
 static int32_t title_controls;
 static int32_t title_mouse;
 static int32_t title_player;
@@ -30,7 +33,7 @@ static int32_t small_selector;
 static uint16_t control_old;
 static int16_t control_pos;
 
-static const uint8_t *const off_on[] = {"OFF", "ON"};
+static const uint8_t *const off_on[] = {"OFF", "ON", "FAKE"}; // fake is used in mouse look
 
 // OPTIONS
 
@@ -43,18 +46,13 @@ static menuitem_t options_items[] =
 		.key = 'e'
 	},
 	{
-		.text = "MESSAGES",
-		.status = 1,
-		.key = 'm'
-	},
-	{
-		.text = "SCREEN SIZE",
-		.status = 2,
-		.key = 's'
-	},
-	{
 		.text = "SOUND",
 		.status = 1
+	},
+	{
+		.text = "DISPLAY",
+		.status = 1,
+		.func = options_next
 	},
 	{
 		.text = "CONTROLS",
@@ -84,15 +82,79 @@ static menu_t options_menu =
 	.y = -50
 };
 
+// DISPLAY
+
+static void xhair_type(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+static void xhair_color(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+static void change_gamma(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+static menuitem_t display_items[] =
+{
+	{
+		.text = "MESSAGES",
+		.status = 2,
+		.key = 'm'
+	},
+	{
+		.text = "SCREEN SIZE",
+		.status = 2,
+		.key = 's'
+	},
+	{
+		.text = "GAMMA",
+		.status = 2,
+		.func = change_gamma,
+		.key = 'g'
+	},
+	{
+		.status = -1
+	},
+	{
+		.text = "        CROSSHAIR",
+		.status = -1
+	},
+	{
+		.text = "SHAPE",
+		.status = 2,
+		.func = xhair_type,
+		.key = 'x'
+	},
+	{
+		.text = "RED",
+		.status = 2,
+		.func = xhair_color
+	},
+	{
+		.text = "GREEN",
+		.status = 2,
+		.func = xhair_color
+	},
+	{
+		.text = "BLUE",
+		.status = 2,
+		.func = xhair_color
+	},
+};
+
+static void display_draw() __attribute((regparm(2),no_caller_saved_registers));
+static menu_t display_menu =
+{
+	.numitems = sizeof(display_items) / sizeof(menuitem_t),
+	.prev = &options_menu,
+	.menuitems = display_items,
+	.draw = display_draw,
+	.x = 100,
+	.y = -50
+};
+
 // CONTROLS
 
-static void contols_set(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+static void controls_set(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static menuitem_t controls_items[] =
 {
 	// dummy, just to track cursor movement
-	{.status = 1, .func = contols_set},
-	{.status = 1, .func = contols_set},
-	{.status = 1, .func = contols_set},
+	{.status = 1, .func = controls_set},
+	{.status = 1, .func = controls_set},
+	{.status = 1, .func = controls_set},
 };
 
 static void controls_draw() __attribute((regparm(2),no_caller_saved_registers));
@@ -163,27 +225,33 @@ static menuitem_t player_items[] =
 {
 	{
 		.text = "AUTO RUN",
-		.status = 1,
+		.status = 2,
 		.func = player_change,
 		.key = 'r'
 	},
 	{
 		.text = "AUTO SWITCH",
-		.status = 1,
+		.status = 2,
 		.func = player_change,
 		.key = 's'
 	},
 	{
 		.text = "AUTO AIM",
-		.status = 1,
+		.status = 2,
 		.func = player_change,
 		.key = 'a'
 	},
 	{
 		.text = "MOUSE LOOK",
-		.status = 1,
+		.status = 2,
 		.func = player_change,
 		.key = 'l'
+	},
+	{
+		.text = "CENTER WPN",
+		.status = 2,
+		.func = player_change,
+		.key = 'c'
 	},
 };
 
@@ -215,14 +283,17 @@ void options_next(uint32_t sel)
 {
 	switch(sel)
 	{
-		case 4:
+		case 2:
+			M_SetupNextMenu(&display_menu);
+		break;
+		case 3:
 			M_SetupNextMenu(&controls_menu);
 			control_old = *menu_item_now;
 		break;
-		case 5:
+		case 4:
 			M_SetupNextMenu(&mouse_menu);
 		break;
-		case 6:
+		case 5:
 			M_SetupNextMenu(&player_menu);
 		break;
 	}
@@ -231,17 +302,111 @@ void options_next(uint32_t sel)
 static __attribute((regparm(2),no_caller_saved_registers))
 void options_draw()
 {
-	uint8_t tmp[16];
-
 	// title
 	V_DrawPatchDirect(108, 15, 0, W_CacheLumpNum(title_options, PU_CACHE));
+}
+
+//
+// menu 'display'
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void xhair_type(uint32_t dir)
+{
+	if(dir)
+		extra_config.crosshair_type++;
+	else
+		extra_config.crosshair_type--;
+	stbar_set_xhair();
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void xhair_color(uint32_t dir)
+{
+	uint8_t *ptr;
+
+	switch(*menu_item_now)
+	{
+		case 6:
+			ptr = &extra_config.crosshair_red;
+		break;
+		case 7:
+			ptr = &extra_config.crosshair_green;
+		break;
+		case 8:
+			ptr = &extra_config.crosshair_blue;
+		break;
+		default:
+			return;
+	}
+
+	if(dir)
+	{
+		if(*ptr == 0xFF)
+			return;
+		*ptr = *ptr + 1;
+	} else
+	{
+		if(!*ptr)
+			return;
+		*ptr = *ptr - 1;
+	}
+
+	stbar_set_xhair();
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void change_gamma(uint32_t dir)
+{
+	uint32_t value = *usegamma;
+
+	if(dir)
+	{
+		if(value < 5)
+			value++;
+		else
+			value = 0;
+	} else
+	{
+		if(value)
+			value--;
+		else
+			value = 5;
+	}
+
+	*usegamma = value;
+	I_SetPalette(W_CacheLumpName("PLAYPAL", PU_CACHE));
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void display_draw()
+{
+	uint8_t text[16];
+
+	// title
+	V_DrawPatchDirect(117, 15, 0, W_CacheLumpNum(title_display, PU_CACHE));
 
 	// messages
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, off_on[!!*showMessages]);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[!!*showMessages]);
 
 	// screen size
-	doom_sprintf(tmp, "%u", *screenblocks);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, tmp);
+	doom_sprintf(text, "%u", *screenblocks);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, text);
+
+	// gamma
+	doom_sprintf(text, "%u", *usegamma);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, text);
+
+	// crosshair type
+	doom_sprintf(text, "%u", extra_config.crosshair_type);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 5, text);
+
+	// crosshair color
+	doom_sprintf(text, "%u", extra_config.crosshair_red);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 6, text);
+	doom_sprintf(text, "%u", extra_config.crosshair_green);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 7, text);
+	doom_sprintf(text, "%u", extra_config.crosshair_blue);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 8, text);
 }
 
 //
@@ -267,7 +432,7 @@ void control_input(uint8_t key)
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void contols_set(uint32_t sel)
+void controls_set(uint32_t sel)
 {
 	M_StartMessage("Press a key to set ...\n\n[ESC] to clear", control_input, 0);
 }
@@ -376,14 +541,14 @@ void mouse_change(uint32_t dir)
 static __attribute((regparm(2),no_caller_saved_registers))
 void mouse_draw()
 {
-	uint8_t tmp[16];
+	uint8_t text[16];
 
 	// title
 	V_DrawPatchDirect(123, 15, 0, W_CacheLumpNum(title_mouse, PU_CACHE));
 
 	// sensitivity
-	doom_sprintf(tmp, "%u", *mouseSensitivity);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, tmp);
+	doom_sprintf(text, "%u", *mouseSensitivity);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, text);
 
 	// buttons
 	for(uint32_t i = 0; i < NUM_MOUSE_CTRL; i++)
@@ -394,22 +559,40 @@ void mouse_draw()
 // menu 'player'
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void player_change(uint32_t sel)
+void player_change(uint32_t dir)
 {
-	switch(sel)
+	switch(*menu_item_now)
 	{
 		case 0:
 			*auto_run = !*auto_run;
 			return;
 		case 1:
-			plcfg.auto_switch = !plcfg.auto_switch;
+			extra_config.auto_switch = !extra_config.auto_switch;
 		break;
 		case 2:
-			plcfg.auto_aim = !plcfg.auto_aim;
+			extra_config.auto_aim = !extra_config.auto_aim;
 		break;
 		case 3:
-			plcfg.mouse_look = !plcfg.mouse_look;
+			if(dir)
+			{
+				if(extra_config.mouse_look < 2)
+					extra_config.mouse_look++;
+				else
+					extra_config.mouse_look = 0;
+			} else
+			{
+				if(extra_config.mouse_look)
+					extra_config.mouse_look--;
+				else
+					extra_config.mouse_look = 2;
+			}
+
+			if(extra_config.mouse_look == 2)
+				stbar_set_xhair();
 		break;
+		case 4:
+			extra_config.center_weapon = !extra_config.center_weapon;
+			return;
 	}
 
 	// this has to be sent in tick message
@@ -426,13 +609,16 @@ void player_draw()
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[*auto_run == 1]);
 
 	// auto switch
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, off_on[!!plcfg.auto_switch]);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, off_on[!!extra_config.auto_switch]);
 
 	// auto aim
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, off_on[!!plcfg.auto_aim]);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, off_on[!!extra_config.auto_aim]);
 
 	// mouse look
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, off_on[!!plcfg.mouse_look]);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, off_on[extra_config.mouse_look]);
+
+	// center weapon
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 4, off_on[!!extra_config.center_weapon]);
 }
 
 //
@@ -455,6 +641,8 @@ void menu_items_draw(menu_t *menu)
 		y = -y;
 
 		patch = W_CacheLumpNum(small_selector, PU_STATIC);
+		if(menu->menuitems[*menu_item_now].status == 2)
+			V_DrawPatchDirect(x + CURSORX_SMALL - 6, y + *menu_item_now * LINEHEIGHT_SMALL, 0, patch);
 		V_DrawPatchDirect(x + CURSORX_SMALL, y + *menu_item_now * LINEHEIGHT_SMALL, 0, patch);
 
 		for(uint32_t i = 0; i < menu->numitems; i++)
@@ -490,6 +678,10 @@ void init_menu()
 	small_selector = W_GetNumForName("STCFN042"); // it's from font, use PU_STATIC
 
 	title_options = W_GetNumForName((uint8_t*)0x00012247 + doom_data_segment);
+
+	title_display = W_CheckNumForName("M_DISPL");
+	if(title_display < 0)
+		title_display = title_options;
 
 	title_controls = W_CheckNumForName("M_CNTRL");
 	if(title_controls < 0)
@@ -550,9 +742,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001FBC5, CODE_HOOK | HOOK_IMPORT, (uint32_t)&auto_run},
 	// import functions
 	{0x00022A60, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[0].func},
-	{0x000229D0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[1].func},
-	{0x00022D00, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[2].func},
-	{0x000225C0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[3].func},
+	{0x000225C0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[1].func},
+	{0x000229D0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&display_items[0].func},
+	{0x00022D00, CODE_HOOK | HOOK_IMPORT, (uint32_t)&display_items[1].func},
 	{0x00022C60, CODE_HOOK | HOOK_IMPORT, (uint32_t)&mouse_items[0].func},
 };
 

@@ -8,9 +8,11 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "weapon.h"
+#include "config.h"
 #include "mobj.h"
 #include "action.h"
 #include "map.h"
+#include "player.h"
 
 //
 
@@ -228,8 +230,12 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 		P_NoiseAlert(pl->mo, pl->mo);
 
 	pl->weapon_ready = 0;
-	pl->psprites[0].sx = FRACUNIT;
-	pl->psprites[0].sy = WEAPONTOP;
+
+	if(extra_config.center_weapon)
+	{
+		pl->psprites[0].sx = FRACUNIT;
+		pl->psprites[0].sy = WEAPONTOP;
+	}
 
 	// just hope that this was not called in 'flash PSPR'
 	pl->psprites[0].state = NULL;

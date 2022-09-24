@@ -2,8 +2,8 @@
 ////
 
 #define PLAYER_INVBAR_TICS	25
-#define PLAYER_LOOK_TOP	0x20000000
-#define PLAYER_LOOK_BOT	-0x20000000
+#define PLAYER_LOOK_TOP	0x22000000
+#define PLAYER_LOOK_BOT	-0x22000000
 #define PLAYER_LOOK_DEAD	0x08000000
 #define PLAYER_LOOK_STEP	0x00800000
 
@@ -23,18 +23,9 @@ typedef struct
 	uint32_t flags;
 } player_info_t;
 
-typedef struct
-{
-	uint8_t auto_switch;
-	uint8_t auto_aim;
-	uint8_t mouse_look;
-} player_config_t;
-
 //
 
 extern player_info_t player_info[MAXPLAYERS];
-
-extern player_config_t plcfg;
 
 extern uint32_t *playeringame;
 extern player_t *players;

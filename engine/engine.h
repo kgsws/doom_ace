@@ -899,6 +899,7 @@ extern uint32_t *paused;
 extern uint32_t *menuactive;
 extern uint32_t *demosequence;
 extern uint32_t *advancedemo;
+extern fixed_t *finetangent;
 extern fixed_t *finesine;
 extern fixed_t *finecosine;
 extern angle_t *tantoangle;
@@ -925,6 +926,7 @@ void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(2),no_caller_saved_registers)
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));
 void I_FinishUpdate() __attribute((regparm(2),no_caller_saved_registers));
 void I_UpdateNoBlit() __attribute((regparm(2),no_caller_saved_registers));
+void I_SetPalette(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void I_ReadScreen(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // m_argv

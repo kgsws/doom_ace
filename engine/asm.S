@@ -295,6 +295,12 @@ I_UpdateNoBlit:
 I_ReadScreen:
 	.byte	0xE9
 	.4byte	0x0001A140
+////////////////////////////////// I_SetPalette
+.section .text.I_SetPalette
+.global I_SetPalette
+I_SetPalette:
+	.byte	0xE9
+	.4byte	0x00019CA0
 ////////////////////////////////// M_CheckParm
 .section .text.M_CheckParm
 .global M_CheckParm

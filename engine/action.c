@@ -447,7 +447,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(*demoplayback != DEMO_OLD)
 	{
 		if(!player_aim(pl, &angle, bulletslope, 0))
-			*bulletslope = finesine[mo->pitch >> ANGLETOFINESHIFT];
+			*bulletslope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
 	} else
 		P_BulletSlope(mo);
 

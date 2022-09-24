@@ -7,6 +7,7 @@
 #include "dehacked.h"
 #include "decorate.h"
 #include "animate.h"
+#include "render.h"
 #include "sound.h"
 #include "map.h"
 #include "menu.h"
@@ -48,6 +49,7 @@ uint32_t *advancedemo;
 static uint32_t *gamemode_sw;
 static uint32_t *gamemode_reg;
 
+fixed_t *finetangent;
 fixed_t *finesine;
 fixed_t *finecosine;
 angle_t *tantoangle;
@@ -77,6 +79,8 @@ void *load_palette()
 
 	idx = wad_get_lump("PLAYPAL");
 	wad_read_lump(dest, idx, 768);
+
+	r_init_palette(dest);
 
 	return dest;
 }
@@ -305,6 +309,9 @@ uint32_t ace_main()
 	// config
 	init_config();
 
+	// render
+	init_render();
+
 	// dehacked
 	init_dehacked();
 	gfx_progress(-1);
@@ -393,6 +400,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles},
 	// SDK variables
+	{0x00001A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finetangent},
 	{0x00005A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finesine},
 	{0x00007A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finecosine},
 	{0x0000FA84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tantoangle},

@@ -239,7 +239,7 @@ static void cf_mdk(player_t *pl, uint8_t *arg)
 		*linetarget = NULL;
 
 	if(!*linetarget)
-		slope = finesine[pl->mo->pitch >> ANGLETOFINESHIFT];
+		slope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
 
 	P_LineAttack(pl->mo, pl->mo->angle, MISSILERANGE, slope, 1000000);
 }

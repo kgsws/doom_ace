@@ -18,3 +18,5 @@ void stbar_init();
 void stbar_start(player_t *pl);
 void stbar_update(player_t *pl);
 
+void stbar_set_xhair();
+

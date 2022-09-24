@@ -7,7 +7,10 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "wadfile.h"
+#include "config.h"
+#include "player.h"
 #include "map.h"
+#include "render.h"
 #include "stbar.h"
 
 #define STBAR_Y	(SCREENHEIGHT-2)
@@ -28,7 +31,6 @@
 //
 
 uint32_t *stbar_refresh_force;
-uint32_t *screenblocks;
 
 static patch_t **tallnum;
 static patch_t **tallpercent;
@@ -59,6 +61,38 @@ static uint16_t *ammo_pri;
 static uint16_t *ammo_sec;
 
 static mobjinfo_t *keyinv[MAX_KEY_ICONS];
+
+static patch_t *xhair;
+static patch_t *xhair_custom;
+
+//
+// crosshairs
+
+typedef struct
+{
+	uint16_t width;
+	uint16_t height;
+	int16_t ox, oy;
+	uint32_t offs[5];
+	uint8_t dA[6];
+	uint8_t dB[6];
+	uint8_t dC[6];
+	uint8_t dD[11];
+	uint8_t dE[13];
+	uint8_t dF[11];
+	uint8_t dG[11];
+} __attribute__((packed)) xhair_patch_t;
+
+static xhair_patch_t xhair_data =
+{
+	.dA = {0x00, 0x01, 0x04, 0x04, 0x04, 0xFF},
+	.dB = {0x01, 0x01, 0x04, 0x04, 0x04, 0xFF},
+	.dC = {0x02, 0x01, 0x04, 0x04, 0x04, 0xFF},
+	.dD = {0x00, 0x01, 0x04, 0x04, 0x04, 0x02, 0x01, 0x04, 0x04, 0x04, 0xFF},
+	.dE = {0x00, 0x02, 0x04, 0x04, 0x04, 0x04, 0x03, 0x02, 0x04, 0x04, 0x04, 0x04, 0xFF},
+	.dF = {0x01, 0x01, 0x04, 0x04, 0x04, 0x03, 0x01, 0x04, 0x04, 0x04, 0xFF},
+	.dG = {0x00, 0x01, 0x04, 0x04, 0x04, 0x04, 0x01, 0x04, 0x04, 0x04, 0xFF},
+};
 
 //
 // icon cache
@@ -130,6 +164,7 @@ void stbar_init()
 {
 	uint32_t width;
 	uint32_t height;
+	int32_t lump;
 
 	// initialize
 	doom_printf("[ACE] init status bar\n");
@@ -155,6 +190,11 @@ void stbar_init()
 	inv_sel = W_CheckNumForName("SELECTBO");
 	if(inv_sel < 0)
 		inv_sel = W_GetNumForName("STFB0");
+
+	// custom crosshair
+	lump = W_CheckNumForName("XHAIR");
+	if(lump >= 0)
+		xhair_custom = W_CacheLumpNum(lump, PU_STATIC);
 }
 
 //
@@ -336,6 +376,32 @@ static inline void draw_invbar(player_t *pl)
 }
 
 //
+// crosshair
+
+static inline void draw_crosshair(player_t *pl)
+{
+	int32_t y;
+
+	if(!xhair)
+		return;
+
+	y = *viewwindowy + *viewheight / 2;
+
+	if(extra_config.mouse_look > 1)
+	{
+		int32_t height = *viewwindowy + *viewheight;
+		y -= finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT] / 410;
+		if(y < *viewwindowy + xhair->y)
+			y = *viewwindowy + xhair->y;
+		else
+		if(y > height - xhair->height + xhair->y)
+			y = height - xhair->height + xhair->y;
+	}
+
+	V_DrawPatchDirect((SCREENWIDTH / 2) - 1, y, 0, xhair);
+}
+
+//
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -367,6 +433,9 @@ void hook_RenderPlayerView(player_t *pl)
 
 	// inventory bar
 	draw_invbar(pl);
+
+	// draw crosshair
+	draw_crosshair(pl);
 }
 
 //
@@ -505,6 +574,116 @@ static void update_ready_weapon(player_t *pl)
 //
 // API
 
+void stbar_set_xhair()
+{
+	uint32_t type;
+	uint8_t color;
+
+	if(extra_config.crosshair_type == 0xFF)
+		extra_config.crosshair_type = 6;
+
+	if(extra_config.crosshair_type > 6)
+		extra_config.crosshair_type = 0;
+
+	type = extra_config.crosshair_type;
+
+	if(extra_config.mouse_look > 1 && !type)
+		type = 1;
+
+	switch(extra_config.crosshair_type)
+	{
+		case 1:
+			// single dot
+			xhair_data.width = 1;
+			xhair_data.height = 1;
+			xhair_data.ox = 0;
+			xhair_data.oy = 0;
+			xhair_data.offs[0] = offsetof(xhair_patch_t, dA);
+		break;
+		case 2:
+			// + size 3
+			xhair_data.width = 3;
+			xhair_data.height = 3;
+			xhair_data.ox = 1;
+			xhair_data.oy = 1;
+			xhair_data.offs[0] = offsetof(xhair_patch_t, dB);
+			xhair_data.offs[1] = offsetof(xhair_patch_t, dD);
+			xhair_data.offs[2] = offsetof(xhair_patch_t, dB);
+		break;
+		case 3:
+			// + size 5
+			xhair_data.width = 5;
+			xhair_data.height = 5;
+			xhair_data.ox = 2;
+			xhair_data.oy = 2;
+			xhair_data.offs[0] = offsetof(xhair_patch_t, dC);
+			xhair_data.offs[1] = offsetof(xhair_patch_t, dC);
+			xhair_data.offs[2] = offsetof(xhair_patch_t, dE);
+			xhair_data.offs[3] = offsetof(xhair_patch_t, dC);
+			xhair_data.offs[4] = offsetof(xhair_patch_t, dC);
+		break;
+		case 4:
+			// x size 3
+			xhair_data.width = 3;
+			xhair_data.height = 3;
+			xhair_data.ox = 1;
+			xhair_data.oy = 1;
+			xhair_data.offs[0] = offsetof(xhair_patch_t, dD);
+			xhair_data.offs[1] = offsetof(xhair_patch_t, dB);
+			xhair_data.offs[2] = offsetof(xhair_patch_t, dD);
+		break;
+		case 5:
+			// x size 5
+			xhair_data.width = 5;
+			xhair_data.height = 5;
+			xhair_data.ox = 2;
+			xhair_data.oy = 2;
+			xhair_data.offs[0] = offsetof(xhair_patch_t, dG);
+			xhair_data.offs[1] = offsetof(xhair_patch_t, dF);
+			xhair_data.offs[2] = offsetof(xhair_patch_t, dC);
+			xhair_data.offs[3] = offsetof(xhair_patch_t, dF);
+			xhair_data.offs[4] = offsetof(xhair_patch_t, dG);
+		break;
+		case 6:
+			if(!xhair_custom)
+			{
+				// single dot, as a backup
+				xhair_data.width = 1;
+				xhair_data.height = 1;
+				xhair_data.ox = 0;
+				xhair_data.oy = 0;
+				xhair_data.offs[0] = offsetof(xhair_patch_t, dA);
+			} else
+			{
+				// use 'XHAIR' lump
+				xhair = xhair_custom;
+				return;
+			}
+		break;
+		default:
+			xhair = NULL;
+			return;
+	}
+
+	xhair = (patch_t*)&xhair_data;
+
+	// recolor
+	color = r_find_color(extra_config.crosshair_red, extra_config.crosshair_green, extra_config.crosshair_blue);
+
+	for(uint32_t i = 0; i < xhair->width; i++)
+	{
+		uint8_t *ptr = (uint8_t*)xhair + xhair->offs[i];
+
+		while(*ptr++ != 0xFF)
+		{
+			uint32_t count = *ptr++;
+			count += 2;
+			for(uint32_t i = 0; i < count; i++)
+				*ptr++ = color;
+		}
+	}
+}
+
 void stbar_update(player_t *pl)
 {
 	if(pl->stbar_update & STU_WEAPON)
@@ -557,6 +736,9 @@ void stbar_start(player_t *pl)
 
 	// clear keys
 	memset(keyinv, 0, sizeof(keyinv));
+
+	// crosshair
+	stbar_set_xhair();
 }
 
 //
@@ -638,7 +820,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00039FDD, CODE_HOOK | HOOK_UINT32, 0x08FE5674},
 	{0x00039FE1, CODE_HOOK | HOOK_UINT16, 0x2FEB},
 	// some variables
-	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
 	{0x000752C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&shortnum},
 	{0x000752F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},
 	{0x00075458, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallpercent},

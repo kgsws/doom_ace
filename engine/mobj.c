@@ -16,6 +16,9 @@
 #include "demo.h"
 #include "cheat.h"
 
+#define STOPSPEED	0x1000
+#define FRICTION	0xe800
+
 uint32_t *consoleplayer;
 uint32_t *displayplayer;
 
@@ -1104,6 +1107,168 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	}
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+static void mobj_xy_move(mobj_t *mo)
+{
+	player_t *pl = mo->player;
+
+	if(!mo->momx && !mo->momy)
+	{
+		if(mo->flags & MF_SKULLFLY)
+		{
+			mo->flags &= ~MF_SKULLFLY;
+			mo->momz = 0;
+			mobj_set_animation(mo, ANIM_SPAWN);
+		}
+		return;
+	}
+
+	if(*demoplayback != DEMO_OLD)
+	{
+		// new, better movement code
+		// split movement into half-radius steps
+		fixed_t ox, oy;
+		fixed_t mx, my;
+		fixed_t nx, ny;
+		fixed_t step;
+
+		ox = mo->x;
+		oy = mo->y;
+
+		nx = mo->x;
+		ny = mo->y;
+
+		mx = mo->momx;
+		my = mo->momy;
+
+		step = mo->radius / 2;
+		if(step < 4 * FRACUNIT)
+			step = 4 * FRACUNIT;
+
+		while(mx || my)
+		{
+			// current X step
+			if(mx > step)
+			{
+				nx += step;
+				mx -= step;
+			} else
+			if(mx < -step)
+			{
+				nx -= step;
+				mx += step;
+			} else
+			{
+				nx += mx;
+				mx = 0;
+			}
+
+			// current Y step
+			if(my > step)
+			{
+				ny += step;
+				my -= step;
+			} else
+			if(my < -step)
+			{
+				ny -= step;
+				my += step;
+			} else
+			{
+				ny += my;
+				my = 0;
+			}
+
+			// move
+			if(P_TryMove(mo, nx, ny))
+			{
+				// check for teleport
+				if(mo->x != nx || mo->y != ny)
+					break;
+			} else
+			{
+				// blocked
+				if(mo->flags & MF_SLIDE)
+				{
+					// throw away any existing result
+					P_UnsetThingPosition(mo);
+					mo->x = ox;
+					mo->y = oy;
+					P_SetThingPosition(mo);
+					// and do a (single!) slide move
+					P_SlideMove(mo);
+					break;
+				} else
+				if(mo->flags & MF_MISSILE)
+				{
+					if(!(mo->flags1 & MF1_SKYEXPLODE) && *ceilingline && (*ceilingline)->backsector)
+					{
+						if(*demoplayback == DEMO_OLD)
+						{
+							if((*ceilingline)->backsector->ceilingpic == *skyflatnum)
+								P_RemoveMobj(mo);
+						} else
+						{
+							if(	((*ceilingline)->backsector->ceilingpic == *skyflatnum && mo->z + mo->height >= (*ceilingline)->backsector->ceilingheight) ||
+								((*ceilingline)->frontsector->ceilingpic == *skyflatnum && mo->z + mo->height >= (*ceilingline)->frontsector->ceilingheight)
+							)
+								P_RemoveMobj(mo);
+						}
+					}
+
+					if(mo->thinker.function != (void*)-1)
+						explode_missile(mo);
+				} else
+				{
+					mo->momx = 0;
+					mo->momy = 0;
+				}
+				break;
+			}
+		}
+	} else
+		// use old movement code
+		P_XYMovement(mo);
+
+	if(mo->flags & (MF_MISSILE | MF_SKULLFLY))
+		// no friction for projectiles
+		return;
+
+	if(mo->z > mo->floorz)
+		// no friction in air
+		return;
+
+	if(mo->flags & MF_CORPSE)
+	{
+		// sliding corpses, yay
+		if(	mo->momx > FRACUNIT/4 ||
+			mo->momx < -FRACUNIT/4 ||
+			mo->momy > FRACUNIT/4 ||
+			mo->momy < -FRACUNIT/4
+		) {
+			if(mo->floorz != mo->subsector->sector->floorheight)
+				return;
+		}
+	}
+
+	if(	mo->momx > -STOPSPEED &&
+		mo->momx < STOPSPEED &&
+		mo->momy > -STOPSPEED &&
+		mo->momy < STOPSPEED &&
+		(!pl || (pl->cmd.forwardmove== 0 && pl->cmd.sidemove == 0))
+	) {
+		if(pl && mo->animation == ANIM_SEE)
+			mobj_set_animation(mo, ANIM_SPAWN);
+		mo->momx = 0;
+		mo->momy = 0;
+	} else
+	{
+		// friction
+		mo->momx = FixedMul(mo->momx, FRICTION);
+		mo->momy = FixedMul(mo->momy, FRICTION);
+	}
+}
+
 //
 // hooks
 
@@ -1169,5 +1334,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00033251, CODE_HOOK | HOOK_UINT8, ANIM_SPAWN}, // check for
 	{0x00033255, CODE_HOOK | HOOK_UINT32, ANIM_SEE}, // replace with
 	{0x00033259, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
+	// skip some stuff in 'P_XYMovement'
+	{0x00030F6B, CODE_HOOK | HOOK_UINT16, 0x3BEB}, // disable 'MF_SKULLFLY'
+	{0x000310B7, CODE_HOOK | HOOK_UINT16, 0x14EB}, // after-move checks
+	// replace call to 'P_XYMovement' in 'P_MobjThinker'
+	{0x000314AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_xy_move},
 };
 

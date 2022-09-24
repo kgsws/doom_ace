@@ -50,8 +50,6 @@ typedef struct
 
 //
 
-mobj_t **linetarget;
-
 static const uint8_t *action_name;
 
 void *parse_action_func;
@@ -1229,14 +1227,5 @@ static const dec_action_t mobj_action[] =
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	// terminator
 	{NULL}
-};
-
-//
-// hooks
-
-static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
-{
-	// import variables
-	{0x0002B9F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&linetarget},
 };
 

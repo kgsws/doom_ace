@@ -99,6 +99,11 @@ extern plat_t **activeplats;
 extern ceiling_t **activeceilings;
 
 extern fixed_t *tmdropoffz;
+extern fixed_t *openrange;
+
+extern line_t **ceilingline;
+
+extern mobj_t **linetarget;
 
 extern uint8_t map_lump_name[9];
 extern int32_t map_lump_idx;

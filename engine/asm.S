@@ -469,6 +469,18 @@ P_UnsetThingPosition:
 P_TouchSpecialThing:
 	.byte	0xE9
 	.4byte	0x00029AE0
+////////////////////////////////// P_XYMovement
+.section .text.P_XYMovement
+.global P_XYMovement
+P_XYMovement:
+	.byte	0xE9
+	.4byte	0x00030F60
+////////////////////////////////// P_SlideMove
+.section .text.P_SlideMove
+.global P_SlideMove
+P_SlideMove:
+	.byte	0xE9
+	.4byte	0x0002B560
 ////////////////////////////////// P_RemoveMobj
 .section .text.P_RemoveMobj
 .global P_RemoveMobj

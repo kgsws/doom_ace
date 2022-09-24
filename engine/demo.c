@@ -30,7 +30,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B3E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&demoplayback},
 	{0x0002B3F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&demorecording},
 	// replace 'G_DoPlayDemo'
-	{0x00021AD0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)do_play_demo},
+//	{0x00021AD0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)do_play_demo},
 	// disable 'demorecording'
 	{0x0002B3F0, DATA_HOOK | HOOK_UINT32, 0},
 };

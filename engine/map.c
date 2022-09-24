@@ -54,6 +54,10 @@ static uint32_t *usergame;
 fixed_t *tmdropoffz;
 fixed_t *openrange;
 
+line_t **ceilingline;
+
+mobj_t **linetarget;
+
 uint8_t map_lump_name[9];
 int32_t map_lump_idx;
 
@@ -434,6 +438,7 @@ static void projectile_sky_flat(mobj_t *mo)
 				return;
 			}
 		} else
+		if(mo->z + mo->height >= sec->ceilingheight)
 		{
 			if(sec->ceilingpic == *skyflatnum)
 			{
@@ -553,5 +558,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// more variables
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},
+	{0x0002B9F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ceilingline},
+	{0x0002B9F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&linetarget},
 };
 

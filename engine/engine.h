@@ -122,7 +122,7 @@ typedef uint32_t angle_t;
 
 #define CF_NOCLIP	1
 #define CF_GODMODE	2
-#define CF_NOMOMENTUM	4
+#define CF_NOMOMENTUM	4 // REMOVED
 #define CF_BUDDHA	8
 #define CF_REVENGE	16
 #define CF_IS_CHEATER	0x80000000
@@ -968,6 +968,7 @@ uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_sa
 void P_UseLines(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t P_AimLineAttack(mobj_t*,angle_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_SlideMove(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
@@ -978,6 +979,7 @@ void P_LineOpening(line_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_SpawnPlayerMissile(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_XYMovement(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_plat
 void P_AddActivePlat(plat_t*) __attribute((regparm(2),no_caller_saved_registers));

@@ -2180,6 +2180,7 @@ void init_decorate()
 	memcpy(mobjinfo + NUMMOBJTYPES, internal_mobj_info, sizeof(internal_mobj_info));
 
 	// player stuff
+	mobjinfo[0].flags |= MF_SLIDE;
 	mobjinfo[0].flags1 |= MF1_TELESTOMP;
 	mobjinfo[0].extra_type = ETYPE_PLAYERPAWN;
 	memcpy(&mobjinfo[0].player, &ei_player, sizeof(ei_player_t));

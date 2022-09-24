@@ -16,6 +16,7 @@ void writer_add_wame(uint64_t *wame);
 
 // reader
 
+void reader_open_lump(int32_t lump);
 void reader_open(uint8_t *name);
 void reader_close();
 

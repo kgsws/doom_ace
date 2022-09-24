@@ -98,6 +98,9 @@ extern uint32_t *prndindex;
 extern plat_t **activeplats;
 extern ceiling_t **activeceilings;
 
+extern uint32_t *netgame;
+extern uint32_t *usergame;
+
 extern fixed_t *tmdropoffz;
 extern fixed_t *openrange;
 

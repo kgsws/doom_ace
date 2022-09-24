@@ -173,10 +173,14 @@ typedef struct
 
 #define BT_ATTACK	1
 #define BT_USE	2
+#define BT_CHANGE	4
 #define BT_ALTACK	64
 #define BT_SPECIAL	128
 #define BT_ACTIONMASK	0b00111100
 #define BT_ACTIONSHIFT	2
+
+#define BT_WEAPONMASK	0b00111000
+#define BT_WEAPONSHIFT	3
 
 #define BTS_PLAYER_FLAG	64
 #define BTS_FLAG_SET	32
@@ -921,6 +925,7 @@ void D_AdvanceDemo() __attribute((regparm(2),no_caller_saved_registers));
 // g_game
 void G_DeferedInitNew(uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(2),no_caller_saved_registers));
+void G_CheckDemoStatus() __attribute((regparm(2),no_caller_saved_registers));
 
 // i_video
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));

@@ -44,12 +44,11 @@ sector_t **sectors;
 
 uint32_t *prndindex;
 
-static uint32_t *precache;
-
 plat_t **activeplats;
 ceiling_t **activeceilings;
 
-static uint32_t *usergame;
+uint32_t *netgame;
+uint32_t *usergame;
 
 fixed_t *tmdropoffz;
 fixed_t *openrange;
@@ -120,9 +119,11 @@ void map_load_setup()
 {
 	uint32_t cache;
 
-	if(!*precache)
-		// a hack to know that demo is playing
-		*demoplayback = DEMO_OLD;
+	// viewactive = 1
+	// automapactive = 0
+	*paused = 0;
+	*prndindex = 0;
+	*gamestate = GS_LEVEL;
 
 	if(*gameepisode)
 	{
@@ -137,6 +138,8 @@ void map_load_setup()
 		doom_sprintf(map_lump_name, "TITLEMAP");
 		*gameepisode = 1;
 		*usergame = 0;
+		*netgame = 0;
+		*netdemo = 0;
 		is_title_map = 1;
 		cache = 0;
 	}
@@ -176,9 +179,7 @@ void map_load_setup()
 	{
 		P_SpawnSpecials();
 		spawn_line_scroll();
-	} else
-		// certainly playing when loading a save
-		*usergame = 1;
+	}
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -384,7 +385,6 @@ void map_start_title()
 		*wipegamestate = -1;
 	else
 		*wipegamestate = GS_LEVEL;
-	*gamestate = GS_LEVEL;
 
 	*gameskill = sk_hard;
 	*fastparm = 0;
@@ -393,10 +393,6 @@ void map_start_title()
 	*deathmatch = 0;
 	*gameepisode = 0;
 	*gamemap = 1;
-	*prndindex = 0;
-	*paused = 0;
-	// viewactive = 1
-	// automapactive = 0
 
 	*consoleplayer = 0;
 	memset(players, 0, sizeof(player_t) * MAXPLAYERS);
@@ -553,8 +549,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002C040, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeplats},
 	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
 	{0x0002B40C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usergame},
+	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
 	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
-	{0x00011B58, DATA_HOOK | HOOK_IMPORT, (uint32_t)&precache},
 	// more variables
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},

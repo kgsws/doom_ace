@@ -589,6 +589,12 @@ R_PrecacheLevel:
 G_BuildTiccmd:
 	.byte	0xE9
 	.4byte	0x0001FB10
+////////////////////////////////// G_CheckDemoStatus
+.section .text.G_CheckDemoStatus
+.global G_CheckDemoStatus
+G_CheckDemoStatus:
+	.byte	0xE9
+	.4byte	0x00021C40
 ////////////////////////////////// doom_V_CopyRect
 .section .text.doom_V_CopyRect
 .global doom_V_CopyRect

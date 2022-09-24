@@ -18,6 +18,7 @@
 #include "stbar.h"
 #include "think.h"
 #include "menu.h"
+#include "demo.h"
 #include "saveload.h"
 
 #define SAVE_SLOT_COUNT	6
@@ -1995,6 +1996,10 @@ void do_load()
 	if(!info.map || info.map > 32)
 		goto error_fail;
 
+	*netgame = 0; // TODO: net saves?
+	*netdemo = 0;
+	*usergame = 1;
+
 	map_load_setup();
 
 	*leveltime = info.leveltime;
@@ -2042,7 +2047,6 @@ void do_load()
 
 	// DONE
 	*prndindex = info.rng;
-	*gamestate = GS_LEVEL;
 	map_skip_stuff = 0;
 	reader_close();
 

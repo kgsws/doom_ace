@@ -2,6 +2,8 @@
 ////
 // File writer and reader with buffering.
 #include "sdk.h"
+#include "engine.h"
+#include "wadfile.h"
 #include "filebuf.h"
 
 #define BUFFER_SIZE	(8*1024)
@@ -13,9 +15,26 @@ extern uint8_t _reloc_start[];
 static uint8_t *bptr;
 static uint8_t *eptr;
 static int ffd = -1;
+static uint32_t lump_offset;
+static uint32_t lump_size;
 
 //
 // rAPI
+
+void reader_open_lump(int32_t lump)
+{
+	int32_t tmp;
+
+	if(ffd >= 0)
+		I_Error("[READER] Attempt to open second file!");
+
+	ffd = (*lumpinfo)[lump].fd;
+	lump_offset = (*lumpinfo)[lump].offset;
+	lump_size = (*lumpinfo)[lump].size;
+
+	eptr = buffer;
+	bptr = buffer;
+}
 
 void reader_open(uint8_t *name)
 {
@@ -28,6 +47,8 @@ void reader_open(uint8_t *name)
 	if(ffd < 0)
 		I_Error("[READER] Unable to open '%s'!", name);
 
+	lump_offset = 0;
+
 	eptr = buffer;
 	bptr = buffer;
 }
@@ -37,7 +58,8 @@ void reader_close()
 	if(ffd < 0)
 		I_Error("[READER] Double close or something!");
 
-	doom_close(ffd);
+	if(!lump_offset)
+		doom_close(ffd);
 
 	ffd = -1;
 }
@@ -47,6 +69,8 @@ void reader_close()
 
 uint32_t reader_seek(uint32_t offs)
 {
+	if(lump_offset)
+		I_Error("[READER] Can not seek in lumps!");
 	eptr = buffer;
 	bptr = buffer;
 	return doom_lseek(ffd, offs, SEEK_SET) < 0;
@@ -71,9 +95,22 @@ uint32_t reader_get(void *ptr, uint32_t size)
 	ptr += avail;
 	size -= avail;
 
-	tmp = doom_read(ffd, buffer, BUFFER_SIZE);
+	tmp = BUFFER_SIZE;
+
+	if(lump_offset)
+	{
+		if(!lump_size)
+			return 1;
+		doom_lseek(ffd, lump_offset, SEEK_SET);
+		if(lump_size < BUFFER_SIZE)
+			tmp = lump_size;
+		lump_size -= tmp;
+		lump_offset += tmp;
+	}
+
+	tmp = doom_read(ffd, buffer, tmp);
 	if(tmp < 0)
-		I_Error("[READER] Read failed!");
+		return 1;
 
 	bptr = buffer;
 	eptr = buffer + tmp;

@@ -152,7 +152,6 @@ static uint32_t parse_value(config_entry_t *conf)
 						*conf->s32 = value;
 				break;
 			}
-			break;
 		}
 		conf++;
 	}
@@ -273,5 +272,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00024300, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)config_save},
 	// invert 'run key' logic (auto run)
 	{0x0001FBC5, CODE_HOOK | HOOK_UINT8, 0x01},
+	// new defaults
+	{0x0002B698, DATA_HOOK | HOOK_UINT32, 11}, // screenblocks
 };
 

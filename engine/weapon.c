@@ -12,6 +12,7 @@
 #include "mobj.h"
 #include "action.h"
 #include "map.h"
+#include "demo.h"
 #include "player.h"
 
 //
@@ -151,7 +152,7 @@ void weapon_move_pspr(player_t *pl)
 		}
 	}
 
-	if(pl->weapon_ready)
+	if(*demoplayback != DEMO_OLD && !pl->pendingweapon && (pl->weapon_ready || extra_config.center_weapon == 2))
 	{
 		// do weapon bob here for smooth chainsaw
 		angle = (128 * *leveltime) & FINEMASK;
@@ -231,7 +232,7 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 
 	pl->weapon_ready = 0;
 
-	if(extra_config.center_weapon)
+	if(*demoplayback != DEMO_OLD && extra_config.center_weapon == 1)
 	{
 		pl->psprites[0].sx = FRACUNIT;
 		pl->psprites[0].sy = WEAPONTOP;

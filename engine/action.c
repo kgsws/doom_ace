@@ -13,6 +13,7 @@
 #include "inventory.h"
 #include "sound.h"
 #include "stbar.h"
+#include "map.h"
 #include "demo.h"
 #include "textpars.h"
 
@@ -643,6 +644,9 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(pl->pendingweapon || !pl->health)
 	{
 		stfunc(mo, pl->readyweapon->st_weapon.lower);
+		if(*demoplayback != DEMO_OLD)
+			// this has to be set regardless of weapon mode, for (new) demo compatibility
+			pl->psprites[0].sy = WEAPONTOP;
 		return;
 	}
 
@@ -665,6 +669,15 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	// enable bob
 	pl->weapon_ready = 1;
+
+	// weapon bob, for old demo
+	if(*demoplayback == DEMO_OLD)
+	{
+		angle_t angle = (128 * *leveltime) & FINEMASK;
+		pl->psprites[0].sx = FRACUNIT + FixedMul(pl->bob, finecosine[angle]);
+		angle &= FINEANGLES / 2 - 1;
+		pl->psprites[0].sy = WEAPONTOP + FixedMul(pl->bob, finesine[angle]);
+	}
 }
 
 __attribute((regparm(2),no_caller_saved_registers))

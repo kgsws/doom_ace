@@ -34,6 +34,7 @@ static uint16_t control_old;
 static int16_t control_pos;
 
 static const uint8_t *const off_on[] = {"OFF", "ON", "FAKE"}; // fake is used in mouse look
+static const uint8_t *const weapon_mode[] = {"ORIGINAL", "CENTER", "BOUNCY"};
 
 // OPTIONS
 
@@ -248,7 +249,7 @@ static menuitem_t player_items[] =
 		.key = 'l'
 	},
 	{
-		.text = "CENTER WPN",
+		.text = "WEAPON",
 		.status = 2,
 		.func = player_change,
 		.key = 'c'
@@ -591,7 +592,20 @@ void player_change(uint32_t dir)
 				stbar_set_xhair();
 		break;
 		case 4:
-			extra_config.center_weapon = !extra_config.center_weapon;
+			if(dir)
+			{
+				if(extra_config.center_weapon < 2)
+					extra_config.center_weapon++;
+				else
+					extra_config.center_weapon = 0;
+			} else
+			{
+				if(extra_config.center_weapon)
+					extra_config.center_weapon--;
+				else
+					extra_config.center_weapon = 2;
+			}
+
 			return;
 	}
 
@@ -618,7 +632,7 @@ void player_draw()
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, off_on[extra_config.mouse_look]);
 
 	// center weapon
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 4, off_on[!!extra_config.center_weapon]);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 4, weapon_mode[extra_config.center_weapon]);
 }
 
 //

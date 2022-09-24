@@ -212,6 +212,8 @@ void init_config()
 	extra_config.auto_aim = !!extra_config.auto_aim;
 	if(extra_config.mouse_look > 2)
 		extra_config.mouse_look = 0;
+	if(extra_config.center_weapon > 2)
+		extra_config.center_weapon = 0;
 /*
 	// PLAYER FLAGS ARE FORCED TO UPDATE WHEN GAME STARTS
 	// TODO: do this when sending net-game info, with player class

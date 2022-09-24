@@ -44,6 +44,8 @@ sector_t **sectors;
 
 uint32_t *prndindex;
 
+static uint32_t *precache;
+
 plat_t **activeplats;
 ceiling_t **activeceilings;
 
@@ -112,7 +114,11 @@ static inline void spawn_line_scroll()
 __attribute((regparm(2),no_caller_saved_registers))
 void map_load_setup()
 {
-	uint32_t precache;
+	uint32_t cache;
+
+	if(!*precache)
+		// a hack to know that demo is playing
+		*demoplayback = DEMO_OLD;
 
 	if(*gameepisode)
 	{
@@ -121,14 +127,14 @@ void map_load_setup()
 		else
 			doom_sprintf(map_lump_name, "E%uM%u", *gameepisode, *gamemap);
 		is_title_map = 0;
-		precache = !*demoplayback;
+		cache = !*demoplayback;
 	} else
 	{
 		doom_sprintf(map_lump_name, "TITLEMAP");
 		*gameepisode = 1;
 		*usergame = 0;
 		is_title_map = 1;
-		precache = 0;
+		cache = 0;
 	}
 
 	map_lump_idx = W_GetNumForName(map_lump_name); // TODO: do not crash
@@ -146,7 +152,7 @@ void map_load_setup()
 		utils_install_hooks(patch_old, 0);
 	else
 		utils_install_hooks(patch_new, 0);
-
+doom_printf("DEMO %u\n", *demoplayback);
 	P_SetupLevel();
 
 	// reset some stuff
@@ -158,7 +164,7 @@ void map_load_setup()
 
 	clear_buttons();
 
-	if(precache)
+	if(cache)
 		R_PrecacheLevel();
 
 	// specials
@@ -543,6 +549,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
 	{0x0002B40C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usergame},
 	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
+	{0x00011B58, DATA_HOOK | HOOK_IMPORT, (uint32_t)&precache},
 	// more variables
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},

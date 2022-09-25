@@ -1479,16 +1479,16 @@ static uint32_t parse_damage()
 	} else
 	{
 		// direct value
-		if(doom_sscanf(kw, "%u", &add) != 1 || add > 1533)
+		if(doom_sscanf(kw, "%u", &add) != 1 || add > 8687)
 			return 1;
 
 		if(add > 511)
 		{
 			// split
-			lo = (add - 510) / 2;
+			lo = (add - 496) / 16;
 			hi = lo;
-			add -= lo * 2;
-			mul = 1;
+			add -= lo * 16;
+			mul = 15;
 		}
 
 		// next

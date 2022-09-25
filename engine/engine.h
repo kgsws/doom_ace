@@ -792,6 +792,8 @@ typedef struct mobj_s
 	struct inventory_s *inventory;
 	mobjinfo_t *custom_inventory; // activating item, nesting is unsupported
 	uint32_t custom_state; // custom inventory state jumps
+	struct mobj_s *rip_thing; // to avaid mutiple rip damage per tick
+	uint32_t rip_tick;
 } __attribute__((packed)) mobj_t;
 
 //

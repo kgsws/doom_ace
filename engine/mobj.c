@@ -826,6 +826,10 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 		if(!(thing->flags1 & MF1_DONTRIP) && tmthing->flags1 & MF1_RIPPER)
 		{
+			if(tmthing->rip_thing == thing && tmthing->rip_tick == *leveltime)
+				return 1;
+			tmthing->rip_thing = thing;
+			tmthing->rip_tick = *leveltime;
 			is_ripper = 1;
 			damage = tmthing->info->damage;
 			if(!(damage & DAMAGE_IS_CUSTOM))
@@ -841,8 +845,15 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		mobj_damage(thing, tmthing, tmthing->target, damage, 0);
 
 		if(is_ripper)
+		{
 			// TODO: ripper blood
+			if(thing->flags1 & MF1_PUSHABLE && !(tmthing->flags1 & MF1_CANNOTPUSH))
+			{
+				thing->momx += tmthing->momx / 2;
+				thing->momy += tmthing->momy / 2;
+			}
 			return 1;
+		}
 
 		if(thing->flags1 & MF1_REFLECTIVE)
 		{
@@ -885,6 +896,18 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		}
 
 		return 0;
+	}
+
+	if(thing->flags1 & MF1_PUSHABLE && !(tmthing->flags1 & MF1_CANNOTPUSH))
+	{
+		thing->momx += tmthing->momx / 2;
+		thing->momy += tmthing->momy / 2;
+		// TODO: don't do this if pusher can slide .. and slide code is updated
+		if(thing->flags & MF_SOLID)
+		{
+			tmthing->momx = 0;
+			tmthing->momy = 0;
+		}
 	}
 
 	if(thing->flags & MF_SPECIAL)
@@ -1307,10 +1330,10 @@ static void mobj_xy_move(mobj_t *mo)
 	{
 		// new, better movement code
 		// split movement into half-radius steps
-		fixed_t ox, oy;
-		fixed_t mx, my;
-		fixed_t nx, ny;
-		fixed_t step;
+		fixed_t ox, oy; // original location
+		fixed_t mx, my; // momentnum
+		fixed_t nx, ny; // new location
+		fixed_t step; // increment
 
 		ox = mo->x;
 		oy = mo->y;
@@ -1371,10 +1394,13 @@ static void mobj_xy_move(mobj_t *mo)
 				if(mo->flags & MF_SLIDE)
 				{
 					// throw away any existing result
-					P_UnsetThingPosition(mo);
-					mo->x = ox;
-					mo->y = oy;
-					P_SetThingPosition(mo);
+					if(mo->x != ox || mo->y != oy)
+					{
+						P_UnsetThingPosition(mo);
+						mo->x = ox;
+						mo->y = oy;
+						P_SetThingPosition(mo);
+					}
 					// and do a (single!) slide move
 					P_SlideMove(mo);
 					break;

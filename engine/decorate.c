@@ -512,6 +512,8 @@ static const dec_flag_t mobj_flags1[] =
 	{"skyexplode", MF1_SKYEXPLODE},
 	{"ripper", MF1_RIPPER},
 	{"dontrip", MF1_DONTRIP},
+	{"pushable", MF1_PUSHABLE},
+	{"cannotpush", MF1_CANNOTPUSH},
 	// terminator
 	{NULL}
 };

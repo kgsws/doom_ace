@@ -258,8 +258,8 @@ void config_save()
 
 static const hook_t def_set[] =
 {
-	// mousebstrafe = -1
-	{0x0002B36C, DATA_HOOK | HOOK_UINT32, -1},
+	// mousebforward = -1
+	{0x0002B358, DATA_HOOK | HOOK_UINT32, -1},
 	// detaillevel = 0
 	{0x0002B6AC, DATA_HOOK | HOOK_UINT32, 0},
 	// terminator

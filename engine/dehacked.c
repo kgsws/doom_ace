@@ -114,7 +114,6 @@ static const deh_section_t deh_section[] =
 static void handle_u32(uint8_t*,void*);
 static void handle_u8(uint8_t*,void*);
 static void handle_species(uint8_t*,void*);
-static void handle_infight(uint8_t*,void*);
 
 // section 'thing' values
 static const deh_value_t deh_value_thing[] =
@@ -200,8 +199,8 @@ static const deh_value_t deh_value_misc[] =
 //	{"IDKFA Armor", },
 //	{"IDKFA Armor Class", },
 	{"BFG Cells/Shot", (uint32_t)&dehacked.bfg_cells, handle_u32},
-	{"Monsters Infight", 0, handle_species},
-	{"Monsters Ignore Each Other", 0, handle_infight},
+	{"Monsters Infight", (uint32_t)&dehacked.no_species, handle_species},
+	{"Monsters Ignore Each Other", (uint32_t)&dehacked.no_infight, handle_u8},
 	// terminator
 	{NULL}
 };
@@ -303,17 +302,7 @@ static void handle_species(uint8_t *text, void *target)
 		return;
 
 	if(tmp == 221)
-		*((uint16_t*)(doom_code_segment + 0x0002AFC5)) = 0x0DEB;
-}
-
-static void handle_infight(uint8_t *text, void *target)
-{
-	uint32_t tmp;
-
-	if(doom_sscanf(text, "%i", &tmp) != 1) // allow DEC HEX and OCT
-		return;
-
-	dehacked.no_infight = !!tmp;
+		*((uint8_t*)target) = 1;
 }
 
 //

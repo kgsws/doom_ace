@@ -11,6 +11,7 @@
 #include "action.h"
 #include "weapon.h"
 #include "sound.h"
+#include "mobj.h"
 #include "map.h"
 #include "demo.h"
 #include "config.h"
@@ -36,6 +37,7 @@ enum
 	DT_MONSTER,
 	DT_PROJECTILE,
 	DT_MOBJTYPE,
+	DT_DAMAGE,
 	DT_SOUND_CLASS,
 	DT_DROPITEM,
 	DT_PP_WPN_SLOT,
@@ -176,7 +178,8 @@ static uint32_t parse_last_anim;
 static void *extra_stuff_cur;
 static void *extra_stuff_next;
 
-static uint32_t parse_player_sounds(uint8_t*);
+static uint32_t parse_damage();
+static uint32_t parse_player_sounds();
 static uint32_t parse_dropitem();
 static uint32_t parse_wpn_slot();
 static uint32_t parse_inv_slot();
@@ -417,7 +420,7 @@ static const dec_attr_t attr_mobj[] =
 	{"health", DT_S32, offsetof(mobjinfo_t, spawnhealth)},
 	{"reactiontime", DT_S32, offsetof(mobjinfo_t, reactiontime)},
 	{"painchance", DT_S32, offsetof(mobjinfo_t, painchance)},
-	{"damage", DT_S32, offsetof(mobjinfo_t, damage)},
+	{"damage", DT_DAMAGE, offsetof(mobjinfo_t, damage)},
 	{"speed", DT_FIXED, offsetof(mobjinfo_t, speed)},
 	//
 	{"radius", DT_FIXED, offsetof(mobjinfo_t, radius)},
@@ -426,6 +429,8 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"fastspeed", DT_FIXED, offsetof(mobjinfo_t, fast_speed)},
 	{"vspeed", DT_FIXED, offsetof(mobjinfo_t, vspeed)},
+	//
+	{"species", DT_MOBJTYPE, offsetof(mobjinfo_t, species)},
 	//
 	{"dropitem", DT_DROPITEM},
 	//
@@ -505,6 +510,8 @@ static const dec_flag_t mobj_flags1[] =
 	{"extremedeath", MF1_EXTREMEDEATH},
 	{"noextremedeath", MF1_NOEXTREMEDEATH},
 	{"skyexplode", MF1_SKYEXPLODE},
+	{"ripper", MF1_RIPPER},
+	{"dontrip", MF1_DONTRIP},
 	// terminator
 	{NULL}
 };
@@ -1260,11 +1267,13 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 				I_Error("[DECORATE] Unable to find ammo type '%s' in '%s'!", kw, parse_actor_name);
 			*((uint16_t*)dest) = num.s32;
 		break;
+		case DT_DAMAGE:
+			num.u32 = parse_damage();
+			tp_enable_math = 0;
+			return num.u32;
+		break;
 		case DT_SOUND_CLASS:
-			kw = tp_get_keyword();
-			if(!kw)
-				return 1;
-			return parse_player_sounds(kw);
+			return parse_player_sounds();
 		break;
 		case DT_DROPITEM:
 			if(parse_mobj_info->extra_type == ETYPE_PLAYERPAWN)
@@ -1352,18 +1361,164 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 }
 
 //
-// dropitem parser
+// custom parsers
 
-static uint32_t parse_player_sounds(uint8_t *snd_class)
+static uint32_t parse_damage()
+{
+	uint32_t lo, hi, mul, add;
+	uint8_t *kw;
+
+	tp_enable_math = 1;
+
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+
+	if(kw[0] != '(')
+	{
+		// just original RNG value
+		if(doom_sscanf(kw, "%u", &add) != 1 || add > 0x7FFFFFFF)
+			return 1;
+		parse_mobj_info->damage = add;
+
+		return 0;
+	}
+
+	lo = 0;
+	hi = 0;
+	mul = 0;
+	add = 0;
+
+	kw = tp_get_keyword_lc();
+	if(!kw)
+		return 1;
+
+	if(!strcmp(kw, "random"))
+	{
+		// function entry
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+		if(kw[0] != '(')
+			return 1;
+
+		// low
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+
+		if(doom_sscanf(kw, "%u", &lo) != 1 || lo > 511)
+			return 1;
+
+		// comma
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+		if(kw[0] != ',')
+			return 1;
+
+		// high
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+
+		if(doom_sscanf(kw, "%u", &hi) != 1 || hi > 511)
+			return 1;
+
+		// function end
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+		if(kw[0] != ')')
+			return 1;
+
+		// check range
+		if(lo > hi)
+			return 1;
+		if(hi - lo > 255)
+			return 1;
+
+		// next
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+
+		if(kw[0] == '*')
+		{
+			// multiply
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+
+			if(doom_sscanf(kw, "%u", &mul) != 1 || !mul || mul > 16)
+				return 1;
+
+			mul--;
+
+			// next
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+		}
+
+		if(kw[0] == '+')
+		{
+			// add
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+
+			if(doom_sscanf(kw, "%u", &add) != 1 || add > 511)
+				return 1;
+
+			// next
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+		}
+	} else
+	{
+		// direct value
+		if(doom_sscanf(kw, "%u", &add) != 1 || add > 1533)
+			return 1;
+
+		if(add > 511)
+		{
+			// split
+			lo = (add - 510) / 2;
+			hi = lo;
+			add -= lo * 2;
+			mul = 1;
+		}
+
+		// next
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+	}
+
+	// terminator
+	if(kw[0] != ')')
+		return 1;
+
+	parse_mobj_info->damage = DAMAGE_CUSTOM(lo, hi, mul, add);
+}
+
+static uint32_t parse_player_sounds()
 {
 	uint8_t text[PLAYER_SOUND_CLASS_LEN + PLAYER_SOUND_SLOT_LEN];
+	uint8_t *kw;
 
-	if(strlen(snd_class) >= PLAYER_SOUND_CLASS_LEN)
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+
+	if(strlen(kw) >= PLAYER_SOUND_CLASS_LEN)
 		return 1;
 
 	for(uint32_t i = 0; i < NUM_PLAYER_SOUNDS; i++)
 	{
-		doom_sprintf(text, "%s#%s", snd_class, player_sound_slot[i]);
+		doom_sprintf(text, "%s#%s", kw, player_sound_slot[i]);
 		parse_mobj_info->player.sound_slot[i] = sfx_by_name(text);
 	}
 
@@ -2252,6 +2407,9 @@ void init_decorate()
 
 	// bullet puff
 	mobjinfo[37].vspeed = FRACUNIT;
+
+	// species
+	mobjinfo[17].species = 15;
 
 	// boss stuff
 	mobjinfo[19].flags1 |= MF1_BOSS | MF1_NORADIUSDMG;

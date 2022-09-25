@@ -459,12 +459,6 @@ P_SetThingPosition:
 P_UnsetThingPosition:
 	.byte	0xE9
 	.4byte	0x0002C3B0
-////////////////////////////////// P_TouchSpecialThing
-.section .text.P_TouchSpecialThing
-.global P_TouchSpecialThing
-P_TouchSpecialThing:
-	.byte	0xE9
-	.4byte	0x00029AE0
 ////////////////////////////////// P_XYMovement
 .section .text.P_XYMovement
 .global P_XYMovement
@@ -793,19 +787,6 @@ P_SpawnMobj:
 	mov	16(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x00031540
-	pop	%ecx
-	pop	%ebx
-	ret
-////////////////////////////////// P_DamageMobj
-.section .text.P_DamageMobj
-.global P_DamageMobj
-P_DamageMobj:
-	push	%ebx
-	push	%ecx
-	mov	12(%esp),%ebx
-	mov	16(%esp),%ecx
-	.byte	0xE8
-	.4byte	0x0002A460
 	pop	%ecx
 	pop	%ebx
 	ret

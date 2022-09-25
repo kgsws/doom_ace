@@ -219,7 +219,7 @@ static inline uint32_t SlopeDiv(unsigned num, unsigned den)
 	return ans <= SLOPERANGE ? ans : SLOPERANGE;
 }
 
-static angle_t slope_to_angle(fixed_t slope)
+angle_t slope_to_angle(fixed_t slope)
 {
 	if(slope > 0)
 	{
@@ -337,7 +337,7 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 	if(!P_TryMove(mo, mo->x, mo->y))
 	{
 		if(mo->flags & MF_SHOOTABLE)
-			P_DamageMobj(mo, NULL, NULL, 100000);
+			mobj_damage(mo, NULL, NULL, 100000, 0);
 		else
 			explode_missile(mo);
 	}

@@ -9,6 +9,7 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "mobj.h"
+#include "action.h"
 #include "player.h"
 #include "weapon.h"
 #include "map.h"
@@ -367,187 +368,9 @@ static uint32_t use_custom_inv(mobj_t *mo, mobjinfo_t *info)
 }
 
 //
-// hooks
+// thing pickup
 
-__attribute((regparm(2),no_caller_saved_registers))
-void spawn_player(mapthing_t *mt)
-{
-	player_t *pl;
-	int32_t idx = mt->type - 1;
-	mobj_t *mo;
-	mobjinfo_t *info;
-
-	if(!playeringame[idx])
-		return;
-
-	pl = players + idx;
-	info = mobjinfo + player_class[0]; // TODO
-
-	// create body
-	mo = P_SpawnMobj((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS, 0x80000000, player_class[0]);
-
-	// check for reset
-	if(pl->playerstate == PST_REBORN)
-	{
-		// cleanup
-		uint32_t killcount;
-		uint32_t itemcount;
-		uint32_t secretcount;
-		uint32_t is_cheater;
-
-		inventory_destroy(pl->inventory);
-
-		killcount = pl->killcount;
-		itemcount = pl->itemcount;
-		secretcount = pl->secretcount;
-		is_cheater = pl->cheats & CF_IS_CHEATER;
-
-		memset(pl, 0, sizeof(player_t));
-
-		pl->killcount = killcount;
-		pl->itemcount = itemcount;
-		pl->secretcount = secretcount;
-		pl->cheats = is_cheater;
-
-		pl->usedown = 1;
-		pl->attackdown = 1;
-		pl->playerstate = PST_LIVE;
-
-		if(info == mobjinfo)
-			pl->health = dehacked.start_health;
-		else
-			pl->health = info->spawnhealth;
-
-		pl->pendingweapon = NULL;
-		pl->readyweapon = NULL;
-
-		// give 'depleted' original ammo; for status bar
-		inventory_give(mo, 63, 0); // Clip
-		inventory_give(mo, 69, 0); // Shell
-		inventory_give(mo, 67, 0); // Cell
-		inventory_give(mo, 65, 0); // RocketAmmo
-
-		// default inventory
-		for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
-		{
-			mobj_give_inventory(mo, si->type, si->count);
-			if(!pl->pendingweapon)
-			{
-				if(mobjinfo[si->type].extra_type == ETYPE_WEAPON)
-					pl->pendingweapon = mobjinfo + si->type;
-			}
-		}
-
-		pl->readyweapon = pl->pendingweapon;
-
-		if(*deathmatch)
-		{
-			for(uint32_t i = 0; i < num_mobj_types; i++)
-			{
-				mobjinfo_t *info = mobjinfo + i;
-				if(info->extra_type == ETYPE_KEY)
-					inventory_give(mo, i, INV_MAX_COUNT);
-			}
-		}
-	} else
-		// use existing inventory
-		mo->inventory = pl->inventory;
-
-	// TODO: translation not in flags
-	mo->flags |= idx << 26;
-
-	mo->angle = ANG45 * (mt->angle / 45);
-	mo->player = pl;
-	mo->health = pl->health;
-
-	pl->mo = mo;
-	pl->playerstate = PST_LIVE;
-	pl->refire = 0;
-	pl->message = NULL;
-	pl->damagecount = 0;
-	pl->bonuscount = 0;
-	pl->extralight = 0;
-	pl->fixedcolormap = 0;
-	pl->viewheight = info->player.view_height;
-	pl->inventory = NULL;
-	pl->stbar_update = 0;
-	pl->inv_tick = 0;
-	pl->info_flags = player_info[idx].flags;
-
-	cheat_player_flags(pl);
-
-	weapon_setup(pl);
-
-	if(idx == *consoleplayer)
-	{
-		stbar_start(pl);
-		HU_Start();
-		player_viewheight(pl->viewheight);
-	}
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
-{
-	mobj_set_state(mo, STATE_SET_ANIMATION(anim, 0));
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
-mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
-{
-	uint32_t tmp = 8;
-	mobjinfo_t *info;
-
-	// find replacement
-	while(mobjinfo[type].replacement)
-	{
-		if(!tmp)
-			I_Error("[DECORATE] Too many replacements!");
-		type = mobjinfo[type].replacement;
-		tmp--;
-	}
-
-	info = mobjinfo + type;
-
-	// clear memory
-	memset(mo, 0, sizeof(mobj_t));
-
-	// fill in new stuff
-	mo->type = type;
-	mo->flags1 = info->flags1;
-	mo->netid = mobj_netid++;
-
-	// vertical speed
-	mo->momz = info->vspeed;
-
-	// hack for fast projectiles in original attacks
-	if(info->flags & MF_MISSILE)
-	{
-		// this modifies opcodes in 'P_SpawnMissile' even if called from anywhere else
-		if(info->fast_speed && (*fastparm || *gameskill == sk_nightmare))
-			utils_install_hooks(hook_fast_missile, 3);
-		else
-			utils_install_hooks(hook_slow_missile, 3);
-	}
-
-	// return offset
-	return info;
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t finish_mobj(mobj_t *mo)
-{
-	// add thinker
-	P_AddThinker(&mo->thinker);
-
-	// ZDoom compatibility
-	// teleport fog starts teleport sound
-	if(mo->type == 39)
-		S_StartSound(mo, 35);
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void touch_mobj(mobj_t *mo, mobj_t *toucher)
+static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 {
 	mobjinfo_t *info;
 	player_t *pl;
@@ -740,6 +563,186 @@ void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		pl->message = info->inventory.message;
 }
 
+//
+// hooks
+
+__attribute((regparm(2),no_caller_saved_registers))
+void spawn_player(mapthing_t *mt)
+{
+	player_t *pl;
+	int32_t idx = mt->type - 1;
+	mobj_t *mo;
+	mobjinfo_t *info;
+
+	if(!playeringame[idx])
+		return;
+
+	pl = players + idx;
+	info = mobjinfo + player_class[0]; // TODO
+
+	// create body
+	mo = P_SpawnMobj((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS, 0x80000000, player_class[0]);
+
+	// check for reset
+	if(pl->playerstate == PST_REBORN)
+	{
+		// cleanup
+		uint32_t killcount;
+		uint32_t itemcount;
+		uint32_t secretcount;
+		uint32_t is_cheater;
+
+		inventory_destroy(pl->inventory);
+
+		killcount = pl->killcount;
+		itemcount = pl->itemcount;
+		secretcount = pl->secretcount;
+		is_cheater = pl->cheats & CF_IS_CHEATER;
+
+		memset(pl, 0, sizeof(player_t));
+
+		pl->killcount = killcount;
+		pl->itemcount = itemcount;
+		pl->secretcount = secretcount;
+		pl->cheats = is_cheater;
+
+		pl->usedown = 1;
+		pl->attackdown = 1;
+		pl->playerstate = PST_LIVE;
+
+		if(info == mobjinfo)
+			pl->health = dehacked.start_health;
+		else
+			pl->health = info->spawnhealth;
+
+		pl->pendingweapon = NULL;
+		pl->readyweapon = NULL;
+
+		// give 'depleted' original ammo; for status bar
+		inventory_give(mo, 63, 0); // Clip
+		inventory_give(mo, 69, 0); // Shell
+		inventory_give(mo, 67, 0); // Cell
+		inventory_give(mo, 65, 0); // RocketAmmo
+
+		// default inventory
+		for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
+		{
+			mobj_give_inventory(mo, si->type, si->count);
+			if(!pl->pendingweapon)
+			{
+				if(mobjinfo[si->type].extra_type == ETYPE_WEAPON)
+					pl->pendingweapon = mobjinfo + si->type;
+			}
+		}
+
+		pl->readyweapon = pl->pendingweapon;
+
+		if(*deathmatch)
+		{
+			for(uint32_t i = 0; i < num_mobj_types; i++)
+			{
+				mobjinfo_t *info = mobjinfo + i;
+				if(info->extra_type == ETYPE_KEY)
+					inventory_give(mo, i, INV_MAX_COUNT);
+			}
+		}
+	} else
+		// use existing inventory
+		mo->inventory = pl->inventory;
+
+	// TODO: translation not in flags
+	mo->flags |= idx << 26;
+
+	mo->angle = ANG45 * (mt->angle / 45);
+	mo->player = pl;
+	mo->health = pl->health;
+
+	pl->mo = mo;
+	pl->playerstate = PST_LIVE;
+	pl->refire = 0;
+	pl->message = NULL;
+	pl->damagecount = 0;
+	pl->bonuscount = 0;
+	pl->extralight = 0;
+	pl->fixedcolormap = 0;
+	pl->viewheight = info->player.view_height;
+	pl->inventory = NULL;
+	pl->stbar_update = 0;
+	pl->inv_tick = 0;
+	pl->info_flags = player_info[idx].flags;
+
+	cheat_player_flags(pl);
+
+	weapon_setup(pl);
+
+	if(idx == *consoleplayer)
+	{
+		stbar_start(pl);
+		HU_Start();
+		player_viewheight(pl->viewheight);
+	}
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
+{
+	mobj_set_state(mo, STATE_SET_ANIMATION(anim, 0));
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
+{
+	uint32_t tmp = 8;
+	mobjinfo_t *info;
+
+	// find replacement
+	while(mobjinfo[type].replacement)
+	{
+		if(!tmp)
+			I_Error("[DECORATE] Too many replacements!");
+		type = mobjinfo[type].replacement;
+		tmp--;
+	}
+
+	info = mobjinfo + type;
+
+	// clear memory
+	memset(mo, 0, sizeof(mobj_t));
+
+	// fill in new stuff
+	mo->type = type;
+	mo->flags1 = info->flags1;
+	mo->netid = mobj_netid++;
+
+	// vertical speed
+	mo->momz = info->vspeed;
+
+	// hack for fast projectiles in original attacks
+	if(info->flags & MF_MISSILE)
+	{
+		// this modifies opcodes in 'P_SpawnMissile' even if called from anywhere else
+		if(info->fast_speed && (*fastparm || *gameskill == sk_nightmare))
+			utils_install_hooks(hook_fast_missile, 3);
+		else
+			utils_install_hooks(hook_slow_missile, 3);
+	}
+
+	// return offset
+	return info;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t finish_mobj(mobj_t *mo)
+{
+	// add thinker
+	P_AddThinker(&mo->thinker);
+
+	// ZDoom compatibility
+	// teleport fog starts teleport sound
+	if(mo->type == 39)
+		S_StartSound(mo, 35);
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 static void kill_animation(mobj_t *mo)
 {
@@ -763,6 +766,136 @@ static void kill_animation(mobj_t *mo)
 
 	if(mo->player)
 		mo->player->extralight = 0;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
+{
+	uint32_t damage;
+
+	if(tmthing->flags & MF_SKULLFLY)
+	{
+		damage = tmthing->info->damage;
+		if(!(damage & DAMAGE_IS_CUSTOM))
+			damage |= DAMAGE_IS_PROJECTILE;
+
+		mobj_damage(thing, tmthing, tmthing, damage, 0);
+
+		tmthing->flags &= ~MF_SKULLFLY;
+		tmthing->momx = 0;
+		tmthing->momy = 0;
+		tmthing->momz = 0;
+
+		mobj_set_animation(tmthing, ANIM_SPAWN);
+
+		return 0;
+	}
+
+	if(tmthing->flags & MF_MISSILE)
+	{
+		uint32_t is_ripper;
+		uint32_t damage;
+
+		if(tmthing->target == thing)
+			return 1;
+
+		if(tmthing->z > thing->z + thing->height)
+			return 1;
+
+		if(tmthing->z + tmthing->height < thing->z)
+			return 1;
+
+		if(!dehacked.no_species && tmthing->target && thing->info->extra_type != ETYPE_PLAYERPAWN)
+		{
+			mobj_t *target = tmthing->target;
+			if(target->type == thing->type)
+				return 0;
+			if(thing->info->species && thing->info->species == target->type)
+				return 0;
+			if(target->info->species)
+			{
+				if(target->info->species == thing->type)
+					return 0;
+				if(target->info->species == thing->info->species)
+					return 0;
+			}
+		}
+
+		if(!(thing->flags & MF_SHOOTABLE))
+			return !(thing->flags & MF_SOLID);
+
+		if(!(thing->flags1 & MF1_DONTRIP) && tmthing->flags1 & MF1_RIPPER)
+		{
+			is_ripper = 1;
+			damage = tmthing->info->damage;
+			if(!(damage & DAMAGE_IS_CUSTOM))
+				damage |= DAMAGE_IS_RIPPER;
+		} else
+		{
+			is_ripper = 0;
+			damage = tmthing->info->damage;
+			if(!(damage & DAMAGE_IS_CUSTOM))
+				damage |= DAMAGE_IS_PROJECTILE;
+		}
+
+		mobj_damage(thing, tmthing, tmthing->target, damage, 0);
+
+		if(is_ripper)
+			// TODO: ripper blood
+			return 1;
+
+		if(thing->flags1 & MF1_REFLECTIVE)
+		{
+			angle_t angle;
+			fixed_t speed;
+
+			if(tmthing->flags1 & MF1_SEEKERMISSILE)
+				tmthing->tracer = tmthing->target;
+			else
+				tmthing->tracer = NULL;
+			tmthing->target = thing;
+
+			angle = R_PointToAngle2(thing->x, thing->y, tmthing->x, tmthing->y);
+
+			if(tmthing->info->fast_speed && (*fastparm || *gameskill == sk_nightmare))
+				speed = tmthing->info->fast_speed;
+			else
+				speed = tmthing->info->speed;
+
+			tmthing->angle = angle;
+
+			if(speed > 0x0800)
+			{
+				if(tmthing->momz)
+				{
+					angle_t pitch = slope_to_angle(FixedDiv(tmthing->momz, speed));
+					pitch >>= ANGLETOFINESHIFT;
+					speed /= 2;
+					tmthing->momz = FixedMul(speed, finesine[pitch]);
+					speed = FixedMul(speed, finecosine[pitch]);
+				} else
+					speed /= 2;
+
+				angle >>= ANGLETOFINESHIFT;
+				tmthing->momx = FixedMul(speed, finecosine[angle]);
+				tmthing->momy = FixedMul(speed, finesine[angle]);
+			}
+
+			return 1;
+		}
+
+		return 0;
+	}
+
+	if(thing->flags & MF_SPECIAL)
+	{
+		uint32_t solid = thing->flags & MF_SOLID;
+		if(tmthing->flags & MF_PICKUP)
+			touch_mobj(thing, tmthing);
+		return !solid;
+	}
+
+	return !(thing->flags & MF_SOLID);
 }
 
 //
@@ -977,6 +1110,32 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		target->momx = 0;
 		target->momy = 0;
 		target->momz = 0;
+	}
+
+	if(damage & DAMAGE_IS_CUSTOM)
+	{
+		uint32_t lo = damage & 511;
+		uint32_t hi = (damage >> 9) & 511;
+		uint32_t add = (damage >> 18) & 511;
+		uint32_t mul = ((damage >> 27) & 15) + 1;
+
+		damage = lo;
+		if(lo != hi)
+			damage += P_Random() % ((hi - lo) + 1);
+		damage *= mul;
+		damage += add;
+	} else
+	switch(damage & DAMAGE_TYPE_CHECK)
+	{
+		case DAMAGE_IS_PROJECTILE:
+			damage = ((P_Random() & 7) + 1) * (damage & 0x00FFFFFF);
+		break;
+		case DAMAGE_IS_RIPPER:
+			damage = ((P_Random() & 3) + 2) * (damage & 0x00FFFFFF);
+		break;
+		case DAMAGE_IS_BULLET:
+			damage = ((P_Random() % 3) + 1) * (damage & 0x00FFFFFF);
+		break;
 	}
 
 	forced = damage >= 1000000;
@@ -1323,8 +1482,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031579, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// replace call to 'P_AddThinker' in 'P_SpawnMobj'
 	{0x00031647, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)finish_mobj},
-	// replace call to 'P_TouchSpecialThing' in 'PIT_CheckThing'
-	{0x0002B031, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)touch_mobj},
 	// replace call to 'P_SetMobjState' in 'P_MobjThinker'
 	{0x000314F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_set_state},
 	// fix jump condition in 'P_MobjThinker'
@@ -1343,11 +1500,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
 	// fix 'P_SpawnMobj'; disable old 'frame'
 	{0x000315F9, CODE_HOOK | HOOK_SET_NOPS, 3},
-	// fix player check in 'PIT_CheckThing'
-	{0x0002AFC5, CODE_HOOK | HOOK_UINT16, 0xBB83},
-	{0x0002AFC7, CODE_HOOK | HOOK_UINT32, offsetof(mobj_t, player)},
-	{0x0002AFCB, CODE_HOOK | HOOK_UINT32, 0x427400},
-	{0x0002AFCE, CODE_HOOK | HOOK_SET_NOPS, 6},
+	// replace most of 'PIT_CheckThing'
+	{0x0002AEDA, CODE_HOOK | HOOK_UINT16, 0xD889},
+	{0x0002AEDC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_check_thing},
+	{0x0002AEE1, CODE_HOOK | HOOK_UINT16, 0x56EB},
 	// replace 'P_SetMobjState' with new animation system
 	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SEE << 8)}, // A_Look
 	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Look
@@ -1357,9 +1513,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000278A0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
 	{0x000278DD, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_MISSILE << 8)}, // A_Chase
 	{0x000278E0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
-	// replace 'P_SetMobjState' with new animation system (PIT_CheckThing, MF_SKULLFLY)
-	{0x0002AF2F, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SPAWN << 8)},
-	{0x0002AF32, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
 	// replace 'P_SetMobjState' with new animation system (PIT_ChangeSector, gibs)
 	{0x0002BEBA, CODE_HOOK | HOOK_UINT8, ANIM_CRUSH},
 	{0x0002BEC0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},

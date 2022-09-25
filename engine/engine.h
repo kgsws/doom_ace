@@ -518,7 +518,8 @@ typedef struct mobjinfo_s
 	uint64_t alias;
 	uint32_t state_idx_first;
 	uint32_t state_idx_limit;
-	uint32_t replacement;
+	uint16_t replacement;
+	uint16_t species;
 	uint32_t flags1;
 	uint32_t eflags;
 	fixed_t vspeed;
@@ -1023,8 +1024,6 @@ void P_AddActivePlat(plat_t*) __attribute((regparm(2),no_caller_saved_registers)
 void P_BulletSlope(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_inter
-void P_DamageMobj(mobj_t*,mobj_t*,mobj_t*,int32_t) __attribute((regparm(2),no_caller_saved_registers));
-void P_TouchSpecialThing(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_setup

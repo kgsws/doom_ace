@@ -1,6 +1,14 @@
 // kgsws' ACE Engine
 ////
 
+#define DAMAGE_IS_PROJECTILE	0x40000000
+#define DAMAGE_IS_RIPPER	0x60000000
+#define DAMAGE_IS_BULLET	0x20000000
+#define DAMAGE_TYPE_CHECK	0x60000000
+
+#define DAMAGE_IS_CUSTOM	0x80000000
+#define DAMAGE_CUSTOM(lo,hi,mul,add)	((lo) | ((hi) << 9) | ((add) << 18) | ((mul) << 27) | DAMAGE_IS_CUSTOM)
+
 //
 
 extern thinker_t *thinkercap;

@@ -288,7 +288,12 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 
 void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, angle_t pitch, fixed_t slope)
 {
-	fixed_t speed = mo->info->speed;
+	fixed_t speed;
+
+	if(mo->info->fast_speed && (*fastparm || *gameskill == sk_nightmare))
+		speed = mo->info->fast_speed;
+	else
+		speed = mo->info->speed;
 
 	S_StartSound(mo, mo->info->seesound);
 
@@ -853,13 +858,16 @@ void A_Look(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	fixed_t speed;
+
+	if(mo->info->fast_speed && *fastparm || *gameskill == sk_nightmare)
+		speed = mo->info->fast_speed;
+	else
+		speed = mo->info->speed;
+
 	// workaround for non-fixed speed
-	fixed_t speed = mo->info->speed;
-
 	mo->info->speed = (speed + (FRACUNIT / 2)) >> FRACBITS;
-
 	doom_A_Chase(mo);
-
 	mo->info->speed = speed;
 }
 

@@ -45,6 +45,9 @@ const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
 	[ANIM_HEAL] = offsetof(mobjinfo_t, state_heal),
 };
 
+static const hook_t hook_fast_missile[];
+static const hook_t hook_slow_missile[];
+
 //
 // state changes
 
@@ -86,7 +89,12 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 		mo->state = st;
 		mo->sprite = st->sprite;
 		mo->frame = st->frame;
-		mo->tics = st->tics;
+
+		if(st->tics > 1 && (*fastparm || *gameskill == sk_nightmare) && st->frame & FF_FAST)
+			mo->tics = st->tics / 2;
+		else
+			mo->tics = st->tics;
+
 		state = st->nextstate;
 
 		if(st->acp)
@@ -508,6 +516,19 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	mo->type = type;
 	mo->flags1 = info->flags1;
 	mo->netid = mobj_netid++;
+
+	// vertical speed
+	mo->momz = info->vspeed;
+
+	// hack for fast projectiles in original attacks
+	if(info->flags & MF_MISSILE)
+	{
+		// this modifies opcodes in 'P_SpawnMissile' even if called from anywhere else
+		if(info->fast_speed && (*fastparm || *gameskill == sk_nightmare))
+			utils_install_hooks(hook_fast_missile, 3);
+		else
+			utils_install_hooks(hook_slow_missile, 3);
+	}
 
 	// return offset
 	return info;
@@ -1271,6 +1292,20 @@ static void mobj_xy_move(mobj_t *mo)
 
 //
 // hooks
+
+static const hook_t hook_fast_missile[] =
+{
+	{0x00031CE1, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, fast_speed)},
+	{0x00031CF6, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, fast_speed)},
+	{0x00031D1F, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, fast_speed)},
+};
+
+static const hook_t hook_slow_missile[] =
+{
+	{0x00031CE1, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, speed)},
+	{0x00031CF6, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, speed)},
+	{0x00031D1F, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, speed)},
+};
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {

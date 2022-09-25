@@ -307,7 +307,7 @@ static uint32_t check_door_key(line_t *line, mobj_t *mo)
 		return 1;
 
 	pl->message = text;
-	S_StartSound(mo, 34); // TODO: use-fail sound
+	S_StartSound(mo, mo->info->player.sound.usefail);
 
 	return 0;
 }
@@ -356,7 +356,7 @@ uint32_t check_obj_key(line_t *line, mobj_t *mo)
 		goto do_door;
 
 	pl->message = text;
-	S_StartSound(mo, 34); // TODO: use-fail sound
+	S_StartSound(mo, mo->info->player.sound.usefail);
 
 	return 0;
 
@@ -385,7 +385,7 @@ void map_start_title()
 	else
 		*wipegamestate = GS_LEVEL;
 
-	*gameskill = sk_hard;
+	*gameskill = sk_medium;
 	*fastparm = 0;
 	*respawnparm = 0;
 	*nomonsters = 0;
@@ -521,6 +521,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002E858, CODE_HOOK | HOOK_UINT16, 0x61EB},
 	{0x0002E8BB, CODE_HOOK | HOOK_UINT8, 0xB8},
 	{0x0002E8BC, CODE_HOOK | HOOK_UINT32, (uint32_t)map_lump_name},
+	// remove sky setup in 'G_InitNew'
+	{0x00021803, CODE_HOOK | HOOK_UINT16, 0x68EB},
 	// import variables
 	{0x0002C0D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playerstarts},
 	{0x0002C154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatchstarts},

@@ -424,6 +424,9 @@ static const dec_attr_t attr_mobj[] =
 	{"height", DT_FIXED, offsetof(mobjinfo_t, height)},
 	{"mass", DT_S32, offsetof(mobjinfo_t, mass)},
 	//
+	{"fastspeed", DT_FIXED, offsetof(mobjinfo_t, fast_speed)},
+	{"vspeed", DT_FIXED, offsetof(mobjinfo_t, vspeed)},
+	//
 	{"dropitem", DT_DROPITEM},
 	//
 	{"activesound", DT_SOUND, offsetof(mobjinfo_t, activesound)},
@@ -1742,19 +1745,23 @@ skip_math:
 		if(doom_sscanf(kw, "%d", &tics) != 1)
 			I_Error("[DECORATE] Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
 
-		// optional 'bright' or action
-		kw = tp_get_keyword_lc();
-		if(!kw)
-			return 1;
-
-		if(!strcmp(kw, "bright"))
+		while(1)
 		{
-			// optional action
+			// optional keywords or action
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			// set the flag
-			flags |= 0x8000;
+
+			if(!strcmp(kw, "bright"))
+				flags |= FF_FULLBRIGHT;
+			else
+			if(!strcmp(kw, "fast"))
+				flags |= FF_FAST;
+			else
+			if(!strcmp(kw, "canraise"))
+				flags |= FF_CANRAISE;
+			else
+				break;
 		}
 
 		if(kw[0] != '\n')
@@ -2243,9 +2250,17 @@ void init_decorate()
 	// archvile stuff
 	mobjinfo[3].flags1 |= MF1_NOTARGET | MF1_QUICKTORETALIATE;
 
+	// bullet puff
+	mobjinfo[37].vspeed = FRACUNIT;
+
 	// boss stuff
 	mobjinfo[19].flags1 |= MF1_BOSS | MF1_NORADIUSDMG;
 	mobjinfo[21].flags1 |= MF1_BOSS | MF1_NORADIUSDMG;
+
+	// fast stuff
+	mobjinfo[16].fast_speed = 20 * FRACUNIT;
+	mobjinfo[31].fast_speed = 20 * FRACUNIT;
+	mobjinfo[32].fast_speed = 20 * FRACUNIT;
 
 	// doom weapons
 	doom_weapon[6].use = dehacked.bfg_cells;
@@ -2299,7 +2314,7 @@ void init_decorate()
 	for(uint32_t i = 0; i < NUMSTATES; i++)
 	{
 		states[i].sprite = deh_states[i].sprite;
-		states[i].frame = deh_states[i].frame;
+		states[i].frame = deh_states[i].frame & 0x80FF;
 		states[i].arg = NULL;
 		states[i].tics = deh_states[i].tics;
 		states[i].action = deh_states[i].action;
@@ -2318,6 +2333,10 @@ void init_decorate()
 			}
 		}
 	}
+
+	// fast states
+	for(uint32_t i = 477; i <= 489; i++)
+		states[i].frame |= FF_FAST;
 
 	// process actors
 	if(mod_config.enable_decorate)
@@ -2511,13 +2530,18 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031F54, CODE_HOOK | HOOK_UINT16, 0x08EB}, // EV_Teleport
 	{0x00031FAE, CODE_HOOK | HOOK_UINT16, 0x08EB}, // EV_Teleport
 	{0x00020BA2, CODE_HOOK | HOOK_UINT16, 0x0AEB}, // G_CheckSpot
+	{0x000313D7, CODE_HOOK | HOOK_UINT16, 0x08EB}, // P_NightmareRespawn
+	{0x000313FC, CODE_HOOK | HOOK_UINT16, 0x08EB}, // P_NightmareRespawn
+	// use 'MF1_ISMONSTER' in 'P_MobjThinker'
+	{0x000314FC, CODE_HOOK | HOOK_UINT16, offsetof(mobj_t, flags1) | (MF1_ISMONSTER << 8)},
 	// use 'MF1_TELESTOMP' in 'PIT_StompThing'
 	{0x0002ABC7, CODE_HOOK | HOOK_UINT16, 0x43F6},
-	{0x0002ABC9, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},
-	{0x0002ABCA, CODE_HOOK | HOOK_UINT8, MF1_TELESTOMP},
+	{0x0002ABC9, CODE_HOOK | HOOK_UINT16, offsetof(mobj_t, flags1) | (MF1_TELESTOMP << 8)},
 	{0x0002ABCB, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// change damage in 'PIT_StompThing'
 	{0x0002ABDE, CODE_HOOK | HOOK_UINT32, 1000000},
+	// disable 'th->momz' in 'P_SpawnPuff'
+	{0x00031B27, CODE_HOOK | HOOK_UINT16, 0x05EB},
 	// change 'sfx_noway' in 'PTR_UseTraverse'
 	{0x0002BCCA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_noway},
 	// change 'sfx_oof' in 'P_ZMovement'

@@ -514,12 +514,14 @@ typedef struct mobjinfo_s
 	uint32_t flags;
 	uint32_t state_raise;
 	// new stuff
+	fixed_t fast_speed; // offset must be < 128
 	uint64_t alias;
 	uint32_t state_idx_first;
 	uint32_t state_idx_limit;
 	uint32_t replacement;
 	uint32_t flags1;
 	uint32_t eflags;
+	fixed_t vspeed;
 	fixed_t step_height;
 	fixed_t dropoff;
 	// extra stuff list

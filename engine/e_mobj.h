@@ -40,6 +40,11 @@ enum
 	ANIM_I_USE,
 };
 
+// frame flags
+#define FF_FULLBRIGHT	0x8000
+#define FF_FAST	0x4000
+#define FF_CANRAISE	0x2000
+
 // FLAGS 0
 #define MF_SPECIAL	0x00000001
 #define MF_SOLID	0x00000002

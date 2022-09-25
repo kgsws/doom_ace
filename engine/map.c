@@ -50,6 +50,9 @@ ceiling_t **activeceilings;
 uint32_t *netgame;
 uint32_t *usergame;
 
+uint32_t *nofit;
+uint32_t *crushchange;
+
 fixed_t *tmdropoffz;
 fixed_t *openrange;
 
@@ -554,6 +557,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
 	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
 	// more variables
+	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
+	{0x0002B994, DATA_HOOK | HOOK_IMPORT, (uint32_t)&crushchange},
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},
 	{0x0002B9F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ceilingline},

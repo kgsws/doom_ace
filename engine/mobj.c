@@ -921,6 +921,63 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	return !(thing->flags & MF_SOLID);
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t pit_change_sector(mobj_t *thing)
+{
+	if(!(thing->flags1 & MF1_DONTGIB))
+	{
+		if(thing->health <= 0)
+		{
+			thing->flags1 |= MF1_DONTGIB;
+
+			if(!(thing->flags & MF_NOBLOOD) || *demoplayback == DEMO_OLD)
+			{
+				uint32_t state;
+
+				if(!thing->info->state_crush)
+					state = 895;
+				else
+					state = thing->info->state_crush;
+
+				thing->flags &= ~MF_SOLID;
+				thing->radius = 0;
+				thing->height = 0;
+
+				mobj_set_state(thing, state);
+			}
+
+			return 1;
+		}
+
+		if(thing->flags & MF_DROPPED)
+		{
+			P_RemoveMobj(thing);
+			return 1;
+		}
+	}
+
+	if(!(thing->flags & MF_SHOOTABLE))
+		return 1;
+
+	*nofit = 1;
+
+	if(*crushchange && !(*leveltime & 3))
+	{
+		mobj_damage(thing, NULL, NULL, 10, 0);
+
+		if(!(thing->flags & MF_NOBLOOD) || *demoplayback == DEMO_OLD)
+		{
+			mobj_t *mo;
+
+			mo = P_SpawnMobj(thing->x, thing->y, thing->z + thing->height / 2, 38);
+			mo->momx = (P_Random() - P_Random()) << 12;
+			mo->momy = (P_Random() - P_Random()) << 12;
+		}
+	}
+
+	return 1;
+}
+
 //
 // API
 
@@ -1530,6 +1587,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002AEDA, CODE_HOOK | HOOK_UINT16, 0xD889},
 	{0x0002AEDC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_check_thing},
 	{0x0002AEE1, CODE_HOOK | HOOK_UINT16, 0x56EB},
+	// replace most of 'PIT_ChangeSector'
+	{0x0002BEB3, CODE_HOOK | HOOK_UINT16, 0xF089},
+	{0x0002BEB5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_change_sector},
+	{0x0002BEBA, CODE_HOOK | HOOK_UINT16, 0x25EB},
 	// replace 'P_SetMobjState' with new animation system
 	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SEE << 8)}, // A_Look
 	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Look
@@ -1539,9 +1600,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000278A0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
 	{0x000278DD, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_MISSILE << 8)}, // A_Chase
 	{0x000278E0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
-	// replace 'P_SetMobjState' with new animation system (PIT_ChangeSector, gibs)
-	{0x0002BEBA, CODE_HOOK | HOOK_UINT8, ANIM_CRUSH},
-	{0x0002BEC0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
 	// replace 'P_SetMobjState' with new animation system (P_MovePlayer)
 	{0x0003324B, CODE_HOOK | HOOK_UINT16, 0xB880},
 	{0x0003324D, CODE_HOOK | HOOK_UINT32, offsetof(mobj_t, animation)},

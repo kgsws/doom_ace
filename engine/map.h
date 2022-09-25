@@ -101,6 +101,9 @@ extern ceiling_t **activeceilings;
 extern uint32_t *netgame;
 extern uint32_t *usergame;
 
+extern uint32_t *nofit;
+extern uint32_t *crushchange;
+
 extern fixed_t *tmdropoffz;
 extern fixed_t *openrange;
 

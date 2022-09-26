@@ -9,6 +9,7 @@
 #include "animate.h"
 #include "think.h"
 #include "player.h"
+#include "hitscan.h"
 #include "demo.h"
 #include "map.h"
 
@@ -59,6 +60,9 @@ fixed_t *openrange;
 line_t **ceilingline;
 
 mobj_t **linetarget;
+
+fixed_t *bmaporgx;
+fixed_t *bmaporgy;
 
 uint8_t map_lump_name[9];
 int32_t map_lump_idx;
@@ -473,6 +477,16 @@ static const hook_t patch_new[] =
 	// projectile sky explosion
 	{0x0003137E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)projectile_sky_flat},
 	{0x00031089, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)projectile_sky_wall},
+	// replace 'P_PathTraverse' on multiple places
+//	{0x0002B5F6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
+//	{0x0002B616, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
+//	{0x0002B636, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
+//	{0x0002BBFA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_AimLineAttack
+//	{0x0002BC89, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_LineAttack
+//	{0x0002BD55, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_UseLines
+	// replace 'P_PointOnLineSide' in 'PIT_AddLineIntercepts'; fix elastic collisions
+	{0x0002C65A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_side_check0},
+	{0x0002C67E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_side_check1},
 	// terminator
 	{0}
 };
@@ -488,6 +502,16 @@ static const hook_t patch_old[] =
 	// projectile sky explosion
 	{0x0003137E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)explode_missile},
 	{0x00031089, CODE_HOOK | HOOK_CALL_DOOM, 0x00031660},
+	// restore 'P_PathTraverse' on multiple places
+	{0x0002B5F6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
+	{0x0002B616, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
+	{0x0002B636, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
+	{0x0002BBFA, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_AimLineAttack
+	{0x0002BC89, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_LineAttack
+	{0x0002BD55, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_UseLines
+	// restore 'P_PointOnLineSide' in 'PIT_AddLineIntercepts'
+	{0x0002C65A, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C010},
+	{0x0002C67E, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C010},
 	// terminator
 	{0}
 };
@@ -563,5 +587,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},
 	{0x0002B9F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ceilingline},
 	{0x0002B9F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&linetarget},
+	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
+	{0x0002C104, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bmaporgx},
+	{0x0002C108, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bmaporgy},
 };
 

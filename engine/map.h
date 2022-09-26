@@ -111,6 +111,9 @@ extern line_t **ceilingline;
 
 extern mobj_t **linetarget;
 
+extern fixed_t *bmaporgx;
+extern fixed_t *bmaporgy;
+
 extern uint8_t map_lump_name[9];
 extern int32_t map_lump_idx;
 

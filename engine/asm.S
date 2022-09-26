@@ -145,6 +145,35 @@ hook_mobj_damage:
 	ret
 
 //
+// P_PathTraverse hook
+.global hook_path_traverse
+hook_path_traverse:
+	push	%ecx
+	push	%ebx
+	push	%edx
+	push	%eax
+	mov	0x10(%esp),%eax
+	mov	0x18(%esp),%ebx
+	mov	%eax,0x18(%esp)
+	mov	%ebx,0x10(%esp)
+	call	path_traverse
+	add	$24,%esp
+	ret
+
+//
+// P_PointOnLineSide hooks
+.global hook_side_check0
+hook_side_check0:
+	mov	%ebx,%eax
+	xor	%edx,%edx
+	jmp	line_side_check
+.global hook_side_check1
+hook_side_check1:
+	mov	%ebx,%edx
+	xor	%eax,%eax
+	jmp	line_side_check
+
+//
 // EV_DoLockedDoor hook
 .global hook_obj_key
 hook_obj_key:

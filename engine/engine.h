@@ -31,6 +31,7 @@ typedef uint32_t angle_t;
 #define NUMSTATES	967
 #define NUMSPRITES	138
 #define MAXEVENTS	64
+#define MAXINTERCEPTS	128
 
 //
 // tables
@@ -674,6 +675,23 @@ typedef struct subsector_s
 	uint16_t numlines;
 	uint16_t firstline;
 } subsector_t;
+
+typedef struct
+{
+	fixed_t frac;
+	uint32_t isaline;
+	union
+	{
+		struct mobj_s *thing;
+		struct line_s *line;
+	} d;
+} intercept_t;
+
+typedef struct
+{
+	fixed_t x, y;
+	fixed_t dx, dy;
+} divline_t;
 
 //
 // sound

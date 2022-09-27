@@ -398,7 +398,7 @@ static inline void draw_crosshair(player_t *pl)
 			y = height - xhair->height + xhair->y;
 	}
 
-	V_DrawPatchDirect((SCREENWIDTH / 2) - 1, y, 0, xhair);
+	V_DrawPatchDirect((SCREENWIDTH / 2), y, 0, xhair);
 }
 
 //

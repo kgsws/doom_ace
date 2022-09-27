@@ -950,6 +950,7 @@ typedef struct
 // ASM hooks
 void hook_mobj_damage();
 void hook_obj_key();
+void hook_path_traverse();
 void skip_message_cancel() __attribute((noreturn));
 
 // some variables
@@ -1042,6 +1043,8 @@ void P_LineOpening(line_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_TraverseIntercepts(void*,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_BlockLinesIterator(int32_t,int32_t,void*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_BlockThingsIterator(int32_t,int32_t,void*) __attribute((regparm(2),no_caller_saved_registers));
+fixed_t P_InterceptVector(divline_t*,divline_t*) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t P_PointOnDivlineSide(fixed_t,fixed_t,divline_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_mobj
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

@@ -161,19 +161,6 @@ hook_path_traverse:
 	ret
 
 //
-// P_PointOnLineSide hooks
-.global hook_side_check0
-hook_side_check0:
-	mov	%ebx,%eax
-	xor	%edx,%edx
-	jmp	line_side_check
-.global hook_side_check1
-hook_side_check1:
-	mov	%ebx,%edx
-	xor	%eax,%eax
-	jmp	line_side_check
-
-//
 // EV_DoLockedDoor hook
 .global hook_obj_key
 hook_obj_key:
@@ -596,6 +583,12 @@ P_AddActiveCeiling:
 P_SpawnSpecials:
 	.byte	0xE9
 	.4byte	0x0002FFF0
+////////////////////////////////// P_InterceptVector
+.section .text.P_InterceptVector
+.global P_InterceptVector
+P_InterceptVector:
+	.byte	0xE9
+	.4byte	0x0002C2D0
 ////////////////////////////////// P_TraverseIntercepts
 .section .text.P_TraverseIntercepts
 .global P_TraverseIntercepts
@@ -768,6 +761,16 @@ P_BlockThingsIterator:
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x0002C5A0
+	pop	%ebx
+	ret
+////////////////////////////////// P_PointOnDivlineSide
+.section .text.P_PointOnDivlineSide
+.global P_PointOnDivlineSide
+P_PointOnDivlineSide:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002C1E0
 	pop	%ebx
 	ret
 ////////////////////////////////// end

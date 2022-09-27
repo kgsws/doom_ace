@@ -9,7 +9,6 @@
 #include "animate.h"
 #include "think.h"
 #include "player.h"
-#include "hitscan.h"
 #include "demo.h"
 #include "map.h"
 
@@ -484,9 +483,6 @@ static const hook_t patch_new[] =
 	{0x0002BBFA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_AimLineAttack
 	{0x0002BC89, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_LineAttack
 	{0x0002BD55, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_UseLines
-	// replace 'P_PointOnLineSide' in 'PIT_AddLineIntercepts'; fix elastic collisions
-	{0x0002C65A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_side_check0},
-	{0x0002C67E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_side_check1},
 	// terminator
 	{0}
 };
@@ -509,9 +505,6 @@ static const hook_t patch_old[] =
 	{0x0002BBFA, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_AimLineAttack
 	{0x0002BC89, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_LineAttack
 	{0x0002BD55, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_UseLines
-	// restore 'P_PointOnLineSide' in 'PIT_AddLineIntercepts'
-	{0x0002C65A, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C010},
-	{0x0002C67E, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C010},
 	// terminator
 	{0}
 };

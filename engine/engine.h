@@ -49,6 +49,15 @@ typedef uint32_t angle_t;
 #define SLOPEBITS	11
 #define DBITS	(FRACBITS - SLOPEBITS)
 
+#define MAPBLOCKUNITS	128
+#define MAPBLOCKSIZE	(MAPBLOCKUNITS * FRACUNIT)
+#define MAPBLOCKSHIFT	(FRACBITS + 7)
+#define MAPBMASK	(MAPBLOCKSIZE - 1)
+#define MAPBTOFRAC	(MAPBLOCKSHIFT - FRACBITS)
+
+#define PT_ADDLINES	1
+#define PT_ADDTHINGS	2
+
 //
 // stuff
 
@@ -1030,6 +1039,9 @@ void P_SlideMove(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_LineOpening(line_t*) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t P_TraverseIntercepts(void*,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t P_BlockLinesIterator(int32_t,int32_t,void*) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t P_BlockThingsIterator(int32_t,int32_t,void*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_mobj
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

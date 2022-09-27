@@ -596,6 +596,12 @@ P_AddActiveCeiling:
 P_SpawnSpecials:
 	.byte	0xE9
 	.4byte	0x0002FFF0
+////////////////////////////////// P_TraverseIntercepts
+.section .text.P_TraverseIntercepts
+.global P_TraverseIntercepts
+P_TraverseIntercepts:
+	.byte	0xE9
+	.4byte	0x0002C810
 ////////////////////////////////// R_PrecacheLevel
 .section .text.R_PrecacheLevel
 .global R_PrecacheLevel
@@ -742,6 +748,26 @@ P_AimLineAttack:
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x0002BB80
+	pop	%ebx
+	ret
+////////////////////////////////// P_BlockLinesIterator
+.section .text.P_BlockLinesIterator
+.global P_BlockLinesIterator
+P_BlockLinesIterator:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002C520
+	pop	%ebx
+	ret
+////////////////////////////////// P_BlockThingsIterator
+.section .text.P_BlockThingsIterator
+.global P_BlockThingsIterator
+P_BlockThingsIterator:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002C5A0
 	pop	%ebx
 	ret
 ////////////////////////////////// end

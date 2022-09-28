@@ -25,6 +25,19 @@ uint32_t *usegamma;
 fixed_t *centeryfrac;
 fixed_t *yslope;
 
+uint32_t *dc_x;
+uint32_t *dc_yl;
+uint32_t *dc_yh;
+uint8_t **dc_source;
+
+fixed_t *sprtopscreen;
+fixed_t *spryscale;
+
+int16_t **mfloorclip;
+int16_t **mceilingclip;
+
+void (**colfunc)();
+
 static fixed_t cy_weapon;
 static fixed_t cy_look;
 
@@ -166,5 +179,15 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
 	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
 	{0x00074FC0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usegamma},
+	// import render variables
+	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
+	{0x000322EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_x},
+	{0x000322F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yl},
+	{0x000322F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yh},
+	{0x000322E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_source},
+	{0x0005C888, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sprtopscreen},
+	{0x0005C8A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spryscale},
+	{0x0005C890, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mfloorclip},
+	{0x0005C88C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mceilingclip},
 };
 

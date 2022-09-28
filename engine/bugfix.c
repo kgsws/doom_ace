@@ -5,19 +5,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "ldr_texture.h"
-
-static uint32_t *dc_x;
-static uint32_t *dc_yl;
-static uint32_t *dc_yh;
-static uint8_t **dc_source;
-
-static fixed_t *sprtopscreen;
-static fixed_t *spryscale;
-
-static int16_t **mfloorclip;
-static int16_t **mceilingclip;
-
-static void (**colfunc)();
+#include "render.h"
 
 //
 // 'medusa' effect fix
@@ -76,15 +64,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// fix 'medusa' effect
 	{0x0003692D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_masked_column},
 	{0x00036932, CODE_HOOK | HOOK_SET_NOPS, 8},
-	// import render variables
-	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
-	{0x000322EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_x},
-	{0x000322F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yl},
-	{0x000322F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yh},
-	{0x000322E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_source},
-	{0x0005C888, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sprtopscreen},
-	{0x0005C8A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spryscale},
-	{0x0005C890, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mfloorclip},
-	{0x0005C88C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mceilingclip},
 };
 

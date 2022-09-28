@@ -1158,10 +1158,10 @@ void do_save()
 	info.mod_csum = 0; // TODO
 
 	info.flags = *gameskill << 13;
-	info.flags |= !!(*fastparm << 0);
-	info.flags |= !!(*respawnparm << 1);
-	info.flags |= !!(*nomonsters << 2);
-	info.flags |= !!(*deathmatch << 3);
+	info.flags |= (!!*fastparm) << 0;
+	info.flags |= (!!*respawnparm) << 1;
+	info.flags |= (!!*nomonsters) << 2;
+	info.flags |= (!!*deathmatch) << 3;
 
 	info.episode = *gameepisode;
 	info.map = *gamemap;

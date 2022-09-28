@@ -1,6 +1,22 @@
 // kgsws' ACE Engine
 ////
 
+enum
+{
+	CLUSTER_NONE = -1,
+	CLUSTER_D1_EPISODE1,
+	CLUSTER_D1_EPISODE2,
+	CLUSTER_D1_EPISODE3,
+	CLUSTER_D1_EPISODE4,
+	CLUSTER_D2_1TO6,
+	CLUSTER_D2_7TO11,
+	CLUSTER_D2_12TO20,
+	CLUSTER_D2_21TO30,
+	CLUSTER_D2_LVL31,
+	CLUSTER_D2_LVL32,
+	DEF_CLUSTER_COUNT
+};
+
 typedef struct
 {
 	int16_t floorheight;
@@ -63,6 +79,17 @@ typedef struct
 
 //
 
+typedef struct
+{
+	uint8_t *text_enter;
+	uint8_t *text_leave;
+	int32_t lump_music;
+	int32_t lump_patch;
+	int32_t flat_num;
+} map_cluster_t;
+
+//
+
 extern mapthing_t *playerstarts;
 extern mapthing_t *deathmatchstarts;
 extern mapthing_t **deathmatch_p;
@@ -122,7 +149,12 @@ extern int32_t map_lump_idx;
 extern uint_fast8_t map_skip_stuff;
 extern uint_fast8_t is_title_map;
 
+extern uint32_t num_clusters;
+extern map_cluster_t *map_cluster;
+
 //
+
+void init_map();
 
 void map_start_title();
 

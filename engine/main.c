@@ -342,6 +342,9 @@ uint32_t ace_main()
 	// menu
 	init_menu();
 
+	// map
+	init_map();
+
 	//
 	gfx_progress(-1);
 

@@ -5,6 +5,7 @@ typedef struct
 {
 	uint8_t enable_decorate;
 	uint8_t enable_dehacked;
+	uint8_t cluster_count;
 } mod_config_t;
 
 typedef struct

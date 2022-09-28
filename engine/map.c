@@ -3,6 +3,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "wadfile.h"
 #include "decorate.h"
 #include "mobj.h"
 #include "inventory.h"
@@ -10,8 +11,10 @@
 #include "think.h"
 #include "player.h"
 #include "hitscan.h"
+#include "config.h"
 #include "demo.h"
 #include "map.h"
+#include "ldr_flat.h"
 
 mapthing_t *playerstarts;
 mapthing_t *deathmatchstarts;
@@ -72,9 +75,60 @@ int32_t map_lump_idx;
 uint_fast8_t map_skip_stuff;
 uint_fast8_t is_title_map;
 
+uint32_t num_clusters;
+map_cluster_t *map_cluster;
+
+static int32_t cluster_music;
+
 //
 
 static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
+
+// original clusters
+static const map_cluster_t d2_cluster[] =
+{
+	[CLUSTER_D1_EPISODE1] = {.text_leave = (void*)0x000204C0, .lump_patch = -1},
+	[CLUSTER_D1_EPISODE2] = {.text_leave = (void*)0x0002067C, .lump_patch = -1},
+	[CLUSTER_D1_EPISODE3] = {.text_leave = (void*)0x00020850, .lump_patch = -1},
+	[CLUSTER_D1_EPISODE4] = {.text_leave = NULL, .lump_patch = -1}, // text is added manually
+	[CLUSTER_D2_1TO6] = {.text_leave = (void*)0x00020A40, .lump_patch = -1},
+	[CLUSTER_D2_7TO11] = {.text_leave = (void*)0x00020BD8, .lump_patch = -1},
+	[CLUSTER_D2_12TO20] = {.text_leave = (void*)0x00020E44, .lump_patch = -1},
+	[CLUSTER_D2_21TO30] = {.text_leave = (void*)0x00020F80, .lump_patch = -1},
+	[CLUSTER_D2_LVL31] = {.text_leave = (void*)0x00021170, .lump_patch = -1},
+	[CLUSTER_D2_LVL32] = {.text_leave = (void*)0x00021218, .lump_patch = -1},
+};
+static const uint8_t *cluster_flat[DEF_CLUSTER_COUNT] =
+{
+	[CLUSTER_D1_EPISODE1] = (void*)0x000212A8,
+	[CLUSTER_D1_EPISODE2] = (void*)0x000212B4,
+	[CLUSTER_D1_EPISODE3] = (void*)0x000212BC,
+	[CLUSTER_D1_EPISODE4] = NULL, // MFLR8_3
+	[CLUSTER_D2_1TO6] = (void*)0x00021278,
+	[CLUSTER_D2_7TO11] = (void*)0x00021280,
+	[CLUSTER_D2_12TO20] = (void*)0x00021288,
+	[CLUSTER_D2_21TO30] = (void*)0x00021290,
+	[CLUSTER_D2_LVL31] = (void*)0x00021298,
+	[CLUSTER_D2_LVL32] = (void*)0x000212A0,
+};
+
+// missing text
+static uint8_t *ep4_text = "the spider mastermind must have sent forth\n"
+	"its legions of hellspawn before your\n"
+	"final confrontation with that terrible\n"
+	"beast from hell.  but you stepped forward\n"
+	"and brought forth eternal damnation and\n"
+	"suffering upon the horde as a true hero\n"
+	"would in the face of something so evil.\n"
+	"\n"
+	"besides, someone was gonna pay for what\n"
+	"happened to daisy, your pet rabbit.\n"
+	"\n"
+	"but now, you see spread before you more\n"
+	"potential pain and gibbitude as a nation\n"
+	"of demons run amok among our cities.\n"
+	"\n"
+	"next stop, hell on earth!";
 
 //
 static const hook_t patch_new[];
@@ -411,6 +465,44 @@ void map_start_title()
 	playeringame[0] = 1;
 
 	map_load_setup();
+}
+
+//
+// API
+
+void init_map()
+{
+	uint8_t text[16];
+
+	doom_printf("[ACE] init MAPs\n");
+	ldr_alloc_message = "Map and game info memory allocation failed!";
+
+	// default cluster music
+	if(*gamemode)
+		doom_sprintf(text, "D_%s", (void*)0x00024B40 + doom_data_segment);
+	else
+		doom_sprintf(text, "D_%s", (void*)0x00024A30 + doom_data_segment);
+	cluster_music = wad_check_lump(text);
+
+	// allocate clusters
+	map_cluster = ldr_malloc(mod_config.cluster_count * sizeof(map_cluster_t));
+
+	// prepare default clusters
+	for(uint32_t i = 0; i < DEF_CLUSTER_COUNT; i++)
+	{
+		const uint8_t *flat;
+
+		map_cluster[i] = d2_cluster[i];
+		map_cluster[i].lump_music = cluster_music;
+		if(map_cluster[i].text_leave)
+			map_cluster[i].text_leave += doom_data_segment;
+		if(cluster_flat[i])
+			flat = cluster_flat[i] + doom_data_segment;
+		else
+			flat = "MFLR8_3";
+		map_cluster[i].flat_num = flatlump[flat_num_get(flat)];
+	}
+	map_cluster[CLUSTER_D1_EPISODE4].text_leave = ep4_text;
 }
 
 //

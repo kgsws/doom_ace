@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "wadfile.h"
 #include "player.h"
+#include "map.h"
 #include "textpars.h"
 #include "controls.h"
 #include "config.h"
@@ -49,6 +50,7 @@ mod_config_t mod_config =
 {
 	.enable_decorate = 1,
 	.enable_dehacked = 1,
+	.cluster_count = DEF_CLUSTER_COUNT,
 };
 
 //
@@ -117,6 +119,7 @@ static config_entry_t config_mod[] =
 {
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
+	{"game.cluster.count", &mod_config.cluster_count, TYPE_U8},
 };
 
 static const hook_t def_set[];
@@ -204,6 +207,10 @@ void init_config()
 
 	// check controls
 	control_setup();
+
+	// mod setup
+	if(mod_config.cluster_count < DEF_CLUSTER_COUNT)
+		mod_config.cluster_count = DEF_CLUSTER_COUNT;
 
 	// player setup
 	pli = player_info + *consoleplayer;

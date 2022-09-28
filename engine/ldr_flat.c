@@ -51,7 +51,7 @@ void *precache_flat(uint32_t idx)
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
-int32_t flat_num_get(uint8_t *name)
+int32_t flat_num_get(const uint8_t *name)
 {
 	int32_t ret;
 
@@ -66,7 +66,7 @@ int32_t flat_num_get(uint8_t *name)
 // API
 
 __attribute((regparm(2),no_caller_saved_registers))
-int32_t flat_num_check(uint8_t *name)
+int32_t flat_num_check(const uint8_t *name)
 {
 	uint64_t wame;
 	int32_t idx = *numflats;

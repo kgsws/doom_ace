@@ -184,7 +184,7 @@ void wad_init()
 	memset(*lumpcache, 0, lumpcount * sizeof(void*));
 }
 
-uint64_t wad_name64(uint8_t *name)
+uint64_t wad_name64(const uint8_t *name)
 {
 	union
 	{
@@ -206,7 +206,7 @@ uint64_t wad_name64(uint8_t *name)
 	return nm.w;
 }
 
-int32_t wad_check_lump(uint8_t *name)
+int32_t wad_check_lump(const uint8_t *name)
 {
 	uint64_t wame;
 	uint32_t idx;
@@ -228,7 +228,7 @@ int32_t wad_check_lump(uint8_t *name)
 	return -1;
 }
 
-int32_t wad_get_lump(uint8_t *name)
+int32_t wad_get_lump(const uint8_t *name)
 {
 	int32_t idx;
 
@@ -276,7 +276,7 @@ void *wad_cache_lump(int32_t idx, uint32_t *size)
 	return data;
 }
 
-void *wad_cache_optional(uint8_t *name, uint32_t *size)
+void *wad_cache_optional(const uint8_t *name, uint32_t *size)
 {
 	int32_t idx;
 	uint8_t *data;
@@ -344,7 +344,7 @@ void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
 		I_Error("Unclosed range %.8s / %.8s\n", range_defs[is_inside-1].u8, range_defs[is_inside+1].u8);
 }
 
-void wad_handle_lump(uint8_t *name, void (*cb)(lumpinfo_t*))
+void wad_handle_lump(const uint8_t *name, void (*cb)(lumpinfo_t*))
 {
 	uint64_t wame;
 	lumpinfo_t *li = *lumpinfo;

@@ -276,7 +276,7 @@ static void parse_animdefs()
 	uint8_t *kw, *name;
 	int32_t target;
 	uint32_t skip = 0;
-	int32_t (*get_pic)(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
+	int32_t (*get_pic)(const uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 	while(1)
 	{

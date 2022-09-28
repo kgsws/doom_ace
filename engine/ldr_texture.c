@@ -106,7 +106,7 @@ static internal_texture_t internal_texture[EXTRA_TEXTURES] =
 // hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
-int32_t texture_num_get(uint8_t *name)
+int32_t texture_num_get(const uint8_t *name)
 {
 	uint64_t wame;
 	uint32_t idx;
@@ -133,7 +133,7 @@ int32_t texture_num_get(uint8_t *name)
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
-int32_t texture_num_check(uint8_t *name)
+int32_t texture_num_check(const uint8_t *name)
 {
 	// 'texture_num_get' is used more often, but this is sometines required too
 	int32_t idx;

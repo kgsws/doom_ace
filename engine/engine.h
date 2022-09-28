@@ -58,6 +58,16 @@ typedef uint32_t angle_t;
 #define PT_ADDLINES	1
 #define PT_ADDTHINGS	2
 
+#define ST_HORIZONTAL	0
+#define ST_VERTICAL	1
+#define ST_POSITIVE	2
+#define ST_NEGATIVE	3
+
+#define INTH_SIDE_LEFT	0
+#define INTH_SIDE_RIGHT	1
+#define INTH_SIDE_TOP	2
+#define INTH_SIDE_BOT	3
+
 //
 // stuff
 
@@ -812,8 +822,8 @@ typedef struct mobj_s
 	mapthing_t spawnpoint;
 	struct mobj_s *tracer;
 	struct mobj_s *master;
-	uint8_t animation;	// animation system
-	uint8_t __unused;
+	uint8_t animation; // animation system
+	uint8_t intercept_side;	// path traverse
 	uint32_t netid;	// unique identification
 	angle_t pitch;
 	struct inventory_s *inventory;
@@ -1045,6 +1055,7 @@ uint32_t P_BlockLinesIterator(int32_t,int32_t,void*) __attribute((regparm(2),no_
 uint32_t P_BlockThingsIterator(int32_t,int32_t,void*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t P_InterceptVector(divline_t*,divline_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_PointOnDivlineSide(fixed_t,fixed_t,divline_t*) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t P_PointOnLineSide(fixed_t,fixed_t,line_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_mobj
 void P_RemoveMobj(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

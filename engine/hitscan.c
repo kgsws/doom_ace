@@ -19,6 +19,13 @@ static divline_t *trace;
 
 static intercept_t *intercept_p;
 
+static fixed_t *bestslidefrac;
+static line_t **bestslideline;
+
+static mobj_t **slidemo;
+
+static uint32_t thing_slide_slope;
+
 //
 // functions
 
@@ -106,6 +113,12 @@ static uint32_t add_line_intercepts(line_t *li)
 	if(frac > FRACUNIT)
 		return 1;
 
+	if(	!frac &&
+		P_PointOnLineSide(trace->x, trace->y, li) ==
+		P_PointOnLineSide(trace->x + trace->dx, trace->y + trace->dy, li)
+	)
+		return 1;
+
 	intercept_p->frac = frac;
 	intercept_p->isaline = 1;
 	intercept_p->d.line = li;
@@ -121,12 +134,19 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 	divline_t dl;
 	fixed_t tmpf;
 	fixed_t frac = FRACUNIT * 2;
+	uint8_t side[2];
+
+	if(mo->validcount == *validcount)
+		return 1;
+
+	mo->validcount = *validcount;
 
 	if(intercept_p >= intercepts + MAXINTERCEPTS)
 		return 0;
 
 	if(trace->x < mo->x)
 	{
+		side[0] = INTH_SIDE_LEFT;
 		if(trace->y < mo->y)
 		{
 			v1.x = mo->x - mo->radius;
@@ -135,6 +155,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 			v2.y = mo->y - mo->radius;
 			v3.x = mo->x + mo->radius;
 			v3.y = mo->y - mo->radius;
+			side[1] = INTH_SIDE_BOT;
 		} else
 		{
 			v1.x = mo->x - mo->radius;
@@ -143,9 +164,11 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 			v2.y = mo->y + mo->radius;
 			v3.x = mo->x + mo->radius;
 			v3.y = mo->y + mo->radius;
+			side[1] = INTH_SIDE_TOP;
 		}
 	} else
 	{
+		side[0] = INTH_SIDE_RIGHT;
 		if(trace->y < mo->y)
 		{
 			v1.x = mo->x + mo->radius;
@@ -154,6 +177,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 			v2.y = mo->y - mo->radius;
 			v3.x = mo->x - mo->radius;
 			v3.y = mo->y - mo->radius;
+			side[1] = INTH_SIDE_BOT;
 		} else
 		{
 			v1.x = mo->x + mo->radius;
@@ -162,6 +186,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 			v2.y = mo->y + mo->radius;
 			v3.x = mo->x - mo->radius;
 			v3.y = mo->y + mo->radius;
+			side[1] = INTH_SIDE_TOP;
 		}
 	}
 
@@ -174,7 +199,10 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 
 		tmpf = P_InterceptVector(trace, &dl);
 		if(tmpf >= 0)
+		{
 			frac = tmpf;
+			mo->intercept_side = side[0];
+		}
 	}
 
 	if(!check_trace_line(&v2, &v3))
@@ -186,7 +214,10 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 
 		tmpf = P_InterceptVector(trace, &dl);
 		if(tmpf >= 0 && tmpf < frac)
+		{
 			frac = tmpf;
+			mo->intercept_side = side[1];
+		}
 	}
 
 	if(frac > FRACUNIT)
@@ -202,6 +233,8 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 
 static void add_intercepts(int32_t x, int32_t y, uint32_t flags)
 {
+	if(intercept_p >= intercepts + MAXINTERCEPTS)
+		return;
 	if(flags & PT_ADDLINES)
 		P_BlockLinesIterator(x, y, add_line_intercepts);
 	if(flags & PT_ADDTHINGS)
@@ -213,7 +246,6 @@ static void add_intercepts(int32_t x, int32_t y, uint32_t flags)
 
 uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t (*trav)(intercept_t*), uint32_t flags)
 {
-	// TODO: solve intercept overflow
 	int32_t dx, dy;
 	int32_t ia, ib, ic;
 
@@ -242,8 +274,14 @@ uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t 
 	ib = dy < 0 ? -1 : 1;
 
 	add_intercepts(x1, y1, flags);
-	add_intercepts(x1 + ia, y1, flags);
-	add_intercepts(x1, y1 + ib, flags);
+	add_intercepts(x1 + 1, y1, flags);
+	add_intercepts(x1, y1 + 1, flags);
+	add_intercepts(x1 - 1, y1, flags);
+	add_intercepts(x1, y1 - 1, flags);
+	add_intercepts(x1 + 1, y1 + 1, flags);
+	add_intercepts(x1 - 1, y1 - 1, flags);
+	add_intercepts(x1 - 1, y1 + 1, flags);
+	add_intercepts(x1 + 1, y1 - 1, flags);
 
 	dx = abs(dx);
 	dy = abs(dy);
@@ -286,6 +324,77 @@ uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t 
 	return P_TraverseIntercepts(trav, FRACUNIT);
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t hs_slide_traverse(intercept_t *in)
+{
+	line_t *li;
+	mobj_t *mo = *slidemo;
+
+	if(!in->isaline)
+	{
+		mobj_t *th = in->d.thing;
+
+		if(th == mo)
+			return 1;
+
+		if(!(th->flags & MF_SOLID))
+			return 1;
+
+		if(in->frac < *bestslidefrac)
+		{
+			*bestslidefrac = in->frac;
+			*bestslideline = (void*)&thing_slide_slope - offsetof(line_t, slopetype);
+			switch(th->intercept_side)
+			{
+				case INTH_SIDE_LEFT:
+				case INTH_SIDE_RIGHT:
+					thing_slide_slope = ST_VERTICAL;
+				break;
+				case INTH_SIDE_TOP:
+				case INTH_SIDE_BOT:
+					thing_slide_slope = ST_HORIZONTAL;
+				break;
+			}
+		}
+
+		return 0;
+	}
+
+	li = in->d.line;
+
+	if(!(li->flags & ML_TWOSIDED))
+	{
+		if(P_PointOnLineSide(mo->x, mo->y, li))
+			return 1;
+		goto isblocking;
+	}
+
+	if(li->flags & ML_BLOCKING)
+		goto isblocking;
+
+	P_LineOpening(li);
+
+	if(*openrange < mo->height)
+		goto isblocking;
+
+	if(*opentop - mo->z < mo->height)
+		goto isblocking;
+
+	if(*openbottom - mo->z > mo->info->step_height)
+		goto isblocking;
+
+	return 1;
+
+isblocking:
+	if(in->frac < *bestslidefrac)
+	{
+		*bestslidefrac = in->frac;
+		*bestslideline = li;
+	}
+
+	return 0;
+}
+
 //
 // hooks
 
@@ -296,5 +405,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002BA10, DATA_HOOK | HOOK_IMPORT, (uint32_t)&trace},
 	{0x0002BA20, DATA_HOOK | HOOK_IMPORT, (uint32_t)&intercepts},
 	{0x0002C028, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_intercept_p},
+	{0x0002B9D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bestslidefrac},
+	{0x0002B9D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bestslideline},
+	{0x0002B9C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&slidemo},
 };
 

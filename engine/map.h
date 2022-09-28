@@ -106,6 +106,8 @@ extern uint32_t *crushchange;
 
 extern fixed_t *tmdropoffz;
 extern fixed_t *openrange;
+extern fixed_t *opentop;
+extern fixed_t *openbottom;
 
 extern line_t **ceilingline;
 

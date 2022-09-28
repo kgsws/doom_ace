@@ -2625,7 +2625,7 @@ static uint32_t check_step_height(fixed_t floorz, mobj_t *mo)
 		return 0;
 	}
 
-	// step height // TODO: there is also check in slide move handler
+	// step height
 	if(floorz - mo->z > mo->info->step_height)
 		return 1;
 

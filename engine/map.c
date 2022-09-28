@@ -9,6 +9,7 @@
 #include "animate.h"
 #include "think.h"
 #include "player.h"
+#include "hitscan.h"
 #include "demo.h"
 #include "map.h"
 
@@ -55,6 +56,8 @@ uint32_t *crushchange;
 
 fixed_t *tmdropoffz;
 fixed_t *openrange;
+fixed_t *opentop;
+fixed_t *openbottom;
 
 line_t **ceilingline;
 
@@ -414,19 +417,6 @@ void map_start_title()
 // hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
-static void check_slide_line(line_t *li)
-{
-	if(li->flags & ML_BLOCKING)
-	{
-		// fake opening, making the line blocking
-		*openrange = 0;
-		return;
-	}
-
-	P_LineOpening(li);
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
 static void projectile_sky_flat(mobj_t *mo)
 {
 	if(mo->subsector && !(mo->flags1 & MF1_SKYEXPLODE))
@@ -469,8 +459,6 @@ static const hook_t patch_new[] =
 {
 	// fix 'A_Tracer' - make it leveltime based
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80},
-	// replace call to 'P_LineOpening' in 'PTR_SlideTraverse'
-	{0x0002B4F2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_slide_line},
 	// fix typo in 'P_DivlineSide'
 	{0x0002EA00, CODE_HOOK | HOOK_UINT16, 0xCA39},
 	// projectile sky explosion
@@ -483,6 +471,14 @@ static const hook_t patch_new[] =
 	{0x0002BBFA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_AimLineAttack
 	{0x0002BC89, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_LineAttack
 	{0x0002BD55, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_UseLines
+	// replace pointers to 'PTR_SlideTraverse' in 'P_SlideMove'
+	{0x0002B5DD, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
+	{0x0002B5FC, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
+	{0x0002B61C, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
+	// enable sliding on things
+	{0x0002B5EA, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
+	{0x0002B60F, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
+	{0x0002B62C, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
 	// terminator
 	{0}
 };
@@ -491,8 +487,6 @@ static const hook_t patch_old[] =
 {
 	// restore 'A_Tracer'
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B3BC},
-	// restore call to 'P_LineOpening' in 'PTR_SlideTraverse'
-	{0x0002B4F2, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C340},
 	// restore typo in 'P_DivlineSide'
 	{0x0002EA00, CODE_HOOK | HOOK_UINT16, 0xC839},
 	// projectile sky explosion
@@ -505,6 +499,14 @@ static const hook_t patch_old[] =
 	{0x0002BBFA, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_AimLineAttack
 	{0x0002BC89, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_LineAttack
 	{0x0002BD55, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_UseLines
+	// restore pointers to 'PTR_SlideTraverse' in 'P_SlideMove'
+	{0x0002B5DD, CODE_HOOK | HOOK_CALL_DOOM, 0x0002B4B0},
+	{0x0002B5FC, CODE_HOOK | HOOK_CALL_DOOM, 0x0002B4B0},
+	{0x0002B61C, CODE_HOOK | HOOK_CALL_DOOM, 0x0002B4B0},
+	// disable sliding on things
+	{0x0002B5EA, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
+	{0x0002B60F, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
+	{0x0002B62C, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
 	// terminator
 	{0}
 };
@@ -578,6 +580,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B994, DATA_HOOK | HOOK_IMPORT, (uint32_t)&crushchange},
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},
+	{0x0002C034, DATA_HOOK | HOOK_IMPORT, (uint32_t)&opentop},
+	{0x0002C030, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openbottom},
 	{0x0002B9F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ceilingline},
 	{0x0002B9F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&linetarget},
 	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},

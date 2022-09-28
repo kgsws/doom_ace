@@ -902,8 +902,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	{
 		thing->momx += tmthing->momx / 2;
 		thing->momy += tmthing->momy / 2;
-		// TODO: don't do this if pusher can slide .. and slide code is updated
-		if(thing->flags & MF_SOLID)
+		if(thing->flags & MF_SOLID && !(tmthing->flags & MF_SLIDE))
 		{
 			tmthing->momx = 0;
 			tmthing->momy = 0;

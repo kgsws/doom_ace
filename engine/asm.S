@@ -773,6 +773,16 @@ P_PointOnDivlineSide:
 	.4byte	0x0002C1E0
 	pop	%ebx
 	ret
+////////////////////////////////// P_PointOnLineSide
+.section .text.P_PointOnLineSide
+.global P_PointOnLineSide
+P_PointOnLineSide:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002C010
+	pop	%ebx
+	ret
 ////////////////////////////////// end
 .section .text.__reloc_code_arg3_end
 __reloc_code_arg3_end:

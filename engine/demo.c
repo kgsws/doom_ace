@@ -23,7 +23,7 @@ typedef struct
 	uint8_t nomonsters;
 	uint8_t consoleplayer;
 	uint8_t playeringame[MAXPLAYERS];
-} old_header_t;
+} __attribute__((packed)) old_header_t;
 
 typedef struct
 {
@@ -31,7 +31,7 @@ typedef struct
 	int8_t sidemove;
 	uint8_t angleturn;
 	uint8_t buttons;
-} old_ticcmd_t;
+} __attribute__((packed)) old_ticcmd_t;
 
 //
 
@@ -41,13 +41,14 @@ uint32_t *netdemo;
 uint32_t *demoplayback;
 uint32_t *demorecording;
 
+static uint32_t *singledemo;
+
 //
 // new demo handling
 
 __attribute((regparm(2),no_caller_saved_registers))
 static void demo_close_read()
 {
-	doom_printf("demo_close_read\n");
 	reader_close();
 }
 
@@ -130,8 +131,12 @@ static void do_play_demo()
 close_skip_demo:
 	reader_close();
 skip_demo:
+	*singledemo = 0;
 	if(*gamestate != GS_DEMOSCREEN)
+	{
+		*gamestate = GS_DEMOSCREEN;
 		map_start_title();
+	}
 	*gameaction = ga_nothing;
 }
 
@@ -150,11 +155,13 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00020609, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)demo_read_ticcmd},
 	{0x0002060E, CODE_HOOK | HOOK_UINT16, 0x43EB},
 	// replace call to 'Z_ChangeTag' in 'G_CheckDemoStatus'
-	{0x00021CB6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)demo_close_read},
+	{0x00021C8A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)demo_close_read},
+	{0x00021C8F, CODE_HOOK | HOOK_UINT32, 0x28EBC931},
 	// disable 'demorecording'
 	{0x0002B3F0, DATA_HOOK | HOOK_UINT32, 0},
 	// import variables
 	{0x0002B2E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&defdemoname},
 	{0x0002B388, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netdemo},
+	{0x0002B3B4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&singledemo},
 };
 

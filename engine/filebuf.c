@@ -8,11 +8,8 @@
 #include "filebuf.h"
 
 #define BUFFER_SIZE	(4*1024)
-#define buffer	((uint8_t*)0x0000005A210 + doom_data_segment)	// vissprites
 
-// reuse relocation space
-extern uint8_t _reloc_start[];
-
+static uint8_t buffer[BUFFER_SIZE];
 static uint8_t *bptr;
 static uint8_t *eptr;
 static int ffd = -1;

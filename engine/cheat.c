@@ -12,6 +12,7 @@
 #include "action.h"
 #include "map.h"
 #include "stbar.h"
+#include "demo.h"
 #include "textpars.h"
 #include "cheat.h"
 
@@ -374,6 +375,9 @@ void cheat_check(uint32_t pidx)
 	}
 	if(!cf->name)
 		pl->message = "Unknown cheat!";
+
+	if(!pl->message && *demoplayback)
+		pl->message = "Cheat activated!";
 
 	if(pl->message)
 		*message_is_important = 1;

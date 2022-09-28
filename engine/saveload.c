@@ -585,14 +585,11 @@ static inline void sv_put_sectors(int32_t lump)
 	{
 		sector_t *sec = *sectors + i;
 		uint32_t flags = 0;
-		uint64_t tf, tc;
+		uint64_t tname;
 		fixed_t height;
 
-		tf = flat_get_name(sec->floorpic);
-		tc = flat_get_name(sec->ceilingpic);
-
-		flags |= (tf != ms[i].wfloor) << SF_SEC_TEXTURE_FLOOR;
-		flags |= (tc != ms[i].wceiling) << SF_SEC_TEXTURE_CEILING;
+		flags |= (sec->floorpic != flat_num_get(ms[i].floorpic)) << SF_SEC_TEXTURE_FLOOR;
+		flags |= (sec->ceilingpic != flat_num_get(ms[i].ceilingpic)) << SF_SEC_TEXTURE_CEILING;
 
 		height = (fixed_t)ms[i].floorheight * FRACUNIT;
 		flags |= (sec->floorheight != height) << SF_SEC_HEIGHT_FLOOR;
@@ -610,9 +607,15 @@ static inline void sv_put_sectors(int32_t lump)
 		{
 			writer_add_u32(flags | (i << 16));
 			if(CHECK_BIT(flags, SF_SEC_TEXTURE_FLOOR))
-				writer_add_wame(&tf);
+			{
+				tname = flat_get_name(sec->floorpic);
+				writer_add_wame(&tname);
+			}
 			if(CHECK_BIT(flags, SF_SEC_TEXTURE_CEILING))
-				writer_add_wame(&tc);
+			{
+				tname = flat_get_name(sec->ceilingpic);
+				writer_add_wame(&tname);
+			}
 			if(CHECK_BIT(flags, SF_SEC_HEIGHT_FLOOR))
 				writer_add_u32(sec->floorheight);
 			if(CHECK_BIT(flags, SF_SEC_HEIGHT_CEILING))
@@ -644,21 +647,17 @@ static inline void sv_put_sidedefs(int32_t lump)
 	{
 		side_t *side = *sides + i;
 		uint32_t flags = 0;
-		uint64_t tt, tb, tm;
+		uint64_t tname;
 		fixed_t offs;
-
-		tt = texture_get_name(side->toptexture);
-		tb = texture_get_name(side->bottomtexture);
-		tm = texture_get_name(side->midtexture);
 
 		offs = (fixed_t)ms[i].textureoffset * FRACUNIT;
 		flags |= (side->textureoffset != offs) << SF_SIDE_OFFSX;
 		offs = (fixed_t)ms[i].rowoffset * FRACUNIT;
 		flags |= (side->rowoffset != offs) << SF_SIDE_OFFSY;
 
-		flags |= (tt != ms[i].wtop) << SF_SIDE_TEXTURE_TOP;
-		flags |= (tb != ms[i].wbot) << SF_SIDE_TEXTURE_BOT;
-		flags |= (tm != ms[i].wmid) << SF_SIDE_TEXTURE_MID;
+		flags |= (side->toptexture != texture_num_get(ms[i].toptexture)) << SF_SIDE_TEXTURE_TOP;
+		flags |= (side->bottomtexture != texture_num_get(ms[i].bottomtexture)) << SF_SIDE_TEXTURE_BOT;
+		flags |= (side->midtexture != texture_num_get(ms[i].midtexture)) << SF_SIDE_TEXTURE_MID;
 
 		if(flags)
 		{
@@ -668,11 +667,20 @@ static inline void sv_put_sidedefs(int32_t lump)
 			if(CHECK_BIT(flags, SF_SIDE_OFFSY))
 				writer_add_u32(side->rowoffset);
 			if(CHECK_BIT(flags, SF_SIDE_TEXTURE_TOP))
-				writer_add_wame(&tt);
+			{
+				tname = texture_get_name(side->toptexture);
+				writer_add_wame(&tname);
+			}
 			if(CHECK_BIT(flags, SF_SIDE_TEXTURE_BOT))
-				writer_add_wame(&tb);
+			{
+				tname = texture_get_name(side->bottomtexture);
+				writer_add_wame(&tname);
+			}
 			if(CHECK_BIT(flags, SF_SIDE_TEXTURE_MID))
-				writer_add_wame(&tm);
+			{
+				tname = texture_get_name(side->midtexture);
+				writer_add_wame(&tname);
+			}
 		}
 	}
 

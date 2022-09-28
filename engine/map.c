@@ -15,6 +15,9 @@
 #include "demo.h"
 #include "map.h"
 #include "ldr_flat.h"
+#include "ldr_texture.h"
+
+#include "map_info.h"
 
 mapthing_t *playerstarts;
 mapthing_t *deathmatchstarts;
@@ -24,7 +27,7 @@ uint32_t *nomonsters;
 uint32_t *fastparm;
 uint32_t *respawnparm;
 
-uint32_t *netgame;
+uint32_t *secretexit;
 uint32_t *deathmatch;
 uint32_t *gamemap;
 uint32_t *gameepisode;
@@ -48,6 +51,13 @@ sector_t **sectors;
 
 uint32_t *prndindex;
 
+uint32_t *viewactive;
+uint32_t *automapactive;
+
+static uint32_t *d_skill;
+static uint32_t *d_map;
+static uint32_t *d_episode;
+
 plat_t **activeplats;
 ceiling_t **activeceilings;
 
@@ -69,66 +79,33 @@ mobj_t **linetarget;
 fixed_t *bmaporgx;
 fixed_t *bmaporgy;
 
-uint8_t map_lump_name[9];
+static int32_t *finaleflat; // type is changed!
+static uint8_t **finaletext;
+static uint32_t *finalecount;
+static uint32_t *finalestage;
+
+map_lump_name_t map_lump;
 int32_t map_lump_idx;
+map_level_t *map_level_info;
 
 uint_fast8_t map_skip_stuff;
 uint_fast8_t is_title_map;
 
-uint32_t num_clusters;
+uint32_t num_maps = DEF_MAP_COUNT;
+map_level_t *map_info;
+
+uint32_t num_clusters = DEF_CLUSTER_COUNT;
 map_cluster_t *map_cluster;
 
 static int32_t cluster_music;
 
 //
+static uint8_t **mapnames;
+static uint8_t **mapnames2;
+
+//
 
 static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
-
-// original clusters
-static const map_cluster_t d2_cluster[] =
-{
-	[CLUSTER_D1_EPISODE1] = {.text_leave = (void*)0x000204C0, .lump_patch = -1},
-	[CLUSTER_D1_EPISODE2] = {.text_leave = (void*)0x0002067C, .lump_patch = -1},
-	[CLUSTER_D1_EPISODE3] = {.text_leave = (void*)0x00020850, .lump_patch = -1},
-	[CLUSTER_D1_EPISODE4] = {.text_leave = NULL, .lump_patch = -1}, // text is added manually
-	[CLUSTER_D2_1TO6] = {.text_leave = (void*)0x00020A40, .lump_patch = -1},
-	[CLUSTER_D2_7TO11] = {.text_leave = (void*)0x00020BD8, .lump_patch = -1},
-	[CLUSTER_D2_12TO20] = {.text_leave = (void*)0x00020E44, .lump_patch = -1},
-	[CLUSTER_D2_21TO30] = {.text_leave = (void*)0x00020F80, .lump_patch = -1},
-	[CLUSTER_D2_LVL31] = {.text_leave = (void*)0x00021170, .lump_patch = -1},
-	[CLUSTER_D2_LVL32] = {.text_leave = (void*)0x00021218, .lump_patch = -1},
-};
-static const uint8_t *cluster_flat[DEF_CLUSTER_COUNT] =
-{
-	[CLUSTER_D1_EPISODE1] = (void*)0x000212A8,
-	[CLUSTER_D1_EPISODE2] = (void*)0x000212B4,
-	[CLUSTER_D1_EPISODE3] = (void*)0x000212BC,
-	[CLUSTER_D1_EPISODE4] = NULL, // MFLR8_3
-	[CLUSTER_D2_1TO6] = (void*)0x00021278,
-	[CLUSTER_D2_7TO11] = (void*)0x00021280,
-	[CLUSTER_D2_12TO20] = (void*)0x00021288,
-	[CLUSTER_D2_21TO30] = (void*)0x00021290,
-	[CLUSTER_D2_LVL31] = (void*)0x00021298,
-	[CLUSTER_D2_LVL32] = (void*)0x000212A0,
-};
-
-// missing text
-static uint8_t *ep4_text = "the spider mastermind must have sent forth\n"
-	"its legions of hellspawn before your\n"
-	"final confrontation with that terrible\n"
-	"beast from hell.  but you stepped forward\n"
-	"and brought forth eternal damnation and\n"
-	"suffering upon the horde as a true hero\n"
-	"would in the face of something so evil.\n"
-	"\n"
-	"besides, someone was gonna pay for what\n"
-	"happened to daisy, your pet rabbit.\n"
-	"\n"
-	"but now, you see spread before you more\n"
-	"potential pain and gibbitude as a nation\n"
-	"of demons run amok among our cities.\n"
-	"\n"
-	"next stop, hell on earth!";
 
 //
 static const hook_t patch_new[];
@@ -175,38 +152,76 @@ static inline void spawn_line_scroll()
 }
 
 //
-// hooks
+// map info
+
+static map_level_t *map_get_info(int32_t lump)
+{
+	for(uint32_t i = 0; i < num_maps; i++)
+	{
+		map_level_t *info = map_info + i;
+		if(info->lump == lump)
+			return info;
+	}
+	return map_info + MAPDEF_UNNAMED;
+}
+
+static map_cluster_t *map_find_cluster(uint32_t num)
+{
+	for(uint32_t i = 0; i < num_clusters; i++)
+	{
+		map_cluster_t *cl = map_cluster + i;
+		if(cl->cluster_num == num)
+			return cl;
+	}
+	return map_cluster + CLUSTER_NONE;
+}
+
+//
+// map loading
 
 __attribute((regparm(2),no_caller_saved_registers))
 void map_load_setup()
 {
 	uint32_t cache;
 
-	// viewactive = 1
-	// automapactive = 0
-	*paused = 0;
-	*gamestate = GS_LEVEL;
+	if(*paused) 
+	{ 
+		*paused = 0;
+		S_ResumeSound();
+	}
+
+	if(*gameskill > sk_nightmare)
+		*gameskill = sk_nightmare;
+
+	*viewactive = 1;
+	*automapactive = 0;
+	*gamemap = 1; // fake
 
 	if(*gameepisode)
 	{
-		if(*gamemode)
-			doom_sprintf(map_lump_name, "MAP%02u", *gamemap);
-		else
-			doom_sprintf(map_lump_name, "E%uM%u", *gameepisode, *gamemap);
 		is_title_map = 0;
 		cache = !*demoplayback;
 	} else
 	{
-		doom_sprintf(map_lump_name, "TITLEMAP");
+		map_lump.wame = 0x50414D454C544954; // TITLEMAP
 		*gameepisode = 1;
-		*usergame = 0;
 		*netgame = 0;
 		*netdemo = 0;
 		is_title_map = 1;
 		cache = 0;
 	}
 
-	map_lump_idx = W_GetNumForName(map_lump_name); // TODO: do not crash
+	map_lump_idx = W_CheckNumForName(map_lump.name);
+
+	if(map_lump_idx < 0)
+		goto map_load_error;
+	// TODO: check map validity
+
+	// setup level info
+	map_level_info = map_get_info(map_lump_idx);
+
+	// sky
+	*skytexture = map_level_info->texture_sky;
 
 	// free old inventories
 	mobj_for_each(cb_free_inventory);
@@ -242,7 +257,53 @@ void map_load_setup()
 		P_SpawnSpecials();
 		spawn_line_scroll();
 	}
+
+	// in the level
+	*gamestate = GS_LEVEL;
+	*usergame = !is_title_map && !*demoplayback;
+	return;
+
+map_load_error:
+	if(is_title_map)
+	{
+		// actually start title
+		*gameaction = ga_nothing;
+		*demosequence = -1;
+		*advancedemo = 1;
+	} else
+		map_start_title();
+	*wipegamestate = *gamestate;
+	M_StartMessage("This map does not exist!", NULL, 0);
+	return;
 }
+
+void map_setup_old(uint32_t skill, uint32_t episode, uint32_t level)
+{
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		players[i].playerstate = PST_REBORN;
+
+	if(!episode || episode > 9)
+		episode = 1;
+
+	if(level > 99)
+		level = 1;
+
+	if(*gamemode)
+	{
+		episode = 1;
+		doom_sprintf(map_lump.name, "MAP%02u", level);
+	} else
+		doom_sprintf(map_lump.name, "E%uM%u", episode, level);
+
+	*gameskill = skill;
+	*gameepisode = episode;
+	*wipegamestate = -1;
+
+	map_load_setup();
+}
+
+//
+// hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
 static void spawn_map_thing(mapthing_t *mt)
@@ -280,7 +341,7 @@ static void spawn_map_thing(mapthing_t *mt)
 		return;
 
 	// check skill level
-	if(*gameskill > sizeof(skillbits) || !(mt->options & skillbits[*gameskill]))
+	if(!(mt->options & skillbits[*gameskill]))
 		return;
 
 	// backward search for type
@@ -454,7 +515,6 @@ void map_start_title()
 	*nomonsters = 0;
 	*deathmatch = 0;
 	*gameepisode = 0;
-	*gamemap = 1;
 	*prndindex = 0;
 
 	*consoleplayer = 0;
@@ -465,6 +525,103 @@ void map_start_title()
 	playeringame[0] = 1;
 
 	map_load_setup();
+}
+
+//
+// default map setup
+
+static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uint8_t **names)
+{
+	uint8_t text[12];
+
+	for(uint32_t i = 0; i < 9; i++)
+	{
+		map_level_t *info = map_info + start + i;
+		int32_t lump;
+
+		info->name = names[i];
+		info->cluster = episode;
+		info->levelnum = (episode - 1) * 10 + i;
+
+		doom_sprintf(text, "E%uM%u", episode, i + 1);
+		info->lump = wad_check_lump(text);
+
+		doom_sprintf(text, "WILV%02u", info->levelnum - 1);
+		info->title_patch = wad_check_lump(text);
+
+		doom_sprintf(text, "SKY%u", episode);
+		info->texture_sky = texture_num_get(text);
+
+		info->music_lump = -1; // TODO
+		info->par_time = 123; // TODO
+
+		if(i == 8)
+		{
+			info->next_normal = start + secret;
+			info->next_secret = start + secret;
+		} else
+		{
+			info->next_normal = start + i + 1;
+			if(i == secret - 1)
+				info->next_secret = start + 8;
+			else
+				info->next_secret = info->next_normal;
+		}
+	}
+}
+
+static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint32_t sky)
+{
+	uint8_t text[12];
+
+	for(uint32_t i = 0; i < count; i++)
+	{
+		map_level_t *info = map_info + start + i;
+		int32_t lump;
+
+		info->name = mapnames2[start + i - MAPDEF_MAP01];
+		info->cluster = cluster;
+		info->levelnum = (start + i) - (MAPDEF_MAP01 - 1);
+
+		doom_sprintf(text, "MAP%02u", info->levelnum);
+		info->lump = wad_check_lump(text);
+
+		doom_sprintf(text, "CWILV%02u", info->levelnum - 1);
+		info->title_patch = wad_check_lump(text);
+
+		doom_sprintf(text, "SKY%u", sky);
+		info->texture_sky = texture_num_get(text);
+
+		info->music_lump = -1; // TODO
+		info->par_time = 123; // TODO
+
+		switch(start + i)
+		{
+			case MAPDEF_MAP15:
+				info->next_normal = MAPDEF_MAP16;
+				info->next_secret = MAPDEF_MAP31;
+			break;
+			case MAPDEF_UNNAMED:
+				info->levelnum = 0;
+				info->name = "Unnamed";
+			case MAPDEF_MAP30:
+				info->next_normal = MAPDEF_END_DOOM2;
+				info->next_secret = MAPDEF_END_DOOM2;
+			break;
+			case MAPDEF_MAP31:
+				info->next_normal = MAPDEF_MAP16;
+				info->next_secret = MAPDEF_MAP32;
+			break;
+			case MAPDEF_MAP32:
+				info->next_normal = MAPDEF_MAP16;
+				info->next_secret = MAPDEF_MAP16;
+			break;
+			default:
+				info->next_normal = start + i + 1;
+				info->next_secret = info->next_normal;
+			break;
+		}
+	}
 }
 
 //
@@ -485,17 +642,22 @@ void init_map()
 	cluster_music = wad_check_lump(text);
 
 	// allocate clusters
-	map_cluster = ldr_malloc(mod_config.cluster_count * sizeof(map_cluster_t));
+	map_cluster = ldr_malloc(DEF_CLUSTER_COUNT * sizeof(map_cluster_t));
 
 	// prepare default clusters
 	for(uint32_t i = 0; i < DEF_CLUSTER_COUNT; i++)
 	{
 		const uint8_t *flat;
 
-		map_cluster[i] = d2_cluster[i];
+		map_cluster[i] = doom_cluster[i];
 		map_cluster[i].lump_music = cluster_music;
+
 		if(map_cluster[i].text_leave)
 			map_cluster[i].text_leave += doom_data_segment;
+
+		if(map_cluster[i].text_enter)
+			map_cluster[i].text_enter += doom_data_segment;
+
 		if(cluster_flat[i])
 			flat = cluster_flat[i] + doom_data_segment;
 		else
@@ -503,6 +665,46 @@ void init_map()
 		map_cluster[i].flat_num = flatlump[flat_num_get(flat)];
 	}
 	map_cluster[CLUSTER_D1_EPISODE4].text_leave = ep4_text;
+
+	// allocate maps
+	map_info = ldr_malloc(DEF_MAP_COUNT * sizeof(map_level_t));
+
+	// prepare default maps
+
+	// episode 1
+	setup_episode(MAPDEF_E1M1, 1, 3, mapnames + MAPDEF_E1M1);
+
+	// episode 2
+	setup_episode(MAPDEF_E2M1, 2, 5, mapnames + MAPDEF_E2M1);
+
+	// episode 3
+	setup_episode(MAPDEF_E3M1, 3, 6, mapnames + MAPDEF_E3M1);
+
+	// episode 4 // TODO
+
+	// cluster 5
+	setup_cluster(MAPDEF_MAP01, MAPDEF_MAP07 - MAPDEF_MAP01, 5, 1);
+
+	// cluster 6
+	setup_cluster(MAPDEF_MAP07, MAPDEF_MAP12 - MAPDEF_MAP07, 6, 1);
+
+	// cluster 7
+	setup_cluster(MAPDEF_MAP12, MAPDEF_MAP21 - MAPDEF_MAP12, 7, 2);
+
+	// cluster 8
+	setup_cluster(MAPDEF_MAP21, MAPDEF_MAP31 - MAPDEF_MAP21, 8, 3);
+
+	// cluster 9
+	setup_cluster(MAPDEF_MAP31, 1, 9, 3);
+
+	// cluster 10
+	setup_cluster(MAPDEF_MAP32, 1, 10, 3);
+
+	// cluster 0; unknown maps
+	setup_cluster(MAPDEF_UNNAMED, 1, 0, 1);
+
+	// default, dummy
+	map_level_info = map_info + MAPDEF_UNNAMED;
 }
 
 //
@@ -542,6 +744,106 @@ static void projectile_sky_wall(mobj_t *mo)
 		explode_missile(mo);
 	else
 		P_RemoveMobj(mo);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void do_new_game()
+{
+	*gameaction = ga_nothing;
+
+	*demoplayback = 0;
+	*netdemo = 0;
+	*netgame = 0;
+	*deathmatch = 0;
+	*respawnparm = 0;
+	*fastparm = 0;
+	*nomonsters = 0;
+	*consoleplayer = 0;
+
+	playeringame[0] = 1;
+	for(uint32_t i = 1; i < MAXPLAYERS; i++)
+		playeringame[i] = 0;
+
+	map_setup_old(*d_skill, *d_episode, *d_map);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void do_autostart_game()
+{
+	uint32_t *startskill = (void*)0x0002A398 + doom_data_segment;
+	uint32_t *startepisode = (void*)0x0002A3A4 + doom_data_segment;
+	uint32_t *startmap = (void*)0x0002A39C + doom_data_segment;
+
+	map_setup_old(*startskill, *startepisode, *startmap);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void set_world_done()
+{
+	uint16_t next;
+	map_cluster_t *old_cl, *new_cl;
+
+	*gameaction = ga_worlddone;
+
+	old_cl = map_find_cluster(map_level_info->cluster);
+
+	if(*secretexit)
+	{
+		for(uint32_t i = 0; i < MAXPLAYERS; i++)
+			players[i].didsecret = 1;
+		next = map_level_info->next_secret;
+	} else
+		next = map_level_info->next_normal;
+
+	if(next < num_maps)
+		new_cl = map_find_cluster(map_info[next].cluster);
+	else
+		new_cl = NULL;
+
+	if(old_cl != new_cl)
+	{
+		if(new_cl && new_cl->text_enter)
+		{
+			*finaletext = new_cl->text_enter;
+			*finaleflat = new_cl->flat_num;
+		} else
+		{
+			*finaletext = old_cl->text_leave;
+			*finaleflat = old_cl->flat_num;
+		}
+
+		if(*finaletext)
+		{
+			*gameaction = ga_nothing;
+			*gamestate = GS_FINALE;
+			*viewactive = 0;
+			*automapactive = 0;
+			*finalestage = 0;
+			*finalecount = 0;
+			// TODO: S_ChangeMusic
+		}
+	}
+
+	if(next >= num_maps || map_info[next].lump < 0)
+	{
+		map_start_title();
+		return;
+	}
+
+	map_lump.wame = (*lumpinfo)[map_info[next].lump].wame;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void do_world_done()
+{
+	*gameaction = ga_nothing;
+	map_load_setup();
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void music_intermission()
+{
+	doom_printf("TODO: intermission music\n");
 }
 
 //
@@ -592,9 +894,9 @@ static const hook_t patch_old[] =
 	{0x0002BC89, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_LineAttack
 	{0x0002BD55, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_UseLines
 	// restore pointers to 'PTR_SlideTraverse' in 'P_SlideMove'
-	{0x0002B5DD, CODE_HOOK | HOOK_CALL_DOOM, 0x0002B4B0},
-	{0x0002B5FC, CODE_HOOK | HOOK_CALL_DOOM, 0x0002B4B0},
-	{0x0002B61C, CODE_HOOK | HOOK_CALL_DOOM, 0x0002B4B0},
+	{0x0002B5DD, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
+	{0x0002B5FC, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
+	{0x0002B61C, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
 	// disable sliding on things
 	{0x0002B5EA, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
 	{0x0002B60F, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
@@ -618,6 +920,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
 	// replace call to 'P_SpawnMapThing' in 'P_LoadThings'
 	{0x0002E1F9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spawn_map_thing},
+	// disable 'commercial' check in 'P_LoadThings'
+	{0x0002E1B4, CODE_HOOK | HOOK_UINT16, 0x41EB},
 	// disable call to 'P_SpawnSpecials' and 'R_PrecacheLevel' in 'P_SetupLevel'
 	{0x0002E981, CODE_HOOK | HOOK_UINT16, 0x11EB},
 	// disable line scroller and stuff cleanup in 'P_SpawnSpecials'
@@ -634,9 +938,27 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// change map name variable in 'P_SetupLevel'
 	{0x0002E858, CODE_HOOK | HOOK_UINT16, 0x61EB},
 	{0x0002E8BB, CODE_HOOK | HOOK_UINT8, 0xB8},
-	{0x0002E8BC, CODE_HOOK | HOOK_UINT32, (uint32_t)map_lump_name},
-	// remove sky setup in 'G_InitNew'
-	{0x00021803, CODE_HOOK | HOOK_UINT16, 0x68EB},
+	{0x0002E8BC, CODE_HOOK | HOOK_UINT32, (uint32_t)&map_lump},
+	// replace call to 'G_DoNewGame' in 'G_Ticker'
+	{0x000204B2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)do_new_game},
+	{0x000204B7, CODE_HOOK | HOOK_UINT16, 0x57EB},
+	// replace call to 'G_DoNewGame' in 'D_DoomMain'
+	{0x0001EB07, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)do_autostart_game},
+	// replace call to 'G_WorldDone'
+	{0x0003C98A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_world_done},
+	{0x0003DCAA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_world_done},
+	// replace call to 'G_DoWorldDone' in 'G_Ticker'
+	{0x00020547, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)do_world_done},
+	{0x0002054C, CODE_HOOK | HOOK_UINT16, 0x1BEB},
+	// replace call to 'S_ChangeMusic' in 'WI_Ticker'
+	{0x0003DBFA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)music_intermission},
+	// use 'map_level_info->name' in 'HU_Start'
+	{0x0003B5D2, CODE_HOOK | HOOK_UINT8, 0xA1},
+	{0x0003B5D3, CODE_HOOK | HOOK_UINT32, (uint32_t)&map_level_info},
+	{0x0003B5D7, CODE_HOOK | HOOK_UINT32, 0x708B | (offsetof(map_level_t,name) << 16)},
+	{0x0003B5DA, CODE_HOOK | HOOK_UINT16, 0x2DEB},
+	// replace call to 'W_CacheLumpName' in 'F_TextWrite' with 'W_CacheLumpNum'
+	{0x0001C5A3, CODE_HOOK | HOOK_CALL_DOOM, 0x00038D00},
 	// import variables
 	{0x0002C0D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playerstarts},
 	{0x0002C154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatchstarts},
@@ -644,7 +966,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002A3C0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nomonsters},
 	{0x0002A3C4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&fastparm},
 	{0x0002A3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&respawnparm},
-	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
 	{0x0002B3FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatch},
 	{0x0002B3E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemap},
 	{0x0002B3F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameepisode},
@@ -666,7 +987,13 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
 	{0x0002B40C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usergame},
 	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
+	{0x0002B2F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&secretexit},
 	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
+	{0x0002B3B8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewactive},
+	{0x00012C5C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&automapactive},
+	{0x0002B2EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_skill},
+	{0x0002B2F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_map},
+	{0x0002B2F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_episode},
 	// more variables
 	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
 	{0x0002B994, DATA_HOOK | HOOK_IMPORT, (uint32_t)&crushchange},
@@ -679,5 +1006,13 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
 	{0x0002C104, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bmaporgx},
 	{0x0002C108, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bmaporgy},
+	// map titles
+	{0x00013C04, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mapnames},
+	{0x00013CBC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mapnames2},
+	// finale
+	{0x0002929C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finaleflat},
+	{0x000292A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finaletext},
+	{0x000292A4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finalecount},
+	{0x000292A8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finalestage},
 };
 

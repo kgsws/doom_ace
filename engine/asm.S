@@ -439,6 +439,12 @@ Z_Free:
 S_StartSound:
 	.byte	0xE9
 	.4byte	0x0003F370
+////////////////////////////////// S_ResumeSound
+.section .text.S_ResumeSound
+.global S_ResumeSound
+S_ResumeSound:
+	.byte	0xE9
+	.4byte	0x0003EFE0
 ////////////////////////////////// P_Random
 .section .text.P_Random
 .global P_Random

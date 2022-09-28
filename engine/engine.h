@@ -1106,6 +1106,7 @@ void R_DrawPlayerSprites() __attribute((regparm(2),no_caller_saved_registers));
 
 // s_sound.c
 void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void S_ResumeSound() __attribute((regparm(2),no_caller_saved_registers));
 
 // v_video
 void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));

@@ -17,6 +17,19 @@ extern uint32_t *usegamma;
 extern fixed_t *centeryfrac;
 extern fixed_t *yslope;
 
+extern uint32_t *dc_x;
+extern uint32_t *dc_yl;
+extern uint32_t *dc_yh;
+extern uint8_t **dc_source;
+
+extern fixed_t *sprtopscreen;
+extern fixed_t *spryscale;
+
+extern int16_t **mfloorclip;
+extern int16_t **mceilingclip;
+
+extern void (**colfunc)();
+
 extern uint8_t r_palette[768];
 
 //

@@ -29,7 +29,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA3	// increment with updates
+#define SAVE_VERSION	0xE58BAFA4	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -137,11 +137,9 @@ typedef struct
 {
 	save_title_t title;
 	uint32_t version;
-	uint8_t maplump[8];
+	uint64_t map_wame;
 	uint64_t mod_csum;
 	uint16_t flags;
-	uint8_t episode;
-	uint8_t map;
 	uint32_t leveltime;
 	uint32_t kills;
 	uint32_t items;
@@ -1162,7 +1160,7 @@ void do_save()
 
 	// game info
 	info.version = SAVE_VERSION;
-	strcpy(info.maplump, map_lump_name);
+	info.map_wame = map_lump.wame;
 	info.mod_csum = 0; // TODO
 
 	info.flags = *gameskill << 13;
@@ -1171,8 +1169,6 @@ void do_save()
 	info.flags |= (!!*nomonsters) << 2;
 	info.flags |= (!!*deathmatch) << 3;
 
-	info.episode = *gameepisode;
-	info.map = *gamemap;
 	info.leveltime = *leveltime;
 
 	info.kills = *totalkills;
@@ -1994,19 +1990,14 @@ void do_load()
 	*respawnparm = !!(info.flags & 2);
 	*nomonsters = !!(info.flags & 4);
 	*deathmatch = !!(info.flags & 8);
-	*gameepisode = info.episode;
-	*gamemap = info.map;
+
+	map_lump.wame = info.map_wame;
 
 	if(*gameskill > sk_nightmare)
-		goto error_fail;
-	if(!info.episode || info.episode > 3)
-		goto error_fail;
-	if(!info.map || info.map > 32)
 		goto error_fail;
 
 	*netgame = 0; // TODO: net saves?
 	*netdemo = 0;
-	*usergame = 1;
 
 	map_load_setup();
 

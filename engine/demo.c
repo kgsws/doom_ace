@@ -100,9 +100,6 @@ static void do_play_demo()
 	if(header.map > 99)
 		goto close_skip_demo;
 
-	*gameskill = header.skill;
-	*gameepisode = header.episode;
-	*gamemap = header.map;
 	*deathmatch = header.deathmatch;
 	*respawnparm = header.respawnparm;
 	*fastparm = header.fastparm;
@@ -124,7 +121,7 @@ static void do_play_demo()
 	*demoplayback = DEMO_OLD;
 	*prndindex = 0;
 
-	map_load_setup();
+	map_setup_old(header.skill, header.episode, header.map);
 
 	return;
 

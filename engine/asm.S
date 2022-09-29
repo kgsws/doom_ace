@@ -433,6 +433,18 @@ W_ReadLump:
 Z_Free:
 	.byte	0xE9
 	.4byte	0x00039600
+////////////////////////////////// AM_Stop
+.section .text.AM_Stop
+.global AM_Stop
+AM_Stop:
+	.byte	0xE9
+	.4byte	0x00024F90
+////////////////////////////////// WI_Start
+.section .text.WI_Start
+.global WI_Start
+WI_Start:
+	.byte	0xE9
+	.4byte	0x0003EB70
 ////////////////////////////////// S_StartSound
 .section .text.S_StartSound
 .global S_StartSound

@@ -192,6 +192,7 @@ typedef struct
 	uint16_t texture_sky;
 	uint8_t cluster;
 	uint8_t levelnum;
+	uint8_t levelhack; // for original maps
 } map_level_t;
 
 //

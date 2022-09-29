@@ -523,11 +523,8 @@ static void build_ticcmd(ticcmd_t *cmd)
 //
 // level transition
 
-__attribute((regparm(2),no_caller_saved_registers))
-static void player_finish(uint32_t pidx)
+void player_finish(player_t *pl)
 {
-	player_t *pl = players + pidx;
-
 	for(uint32_t i = 0; i < NUMPOWERS; i++)
 	{
 		const powerup_t *pw = powerup + i;
@@ -577,8 +574,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace call to 'P_PlayerThink' in 'P_Ticker'
 	{0x00032FBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_think},
-	// replace call to 'G_PlayerFinishLevel' in 'G_DoCompleted'
-	{0x00020DBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_finish},
 	// replace call to 'G_BuildTiccmd'
 	{0x0001D5B2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},
 	{0x0001F220, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},

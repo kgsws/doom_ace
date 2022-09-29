@@ -19,6 +19,9 @@
 
 #include "map_info.h"
 
+#define WI_TITLEY	2
+#define	FB	0
+
 mapthing_t *playerstarts;
 mapthing_t *deathmatchstarts;
 mapthing_t **deathmatch_p;
@@ -79,6 +82,7 @@ mobj_t **linetarget;
 fixed_t *bmaporgx;
 fixed_t *bmaporgy;
 
+static wbstartstruct_t *wminfo;
 static int32_t *finaleflat; // type is changed!
 static uint8_t **finaletext;
 static uint32_t *finalecount;
@@ -87,6 +91,7 @@ static uint32_t *finalestage;
 map_lump_name_t map_lump;
 int32_t map_lump_idx;
 map_level_t *map_level_info;
+map_level_t *map_next_info;
 
 uint_fast8_t map_skip_stuff;
 uint_fast8_t is_title_map;
@@ -98,6 +103,8 @@ uint32_t num_clusters = DEF_CLUSTER_COUNT;
 map_cluster_t *map_cluster;
 
 static int32_t cluster_music;
+static int32_t patch_finshed;
+static int32_t patch_entering;
 
 //
 static uint8_t **mapnames;
@@ -195,7 +202,6 @@ void map_load_setup()
 
 	*viewactive = 1;
 	*automapactive = 0;
-	*gamemap = 1; // fake
 
 	if(*gameepisode)
 	{
@@ -203,14 +209,14 @@ void map_load_setup()
 		cache = !*demoplayback;
 	} else
 	{
+		// titlemap can be visited by other means
+		// so this has to be different
 		map_lump.wame = 0x50414D454C544954; // TITLEMAP
-		*gameepisode = 1;
-		*netgame = 0;
-		*netdemo = 0;
 		is_title_map = 1;
 		cache = 0;
 	}
 
+	// find map lump
 	map_lump_idx = W_CheckNumForName(map_lump.name);
 
 	if(map_lump_idx < 0)
@@ -219,6 +225,25 @@ void map_load_setup()
 
 	// setup level info
 	map_level_info = map_get_info(map_lump_idx);
+
+	// hack for original or new levels
+	if(map_level_info->levelhack)
+	{
+		if(map_level_info->levelhack & 0x80)
+		{
+			*gameepisode = 1;
+			*gamemap = map_level_info->levelhack & 0x7F;
+		} else
+		{
+			*gameepisode = map_level_info->levelhack >> 4;
+			*gamemap = map_level_info->levelhack & 15;
+		}
+	} else
+	{
+		*gameepisode = 4;
+		*gamemap = 1;
+	}
+doom_printf("EPI %u MAP %u\n", *gameepisode, *gamemap);
 
 	// sky
 	*skytexture = map_level_info->texture_sky;
@@ -495,10 +520,11 @@ void map_start_title()
 {
 	int32_t lump;
 
+	*gameaction = ga_nothing;
+
 	lump = W_CheckNumForName("TITLEMAP");
 	if(lump < 0)
 	{
-		*gameaction = ga_nothing;
 		*demosequence = -1;
 		*advancedemo = 1;
 		return;
@@ -516,6 +542,8 @@ void map_start_title()
 	*deathmatch = 0;
 	*gameepisode = 0;
 	*prndindex = 0;
+	*netgame = 0;
+	*netdemo = 0;
 
 	*consoleplayer = 0;
 	memset(players, 0, sizeof(player_t) * MAXPLAYERS);
@@ -530,23 +558,24 @@ void map_start_title()
 //
 // default map setup
 
-static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uint8_t **names)
+static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uint32_t victory, uint8_t **names)
 {
 	uint8_t text[12];
 
 	for(uint32_t i = 0; i < 9; i++)
 	{
 		map_level_t *info = map_info + start + i;
-		int32_t lump;
+		uint32_t level = (episode - 1) * 10 + i + 1;
 
 		info->name = names[i];
 		info->cluster = episode;
-		info->levelnum = (episode - 1) * 10 + i;
+		info->levelnum = *gamemode ? 0 : level;
+		info->levelhack = (episode << 4) | (i + 1);
 
 		doom_sprintf(text, "E%uM%u", episode, i + 1);
 		info->lump = wad_check_lump(text);
 
-		doom_sprintf(text, "WILV%02u", info->levelnum - 1);
+		doom_sprintf(text, "WILV%02u", level - 1);
 		info->title_patch = wad_check_lump(text);
 
 		doom_sprintf(text, "SKY%u", episode);
@@ -559,6 +588,11 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 		{
 			info->next_normal = start + secret;
 			info->next_secret = start + secret;
+		} else
+		if(i == 7)
+		{
+			info->next_normal = victory;
+			info->next_secret = victory;
 		} else
 		{
 			info->next_normal = start + i + 1;
@@ -577,16 +611,17 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 	for(uint32_t i = 0; i < count; i++)
 	{
 		map_level_t *info = map_info + start + i;
-		int32_t lump;
+		uint32_t level = (start + i) - (MAPDEF_MAP01 - 1);
 
 		info->name = mapnames2[start + i - MAPDEF_MAP01];
 		info->cluster = cluster;
-		info->levelnum = (start + i) - (MAPDEF_MAP01 - 1);
+		info->levelnum = *gamemode ? level : 0;
+		info->levelhack = 0x80 | (i + 1);
 
-		doom_sprintf(text, "MAP%02u", info->levelnum);
+		doom_sprintf(text, "MAP%02u", level);
 		info->lump = wad_check_lump(text);
 
-		doom_sprintf(text, "CWILV%02u", info->levelnum - 1);
+		doom_sprintf(text, "CWILV%02u", level - 1);
 		info->title_patch = wad_check_lump(text);
 
 		doom_sprintf(text, "SKY%u", sky);
@@ -601,9 +636,10 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 				info->next_normal = MAPDEF_MAP16;
 				info->next_secret = MAPDEF_MAP31;
 			break;
-			case MAPDEF_UNNAMED:
+			case MAPDEF_UNNAMED: // TODO: use DEFAULT instead
 				info->levelnum = 0;
 				info->name = "Unnamed";
+				info->levelhack = 0;
 			case MAPDEF_MAP30:
 				info->next_normal = MAPDEF_END_DOOM2;
 				info->next_secret = MAPDEF_END_DOOM2;
@@ -633,6 +669,10 @@ void init_map()
 
 	doom_printf("[ACE] init MAPs\n");
 	ldr_alloc_message = "Map and game info memory allocation failed!";
+
+	// find some GFX
+	patch_finshed = wad_get_lump((void*)0x000247BC + doom_data_segment);
+	patch_entering = wad_get_lump((void*)0x000247C0 + doom_data_segment);
 
 	// default cluster music
 	if(*gamemode)
@@ -672,13 +712,13 @@ void init_map()
 	// prepare default maps
 
 	// episode 1
-	setup_episode(MAPDEF_E1M1, 1, 3, mapnames + MAPDEF_E1M1);
+	setup_episode(MAPDEF_E1M1, 1, 3, MAPDEF_END_DOOM1_EP1, mapnames + MAPDEF_E1M1);
 
 	// episode 2
-	setup_episode(MAPDEF_E2M1, 2, 5, mapnames + MAPDEF_E2M1);
+	setup_episode(MAPDEF_E2M1, 2, 5, MAPDEF_END_DOOM1_EP2, mapnames + MAPDEF_E2M1);
 
 	// episode 3
-	setup_episode(MAPDEF_E3M1, 3, 6, mapnames + MAPDEF_E3M1);
+	setup_episode(MAPDEF_E3M1, 3, 6, MAPDEF_END_DOOM1_EP3, mapnames + MAPDEF_E3M1);
 
 	// episode 4 // TODO
 
@@ -701,7 +741,7 @@ void init_map()
 	setup_cluster(MAPDEF_MAP32, 1, 10, 3);
 
 	// cluster 0; unknown maps
-	setup_cluster(MAPDEF_UNNAMED, 1, 0, 1);
+	setup_cluster(MAPDEF_UNNAMED, 1, 0, 1); // TODO: copy default
 
 	// default, dummy
 	map_level_info = map_info + MAPDEF_UNNAMED;
@@ -785,18 +825,15 @@ static void set_world_done()
 
 	*gameaction = ga_worlddone;
 
-	old_cl = map_find_cluster(map_level_info->cluster);
-
+	// mark secret level visited
 	if(*secretexit)
-	{
 		for(uint32_t i = 0; i < MAXPLAYERS; i++)
 			players[i].didsecret = 1;
-		next = map_level_info->next_secret;
-	} else
-		next = map_level_info->next_normal;
 
-	if(next < num_maps)
-		new_cl = map_find_cluster(map_info[next].cluster);
+	// check for cluser change
+	old_cl = map_find_cluster(map_level_info->cluster);
+	if(map_next_info)
+		new_cl = map_find_cluster(map_next_info->cluster);
 	else
 		new_cl = NULL;
 
@@ -823,20 +860,86 @@ static void set_world_done()
 			// TODO: S_ChangeMusic
 		}
 	}
+}
 
-	if(next >= num_maps || map_info[next].lump < 0)
+__attribute((regparm(2),no_caller_saved_registers))
+static void do_completed()
+{
+	uint16_t next;
+
+	*gameaction = ga_nothing;
+
+	// leave automap
+	if(*automapactive)
+		AM_Stop();
+
+	// clean-up players
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		player_finish(players + i);
+
+	// check next level
+	if(*secretexit)
+		next = map_level_info->next_secret;
+	else
+		next = map_level_info->next_normal;
+
+	if(next < num_maps)
+		map_next_info = map_info + next;
+	else
+		map_next_info = NULL;
+
+	// intermission
+	*gamestate = GS_INTERMISSION;
+	*viewactive = 0;
+
+	// endgame
+	// *gamemap = 30; // to enable 'cast' finale
+	// D1 endings: F_Ticker
+
+	// setup intermission
+	wminfo->didsecret = players[*consoleplayer].didsecret;
+	wminfo->epsd = *gameepisode - 1;
+	wminfo->last = *gamemap - 1;
+	wminfo->next = *gamemap;
+	wminfo->maxkills = *totalkills;
+	wminfo->maxitems = *totalitems;
+	wminfo->maxsecret = *totalsecret;
+	wminfo->maxfrags = 0;
+	wminfo->partime = map_level_info->par_time;
+	wminfo->pnum = *consoleplayer;
+
+	if(map_next_info && map_next_info->levelhack && map_next_info->levelhack < 0x80)
+		wminfo->next = (map_next_info->levelhack & 15) - 1;
+
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
-		map_start_title();
-		return;
+		wminfo->plyr[i].in = playeringame[i];
+		wminfo->plyr[i].skills = players[i].killcount;
+		wminfo->plyr[i].sitems = players[i].itemcount;
+		wminfo->plyr[i].ssecret = players[i].secretcount;
+		wminfo->plyr[i].stime = *leveltime;
+		// TODO: frags - these are no longer in player structure
 	}
 
-	map_lump.wame = (*lumpinfo)[map_info[next].lump].wame;
+	if(!map_next_info)
+		// use of 30 disables 'entering' text
+		wminfo->next = 30; // TODO: make it work in D1
+
+	WI_Start(wminfo);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 static void do_world_done()
 {
+	if(!map_next_info)
+	{
+		// there's no next level
+		map_start_title();
+		return;
+	}
+
 	*gameaction = ga_nothing;
+	map_lump.wame = (*lumpinfo)[map_next_info->lump].wame;
 	map_load_setup();
 }
 
@@ -844,6 +947,42 @@ __attribute((regparm(2),no_caller_saved_registers))
 static void music_intermission()
 {
 	doom_printf("TODO: intermission music\n");
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void draw_finished()
+{
+	int32_t y = WI_TITLEY;
+	patch_t *patch;
+
+	if(map_level_info->title_patch >= 0)
+	{
+		patch = W_CacheLumpNum(map_level_info->title_patch, PU_CACHE);
+		V_DrawPatch((SCREENWIDTH - patch->width) / 2, y, FB, patch);
+
+		y += (5 * patch->height) / 4;
+	}
+
+	patch = W_CacheLumpNum(patch_finshed, PU_CACHE);
+	V_DrawPatch((SCREENWIDTH - patch->width) / 2, y, FB, patch);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void draw_entering()
+{
+	int32_t y = WI_TITLEY;
+	patch_t *patch;
+
+	patch = W_CacheLumpNum(patch_entering, PU_CACHE);
+	V_DrawPatch((SCREENWIDTH - patch->width) / 2, y, FB, patch);
+
+	if(map_next_info && map_next_info->title_patch)
+	{
+		y += (5 * patch->height) / 4;
+
+		patch = W_CacheLumpNum(map_next_info->title_patch, PU_CACHE);
+		V_DrawPatch((SCREENWIDTH - patch->width) / 2, y, FB, patch);
+	}
 }
 
 //
@@ -939,11 +1078,15 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002E858, CODE_HOOK | HOOK_UINT16, 0x61EB},
 	{0x0002E8BB, CODE_HOOK | HOOK_UINT8, 0xB8},
 	{0x0002E8BC, CODE_HOOK | HOOK_UINT32, (uint32_t)&map_lump},
+	// disable 'no secret exit' check in 'G_SecretExitLevel'
+	{0x00020D61, CODE_HOOK | HOOK_UINT16, 0x1FEB},
 	// replace call to 'G_DoNewGame' in 'G_Ticker'
 	{0x000204B2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)do_new_game},
 	{0x000204B7, CODE_HOOK | HOOK_UINT16, 0x57EB},
 	// replace call to 'G_DoNewGame' in 'D_DoomMain'
 	{0x0001EB07, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)do_autostart_game},
+	// replace call to 'G_DoCompleted' in 'G_Ticker'
+	{0x00020533, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)do_completed},
 	// replace call to 'G_WorldDone'
 	{0x0003C98A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_world_done},
 	{0x0003DCAA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_world_done},
@@ -952,6 +1095,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002054C, CODE_HOOK | HOOK_UINT16, 0x1BEB},
 	// replace call to 'S_ChangeMusic' in 'WI_Ticker'
 	{0x0003DBFA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)music_intermission},
+	// disable music setup in 'S_Start'
+	{0x0003F642, CODE_HOOK | HOOK_UINT16, 0x3EEB},
 	// use 'map_level_info->name' in 'HU_Start'
 	{0x0003B5D2, CODE_HOOK | HOOK_UINT8, 0xA1},
 	{0x0003B5D3, CODE_HOOK | HOOK_UINT32, (uint32_t)&map_level_info},
@@ -959,6 +1104,18 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003B5DA, CODE_HOOK | HOOK_UINT16, 0x2DEB},
 	// replace call to 'W_CacheLumpName' in 'F_TextWrite' with 'W_CacheLumpNum'
 	{0x0001C5A3, CODE_HOOK | HOOK_CALL_DOOM, 0x00038D00},
+	// disable range check in 'WI_initVariables'
+	{0x0003E9CE, CODE_HOOK | HOOK_JMP_DOOM, 0x0003EABA},
+	// replace 'WI_drawLF'
+	{0x0003C360, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)draw_finished},
+	// replace 'WI_drawEL'
+	{0x0003C3F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)draw_entering},
+	// disable use of 'lnames' in 'WI_loadData' and 'WI_unloadData'
+	{0x0003DD23, CODE_HOOK | HOOK_JMP_DOOM, 0x0003DEBF},
+	{0x0003DD92, CODE_HOOK | HOOK_JMP_DOOM, 0x0003DDE6},
+	{0x0003E15F, CODE_HOOK | HOOK_JMP_DOOM, 0x0003E308},
+	{0x0003E247, CODE_HOOK | HOOK_JMP_DOOM, 0x0003E288},
+	{0x0003E308, CODE_HOOK | HOOK_UINT16, 0x08EB},
 	// import variables
 	{0x0002C0D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playerstarts},
 	{0x0002C154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatchstarts},
@@ -1009,7 +1166,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// map titles
 	{0x00013C04, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mapnames},
 	{0x00013CBC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mapnames2},
-	// finale
+	// finale, victory .. and others
+	{0x0002ADB0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wminfo},
 	{0x0002929C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finaleflat},
 	{0x000292A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finaletext},
 	{0x000292A4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finalecount},

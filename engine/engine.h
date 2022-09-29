@@ -860,6 +860,35 @@ typedef struct
 } st_multicon_t;
 
 //
+// WI
+
+typedef struct
+{
+	uint32_t in;
+	int32_t skills;
+	int32_t sitems;
+	int32_t ssecret;
+	int32_t stime;
+	int32_t frags[MAXPLAYERS];
+	int32_t score;
+} wbplayerstruct_t;
+
+typedef struct
+{
+	int32_t epsd;
+	uint32_t didsecret;
+	int32_t last;
+	int32_t next;
+	int32_t maxkills;
+	int32_t maxitems;
+	int32_t maxsecret;
+	int32_t maxfrags;
+	int32_t partime;
+	int32_t pnum;
+	wbplayerstruct_t plyr[MAXPLAYERS];
+} wbstartstruct_t;
+
+//
 // old special effects
 
 typedef struct
@@ -989,6 +1018,9 @@ void gfx_progress(int32_t step);
 void *ldr_malloc(uint32_t size);
 void *ldr_realloc(void *ptr, uint32_t size);
 void error_message(uint8_t*);
+
+// am_map
+void AM_Stop() __attribute((regparm(2),no_caller_saved_registers));
 
 // d_main
 void D_AdvanceDemo() __attribute((regparm(2),no_caller_saved_registers));
@@ -1120,6 +1152,9 @@ void *W_CacheLumpName(uint8_t *name, uint32_t tag) __attribute((regparm(2),no_ca
 void *W_CacheLumpNum(int32_t lump, uint32_t tag) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t W_LumpLength(int32_t lump) __attribute((regparm(2),no_caller_saved_registers));
 void W_ReadLump(int32_t lump, void *dst) __attribute((regparm(2),no_caller_saved_registers));
+
+// wi_stuff
+void WI_Start(wbstartstruct_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // z_zone
 void *Z_Malloc(uint32_t size, uint32_t tag, void *owner) __attribute((regparm(2),no_caller_saved_registers));

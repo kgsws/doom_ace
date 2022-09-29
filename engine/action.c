@@ -502,6 +502,9 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!pl)
 		return;
 
+	if(mo->custom_inventory)
+		return;
+
 	pl->weapon_ready = 0;
 	pl->psprites[0].sy += arg->value;
 
@@ -547,6 +550,9 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!pl)
 		return;
 
+	if(mo->custom_inventory)
+		return;
+
 	pl->weapon_ready = 0;
 	pl->psprites[0].sy -= arg->value;
 
@@ -565,6 +571,9 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	player_t *pl = mo->player;
 
 	if(!pl)
+		return;
+
+	if(mo->custom_inventory)
 		return;
 
 	// mobj to 'missile' animation
@@ -588,6 +597,8 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_CheckReload(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	if(!mo->player)
+		return;
+	if(mo->custom_inventory)
 		return;
 	weapon_check_ammo(mo->player);
 }
@@ -629,6 +640,9 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pspdef_t *psp;
 
 	if(!pl)
+		return;
+
+	if(mo->custom_inventory)
 		return;
 
 	psp = pl->psprites;
@@ -690,6 +704,9 @@ void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	uint32_t btn;
 
 	if(!pl)
+		return;
+
+	if(mo->custom_inventory)
 		return;
 
 	if(pl->attackdown > 1)

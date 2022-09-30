@@ -439,6 +439,12 @@ Z_Free:
 AM_Stop:
 	.byte	0xE9
 	.4byte	0x00024F90
+////////////////////////////////// F_StartCast
+.section .text.F_StartCast
+.global F_StartCast
+F_StartCast:
+	.byte	0xE9
+	.4byte	0x0001C6F0
 ////////////////////////////////// WI_Start
 .section .text.WI_Start
 .global WI_Start

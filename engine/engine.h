@@ -1022,8 +1022,8 @@ void error_message(uint8_t*);
 // am_map
 void AM_Stop() __attribute((regparm(2),no_caller_saved_registers));
 
-// d_main
-void D_AdvanceDemo() __attribute((regparm(2),no_caller_saved_registers));
+// f_finale
+void F_StartCast() __attribute((regparm(2),no_caller_saved_registers));
 
 // g_game
 void G_DeferedInitNew(uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));

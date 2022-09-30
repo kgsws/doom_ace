@@ -96,19 +96,32 @@ map_level_t *map_next_info;
 uint_fast8_t map_skip_stuff;
 uint_fast8_t is_title_map;
 
-uint32_t num_maps = DEF_MAP_COUNT;
+uint32_t num_maps;
 map_level_t *map_info;
 
-uint32_t num_clusters = DEF_CLUSTER_COUNT;
+uint32_t num_clusters;
 map_cluster_t *map_cluster;
 
 static int32_t cluster_music;
 static int32_t patch_finshed;
 static int32_t patch_entering;
 
+static uint32_t intermission_mode;
+
 //
 static uint8_t **mapnames;
 static uint8_t **mapnames2;
+
+// unnamed map
+static map_level_t map_info_unnamed =
+{
+	.name = "Unnamed",
+	.next_normal = MAP_END_DOOM2,
+	.next_secret = MAP_END_DOOM2,
+	.title_patch = -1,
+	.music_lump = -1,
+	.par_time = 35,
+};
 
 //
 
@@ -169,18 +182,22 @@ static map_level_t *map_get_info(int32_t lump)
 		if(info->lump == lump)
 			return info;
 	}
-	return map_info + MAPDEF_UNNAMED;
+	return &map_info_unnamed;
 }
 
 static map_cluster_t *map_find_cluster(uint32_t num)
 {
+	if(!num)
+		return NULL;
+
 	for(uint32_t i = 0; i < num_clusters; i++)
 	{
 		map_cluster_t *cl = map_cluster + i;
-		if(cl->cluster_num == num)
+		if(cl->idx == num)
 			return cl;
 	}
-	return map_cluster + CLUSTER_NONE;
+
+	return NULL;
 }
 
 //
@@ -240,13 +257,12 @@ void map_load_setup()
 		}
 	} else
 	{
-		*gameepisode = 4;
+		*gameepisode = 1;
 		*gamemap = 1;
 	}
 doom_printf("EPI %u MAP %u\n", *gameepisode, *gamemap);
-
 	// sky
-	*skytexture = map_level_info->texture_sky;
+	*skytexture = map_level_info->texture_sky[0];
 
 	// free old inventories
 	mobj_for_each(cb_free_inventory);
@@ -565,21 +581,21 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 	for(uint32_t i = 0; i < 9; i++)
 	{
 		map_level_t *info = map_info + start + i;
-		uint32_t level = (episode - 1) * 10 + i + 1;
 
 		info->name = names[i];
 		info->cluster = episode;
-		info->levelnum = *gamemode ? 0 : level;
+		info->levelnum = (episode - 1) * 10 + i + 1;
 		info->levelhack = (episode << 4) | (i + 1);
 
 		doom_sprintf(text, "E%uM%u", episode, i + 1);
 		info->lump = wad_check_lump(text);
 
-		doom_sprintf(text, "WILV%02u", level - 1);
+		doom_sprintf(text, "WILV%02u", info->levelnum - 1);
 		info->title_patch = wad_check_lump(text);
 
 		doom_sprintf(text, "SKY%u", episode);
-		info->texture_sky = texture_num_get(text);
+		info->texture_sky[0] = texture_num_get(text);
+		info->texture_sky[1] = info->texture_sky[0];
 
 		info->music_lump = -1; // TODO
 		info->par_time = 123; // TODO
@@ -593,6 +609,7 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 		{
 			info->next_normal = victory;
 			info->next_secret = victory;
+			info->flags = MAP_FLAG_NOINTERMISSION;
 		} else
 		{
 			info->next_normal = start + i + 1;
@@ -611,46 +628,42 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 	for(uint32_t i = 0; i < count; i++)
 	{
 		map_level_t *info = map_info + start + i;
-		uint32_t level = (start + i) - (MAPDEF_MAP01 - 1);
 
-		info->name = mapnames2[start + i - MAPDEF_MAP01];
+		info->name = mapnames2[start + i];
 		info->cluster = cluster;
-		info->levelnum = *gamemode ? level : 0;
-		info->levelhack = 0x80 | (i + 1);
+		info->levelnum = start + i + 1;
+		info->levelhack = 0x80 | (i + start + 1);
 
-		doom_sprintf(text, "MAP%02u", level);
+		doom_sprintf(text, "MAP%02u", info->levelnum);
 		info->lump = wad_check_lump(text);
 
-		doom_sprintf(text, "CWILV%02u", level - 1);
+		doom_sprintf(text, "CWILV%02u", info->levelnum - 1);
 		info->title_patch = wad_check_lump(text);
 
 		doom_sprintf(text, "SKY%u", sky);
-		info->texture_sky = texture_num_get(text);
+		info->texture_sky[0] = texture_num_get(text);
+		info->texture_sky[1] = info->texture_sky[0];
 
 		info->music_lump = -1; // TODO
 		info->par_time = 123; // TODO
 
 		switch(start + i)
 		{
-			case MAPDEF_MAP15:
-				info->next_normal = MAPDEF_MAP16;
-				info->next_secret = MAPDEF_MAP31;
+			case MAPD2_MAP15:
+				info->next_normal = MAPD2_MAP16;
+				info->next_secret = MAPD2_MAP31;
 			break;
-			case MAPDEF_UNNAMED: // TODO: use DEFAULT instead
-				info->levelnum = 0;
-				info->name = "Unnamed";
-				info->levelhack = 0;
-			case MAPDEF_MAP30:
-				info->next_normal = MAPDEF_END_DOOM2;
-				info->next_secret = MAPDEF_END_DOOM2;
+			case MAPD2_MAP30:
+				info->next_normal = MAP_END_DOOM2;
+				info->next_secret = MAP_END_DOOM2;
 			break;
-			case MAPDEF_MAP31:
-				info->next_normal = MAPDEF_MAP16;
-				info->next_secret = MAPDEF_MAP32;
+			case MAPD2_MAP31:
+				info->next_normal = MAPD2_MAP16;
+				info->next_secret = MAPD2_MAP32;
 			break;
-			case MAPDEF_MAP32:
-				info->next_normal = MAPDEF_MAP16;
-				info->next_secret = MAPDEF_MAP16;
+			case MAPD2_MAP32:
+				info->next_normal = MAPD2_MAP16;
+				info->next_secret = MAPD2_MAP16;
 			break;
 			default:
 				info->next_normal = start + i + 1;
@@ -666,6 +679,7 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 void init_map()
 {
 	uint8_t text[16];
+	const def_cluster_t *def_clusters;
 
 	doom_printf("[ACE] init MAPs\n");
 	ldr_alloc_message = "Map and game info memory allocation failed!";
@@ -674,77 +688,85 @@ void init_map()
 	patch_finshed = wad_get_lump((void*)0x000247BC + doom_data_segment);
 	patch_entering = wad_get_lump((void*)0x000247C0 + doom_data_segment);
 
-	// default cluster music
+	// default clusters
 	if(*gamemode)
+	{
 		doom_sprintf(text, "D_%s", (void*)0x00024B40 + doom_data_segment);
-	else
+		num_clusters = D2_CLUSTER_COUNT;
+		def_clusters = d2_clusters;
+	} else
+	{
 		doom_sprintf(text, "D_%s", (void*)0x00024A30 + doom_data_segment);
+		num_clusters = D1_CLUSTER_COUNT;
+		def_clusters = d1_clusters;
+	}
+
+	// default music
 	cluster_music = wad_check_lump(text);
 
-	// allocate clusters
-	map_cluster = ldr_malloc(DEF_CLUSTER_COUNT * sizeof(map_cluster_t));
+	// allocate default clusters
+	map_cluster = ldr_malloc(num_clusters * sizeof(map_cluster_t));
+	memset(map_cluster, 0, num_clusters * sizeof(map_cluster_t));
 
 	// prepare default clusters
-	for(uint32_t i = 0; i < DEF_CLUSTER_COUNT; i++)
+	for(uint32_t i = 0; i < num_clusters; i++)
 	{
-		const uint8_t *flat;
+		map_cluster_t *clst = map_cluster + i;
+		const def_cluster_t *defc = def_clusters + i;
 
-		map_cluster[i] = doom_cluster[i];
-		map_cluster[i].lump_music = cluster_music;
+		clst->lump_music = cluster_music;
+		clst->idx = defc->idx;
 
-		if(map_cluster[i].text_leave)
-			map_cluster[i].text_leave += doom_data_segment;
-
-		if(map_cluster[i].text_enter)
-			map_cluster[i].text_enter += doom_data_segment;
-
-		if(cluster_flat[i])
-			flat = cluster_flat[i] + doom_data_segment;
+		if(defc->type)
+			clst->text_leave = defc->text + doom_data_segment;
 		else
-			flat = "MFLR8_3";
-		map_cluster[i].flat_num = flatlump[flat_num_get(flat)];
-	}
-	map_cluster[CLUSTER_D1_EPISODE4].text_leave = ep4_text;
+			clst->text_enter = defc->text + doom_data_segment;
 
-	// allocate maps
-	map_info = ldr_malloc(DEF_MAP_COUNT * sizeof(map_level_t));
+		clst->flat_num = flatlump[flat_num_get(defc->flat + doom_data_segment)];
+	}
 
 	// prepare default maps
+	if(*gamemode)
+		num_maps = NUM_D2_MAPS;
+	else
+		num_maps = NUM_D1_MAPS;
 
-	// episode 1
-	setup_episode(MAPDEF_E1M1, 1, 3, MAPDEF_END_DOOM1_EP1, mapnames + MAPDEF_E1M1);
+	// allocate maps
+	map_info = ldr_malloc(num_maps * sizeof(map_level_t));
+	memset(map_info, 0, num_maps * sizeof(map_level_t));
 
-	// episode 2
-	setup_episode(MAPDEF_E2M1, 2, 5, MAPDEF_END_DOOM1_EP2, mapnames + MAPDEF_E2M1);
+	if(*gamemode)
+	{
+		// cluster 5
+		setup_cluster(MAPD2_MAP01, MAPD2_MAP07 - MAPD2_MAP01, 5, 1);
+		// cluster 6
+		setup_cluster(MAPD2_MAP07, MAPD2_MAP12 - MAPD2_MAP07, 6, 1);
+		// cluster 7
+		setup_cluster(MAPD2_MAP12, MAPD2_MAP21 - MAPD2_MAP12, 7, 2);
+		// cluster 8
+		setup_cluster(MAPD2_MAP21, MAPD2_MAP31 - MAPD2_MAP21, 8, 3);
+		// cluster 9
+		setup_cluster(MAPD2_MAP31, 1, 9, 3);
+		// cluster 10
+		setup_cluster(MAPD2_MAP32, 1, 10, 3);
+	} else
+	{
+		// episode 1
+		setup_episode(MAPD1_E1M1, 1, 3, MAP_END_DOOM1_EP1, mapnames + MAPD1_E1M1);
+		// episode 2
+		setup_episode(MAPD1_E2M1, 2, 5, MAP_END_DOOM1_EP2, mapnames + MAPD1_E2M1);
+		// episode 3
+		setup_episode(MAPD1_E3M1, 3, 6, MAP_END_DOOM1_EP3, mapnames + MAPD1_E3M1);
+		// this is not the same as in ZDoom
+		map_info_unnamed.next_normal = MAP_END_TITLE;
+		map_info_unnamed.next_secret = MAP_END_TITLE;
+	}
 
-	// episode 3
-	setup_episode(MAPDEF_E3M1, 3, 6, MAPDEF_END_DOOM1_EP3, mapnames + MAPDEF_E3M1);
-
-	// episode 4 // TODO
-
-	// cluster 5
-	setup_cluster(MAPDEF_MAP01, MAPDEF_MAP07 - MAPDEF_MAP01, 5, 1);
-
-	// cluster 6
-	setup_cluster(MAPDEF_MAP07, MAPDEF_MAP12 - MAPDEF_MAP07, 6, 1);
-
-	// cluster 7
-	setup_cluster(MAPDEF_MAP12, MAPDEF_MAP21 - MAPDEF_MAP12, 7, 2);
-
-	// cluster 8
-	setup_cluster(MAPDEF_MAP21, MAPDEF_MAP31 - MAPDEF_MAP21, 8, 3);
-
-	// cluster 9
-	setup_cluster(MAPDEF_MAP31, 1, 9, 3);
-
-	// cluster 10
-	setup_cluster(MAPDEF_MAP32, 1, 10, 3);
-
-	// cluster 0; unknown maps
-	setup_cluster(MAPDEF_UNNAMED, 1, 0, 1); // TODO: copy default
+	map_info_unnamed.texture_sky[0] = texture_num_get("SKY1");
+	map_info_unnamed.texture_sky[1] = map_info_unnamed.texture_sky[0];
 
 	// default, dummy
-	map_level_info = map_info + MAPDEF_UNNAMED;
+	map_level_info = &map_info_unnamed;
 }
 
 //
@@ -820,15 +842,20 @@ static void do_autostart_game()
 __attribute((regparm(2),no_caller_saved_registers))
 static void set_world_done()
 {
-	uint16_t next;
 	map_cluster_t *old_cl, *new_cl;
+	int32_t music_lump = -1;
+	uint16_t next;
 
 	*gameaction = ga_worlddone;
 
 	// mark secret level visited
 	if(*secretexit)
+	{
 		for(uint32_t i = 0; i < MAXPLAYERS; i++)
 			players[i].didsecret = 1;
+		next = map_level_info->next_secret;
+	} else
+		next = map_level_info->next_normal;
 
 	// check for cluser change
 	old_cl = map_find_cluster(map_level_info->cluster);
@@ -837,28 +864,64 @@ static void set_world_done()
 	else
 		new_cl = NULL;
 
+	*finaletext = NULL;
+
 	if(old_cl != new_cl)
 	{
 		if(new_cl && new_cl->text_enter)
 		{
 			*finaletext = new_cl->text_enter;
 			*finaleflat = new_cl->flat_num;
+			music_lump = new_cl->lump_music;
 		} else
 		{
 			*finaletext = old_cl->text_leave;
 			*finaleflat = old_cl->flat_num;
+			music_lump = old_cl->lump_music;
+		}
+	}
+
+	// finale?
+	if(*finaletext || next > MAP_END_TITLE)
+	{
+		*gameaction = ga_nothing;
+		*gamestate = GS_FINALE;
+		*viewactive = 0;
+		*automapactive = 0;
+		*finalecount = 0;
+
+		if(!*finaletext)
+			*finalestage = 1;
+		else
+			*finalestage = 0;
+
+		switch(next)
+		{
+			case MAP_END_DOOM1_EP1:
+				intermission_mode = 0;
+				*gameepisode = 1;
+			break;
+			case MAP_END_DOOM1_EP2:
+				intermission_mode = 0;
+				*gameepisode = 2;
+			break;
+			case MAP_END_DOOM1_EP3:
+				intermission_mode = 0;
+				*gameepisode = 3;
+				// TODO: music_lump = mus_bunny ?
+			break;
+			case MAP_END_DOOM2:
+				intermission_mode = 1;
+				*gamemap = 30;
+				if(!*finaletext)
+				{
+					F_StartCast();
+					// TODO: music_lump = mus_evil ?
+				}
+			break;
 		}
 
-		if(*finaletext)
-		{
-			*gameaction = ga_nothing;
-			*gamestate = GS_FINALE;
-			*viewactive = 0;
-			*automapactive = 0;
-			*finalestage = 0;
-			*finalecount = 0;
-			// TODO: S_ChangeMusic
-		}
+		// TODO: S_ChangeMusic
 	}
 }
 
@@ -896,6 +959,12 @@ static void do_completed()
 	// *gamemap = 30; // to enable 'cast' finale
 	// D1 endings: F_Ticker
 
+	if(map_level_info->flags & MAP_FLAG_NOINTERMISSION)
+	{
+		set_world_done();
+		return;
+	}
+
 	// setup intermission
 	wminfo->didsecret = players[*consoleplayer].didsecret;
 	wminfo->epsd = *gameepisode - 1;
@@ -909,7 +978,16 @@ static void do_completed()
 	wminfo->pnum = *consoleplayer;
 
 	if(map_next_info && map_next_info->levelhack && map_next_info->levelhack < 0x80)
+	{
+		intermission_mode = 0;
 		wminfo->next = (map_next_info->levelhack & 15) - 1;
+	} else
+	{
+		intermission_mode = 1;
+		if(!map_next_info)
+			// use of 30 disables 'entering' text
+			wminfo->next = 30;
+	}
 
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
@@ -920,10 +998,6 @@ static void do_completed()
 		wminfo->plyr[i].stime = *leveltime;
 		// TODO: frags - these are no longer in player structure
 	}
-
-	if(!map_next_info)
-		// use of 30 disables 'entering' text
-		wminfo->next = 30; // TODO: make it work in D1
 
 	WI_Start(wminfo);
 }
@@ -1097,6 +1171,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003DBFA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)music_intermission},
 	// disable music setup in 'S_Start'
 	{0x0003F642, CODE_HOOK | HOOK_UINT16, 0x3EEB},
+	// disable music setup in 'F_StartCast'
+	{0x0001C768, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// use 'map_level_info->name' in 'HU_Start'
 	{0x0003B5D2, CODE_HOOK | HOOK_UINT8, 0xA1},
 	{0x0003B5D3, CODE_HOOK | HOOK_UINT32, (uint32_t)&map_level_info},
@@ -1110,6 +1186,20 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003C360, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)draw_finished},
 	// replace 'WI_drawEL'
 	{0x0003C3F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)draw_entering},
+	// replace 'commercial' check in intermission code
+	{0x0003C568, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003C60E, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003C727, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003CA80, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003CAF0, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003CE22, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003D4CA, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003D911, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003DBE7, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003DCCB, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	// replace 'commercial' check in finale code
+	{0x0001C4A8, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0001C51C, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
 	// disable use of 'lnames' in 'WI_loadData' and 'WI_unloadData'
 	{0x0003DD23, CODE_HOOK | HOOK_JMP_DOOM, 0x0003DEBF},
 	{0x0003DD92, CODE_HOOK | HOOK_JMP_DOOM, 0x0003DDE6},

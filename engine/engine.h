@@ -727,6 +727,14 @@ typedef struct sfxinfo_s
 	int32_t lumpnum;
 } sfxinfo_t;
 
+typedef struct
+{
+	char *name;
+	int32_t lumpnum;
+	void *data;
+	int32_t handle;
+} musicinfo_t;
+
 //
 // data
 
@@ -1139,6 +1147,8 @@ void R_DrawPlayerSprites() __attribute((regparm(2),no_caller_saved_registers));
 // s_sound.c
 void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void S_ResumeSound() __attribute((regparm(2),no_caller_saved_registers));
+void S_StopMusic() __attribute((regparm(2),no_caller_saved_registers));
+void S_ChangeMusic(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // v_video
 void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));

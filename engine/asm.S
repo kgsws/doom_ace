@@ -463,6 +463,18 @@ S_StartSound:
 S_ResumeSound:
 	.byte	0xE9
 	.4byte	0x0003EFE0
+////////////////////////////////// S_StopMusic
+.section .text.S_StopMusic
+.global S_StopMusic
+S_StopMusic:
+	.byte	0xE9
+	.4byte	0x0003EC40
+////////////////////////////////// S_ChangeMusic
+.section .text.S_ChangeMusic
+.global S_ChangeMusic
+S_ChangeMusic:
+	.byte	0xE9
+	.4byte	0x0003ECF0
 ////////////////////////////////// P_Random
 .section .text.P_Random
 .global P_Random

@@ -30,6 +30,9 @@ typedef struct old_sfxinfo_s
 //
 
 static old_sfxinfo_t *S_sfx;
+musicinfo_t *S_music;
+
+static musicinfo_t **music_now;
 
 static uint32_t numsfx = NUMSFX + NUMSFX_RNG;
 static sfxinfo_t *sfxinfo;
@@ -347,6 +350,27 @@ error_end:
 //
 // API
 
+void start_music(int32_t lump, uint32_t loop)
+{
+	// abuse original system to play any music lump
+	// alternate betwee two different slots
+	uint32_t idx;
+
+	if(lump < 0)
+	{
+		S_StopMusic();
+		return;
+	}
+
+	if(*music_now == S_music + 1)
+		idx = 2;
+	else
+		idx = 1;
+
+	S_music[idx].lumpnum = lump;
+	S_ChangeMusic(idx, loop);
+}
+
 uint16_t sfx_by_alias(uint64_t alias)
 {
 	for(uint32_t i = 0; i < numsfx; i++)
@@ -478,6 +502,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// import variables
 	{0x0001488C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&S_sfx},
+	{0x0001444C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&S_music},
+	{0x00014448, DATA_HOOK | HOOK_IMPORT, (uint32_t)&music_now},
 	// disable hardcoded sound randomization
 	{0x00027716, CODE_HOOK | HOOK_UINT16, 0x41EB}, // A_Look
 	{0x0002882B, CODE_HOOK | HOOK_UINT16, 0x47EB}, // A_Scream

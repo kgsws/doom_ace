@@ -4,7 +4,15 @@
 #define PLAYER_SOUND_CLASS_LEN	64
 #define PLAYER_SOUND_SLOT_LEN	12
 
+//
+
+extern musicinfo_t *S_music;
+
+//
+
 void init_sound();
+
+void start_music(int32_t lump, uint32_t loop);
 
 void sfx_rng_fix(uint16_t *idx, uint32_t pmatch);
 

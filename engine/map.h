@@ -1,11 +1,10 @@
 // kgsws' ACE Engine
 ////
 
-#define MAP_END_TITLE	0xFFFB
-#define MAP_END_DOOM1_EP1	0xFFFC
-#define MAP_END_DOOM1_EP2	0xFFFD
-#define MAP_END_DOOM1_EP3	0xFFFE
-#define MAP_END_DOOM2	0xFFFF
+#define MAP_END_TO_TITLE	0xFFFC
+#define MAP_END_BUNNY_SCROLL	0xFFFD
+#define MAP_END_DOOM_CAST	0xFFFE
+#define MAP_END_CUSTOM_PIC	0xFFFF
 
 #define MAP_FLAG_NOINTERMISSION	1
 
@@ -188,6 +187,7 @@ typedef struct
 	uint16_t next_normal;
 	uint16_t next_secret;
 	int32_t title_patch;
+	int32_t win_lump;
 	int32_t music_lump;
 	uint32_t par_time;
 	uint16_t texture_sky[2];

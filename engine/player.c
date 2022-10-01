@@ -12,6 +12,7 @@
 #include "cheat.h"
 #include "config.h"
 #include "controls.h"
+#include "map.h"
 #include "player.h"
 
 typedef struct
@@ -418,6 +419,13 @@ __attribute((regparm(2),no_caller_saved_registers))
 static void build_ticcmd(ticcmd_t *cmd)
 {
 	static uint8_t mouse_inv_use;
+
+	// do nothing in titlemap
+	if(is_title_map)
+	{
+		memset(cmd, 0, sizeof(ticcmd_t));
+		return;
+	}
 
 	// first, use the original function
 	G_BuildTiccmd(cmd);

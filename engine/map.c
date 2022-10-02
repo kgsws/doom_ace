@@ -178,7 +178,7 @@ static const map_attr_t map_attr[] =
 	{.name = "nofreelook", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_FREELOOK},
 //	{.name = "filterstarts", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_FILTER_STARTS},
 //	{.name = "useplayerstartz", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_USE_PLAYER_START_Z},
-//	{.name = "allowrespawn", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_ALLOW_RESPAWN},
+	{.name = "allowrespawn", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_ALLOW_RESPAWN},
 	{.name = "noinfighting", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_INFIGHTING},
 	{.name = "totalinfighting", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_TOTAL_INFIGHTING},
 //	{.name = "checkswitchrange", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_CHECK_SWITCH_RANGE},

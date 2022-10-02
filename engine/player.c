@@ -577,10 +577,27 @@ void player_viewheight(fixed_t wh)
 //
 // hooks
 
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t respawn_check()
+{
+	if(*netgame)
+		return 1;
+	if(map_level_info->flags & MAP_FLAG_ALLOW_RESPAWN)
+		return 1;
+	return 0;
+}
+
+//
+// hooks
+
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace call to 'P_PlayerThink' in 'P_Ticker'
 	{0x00032FBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_think},
+	// replace netgame check in 'G_DoReborn'
+	{0x00020C57, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)respawn_check},
+	{0x00020C5C, CODE_HOOK | HOOK_UINT16, 0xC085},
+	{0x00020C71, CODE_HOOK | HOOK_UINT8, 0xF5},
 	// replace call to 'G_BuildTiccmd'
 	{0x0001D5B2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},
 	{0x0001F220, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},

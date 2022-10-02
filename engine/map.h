@@ -248,6 +248,8 @@ extern sector_t **sectors;
 
 extern uint32_t *prndindex;
 
+extern uint32_t *automapactive;
+
 extern plat_t **activeplats;
 extern ceiling_t **activeceilings;
 

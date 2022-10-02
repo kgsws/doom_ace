@@ -1018,7 +1018,7 @@ extern angle_t *tantoangle;
 
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2),no_caller_saved_registers));
-#define FixedMul(a,b)	(((int64_t)(a) * (int64_t)(b)) >> FRACBITS)
+#define FixedMul(a,b)	((int32_t)(((int64_t)(a) * (int64_t)(b)) >> FRACBITS))
 
 // main.c
 extern uint8_t *ldr_alloc_message;
@@ -1054,6 +1054,7 @@ int32_t P_Random() __attribute((regparm(2),no_caller_saved_registers));
 // st_stuff
 void ST_Init() __attribute((regparm(2),no_caller_saved_registers));
 void ST_Start() __attribute((regparm(2),no_caller_saved_registers));
+void ST_Drawer(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // hu_stuff
 void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
@@ -1098,7 +1099,6 @@ uint32_t P_PointOnDivlineSide(fixed_t,fixed_t,divline_t*) __attribute((regparm(2
 uint32_t P_PointOnLineSide(fixed_t,fixed_t,line_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_mobj
-void P_RemoveMobj(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_SpawnPlayerMissile(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_XYMovement(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
@@ -1122,6 +1122,7 @@ void P_SpawnSpecials() __attribute((regparm(2),no_caller_saved_registers));
 // p_tick
 void P_RunThinkers() __attribute((regparm(2),no_caller_saved_registers));
 void P_AddThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_RemoveThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_user
 void P_CalcHeight(player_t*) __attribute((regparm(2),no_caller_saved_registers));
@@ -1146,6 +1147,7 @@ void R_DrawPlayerSprites() __attribute((regparm(2),no_caller_saved_registers));
 
 // s_sound.c
 void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void S_StopSound(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void S_ResumeSound() __attribute((regparm(2),no_caller_saved_registers));
 void S_StopMusic() __attribute((regparm(2),no_caller_saved_registers));
 void S_ChangeMusic(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));

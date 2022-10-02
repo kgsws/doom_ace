@@ -30,7 +30,7 @@
 
 //
 
-uint32_t *stbar_refresh_force;
+uint_fast8_t stbar_refresh_force;
 
 static patch_t **tallnum;
 static patch_t **tallpercent;
@@ -305,7 +305,7 @@ static inline void draw_keybar(player_t *pl, uint32_t skip)
 //
 // inventory bar
 
-static inline void draw_invbar(player_t *pl)
+static void draw_invbar(player_t *pl)
 {
 	if(pl->inv_tick)
 	{
@@ -361,12 +361,12 @@ static inline void draw_invbar(player_t *pl)
 	if(*screenblocks < 11 && invbar_was_on)
 	{
 		invbar_was_on = 0;
-		*stbar_refresh_force = 1;
+		stbar_refresh_force = 1;
 	}
 
 	if(pl->inv_sel)
 	{
-		if(*screenblocks == 11)
+		if(*screenblocks == 11 && !*automapactive)
 		{
 			// current selection
 			mobjinfo_t *info = mobjinfo + pl->inv_sel->type;
@@ -405,37 +405,13 @@ static inline void draw_crosshair(player_t *pl)
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void hook_RenderPlayerView(player_t *pl)
+void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 {
-	// actually render 3D view
-	R_RenderPlayerView(pl);
-
-	// nothing else in TITLEMAP
-	if(is_title_map)
+	if(*automapactive)
 		return;
-
-	// nothing else if dead
-	if(pl->playerstate != PST_LIVE)
-	{
-		if(*screenblocks < 11 && invbar_was_on)
-		{
-			invbar_was_on = 0;
-			*stbar_refresh_force = 1;
-		}
-		return;
-	}
-
-	// keys overlay
-	draw_keybar(pl, *screenblocks < 11);
-
-	// status bar
-	draw_full_stbar(pl);
-
-	// inventory bar
-	draw_invbar(pl);
-
-	// draw crosshair
-	draw_crosshair(pl);
+	refresh |= stbar_refresh_force;
+	stbar_refresh_force = 0;
+	ST_Drawer(fullscreen, refresh);
 }
 
 //
@@ -741,6 +717,41 @@ void stbar_start(player_t *pl)
 	stbar_set_xhair();
 }
 
+void stbar_draw(player_t *pl)
+{
+	// not in titlemap
+	if(is_title_map)
+		return;
+
+	// not if dead
+	if(pl->playerstate != PST_LIVE)
+	{
+		if(*screenblocks < 11 && invbar_was_on)
+		{
+			invbar_was_on = 0;
+			stbar_refresh_force = 1;
+		}
+		return;
+	}
+
+	if(!*automapactive)
+	{
+		// keys overlay
+		draw_keybar(pl, *screenblocks < 11);
+
+		// status bar
+		draw_full_stbar(pl);
+
+		// inventory bar
+		draw_invbar(pl);
+
+		// draw crosshair
+		draw_crosshair(pl);
+	} else
+		// inventory bar
+		draw_invbar(pl);
+}
+
 //
 // hooks
 
@@ -805,8 +816,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace 'STlib_drawNum'
 	{0x0003B020, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)st_draw_num},
-	// hook 3D render
-	{0x0001D361, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_RenderPlayerView},
+	// replace call to 'ST_Drawer' in 'D_Display'
+	{0x0001D2D5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_draw_stbar},
 	// remove ammo pointer in normal status bar
 	{0x0003ABE2, CODE_HOOK | HOOK_UINT32, 0x10EBC031},
 	{0x0003ABFB, CODE_HOOK | HOOK_SET_NOPS, 2},
@@ -828,10 +839,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00074FF0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_maxammo},
 	{0x000750F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_arms},
 	{0x000753C0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&keyboxes},
-	{0x00011B50, DATA_HOOK | HOOK_IMPORT, (uint32_t)&stbar_refresh_force},
-	// allow screen size over 11 // TODO: move to 'render'
-	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
-	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 10},
-	{0x000235F0, CODE_HOOK | HOOK_UINT8, 10},
 };
 

@@ -1125,7 +1125,7 @@ void do_save()
 	*r_setblocks = old_size;
 	R_ExecuteSetViewSize();
 	players[*consoleplayer].fixedcolormap = old_cmap;
-	*stbar_refresh_force = 1;
+	stbar_refresh_force = 1;
 
 	// open file
 	writer_open(savename);
@@ -2053,6 +2053,7 @@ void do_load()
 
 	//
 error_fail:
+	map_skip_stuff = 0;
 	reader_close();
 	error_message("Unable to load this slot!");
 }

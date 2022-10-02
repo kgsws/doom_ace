@@ -2691,8 +2691,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031B27, CODE_HOOK | HOOK_UINT16, 0x05EB},
 	// change 'sfx_noway' in 'PTR_UseTraverse'
 	{0x0002BCCA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_noway},
-	// change 'sfx_oof' in 'P_ZMovement'
-	{0x000312F6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_oof},
 	// fix 'R_ProjectSprite'; use new 'frame' and 'state', ignore invalid sprites
 	{0x00037D45, CODE_HOOK | HOOK_UINT32, 0x2446B70F},
 	{0x00037D49, CODE_HOOK | HOOK_UINT32, 0x1072E839},

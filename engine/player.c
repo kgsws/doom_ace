@@ -45,7 +45,6 @@ player_info_t player_info[MAXPLAYERS] =
 // view height patches
 static const uint32_t view_height_ptr[] =
 {
-	0x00031227, // P_ZMovement
 	0x00033088, // P_CalcHeight
 	0x000330EE, // P_CalcHeight
 	0x000330F7, // P_CalcHeight

@@ -355,6 +355,12 @@ ST_Init:
 ST_Start:
 	.byte	0xE9
 	.4byte	0x0003AF20
+////////////////////////////////// ST_Drawer
+.section .text.ST_Drawer
+.global ST_Drawer
+ST_Drawer:
+	.byte	0xE9
+	.4byte	0x0003A600
 ////////////////////////////////// HU_Start
 .section .text.HU_Start
 .global HU_Start
@@ -457,6 +463,12 @@ WI_Start:
 S_StartSound:
 	.byte	0xE9
 	.4byte	0x0003F370
+////////////////////////////////// S_StopSound
+.section .text.S_StopSound
+.global S_StopSound
+S_StopSound:
+	.byte	0xE9
+	.4byte	0x0003F010
 ////////////////////////////////// S_ResumeSound
 .section .text.S_ResumeSound
 .global S_ResumeSound
@@ -493,6 +505,12 @@ M_Random:
 P_AddThinker:
 	.byte	0xE9
 	.4byte	0x00032ED0
+////////////////////////////////// P_RemoveThinker
+.section .text.P_RemoveThinker
+.global P_RemoveThinker
+P_RemoveThinker:
+	.byte	0xE9
+	.4byte	0x00032EF0
 ////////////////////////////////// P_RunThinkers
 .section .text.P_RunThinkers
 .global P_RunThinkers
@@ -523,12 +541,6 @@ P_XYMovement:
 P_SlideMove:
 	.byte	0xE9
 	.4byte	0x0002B560
-////////////////////////////////// P_RemoveMobj
-.section .text.P_RemoveMobj
-.global P_RemoveMobj
-P_RemoveMobj:
-	.byte	0xE9
-	.4byte	0x00031660
 ////////////////////////////////// P_KillMobj
 .section .text.P_KillMobj
 .global P_KillMobj

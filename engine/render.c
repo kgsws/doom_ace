@@ -7,6 +7,8 @@
 #include "wadfile.h"
 #include "config.h"
 #include "player.h"
+#include "map.h"
+#include "stbar.h"
 #include "render.h"
 
 uint32_t *viewheight;
@@ -155,10 +157,23 @@ void custom_DrawPlayerSprites()
 	*centeryfrac = cy_look << FRACBITS;
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void hook_RenderPlayerView(player_t *pl)
+{
+	if(!*automapactive)
+		// render 3D view
+		R_RenderPlayerView(pl);
+
+	// status bar
+	stbar_draw(pl);
+}
+
 //
 // hooks
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// replace call to 'R_RenderPlayerView' in 'D_Display'
+	{0x0001D361, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_RenderPlayerView},
 	// replace call to 'R_SetupFrame' in 'R_RenderPlayerView'
 	{0x00035FB0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)custom_SetupFrame},
 	// replace call to 'R_DrawPlayerSprites' in 'R_DrawMasked'
@@ -168,6 +183,12 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00035C14, CODE_HOOK | HOOK_UINT16, 0xA37F},
 	{0x00035C16, CODE_HOOK | HOOK_UINT32, (uint32_t)&mlook_pitch},
 	{0x00035C1A, CODE_HOOK | HOOK_UINT16, 0x5AEB},
+	// allow screen size over 11
+	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
+	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 10},
+	{0x000235F0, CODE_HOOK | HOOK_UINT8, 10},
+	// call 'R_RenderPlayerView' even in automap
+	{0x0001D32B, CODE_HOOK | HOOK_UINT16, 0x07EB},
 	// required variables
 	{0x0003952C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centeryfrac},
 	{0x00039534, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centerx},

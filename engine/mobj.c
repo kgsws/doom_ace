@@ -19,6 +19,8 @@
 
 #define STOPSPEED	0x1000
 #define FRICTION	0xe800
+#define FLOATSPEED	(FRACUNIT * 4)
+#define GRAVITY	FRACUNIT
 
 uint32_t *consoleplayer;
 uint32_t *displayplayer;
@@ -82,7 +84,7 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 
 		if(!state)
 		{
-			P_RemoveMobj(mo);
+			mobj_remove(mo);
 			return 0;
 		}
 
@@ -539,9 +541,8 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	if(mo->flags & MF_COUNTITEM)
 		pl->itemcount++;
 
-	// remove
-	mo->flags &= ~MF_SPECIAL; // disable original item respawn logic
-	P_RemoveMobj(mo);
+	// remove // TODO: handle respawn logic (like heretic does)
+	mobj_remove(mo);
 
 	if(info->eflags & MFE_INVENTORY_QUIET)
 		return;
@@ -952,7 +953,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 
 		if(thing->flags & MF_DROPPED)
 		{
-			P_RemoveMobj(thing);
+			mobj_remove(thing);
 			return 1;
 		}
 	}
@@ -1148,6 +1149,15 @@ mobj_t *mobj_by_netid(uint32_t netid)
 	}
 
 	return NULL;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void mobj_remove(mobj_t *mo)
+{
+	inventory_destroy(mo->inventory);
+	P_UnsetThingPosition(mo);
+	S_StopSound(mo);
+	P_RemoveThinker((thinker_t*)mo);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1369,6 +1379,34 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	}
 }
 
+static void mobj_fall_damage(mobj_t *mo)
+{
+	int32_t damage;
+	int32_t mom;
+	int32_t dist;
+
+	if(	mo->momz <= -63 * FRACUNIT ||
+		(
+			!mo->player &&
+			!(map_level_info->flags & MAP_FLAG_MONSTER_FALL_DMG)
+		)
+	){
+		mobj_damage(mo, NULL, NULL, 1000000, 0);
+		return;
+	}
+
+	dist = FixedMul(-mo->momz, 16 * FRACUNIT / 23);
+	damage = ((FixedMul(dist, dist) / 10) >> FRACBITS) - 24;
+
+	if(	mo->momz > -39 * FRACUNIT &&
+		damage > mo->health &&
+		mo->health != 1
+	)
+		damage = mo->health - 1;
+
+	mobj_damage(mo, NULL, NULL, damage, 0);
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 static void mobj_xy_move(mobj_t *mo)
 {
@@ -1471,13 +1509,13 @@ static void mobj_xy_move(mobj_t *mo)
 						if(*demoplayback == DEMO_OLD)
 						{
 							if((*ceilingline)->backsector->ceilingpic == *skyflatnum)
-								P_RemoveMobj(mo);
+								mobj_remove(mo);
 						} else
 						{
 							if(	((*ceilingline)->backsector->ceilingpic == *skyflatnum && mo->z + mo->height >= (*ceilingline)->backsector->ceilingheight) ||
 								((*ceilingline)->frontsector->ceilingpic == *skyflatnum && mo->z + mo->height >= (*ceilingline)->frontsector->ceilingheight)
 							)
-								P_RemoveMobj(mo);
+								mobj_remove(mo);
 						}
 					}
 
@@ -1534,6 +1572,114 @@ static void mobj_xy_move(mobj_t *mo)
 	}
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+static void mobj_z_move(mobj_t *mo)
+{
+	// check for smooth step up
+	if(mo->player && mo->z < mo->floorz)
+	{
+		mo->player->viewheight -= mo->floorz-mo->z;
+		mo->player->deltaviewheight = (mo->info->player.view_height - mo->player->viewheight) >> 3;
+	}
+
+	// adjust height
+	mo->z += mo->momz;
+
+	// float down towards target if too close
+	if(mo->flags & MF_FLOAT && mo->target)
+	{
+		fixed_t dist;
+		fixed_t delta;
+
+		if(!(mo->flags & MF_SKULLFLY) && !(mo->flags & MF_INFLOAT))
+		{
+			dist = P_AproxDistance(mo->x - mo->target->x, mo->y - mo->target->y);
+			delta = (mo->target->z + (mo->height >> 1)) - mo->z;
+			if(delta < 0 && dist < delta * -3)
+				mo->z -= FLOATSPEED;
+			else
+			if(delta > 0 && dist < delta * 3)
+				mo->z += FLOATSPEED;
+		}
+	}
+
+	// clip movement
+	if(mo->z <= mo->floorz)
+	{
+		// hit the floor
+		if(mo->momz < 0)
+		{
+			if(mo->player && mo->momz < GRAVITY * -8)
+			{
+				mo->player->deltaviewheight = mo->momz >> 3;
+				S_StartSound(mo, mo->info->player.sound.land);
+			}
+			if(mo->momz < -23 * FRACUNIT)
+			{
+				if(mo->player)
+				{
+					if(map_level_info->flags & MAP_FLAG_FALLING_DAMAGE)
+					{
+						mobj_fall_damage(mo);
+						P_NoiseAlert(mo, mo);
+					}
+				} else
+				{
+					if(map_level_info->flags & (MAP_FLAG_MONSTER_FALL_DMG_KILL | MAP_FLAG_MONSTER_FALL_DMG))
+						mobj_fall_damage(mo);
+				}
+			}
+			mo->momz = 0;
+		}
+		mo->z = mo->floorz;
+		if((mo->flags & MF_MISSILE) && !(mo->flags & MF_NOCLIP))
+		{
+			if(	*demoplayback == DEMO_OLD ||
+				mo->flags1 & MF1_SKYEXPLODE ||
+				!mo->subsector ||
+				!mo->subsector->sector ||
+				mo->subsector->sector->floorheight < mo->z ||
+				mo->subsector->sector->floorpic != *skyflatnum
+			)
+				explode_missile(mo);
+			else
+				mobj_remove(mo);
+			return;
+		}
+	} else
+	if(!(mo->flags & MF_NOGRAVITY))
+	{
+		if(mo->momz == 0)
+			mo->momz = GRAVITY * -2;
+		else
+			mo->momz -= GRAVITY;
+	}
+
+	if(mo->z + mo->height > mo->ceilingz)
+	{
+		// hit the ceiling
+		if(mo->momz > 0)
+			mo->momz = 0;
+
+		mo->z = mo->ceilingz - mo->height;
+
+		if((mo->flags & MF_MISSILE) && !(mo->flags & MF_NOCLIP))
+		{
+			if(	*demoplayback == DEMO_OLD ||
+				mo->flags1 & MF1_SKYEXPLODE ||
+				!mo->subsector ||
+				!mo->subsector->sector ||
+				mo->subsector->sector->ceilingheight > mo->z + mo->height ||
+				mo->subsector->sector->ceilingpic != *skyflatnum
+			)
+				explode_missile(mo);
+			else
+				mobj_remove(mo);
+			return;
+		}
+	}
+}
+
 //
 // hooks
 
@@ -1573,6 +1719,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000314E4, CODE_HOOK | HOOK_UINT8, 0x7F},
 	// replace 'P_SetMobjState'
 	{0x00030EA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_set_state},
+	// replace 'P_RemoveMobj'
+	{0x00031660, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_remove},
 	// replace 'P_DamageMobj' - use trampoline
 	{0x0002A460, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hook_mobj_damage},
 	// extra stuff in 'P_KillMobj' - replaces animation change
@@ -1613,5 +1761,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000310B7, CODE_HOOK | HOOK_UINT16, 0x14EB}, // after-move checks
 	// replace call to 'P_XYMovement' in 'P_MobjThinker'
 	{0x000314AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_xy_move},
+	// replace call to 'P_ZMovement' in 'P_MobjThinker'
+	{0x000314C9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_z_move},
+
 };
 

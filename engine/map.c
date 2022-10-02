@@ -81,6 +81,7 @@ uint32_t *prndindex;
 
 uint32_t *viewactive;
 uint32_t *automapactive;
+static uint32_t *am_lastlevel;
 
 static uint32_t *d_skill;
 static uint32_t *d_map;
@@ -171,9 +172,9 @@ static const map_attr_t map_attr[] =
 	{.name = "secretnext", .type = IT_MAP, .offset = offsetof(map_level_t, next_secret)},
 	// flags
 	{.name = "nointermission", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_INTERMISSION},
-//	{.name = "fallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_FALLING_DAMAGE},
-//	{.name = "monsterfallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_MONSTER_FALL_DMG_KILL},
-//	{.name = "propermonsterfallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_MONSTER_FALL_DMG},
+	{.name = "fallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_FALLING_DAMAGE},
+	{.name = "monsterfallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_MONSTER_FALL_DMG_KILL},
+	{.name = "propermonsterfallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_MONSTER_FALL_DMG},
 	{.name = "nofreelook", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_FREELOOK},
 //	{.name = "filterstarts", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_FILTER_STARTS},
 //	{.name = "useplayerstartz", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_USE_PLAYER_START_Z},
@@ -298,6 +299,7 @@ void map_load_setup()
 
 	*viewactive = 1;
 	*automapactive = 0;
+	*am_lastlevel = -1;
 
 	if(*gameepisode)
 	{
@@ -1316,42 +1318,6 @@ void init_map()
 // hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
-static void projectile_sky_flat(mobj_t *mo)
-{
-	if(mo->subsector && !(mo->flags1 & MF1_SKYEXPLODE))
-	{
-		sector_t *sec = mo->subsector->sector;
-		if(mo->z <= sec->floorheight)
-		{
-			if(sec->floorpic == *skyflatnum)
-			{
-				P_RemoveMobj(mo);
-				return;
-			}
-		} else
-		if(mo->z + mo->height >= sec->ceilingheight)
-		{
-			if(sec->ceilingpic == *skyflatnum)
-			{
-				P_RemoveMobj(mo);
-				return;
-			}
-		}
-	}
-
-	explode_missile(mo);
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
-static void projectile_sky_wall(mobj_t *mo)
-{
-	if(mo->flags1 & MF1_SKYEXPLODE)
-		explode_missile(mo);
-	else
-		P_RemoveMobj(mo);
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
 static void do_new_game()
 {
 	*gameaction = ga_nothing;
@@ -1618,9 +1584,6 @@ static const hook_t patch_new[] =
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80},
 	// fix typo in 'P_DivlineSide'
 	{0x0002EA00, CODE_HOOK | HOOK_UINT16, 0xCA39},
-	// projectile sky explosion
-	{0x0003137E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)projectile_sky_flat},
-	{0x00031089, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)projectile_sky_wall},
 	// replace 'P_PathTraverse' on multiple places
 	{0x0002B5F6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
 	{0x0002B616, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
@@ -1646,9 +1609,6 @@ static const hook_t patch_old[] =
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B3BC},
 	// restore typo in 'P_DivlineSide'
 	{0x0002EA00, CODE_HOOK | HOOK_UINT16, 0xC839},
-	// projectile sky explosion
-	{0x0003137E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)explode_missile},
-	{0x00031089, CODE_HOOK | HOOK_CALL_DOOM, 0x00031660},
 	// restore 'P_PathTraverse' on multiple places
 	{0x0002B5F6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
 	{0x0002B616, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
@@ -1754,6 +1714,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003E15F, CODE_HOOK | HOOK_JMP_DOOM, 0x0003E308},
 	{0x0003E247, CODE_HOOK | HOOK_JMP_DOOM, 0x0003E288},
 	{0x0003E308, CODE_HOOK | HOOK_UINT16, 0x08EB},
+	// automap is fullscreen
+	{0x00012C64, DATA_HOOK | HOOK_UINT32, SCREENHEIGHT},
 	// import variables
 	{0x0002C0D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playerstarts},
 	{0x0002C154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatchstarts},
@@ -1786,6 +1748,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
 	{0x0002B3B8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewactive},
 	{0x00012C5C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&automapactive},
+	{0x00012CA8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&am_lastlevel},
 	{0x0002B2EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_skill},
 	{0x0002B2F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_map},
 	{0x0002B2F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_episode},

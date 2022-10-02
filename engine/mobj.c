@@ -12,6 +12,7 @@
 #include "action.h"
 #include "player.h"
 #include "weapon.h"
+#include "hitscan.h"
 #include "map.h"
 #include "stbar.h"
 #include "demo.h"
@@ -27,13 +28,16 @@ uint32_t *displayplayer;
 
 thinker_t *thinkercap;
 
+uint32_t mo_puff_type = 37;
+uint32_t mo_puff_flags;
+
 uint32_t mobj_netid;
 
 static uint_fast8_t kill_xdeath;
 
 //
 
-// this only exists because original animations are all over the plase in 'mobjinfo_t'
+// this only exists because original animations are all over the place in 'mobjinfo_t'
 const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
 {
 	[ANIM_SPAWN] = offsetof(mobjinfo_t, state_spawn),
@@ -44,8 +48,9 @@ const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
 	[ANIM_DEATH] = offsetof(mobjinfo_t, state_death),
 	[ANIM_XDEATH] = offsetof(mobjinfo_t, state_xdeath),
 	[ANIM_RAISE] = offsetof(mobjinfo_t, state_raise),
-	[ANIM_CRUSH] = offsetof(mobjinfo_t, state_crush),
 	[ANIM_HEAL] = offsetof(mobjinfo_t, state_heal),
+	[ANIM_CRUSH] = offsetof(mobjinfo_t, state_crush),
+	[ANIM_CRASH] = offsetof(mobjinfo_t, state_crash),
 };
 
 static const hook_t hook_fast_missile[];
@@ -1224,9 +1229,6 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		case DAMAGE_IS_RIPPER:
 			damage = ((P_Random() & 3) + 2) * (damage & 0x00FFFFFF);
 		break;
-		case DAMAGE_IS_BULLET:
-			damage = ((P_Random() % 3) + 1) * (damage & 0x00FFFFFF);
-		break;
 	}
 
 	forced = damage >= 1000000;
@@ -1678,6 +1680,57 @@ static void mobj_z_move(mobj_t *mo)
 			return;
 		}
 	}
+}
+
+void mobj_spawn_puff(divline_t *trace, mobj_t *target)
+{
+	mobj_t *mo;
+
+	if(target && !(target->flags & MF_NOBLOOD) && !(mobjinfo[mo_puff_type].flags1 & MF1_PUFFONACTORS))
+		return;
+
+	if(!(mo_puff_flags & FBF_NORANDOMPUFFZ))
+		trace->dx += ((P_Random() - P_Random()) << 10);
+
+	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, mo_puff_type);
+
+	if(!target && mo->info->state_crash)
+		mobj_set_state(mo, mo->info->state_crash);
+	else
+	if(*attackrange <= 64 * FRACUNIT && mo->info->state_melee)
+		mobj_set_state(mo, mo->info->state_melee);
+
+	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
+	{
+		mo->tics -= P_Random() & 3;
+		if(mo->tics <= 0)
+			mo->tics = 1;
+	}
+}
+
+void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
+{
+	mobj_t *mo;
+	uint32_t state;
+
+	if(target->flags & MF_NOBLOOD)
+		return;
+
+	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, 38);
+	mo->momz = FRACUNIT * 2;
+
+	state = mo->info->state_spawn;
+
+	if(damage < 9)
+		state += 2;
+	else
+	if(damage <= 12)
+		state += 1;
+
+	if(state >= mo->info->state_idx_limit)
+		state >= mo->info->state_idx_limit - 1;
+
+	mobj_set_state(mo, state);
 }
 
 //

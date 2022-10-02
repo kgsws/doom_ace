@@ -382,8 +382,9 @@ static const dec_anim_t mobj_anim[] =
 	{"death", ANIM_DEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_death)},
 	{"xdeath", ANIM_XDEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_xdeath)},
 	{"raise", ANIM_RAISE, ETYPE_NONE, offsetof(mobjinfo_t, state_raise)},
-	{"crush", ANIM_CRUSH, ETYPE_NONE, offsetof(mobjinfo_t, state_crush)},
 	{"heal", ANIM_HEAL, ETYPE_NONE, offsetof(mobjinfo_t, state_heal)},
+	{"crush", ANIM_CRUSH, ETYPE_NONE, offsetof(mobjinfo_t, state_crush)},
+	{"crash", ANIM_CRASH, ETYPE_NONE, offsetof(mobjinfo_t, state_crash)},
 	// weapon
 	{"ready", ANIM_W_READY, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.ready)},
 	{"deselect", ANIM_W_LOWER, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.lower)},
@@ -504,6 +505,7 @@ static const dec_flag_t mobj_flags1[] =
 	{"dontrip", MF1_DONTRIP},
 	{"pushable", MF1_PUSHABLE},
 	{"cannotpush", MF1_CANNOTPUSH},
+	{"puffonactors", MF1_PUFFONACTORS},
 	// terminator
 	{NULL}
 };
@@ -2396,6 +2398,7 @@ void init_decorate()
 
 	// bullet puff
 	mobjinfo[37].vspeed = FRACUNIT;
+	mobjinfo[37].state_melee = 95;
 
 	// species
 	mobjinfo[17].species = 15;

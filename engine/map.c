@@ -1595,6 +1595,8 @@ static const hook_t patch_new[] =
 	{0x0002B5DD, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
 	{0x0002B5FC, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
 	{0x0002B61C, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
+	// replace pointers to 'PTR_ShootTraverse' in 'P_SlideMove'
+	{0x0002BC52, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_shoot_traverse},
 	// enable sliding on things
 	{0x0002B5EA, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
 	{0x0002B60F, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
@@ -1620,6 +1622,8 @@ static const hook_t patch_old[] =
 	{0x0002B5DD, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
 	{0x0002B5FC, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
 	{0x0002B61C, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
+	// restore pointers to 'PTR_ShootTraverse' in 'P_SlideMove'
+	{0x0002BC52, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B8E0},
 	// disable sliding on things
 	{0x0002B5EA, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
 	{0x0002B60F, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},

@@ -115,12 +115,38 @@ static uint8_t *handle_bool_invert(uint8_t *kw, const dec_arg_t *arg)
 	return kw;
 }
 
+static uint8_t *handle_s8(uint8_t *kw, const dec_arg_t *arg)
+{
+	uint32_t tmp;
+
+	uint_fast8_t negate;
+
+	if(kw[0] == '-')
+	{
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+		negate = 1;
+	} else
+		negate = 0;
+
+	if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 127)
+		I_Error("[DECORATE] Unable to parse integer '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+
+	if(negate)
+		tmp = -tmp;
+
+	*((int8_t*)(parse_action_arg + arg->offset)) = tmp;
+
+	return tp_get_keyword();
+}
+
 static uint8_t *handle_u16(uint8_t *kw, const dec_arg_t *arg)
 {
-	int32_t tmp;
+	uint32_t tmp;
 
-	if(doom_sscanf(kw, "%d", &tmp) != 1 || tmp < 0 || tmp > 65535)
-		I_Error("[DECORATE] Unable to parse uint16_t '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+	if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 65535)
+		I_Error("[DECORATE] Unable to parse integer '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
 
 	*((uint16_t*)(parse_action_arg + arg->offset)) = tmp;
 
@@ -242,7 +268,7 @@ angle_t slope_to_angle(fixed_t slope)
 
 static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_t seeker)
 {
-	// TODO: cachce result for same-tick attacks?
+	// TODO: cache result for same-tick attacks?
 	mobj_t *mo = pl->mo;
 	fixed_t sl;
 	angle_t an = *angle;
@@ -250,16 +276,16 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 	if(pl->info_flags & PLF_AUTO_AIM || map_level_info->flags & MAP_FLAG_NO_FREELOOK)
 	{
 		// autoaim enabled
-		sl = P_AimLineAttack(mo, an, 1024 * FRACUNIT);
+		sl = P_AimLineAttack(mo, an, AIMRANGE);
 		if(!*linetarget)
 		{
 			an += 1 << 26;
-			sl = P_AimLineAttack(mo, an, 1024 * FRACUNIT);
+			sl = P_AimLineAttack(mo, an, AIMRANGE);
 
 			if(!*linetarget)
 			{
 				an -= 2 << 26;
-				sl = P_AimLineAttack(mo, an, 1024 * FRACUNIT);
+				sl = P_AimLineAttack(mo, an, AIMRANGE);
 
 				if(!*linetarget)
 				{
@@ -278,9 +304,43 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 		// seeker missile check
 		*linetarget = NULL;
 		if(seeker)
-			P_AimLineAttack(mo, an, 1024 * FRACUNIT);
+			P_AimLineAttack(mo, an, AIMRANGE);
 		return 0;
 	}
+}
+
+//
+// player ammo
+
+uint32_t remove_ammo(mobj_t *mo)
+{
+	player_t *pl = mo->player;
+	mobjinfo_t *weap = pl->readyweapon;
+	uint32_t take;
+
+	// ammo check
+	if(!weapon_has_ammo(mo, weap, pl->attackdown))
+		return 1;
+
+	// which ammo
+	take = pl->attackdown;
+	if(take > 1)
+	{
+		if(weap->eflags & MFE_WEAPON_ALT_USES_BOTH)
+			take |= 1;
+	} else
+	{
+		if(weap->eflags & MFE_WEAPON_PRIMARY_USES_BOTH)
+			take |= 2;
+	}
+
+	// ammo use
+	if(take & 1 && weap->weapon.ammo_type[0])
+		inventory_take(mo, weap->weapon.ammo_type[0], weap->weapon.ammo_use[0]);
+	if(take & 2 && weap->weapon.ammo_type[1])
+		inventory_take(mo, weap->weapon.ammo_type[1], weap->weapon.ammo_use[1]);
+
+	return 0;
 }
 
 //
@@ -457,7 +517,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	for(uint32_t i = 0; i < count; i++)
 	{
-		uint16_t damage;
+		uint32_t damage;
 		angle_t aaa;
 		fixed_t sss;
 
@@ -1050,30 +1110,11 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!pl)
 		return;
 
-	if(!mo->custom_inventory && !arg->noammo)
-	{
-		mobjinfo_t *weap = pl->readyweapon;
-		uint32_t take;
-		// ammo check
-		if(!weapon_has_ammo(mo, weap, pl->attackdown))
-			return;
-		// which ammo
-		take = pl->attackdown;
-		if(take > 1)
-		{
-			if(weap->eflags & MFE_WEAPON_ALT_USES_BOTH)
-				take |= 1;
-		} else
-		{
-			if(weap->eflags & MFE_WEAPON_PRIMARY_USES_BOTH)
-				take |= 2;
-		}
-		// ammo use
-		if(take & 1 && weap->weapon.ammo_type[0])
-			inventory_take(mo, weap->weapon.ammo_type[0], weap->weapon.ammo_use[0]);
-		if(take & 2 && weap->weapon.ammo_type[1])
-			inventory_take(mo, weap->weapon.ammo_type[1], weap->weapon.ammo_use[1]);
-	}
+	if(	!mo->custom_inventory &&
+		!arg->noammo &&
+		remove_ammo(mo)
+	)
+		return;
 
 	pitch = -arg->pitch;
 	angle = mo->angle;
@@ -1104,6 +1145,121 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
 	if(th->flags & MF_MISSILE)
 		missile_stuff(th, mo, *linetarget, angle, pitch, slope);
+}
+
+//
+// A_FireBullets
+
+static const args_BulletAttack_t def_FireBullets =
+{
+	.pufftype = 37,
+	.flags = FBF_USEAMMO,
+	.range = 2048 * FRACUNIT, // ZDoom uses 8192 but that causes precision issues.
+};
+
+static const dec_arg_flag_t flags_FireBullets[] =
+{
+	MAKE_FLAG(FBF_USEAMMO),
+	MAKE_FLAG(FBF_NOFLASH),
+	MAKE_FLAG(FBF_NORANDOM),
+	MAKE_FLAG(FBF_NORANDOMPUFFZ),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_FireBullets =
+{
+	.size = sizeof(args_BulletAttack_t),
+	.def = &def_FireBullets,
+	.arg =
+	{
+		{"spread_horz", handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
+		{"spread_vert", handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
+		{"numbullets", handle_s8, offsetof(args_BulletAttack_t, blt_count)},
+		{"damage", handle_u16, offsetof(args_BulletAttack_t, damage)}, // TODO: damage equations
+		{"pufftype", handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
+		{"flags", handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_FireBullets},
+		{"range", handle_fixed, offsetof(args_BulletAttack_t, range), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	player_t *pl = mo->player;
+	const args_BulletAttack_t *arg = st->arg;
+	uint32_t damage, spread, count;
+	angle_t angle;
+	fixed_t slope;
+
+	if(!pl)
+		return;
+
+	if(	!mo->custom_inventory &&
+		arg->flags & FBF_USEAMMO &&
+		remove_ammo(mo)
+	)
+		return;
+
+	mo_puff_type = arg->pufftype;
+	mo_puff_flags = arg->flags;
+
+	if(arg->blt_count < 0)
+	{
+		count = -arg->blt_count;
+		spread = 1;
+	} else
+	{
+		count = arg->blt_count;
+		if(!count)
+			spread = 0;
+		else
+		if(count > 1)
+			spread = 1;
+		else
+			spread = pl->refire;
+	}
+
+	damage = arg->damage;
+
+	angle = mo->angle;
+	if(!player_aim(pl, &angle, &slope, 0))
+		slope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
+
+	for(uint32_t i = 0; i < count; i++)
+	{
+		uint32_t dmg = damage;
+		angle_t aaa;
+		fixed_t sss;
+
+		if(!(arg->flags & FBF_NORANDOM))
+			damage *= (P_Random() % 3) + 1;
+
+		aaa = angle;
+		sss = slope;
+
+		if(spread)
+		{
+			if(arg->spread_hor)
+			{
+				aaa -= arg->spread_hor;
+				aaa += (arg->spread_hor >> 7) * P_Random();
+			}
+			if(arg->spread_ver)
+			{
+				sss -= arg->spread_ver;
+				sss += (arg->spread_ver >> 7) * P_Random();
+			}
+		}
+
+		P_LineAttack(mo, aaa, arg->range, sss, damage);
+	}
+
+	// must restore original puff!
+	mo_puff_type = 37;
+	mo_puff_flags = 0;
 }
 
 //
@@ -1274,6 +1430,7 @@ static const dec_action_t mobj_action[] =
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
+	{"a_firebullets", A_FireBullets, &args_FireBullets},
 	// misc
 	{"a_setangle", A_SetAngle, &args_SetAngle},
 	// inventory

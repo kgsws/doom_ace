@@ -53,6 +53,25 @@ typedef struct
 
 //
 
+#define FBF_USEAMMO	1
+#define FBF_NOFLASH	2
+#define FBF_NORANDOM	4
+#define FBF_NORANDOMPUFFZ	8
+
+typedef struct
+{
+	uint16_t pufftype;
+	uint8_t ptr; // for monsters
+	int8_t blt_count;
+	angle_t spread_hor;
+	angle_t spread_ver;
+	uint32_t damage;
+	uint32_t flags;
+	fixed_t range;
+} args_BulletAttack_t;
+
+//
+
 typedef struct
 {
 	uint16_t type;

@@ -5,6 +5,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "decorate.h"
 #include "player.h"
 #include "mobj.h"
 #include "map.h"
@@ -23,6 +24,13 @@ static fixed_t *bestslidefrac;
 static line_t **bestslideline;
 
 static mobj_t **slidemo;
+
+static fixed_t *shootz;
+static mobj_t **shootthing;
+static fixed_t *aimslope;
+static uint32_t *la_damage;
+
+fixed_t *attackrange;
 
 static uint32_t thing_slide_slope;
 
@@ -395,6 +403,134 @@ isblocking:
 	return 0;
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t hs_shoot_traverse(intercept_t *in)
+{
+	fixed_t	x;
+	fixed_t y;
+	fixed_t z;
+	fixed_t dist;
+	fixed_t sz = *shootz;
+	fixed_t as = *aimslope;
+
+	if(in->isaline)
+	{
+		line_t *li = in->d.line;
+		fixed_t frac, dz, z;
+		sector_t *frontsector;
+		sector_t *backsector;
+
+		if(li->special)
+			P_ShootSpecialLine(*shootthing, li);
+
+		if(!(li->flags & ML_TWOSIDED))
+			goto hitline;
+
+		P_LineOpening(li);
+
+		dist = FixedMul(*attackrange, in->frac);
+
+		if(li->frontsector->floorheight != li->backsector->floorheight)
+		{
+			if(FixedDiv(*openbottom - sz, dist) > as)
+				goto hitline;
+		}
+
+		if(li->frontsector->ceilingheight != li->backsector->ceilingheight)
+		{
+			if(FixedDiv(*opentop - sz, dist) < as)
+				goto hitline;
+		}
+
+		return 1;
+
+hitline:
+
+		if(P_PointOnLineSide(trace->x, trace->y, li))
+		{
+			backsector = li->frontsector;
+			frontsector = li->backsector;
+		} else
+		{
+			frontsector = li->frontsector;
+			backsector = li->backsector;
+		}
+
+		frac = in->frac - FixedDiv(4 * FRACUNIT, *attackrange);
+		dz = FixedMul(as, FixedMul(frac, *attackrange));
+		z = *shootz + dz;
+
+		if(frontsector)
+		{
+			if(as < 0)
+			{
+				if(z < frontsector->floorheight)
+					frac = -FixedDiv(FixedMul(frac, *shootz - frontsector->floorheight), dz);
+			} else
+			if(as > 0)
+			{
+				if(z > frontsector->ceilingheight)
+					frac = FixedDiv(FixedMul(frac, frontsector->ceilingheight - *shootz), dz);
+			}
+
+			if(!(mobjinfo[mo_puff_type].flags1 & MF1_SKYEXPLODE))
+			{
+				// TODO: floor sky hack
+				if(frontsector->ceilingpic == *skyflatnum)
+				{
+					if(z > frontsector->ceilingheight)
+						return 0;
+
+					if(backsector && backsector->ceilingpic == *skyflatnum && backsector->ceilingheight < z)
+						return 0;
+				}
+			}
+		}
+
+		trace->x = trace->x + FixedMul(trace->dx, frac);
+		trace->y = trace->y + FixedMul(trace->dy, frac);
+		trace->dx = z;
+
+		mobj_spawn_puff(trace, NULL);
+
+		return 0;
+	} else
+	{
+		mobj_t *th = in->d.thing;
+		fixed_t thingtopslope;
+		fixed_t thingbottomslope;
+
+		if(th == *shootthing)
+			return 1;
+
+		if(!(th->flags & MF_SHOOTABLE))
+			return 1;
+
+		dist = FixedMul(*attackrange, in->frac);
+		thingtopslope = FixedDiv(th->z + th->height - sz, dist);
+
+		if(thingtopslope < as)
+			return 1;
+
+		thingbottomslope = FixedDiv(th->z - sz, dist);
+
+		if(thingbottomslope > as)
+			return 1;
+
+		trace->x = trace->x + FixedMul(trace->dx, in->frac);
+		trace->y = trace->y + FixedMul(trace->dy, in->frac);
+		trace->dx = sz + FixedMul(as, FixedMul(in->frac, *attackrange));
+
+		mobj_spawn_puff(trace, th);
+		mobj_spawn_blood(trace, th, *la_damage);
+
+		if(*la_damage)
+			mobj_damage(th, *shootthing, *shootthing, *la_damage, 0);
+
+		return 0;
+	}
+}
+
 //
 // hooks
 
@@ -405,8 +541,15 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002BA10, DATA_HOOK | HOOK_IMPORT, (uint32_t)&trace},
 	{0x0002BA20, DATA_HOOK | HOOK_IMPORT, (uint32_t)&intercepts},
 	{0x0002C028, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_intercept_p},
+	// slide variables
 	{0x0002B9D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bestslidefrac},
 	{0x0002B9D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bestslideline},
 	{0x0002B9C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&slidemo},
+	// line attack variables
+	{0x0002B9A8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&shootz},
+	{0x0002B9AC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&shootthing},
+	{0x0002B9B8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&attackrange},
+	{0x0002B9B4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&aimslope},
+	{0x0002B9B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&la_damage},
 };
 

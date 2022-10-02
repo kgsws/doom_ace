@@ -559,6 +559,12 @@ P_CalcHeight:
 P_PlayerInSpecialSector:
 	.byte	0xE9
 	.4byte	0x0002FB20
+////////////////////////////////// P_ShootSpecialLine
+.section .text.P_ShootSpecialLine
+.global P_ShootSpecialLine
+P_ShootSpecialLine:
+	.byte	0xE9
+	.4byte	0x0002FA70
 ////////////////////////////////// P_MovePlayer
 .section .text.P_MovePlayer
 .global P_MovePlayer

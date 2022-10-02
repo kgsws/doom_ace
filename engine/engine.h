@@ -563,6 +563,7 @@ typedef struct mobjinfo_s
 	// new states
 	uint16_t state_heal;
 	uint16_t state_crush;
+	uint16_t state_crash;
 	// shared states
 	union
 	{
@@ -1118,6 +1119,7 @@ void P_SetupLevel() __attribute((regparm(2),no_caller_saved_registers));
 // p_spec
 void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_SpawnSpecials() __attribute((regparm(2),no_caller_saved_registers));
+void P_ShootSpecialLine(mobj_t*,line_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_tick
 void P_RunThinkers() __attribute((regparm(2),no_caller_saved_registers));

@@ -191,8 +191,15 @@ void weapon_setup(player_t *pl)
 
 	S_StartSound(pl->mo, pl->readyweapon->weapon.sound_up);
 
-	pl->psprites[0].sy = WEAPONBOTTOM;
-	weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.raise);
+	if(map_level_info->flags & MAP_FLAG_SPAWN_WITH_WEAPON_RAISED)
+	{
+		pl->psprites[0].sy = WEAPONTOP;
+		weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.ready);
+	} else
+	{
+		pl->psprites[0].sy = WEAPONBOTTOM;
+		weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.raise);
+	}
 }
 
 uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)

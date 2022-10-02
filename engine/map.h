@@ -1,12 +1,29 @@
 // kgsws' ACE Engine
 ////
 
-#define MAP_END_TO_TITLE	0xFFFC
-#define MAP_END_BUNNY_SCROLL	0xFFFD
-#define MAP_END_DOOM_CAST	0xFFFE
-#define MAP_END_CUSTOM_PIC	0xFFFF
+#define MAP_END_UNDEFINED	0xFFFA // must be first
+#define MAP_END_TO_TITLE	0xFFFB // must be second
+#define MAP_END_BUNNY_SCROLL	0xFFFC
+#define MAP_END_DOOM_CAST	0xFFFD
+#define MAP_END_CUSTOM_PIC_N	0xFFFE
+#define MAP_END_CUSTOM_PIC_S	0xFFFF
 
-#define MAP_FLAG_NOINTERMISSION	1
+#define MAP_FLAG_NO_INTERMISSION	0x0001
+#define MAP_FLAG_FALLING_DAMAGE	0x0002
+#define MAP_FLAG_MONSTER_FALL_DMG_KILL	0x0004
+#define MAP_FLAG_MONSTER_FALL_DMG	0x0008
+#define MAP_FLAG_NO_FREELOOK	0x0010
+#define MAP_FLAG_FILTER_STARTS	0x0020
+#define MAP_FLAG_USE_PLAYER_START_Z	0x0040
+#define MAP_FLAG_ALLOW_RESPAWN	0x0080
+#define MAP_FLAG_NO_INFIGHTING	0x0100
+#define MAP_FLAG_TOTAL_INFIGHTING	0x0200
+#define MAP_FLAG_CHECK_SWITCH_RANGE	0x0400
+#define MAP_FLAG_RESET_INVENTORY	0x0800
+#define MAP_FLAG_FORGET_STATE	0x1000
+#define MAP_FLAG_SPAWN_WITH_WEAPON_RAISED	0x2000
+#define MAP_FLAG_NO_JUMP	0x4000
+#define MAP_FLAG_NO_CROUCH	0x8000
 
 enum
 {
@@ -175,8 +192,8 @@ typedef struct
 	uint8_t *text_enter;
 	uint8_t *text_leave;
 	int32_t lump_music;
-	int32_t lump_patch;
-	int32_t flat_num;
+//	int32_t lump_patch; // TODO: make it work
+	int32_t lump_flat;
 	uint8_t idx;
 } map_cluster_t;
 
@@ -186,13 +203,13 @@ typedef struct
 	uint8_t *name;
 	uint16_t next_normal;
 	uint16_t next_secret;
-	int32_t title_patch;
-	int32_t win_lump;
+	int32_t title_lump;
+	int32_t win_lump[2];
 	int32_t music_lump;
-	uint32_t par_time;
 	uint16_t texture_sky[2];
+	uint16_t par_time;
+	uint16_t flags;
 	uint8_t cluster;
-	uint8_t flags;
 	uint8_t levelnum;
 	uint8_t levelhack; // for original maps
 } map_level_t;
@@ -254,6 +271,7 @@ extern fixed_t *bmaporgy;
 
 extern map_lump_name_t map_lump;
 extern int32_t map_lump_idx;
+extern map_level_t *map_level_info;
 
 extern uint_fast8_t map_skip_stuff;
 extern uint_fast8_t is_title_map;

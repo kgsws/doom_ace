@@ -297,7 +297,7 @@ void player_think(player_t *pl)
 
 	if(pl->playerstate == PST_DEAD)
 	{
-		if(pl->info_flags & PLF_MOUSE_LOOK)
+		if(pl->info_flags & PLF_MOUSE_LOOK && !(map_level_info->flags & MAP_FLAG_NO_FREELOOK))
 		{
 			int32_t pitch = pl->mo->pitch;
 			if(pitch > PLAYER_LOOK_DEAD)
@@ -324,7 +324,7 @@ void player_think(player_t *pl)
 	if(!pl->mo->reactiontime)
 	{
 		P_MovePlayer(pl);
-		if(pl->info_flags & PLF_MOUSE_LOOK)
+		if(pl->info_flags & PLF_MOUSE_LOOK && !(map_level_info->flags & MAP_FLAG_NO_FREELOOK))
 		{
 			if(cmd->pitchturn)
 			{

@@ -584,7 +584,7 @@ void spawn_player(mapthing_t *mt)
 	mo = P_SpawnMobj((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS, 0x80000000, player_class[0]);
 
 	// check for reset
-	if(pl->playerstate == PST_REBORN)
+	if(pl->playerstate == PST_REBORN || map_level_info->flags & MAP_FLAG_RESET_INVENTORY)
 	{
 		// cleanup
 		uint32_t killcount;
@@ -805,8 +805,10 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		if(tmthing->z + tmthing->height < thing->z)
 			return 1;
 
-		if(!dehacked.no_species && tmthing->target && thing->info->extra_type != ETYPE_PLAYERPAWN)
-		{
+		if(	!dehacked.no_species &&
+			(map_level_info->flags & (MAP_FLAG_TOTAL_INFIGHTING | MAP_FLAG_NO_INFIGHTING)) != MAP_FLAG_TOTAL_INFIGHTING &&
+			tmthing->target && thing->info->extra_type != ETYPE_PLAYERPAWN
+		){
 			mobj_t *target = tmthing->target;
 			if(target->type == thing->type)
 				return 0;
@@ -1355,6 +1357,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	target->reactiontime = 0;
 
 	if(	!dehacked.no_infight &&
+		!(map_level_info->flags & MAP_FLAG_NO_INFIGHTING) &&
 		(!target->threshold || target->flags1 & MF1_QUICKTORETALIATE) &&
 		source && source != target &&
 		!(source->flags1 & MF1_NOTARGET)

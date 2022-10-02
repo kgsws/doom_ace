@@ -247,7 +247,7 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 	fixed_t sl;
 	angle_t an = *angle;
 
-	if(pl->info_flags & PLF_AUTO_AIM)
+	if(pl->info_flags & PLF_AUTO_AIM || map_level_info->flags & MAP_FLAG_NO_FREELOOK)
 	{
 		// autoaim enabled
 		sl = P_AimLineAttack(mo, an, 1024 * FRACUNIT);

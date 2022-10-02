@@ -58,7 +58,7 @@ typedef struct maptexure_s
 
 //
 
-static uint32_t *numtextures;
+uint32_t *numtextures;
 static texture_t ***textures;
 static uint16_t ***texturecolumnlump;
 static uint16_t ***texturecolumnofs;

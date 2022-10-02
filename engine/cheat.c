@@ -37,6 +37,7 @@ static void cf_idfa(player_t*,uint8_t*);
 static void cf_idkfa(player_t*,uint8_t*);
 static void cf_idclev(player_t*,uint8_t*);
 static void cf_iddt(player_t*,uint8_t*);
+static void cf_map(player_t*,uint8_t*);
 static void cf_buddha(player_t*,uint8_t*);
 static void cf_mdk(player_t*,uint8_t*);
 static void cf_kill(player_t*,uint8_t*);
@@ -53,8 +54,8 @@ static const cheat_func_t cheat_func[] =
 	{"idclev", cf_idclev},
 	{"iddt", cf_iddt},
 	// new
+	{"map", cf_map},
 	{"noclip", cf_noclip},
-	{"warp", cf_idclev},
 	{"buddha", cf_buddha},
 	{"mdk", cf_mdk},
 	{"kill", cf_kill},
@@ -210,6 +211,21 @@ static void cf_iddt(player_t *pl, uint8_t *arg)
 		*am_cheating = 0;
 	else
 		*am_cheating = cheating;
+}
+
+static void cf_map(player_t *pl, uint8_t *arg)
+{
+	while(*arg == ' ')
+		arg++;
+
+	if(!arg[0])
+	{
+		pl->message = "Wrong level!";
+		return;
+	}
+
+	strncpy(map_lump.name, arg, 8);
+	G_DeferedInitNew(*gameskill, 0, 0);
 }
 
 static void cf_buddha(player_t *pl, uint8_t *arg)

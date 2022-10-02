@@ -6,6 +6,8 @@ extern uint8_t ***texturecomposite;
 extern uint32_t **texturecompositesize;
 extern fixed_t **textureheight;
 
+extern uint32_t *numtextures;
+
 //
 
 void init_textures(uint32_t count);

@@ -17,11 +17,35 @@
 #include "map.h"
 #include "ldr_flat.h"
 #include "ldr_texture.h"
+#include "textpars.h"
 
 #include "map_info.h"
 
 #define WI_TITLEY	2
 #define	FB	0
+
+enum
+{
+	IT_U8,
+	IT_U16,
+	IT_MUSIC,
+	IT_PATCH,
+	IT_FLAT_LUMP,
+	IT_TEXTURE,
+	IT_MAP,
+	IT_TEXT_CHAIN,
+	IT_FLAG,
+};
+
+typedef struct
+{
+	const uint8_t *name;
+	uint32_t offset;
+	uint16_t flag;
+	uint8_t type;
+} map_attr_t;
+
+//
 
 mapthing_t *playerstarts;
 mapthing_t *deathmatchstarts;
@@ -103,6 +127,9 @@ map_level_t *map_info;
 uint32_t num_clusters;
 map_cluster_t *map_cluster;
 
+static uint32_t max_cluster;
+static int32_t cluster_music;
+
 static int32_t patch_finshed;
 static int32_t patch_entering;
 
@@ -121,10 +148,58 @@ static map_level_t map_info_unnamed =
 	.name = "Unnamed",
 	.next_normal = MAP_END_DOOM_CAST,
 	.next_secret = MAP_END_DOOM_CAST,
-	.title_patch = -1,
+	.title_lump = -1,
 	.music_lump = -1,
+	.win_lump = {-1, -1},
 	.par_time = 0,
 };
+
+// default map
+static map_level_t map_info_default;
+
+// map attributes
+static const map_attr_t map_attr[] =
+{
+	{.name = "levelnum", .type = IT_U8, .offset = offsetof(map_level_t, levelnum)},
+	{.name = "cluster", .type = IT_U8, .offset = offsetof(map_level_t, cluster)},
+	{.name = "par", .type = IT_U16, .offset = offsetof(map_level_t, par_time)},
+	{.name = "titlepatch", .type = IT_PATCH, .offset = offsetof(map_level_t, title_lump)},
+	{.name = "music", .type = IT_MUSIC, .offset = offsetof(map_level_t, music_lump)},
+	{.name = "sky1", .type = IT_TEXTURE, .offset = offsetof(map_level_t, texture_sky[0])},
+	{.name = "sky2", .type = IT_TEXTURE, .offset = offsetof(map_level_t, texture_sky[1])},
+	{.name = "next", .type = IT_MAP, .offset = offsetof(map_level_t, next_normal)},
+	{.name = "secretnext", .type = IT_MAP, .offset = offsetof(map_level_t, next_secret)},
+	// flags
+	{.name = "nointermission", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_INTERMISSION},
+//	{.name = "fallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_FALLING_DAMAGE},
+//	{.name = "monsterfallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_MONSTER_FALL_DMG_KILL},
+//	{.name = "propermonsterfallingdamage", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_MONSTER_FALL_DMG},
+	{.name = "nofreelook", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_FREELOOK},
+//	{.name = "filterstarts", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_FILTER_STARTS},
+//	{.name = "useplayerstartz", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_USE_PLAYER_START_Z},
+//	{.name = "allowrespawn", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_ALLOW_RESPAWN},
+	{.name = "noinfighting", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_INFIGHTING},
+	{.name = "totalinfighting", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_TOTAL_INFIGHTING},
+//	{.name = "checkswitchrange", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_CHECK_SWITCH_RANGE},
+	{.name = "resetinventory", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_RESET_INVENTORY},
+//	{.name = "forgetstate", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_FORGET_STATE},
+	{.name = "spawnwithweaponraised", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_SPAWN_WITH_WEAPON_RAISED},
+	{.name = "nojump", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_JUMP}, // ZDoom compatibility - might be implemented
+	{.name = "nocrouch", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_CROUCH}, // ZDoom compatibility - probably won't be implemented
+	// terminator
+	{.name = NULL}
+};
+// cluster attributes
+static const map_attr_t clst_attr[] =
+{
+	{.name = "music", .type = IT_MUSIC, .offset = offsetof(map_cluster_t, lump_music)},
+	{.name = "flat", .type = IT_FLAT_LUMP, .offset = offsetof(map_cluster_t, lump_flat)},
+	{.name = "entertext", .type = IT_TEXT_CHAIN, .offset = offsetof(map_cluster_t, text_enter)},
+	{.name = "exittext", .type = IT_TEXT_CHAIN, .offset = offsetof(map_cluster_t, text_leave)},
+	// terminator
+	{.name = NULL}
+};
+
 
 //
 
@@ -193,7 +268,8 @@ static map_cluster_t *map_find_cluster(uint32_t num)
 	if(!num)
 		return NULL;
 
-	for(uint32_t i = 0; i < num_clusters; i++)
+	// do a backward search
+	for(int32_t i = num_clusters - 1; i >= 0; i--)
 	{
 		map_cluster_t *cl = map_cluster + i;
 		if(cl->idx == num)
@@ -329,18 +405,22 @@ void map_setup_old(uint32_t skill, uint32_t episode, uint32_t level)
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 		players[i].playerstate = PST_REBORN;
 
-	if(!episode || episode > 9)
-		episode = 1;
-
-	if(level > 99)
-		level = 1;
-
-	if(*gamemode)
+	if(episode)
 	{
-		episode = 1;
-		doom_sprintf(map_lump.name, "MAP%02u", level);
+		if(!episode || episode > 9)
+			episode = 1;
+
+		if(level > 99)
+			level = 1;
+
+		if(*gamemode)
+		{
+			episode = 1;
+			doom_sprintf(map_lump.name, "MAP%02u", level);
+		} else
+			doom_sprintf(map_lump.name, "E%uM%u", episode, level);
 	} else
-		doom_sprintf(map_lump.name, "E%uM%u", episode, level);
+		episode = 1;
 
 	*gameskill = skill;
 	*gameepisode = episode;
@@ -597,7 +677,7 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 		info->lump = wad_check_lump(text);
 
 		doom_sprintf(text, "WILV%02u", info->levelnum - 1);
-		info->title_patch = wad_check_lump(text);
+		info->title_lump = wad_check_lump(text);
 
 		doom_sprintf(text, "SKY%u", episode);
 		info->texture_sky[0] = texture_num_get(text);
@@ -605,7 +685,7 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 
 		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[(episode - 1) * 9 + i + 1].name);
 		info->music_lump = wad_check_lump(text);
-		info->par_time = pars[info->levelnum + 10] * 35;
+		info->par_time = pars[info->levelnum + 10];
 
 		if(i == 8)
 		{
@@ -614,25 +694,26 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 		} else
 		if(i == 7)
 		{
-			int32_t victory = MAP_END_CUSTOM_PIC;
-			info->win_lump = -1;
+			int32_t victory = MAP_END_CUSTOM_PIC_N;
+			info->win_lump[0] = -1;
 			switch(episode)
 			{
 				case 1:
-					info->win_lump = W_CheckNumForName((void*)0x000213D0 + doom_data_segment); // HELP2 - shareware
-					if(info->win_lump < 0)
-						info->win_lump = W_CheckNumForName("CREDIT"); // retail
+					info->win_lump[0] = W_CheckNumForName((void*)0x000213D0 + doom_data_segment); // HELP2 - shareware
+					if(info->win_lump[0] < 0)
+						info->win_lump[0] = W_CheckNumForName("CREDIT"); // retail
 				break;
 				case 2:
-					info->win_lump = W_CheckNumForName((void*)0x000213D8 + doom_data_segment); // VICTORY2
+					info->win_lump[0] = W_CheckNumForName((void*)0x000213D8 + doom_data_segment); // VICTORY2
 				break;
 				case 3:
 					victory = MAP_END_BUNNY_SCROLL;
 				break;
 			}
+			info->win_lump[1] = info->win_lump[0];
 			info->next_normal = victory;
 			info->next_secret = victory;
-			info->flags = MAP_FLAG_NOINTERMISSION;
+			info->flags = MAP_FLAG_NO_INTERMISSION;
 		} else
 		{
 			info->next_normal = start + i + 1;
@@ -661,7 +742,7 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 		info->lump = wad_check_lump(text);
 
 		doom_sprintf(text, "CWILV%02u", info->levelnum - 1);
-		info->title_patch = wad_check_lump(text);
+		info->title_lump = wad_check_lump(text);
 
 		doom_sprintf(text, "SKY%u", sky);
 		info->texture_sky[0] = texture_num_get(text);
@@ -669,7 +750,7 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 
 		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[start + i + 33].name);
 		info->music_lump = wad_check_lump(text);
-		info->par_time = cpars[info->levelnum - 1] * 35;
+		info->par_time = cpars[info->levelnum - 1];
 
 		switch(start + i)
 		{
@@ -698,68 +779,451 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 }
 
 //
+// attribute parser
+
+static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
+{
+	const map_attr_t *attr;
+	uint8_t *kw;
+	uint32_t value;
+
+	kw = tp_get_keyword();
+	if(!kw)
+		return 1;
+
+	if(kw[0] != '{')
+		I_Error("[MAPINFO] Expected '%c' found '%s'!", '{', kw);
+
+	while(1)
+	{
+		// get attribute name
+		kw = tp_get_keyword_lc();
+		if(!kw)
+			return 1;
+
+		if(kw[0] == '}')
+			return 0;
+
+		// find this attribute
+		attr = attr_def;
+		while(attr->name)
+		{
+			if(!strcmp(attr->name, kw))
+				break;
+			attr++;
+		}
+
+		if(!attr->name)
+			I_Error("[MAPINFO] Unknown attribute '%s'!", kw);
+
+		if(attr->type != IT_FLAG)
+		{
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			if(kw[0] != '=')
+				I_Error("[MAPINFO] Expected '%c' found '%s'!", '=', kw);
+		}
+
+		switch(attr->type)
+		{
+			case IT_U8:
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				if(doom_sscanf(kw, "%u", &value) != 1 || value > 255)
+					I_Error("[MAPINFO] Unable to parse number '%s'!", kw);
+				*((uint8_t*)(dest + attr->offset)) = value;
+			break;
+			case IT_U16:
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				if(doom_sscanf(kw, "%u", &value) != 1 || value > 65535)
+					I_Error("[MAPINFO] Unable to parse number '%s'!", kw);
+				*((uint16_t*)(dest + attr->offset)) = value;
+			break;
+			case IT_MUSIC:
+			case IT_PATCH:
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				// it would be nice to check format here ...
+				*((int32_t*)(dest + attr->offset)) = wad_check_lump(kw);
+			break;
+			case IT_FLAT_LUMP:
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				*((int32_t*)(dest + attr->offset)) = flatlump[flat_num_get(kw)];
+			break;
+			case IT_TEXTURE:
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				*((uint16_t*)(dest + attr->offset)) = texture_num_get(kw);
+			break;
+			case IT_MAP:
+			{
+				uint16_t next;
+
+				kw = tp_get_keyword_lc();
+				if(!kw)
+					return 1;
+
+				if(!strcmp("endpic", kw))
+				{
+					map_level_t *info = dest;
+					uint32_t is_secret = attr->offset == offsetof(map_level_t, next_secret);
+
+					kw = tp_get_keyword_lc();
+					if(!kw)
+						return 1;
+					if(kw[0] != ',')
+						I_Error("[MAPINFO] Expected '%c' found '%s'!", ',', kw);
+
+					kw = tp_get_keyword_lc();
+					if(!kw)
+						return 1;
+
+					next = is_secret ? MAP_END_CUSTOM_PIC_S : MAP_END_CUSTOM_PIC_N;
+					info->win_lump[is_secret] = wad_check_lump(kw);
+				} else
+				if(!strcmp("endgamec", kw))
+				{
+					next = MAP_END_DOOM_CAST;
+				} else
+				if(!strcmp("endgame3", kw))
+				{
+					next = MAP_END_BUNNY_SCROLL;
+				} else
+				if(!strcmp("endtitle", kw))
+				{
+					next = MAP_END_TO_TITLE;
+				} else
+				{
+					int32_t lump;
+					map_level_t *info;
+
+					info = map_get_info(wad_check_lump(kw));
+					if(info == &map_info_unnamed)
+						next = MAP_END_TO_TITLE;
+					else
+						next = info - map_info;
+				}
+
+				*((uint16_t*)(dest + attr->offset)) = next;
+			}
+			break;
+			case IT_TEXT_CHAIN:
+			{
+				// NOTE: there's no padding for 32bits
+				uint8_t *base_ptr = dec_es_ptr;
+				uint8_t *newline = NULL;
+
+				while(1)
+				{
+					uint8_t *text;
+					uint32_t len;
+
+					// text line
+					kw = tp_get_keyword();
+					if(!kw)
+						return 1;
+
+					if(newline)
+						*newline = '\n';
+
+					len = strlen(kw) + 1;
+					text = dec_es_alloc(len);
+					strcpy(text, kw);
+
+					newline = text + len - 1;
+
+					// check for next line
+					kw = tp_get_keyword();
+					if(!kw)
+						return 1;
+
+					if(kw[0] != ',')
+					{
+						tp_push_keyword(kw);
+						break;
+					}
+				}
+
+				*((uint8_t**)(dest + attr->offset)) = base_ptr;
+			}
+			break;
+			case IT_FLAG:
+				*((uint16_t*)(dest + attr->offset)) |= attr->flag;
+			break;
+		}
+	}
+}
+
+//
+// callbacks
+
+static void cb_count_stuff(lumpinfo_t *li)
+{
+	uint8_t *kw;
+
+	tp_load_lump(li);
+	tp_enable_math = 1;
+
+	while(1)
+	{
+		kw = tp_get_keyword_lc();
+		if(!kw)
+			return;
+
+		if(!strcmp("map", kw))
+		{
+			map_level_t *info;
+			int32_t lump;
+
+			// map lump
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+
+			lump = wad_check_lump(kw);
+			if(lump >= 0)
+			{
+				// check for replacement
+				info = map_get_info(lump);
+				if(info == &map_info_unnamed)
+				{
+					// add new entry
+					uint32_t idx = num_maps++;
+					map_info = ldr_realloc(map_info, num_maps * sizeof(map_level_t));
+					info = map_info + idx;
+				}
+
+				// set defaults
+				*info = map_info_default;
+
+				// set lump
+				info->lump = lump;
+			}
+
+			// map name
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+skip_block:
+			// block entry
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+
+			if(kw[0] != '{')
+				I_Error("[MAPINFO] Broken syntax!");
+
+			if(tp_skip_code_block(1))
+				break;
+
+			continue;
+		}
+
+		if(!strcmp("cluster", kw))
+		{
+			// cluster number
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+
+			max_cluster++;
+
+			goto skip_block;
+		}
+
+		I_Error("[MAPINFO] Unknown block '%s'!", kw);
+	}
+
+	I_Error("[MAPINFO] Incomplete definition!");
+}
+
+static void cb_mapinfo(lumpinfo_t *li)
+{
+	uint8_t *kw;
+	uint8_t *text;
+	uint32_t tmp;
+	int32_t lump;
+
+	tp_load_lump(li);
+	tp_enable_math = 1;
+
+	while(1)
+	{
+		// keyword
+		kw = tp_get_keyword_lc();
+		if(!kw)
+			return;
+
+		if(!strcmp("map", kw))
+		{
+			map_level_t *info;
+			uint32_t levelnum = 0;
+
+			// map lump
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				break;
+
+			lump = wad_check_lump(kw);
+
+			// parse level number
+			if(	kw[0] == 'e' &&
+				kw[1] >= '1' && kw[1] <= '9' &&
+				kw[2] == 'm' &&
+				kw[3] >= '0' && kw[3] <= '9' &&
+				kw[4] == 0
+			)
+				levelnum = (kw[1] - '1') * 10 + (kw[3] - '0');
+			else
+			if(	kw[0] == 'm' &&
+				kw[1] == 'a' &&
+				kw[2] == 'p' &&
+				kw[3] >= '0' && kw[3] <= '9'
+			)
+				doom_sscanf(kw + 3, "%u\n", &levelnum);
+
+			// map title
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+
+			if(lump < 0)
+			{
+				// skip properties
+				kw = tp_get_keyword_lc();
+				if(!kw)
+					return;
+
+				if(kw[0] != '{')
+					I_Error("[MAPINFO] Expected '%c' found '%s'!", '{', kw);
+
+				if(tp_skip_code_block(1))
+					break;
+
+				continue;
+			}
+
+			tmp = strlen(kw);
+			tmp += 4;
+			tmp &= ~3;
+
+			text = dec_es_alloc(tmp);
+			strcpy(text, kw);
+
+			info = map_get_info(lump);
+			if(info == &map_info_unnamed)
+				I_Error("[MAPINFO] Miscounted!");
+
+			info->name = text;
+
+			// get properties
+			if(parse_attributes(map_attr, info))
+				break;
+
+			// copy to secret exit
+			if(info->next_secret == MAP_END_UNDEFINED)
+				info->next_secret = info->next_normal;
+
+			continue;
+		}
+
+		if(!strcmp("cluster", kw))
+		{
+			map_cluster_t *clst;
+
+			// cluster number
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+
+			if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 255)
+				I_Error("[MAPINFO] Unable to parse number '%s'!", kw);
+
+			// check
+			if(num_clusters >= max_cluster)
+				I_Error("[MAPINFO] Miscounted!");
+
+			// set defauls
+			clst = map_cluster + num_clusters;
+			memset(clst, 0, sizeof(map_cluster_t));
+			clst->idx = tmp;
+			clst->lump_music = cluster_music;
+			clst->lump_flat = flatlump[0]; // this is different than ZDoom
+
+			// get properties
+			if(parse_attributes(clst_attr, clst))
+				break;
+
+			num_clusters++;
+
+			continue;
+		}
+
+		I_Error("[MAPINFO] Unknown keyword '%s'!", kw);
+	}
+
+	I_Error("[MAPINFO] Incomplete definition!");
+}
+
+//
 // API
 
 void init_map()
 {
 	uint8_t text[16];
 	const def_cluster_t *def_clusters;
-	int32_t music_lump;
+	int32_t temp;
 
 	doom_printf("[ACE] init MAPs\n");
 	ldr_alloc_message = "Map and game info memory allocation failed!";
+
+	//
+	// PASS 1
 
 	// find some GFX
 	patch_finshed = wad_get_lump((void*)0x000247BC + doom_data_segment);
 	patch_entering = wad_get_lump((void*)0x000247C0 + doom_data_segment);
 
-	// default clusters
+	// default clusters and maps
 	if(*gamemode)
 	{
 		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024B40 + doom_data_segment);
 		num_clusters = D2_CLUSTER_COUNT;
 		def_clusters = d2_clusters;
+		num_maps = NUM_D2_MAPS;
 	} else
 	{
 		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024A30 + doom_data_segment);
 		num_clusters = D1_CLUSTER_COUNT;
 		def_clusters = d1_clusters;
-	}
-
-	// default music
-	music_lump = wad_check_lump(text);
-
-	// allocate default clusters
-	map_cluster = ldr_malloc(num_clusters * sizeof(map_cluster_t));
-	memset(map_cluster, 0, num_clusters * sizeof(map_cluster_t));
-
-	// prepare default clusters
-	for(uint32_t i = 0; i < num_clusters; i++)
-	{
-		map_cluster_t *clst = map_cluster + i;
-		const def_cluster_t *defc = def_clusters + i;
-
-		clst->lump_music = music_lump;
-		clst->idx = defc->idx;
-
-		if(defc->type)
-			clst->text_leave = defc->text + doom_data_segment;
-		else
-			clst->text_enter = defc->text + doom_data_segment;
-
-		clst->flat_num = flatlump[flat_num_get(defc->flat + doom_data_segment)];
-	}
-
-	// prepare default maps
-	if(*gamemode)
-		num_maps = NUM_D2_MAPS;
-	else
 		num_maps = NUM_D1_MAPS;
+	}
+
+	// defaults
+	cluster_music = wad_check_lump(text);
+	max_cluster = num_clusters;
+
+	map_info_unnamed.texture_sky[0] = texture_num_get("SKY1");
+	map_info_unnamed.texture_sky[1] = map_info_unnamed.texture_sky[0];
+
+	map_info_default = map_info_unnamed;
+	map_info_default.texture_sky[0] = *numtextures - 1; // invalid texture
+	map_info_default.texture_sky[1] = map_info_default.texture_sky[0];
+	map_info_default.next_secret = MAP_END_UNDEFINED;
 
 	// allocate maps
 	map_info = ldr_malloc(num_maps * sizeof(map_level_t));
 	memset(map_info, 0, num_maps * sizeof(map_level_t));
 
+	// prepare default maps
 	if(*gamemode)
 	{
 		// cluster 5
@@ -787,11 +1251,65 @@ void init_map()
 		map_info_unnamed.next_secret = MAP_END_TO_TITLE;
 	}
 
-	map_info_unnamed.texture_sky[0] = texture_num_get("SKY1");
-	map_info_unnamed.texture_sky[1] = map_info_unnamed.texture_sky[0];
+	// count clusters, add map names
+	wad_handle_lump("MAPINFO", cb_count_stuff);
+
+	//
+	// PASS 2
+
+	// allocate clusters
+	map_cluster = ldr_malloc(max_cluster * sizeof(map_cluster_t));
+	memset(map_cluster, 0, max_cluster * sizeof(map_cluster_t));
+
+	// prepare default clusters
+	for(uint32_t i = 0; i < max_cluster; i++)
+	{
+		map_cluster_t *clst = map_cluster + i;
+		const def_cluster_t *defc = def_clusters + i;
+
+		clst->lump_music = cluster_music;
+		clst->idx = defc->idx;
+
+		if(defc->type)
+			clst->text_leave = defc->text + doom_data_segment;
+		else
+			clst->text_enter = defc->text + doom_data_segment;
+
+		clst->lump_flat = flatlump[flat_num_get(defc->flat + doom_data_segment)];
+	}
 
 	// default, dummy
 	map_level_info = &map_info_unnamed;
+
+	// reset extra storage
+	dec_es_ptr = EXTRA_STORAGE_PTR;
+
+	// parse maps and clusters
+	wad_handle_lump("MAPINFO", cb_mapinfo);
+
+	// allocate extra storage
+	temp = dec_es_ptr - EXTRA_STORAGE_PTR;
+	if(temp)
+	{
+		void *target = ldr_malloc(temp);
+
+		memcpy(target, EXTRA_STORAGE_PTR, temp);
+
+		// relocate clusters
+		for(uint32_t i = 0; i < num_clusters; i++)
+		{
+			map_cluster_t *clst = map_cluster + i;
+			clst->text_leave = dec_reloc_es(target, clst->text_leave);
+			clst->text_enter = dec_reloc_es(target, clst->text_enter);
+		}
+
+		// relocate maps
+		for(uint32_t i = 0; i < num_maps; i++)
+		{
+			map_level_t *info = map_info + i;
+			info->name = dec_reloc_es(target, info->name);
+		}
+	}
 }
 
 //
@@ -896,12 +1414,13 @@ static void set_world_done()
 		if(new_cl && new_cl->text_enter)
 		{
 			*finaletext = new_cl->text_enter;
-			*finaleflat = new_cl->flat_num;
+			*finaleflat = new_cl->lump_flat;
 			music_lump = new_cl->lump_music;
 		} else
+		if(old_cl)
 		{
 			*finaletext = old_cl->text_leave;
-			*finaleflat = old_cl->flat_num;
+			*finaleflat = old_cl->lump_flat;
 			music_lump = old_cl->lump_music;
 		}
 	}
@@ -940,16 +1459,21 @@ static void set_world_done()
 					music_lump = -2;
 				}
 			break;
-			case MAP_END_CUSTOM_PIC:
+			case MAP_END_CUSTOM_PIC_N:
+			case MAP_END_CUSTOM_PIC_S:
 			{
 				int32_t lump;
 				intermission_mode = 0;
 				*gameepisode = 1;
-				lump = map_level_info->win_lump;
+				lump = map_level_info->win_lump[next == MAP_END_CUSTOM_PIC_S];
 				if(lump < 0)
 					lump = W_GetNumForName((void*)0x00024750 + doom_data_segment); // INTERPIC
 				victory_patch = W_CacheLumpNum(lump, PU_CACHE);
 			}
+			break;
+			default:
+				intermission_mode = 1;
+				*gamemap = 1;
 			break;
 		}
 		if(music_lump >= -1) // -1 means STOP
@@ -991,7 +1515,7 @@ static void do_completed()
 	// *gamemap = 30; // to enable 'cast' finale
 	// D1 endings: F_Ticker
 
-	if(map_level_info->flags & MAP_FLAG_NOINTERMISSION)
+	if(map_level_info->flags & MAP_FLAG_NO_INTERMISSION)
 	{
 		set_world_done();
 		return;
@@ -1006,7 +1530,7 @@ static void do_completed()
 	wminfo->maxitems = *totalitems;
 	wminfo->maxsecret = *totalsecret;
 	wminfo->maxfrags = 0;
-	wminfo->partime = map_level_info->par_time;
+	wminfo->partime = map_level_info->par_time * 35;
 	wminfo->pnum = *consoleplayer;
 
 	if(map_next_info && map_next_info->levelhack && map_next_info->levelhack < 0x80)
@@ -1055,9 +1579,9 @@ static void draw_finished()
 	int32_t y = WI_TITLEY;
 	patch_t *patch;
 
-	if(map_level_info->title_patch >= 0)
+	if(map_level_info->title_lump >= 0)
 	{
-		patch = W_CacheLumpNum(map_level_info->title_patch, PU_CACHE);
+		patch = W_CacheLumpNum(map_level_info->title_lump, PU_CACHE);
 		V_DrawPatch((SCREENWIDTH - patch->width) / 2, y, FB, patch);
 
 		y += (5 * patch->height) / 4;
@@ -1076,11 +1600,11 @@ static void draw_entering()
 	patch = W_CacheLumpNum(patch_entering, PU_CACHE);
 	V_DrawPatch((SCREENWIDTH - patch->width) / 2, y, FB, patch);
 
-	if(map_next_info && map_next_info->title_patch)
+	if(map_next_info && map_next_info->title_lump >= 0)
 	{
 		y += (5 * patch->height) / 4;
 
-		patch = W_CacheLumpNum(map_next_info->title_patch, PU_CACHE);
+		patch = W_CacheLumpNum(map_next_info->title_lump, PU_CACHE);
 		V_DrawPatch((SCREENWIDTH - patch->width) / 2, y, FB, patch);
 	}
 }

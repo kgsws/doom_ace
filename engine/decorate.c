@@ -167,7 +167,7 @@ uint16_t player_class[MAX_PLAYER_CLASSES];
 
 static hook_t hook_states[NUM_STATE_HOOKS];
 
-static void *es_ptr;
+void *dec_es_ptr;
 
 uint8_t *parse_actor_name;
 
@@ -952,11 +952,11 @@ static const plrp_start_item_t doom_start_items[] =
 
 void *dec_es_alloc(uint32_t size)
 {
-	void *ptr = es_ptr;
+	void *ptr = dec_es_ptr;
 
-	es_ptr += size;
-	if(es_ptr > EXTRA_STORAGE_END)
-		I_Error("[DECORATE] Extra storage allocation failed!");
+	dec_es_ptr += size;
+	if(dec_es_ptr > EXTRA_STORAGE_END)
+		I_Error("[MEMORY] Extra storage allocation failed!");
 
 	return ptr;
 }
@@ -1107,7 +1107,7 @@ static void make_doom_invspec(uint32_t idx)
 	info->inventory.message = pw->message + doom_data_segment;
 }
 
-static void *relocate_estorage(void *target, void *ptr)
+void *dec_reloc_es(void *target, void *ptr)
 {
 	if(ptr < EXTRA_STORAGE_PTR)
 		return ptr;
@@ -2172,7 +2172,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		extra_stuff_next = NULL;
 
 		// reset extra storage
-		es_ptr = EXTRA_STORAGE_PTR;
+		dec_es_ptr = EXTRA_STORAGE_PTR;
 
 		// parse attributes
 		while(1)
@@ -2247,13 +2247,13 @@ static void cb_parse_actors(lumpinfo_t *li)
 		info->extra_stuff[1] = extra_stuff_next;
 
 		// process extra storage
-		if(es_ptr != EXTRA_STORAGE_PTR)
+		if(dec_es_ptr != EXTRA_STORAGE_PTR)
 		{
 			// allocate extra space .. in states!
 			uint32_t size;
 			uint32_t idx = num_states;
 
-			size = es_ptr - EXTRA_STORAGE_PTR;
+			size = dec_es_ptr - EXTRA_STORAGE_PTR;
 			size += sizeof(state_t) - 1;
 			size /= sizeof(state_t);
 
@@ -2261,7 +2261,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 			states = ldr_realloc(states, num_states * sizeof(state_t));
 
 			// copy all the stuff
-			memcpy(states + idx, EXTRA_STORAGE_PTR, es_ptr - EXTRA_STORAGE_PTR);
+			memcpy(states + idx, EXTRA_STORAGE_PTR, dec_es_ptr - EXTRA_STORAGE_PTR);
 
 			// relocation has to be done later
 		}
@@ -2500,13 +2500,13 @@ void init_decorate()
 
 		// state arguments
 		for(uint32_t i = info->state_idx_first; i < info->state_idx_limit; i++)
-			states[i].arg = relocate_estorage(target, (void*)states[i].arg);
+			states[i].arg = dec_reloc_es(target, (void*)states[i].arg);
 
 		// drop item list / start inventory list
 		if(info->extra_stuff[0])
 		{
-			info->extra_stuff[0] = relocate_estorage(target, info->extra_stuff[0]);
-			info->extra_stuff[1] = relocate_estorage(target, info->extra_stuff[1]);
+			info->extra_stuff[0] = dec_reloc_es(target, info->extra_stuff[0]);
+			info->extra_stuff[1] = dec_reloc_es(target, info->extra_stuff[1]);
 		}
 
 		// PlayerPawn
@@ -2514,12 +2514,12 @@ void init_decorate()
 		{
 			// weapon slots
 			for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
-				info->player.wpn_slot[i] = relocate_estorage(target, info->player.wpn_slot[i]);
+				info->player.wpn_slot[i] = dec_reloc_es(target, info->player.wpn_slot[i]);
 		}
 
 		// Inventory stuff
 		if(inventory_is_valid(info) || info->extra_type == ETYPE_HEALTH || info->extra_type == ETYPE_INV_SPECIAL)
-			info->inventory.message = relocate_estorage(target, info->inventory.message);
+			info->inventory.message = dec_reloc_es(target, info->inventory.message);
 	}
 
 	// extra inventory stuff

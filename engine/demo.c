@@ -41,6 +41,8 @@ uint32_t *netdemo;
 uint32_t *demoplayback;
 uint32_t *demorecording;
 
+uint32_t demo_map_mode;
+
 static uint32_t *singledemo;
 
 //
@@ -121,7 +123,11 @@ static void do_play_demo()
 	*demoplayback = DEMO_OLD;
 	*prndindex = 0;
 
-	map_setup_old(header.skill, header.episode, header.map);
+	if(demo_map_mode)
+		doom_sprintf(map_lump.name, "MAP%02u", header.map);
+	else
+		doom_sprintf(map_lump.name, "E%uM%u", header.episode, header.map);
+	map_load_setup();
 
 	return;
 

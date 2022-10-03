@@ -32,6 +32,9 @@ extern void (**colfunc)();
 
 extern uint8_t r_palette[768];
 
+// basic colors
+extern uint8_t r_color_black;
+
 //
 
 void init_render();

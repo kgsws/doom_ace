@@ -407,10 +407,20 @@ static inline void draw_crosshair(player_t *pl)
 static __attribute((regparm(2),no_caller_saved_registers))
 void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 {
+	ST_doPaletteStuff();
+
+	if(is_title_map)
+	{
+		V_MarkRect(0, 168, 320, 32);
+		return;
+	}
+
 	if(*automapactive)
 		return;
+
 	refresh |= stbar_refresh_force;
 	stbar_refresh_force = 0;
+
 	ST_Drawer(fullscreen, refresh);
 }
 
@@ -752,6 +762,11 @@ void stbar_draw(player_t *pl)
 		draw_invbar(pl);
 }
 
+void stbar_setup_empty()
+{
+	memset(screen_buffer + 53760, r_color_black, 10240);
+}
+
 //
 // hooks
 
@@ -824,6 +839,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003A282, CODE_HOOK | HOOK_UINT16, 0x3FEB},
 	// disable 'keyboxes' in original status bar
 	{0x0003A2DB, CODE_HOOK | HOOK_UINT16, 0x48EB},
+	// disable 'ST_doPaletteStuff' in 'ST_Drawer'
+	{0x0003A639, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// fix evil grin
 	{0x00039FD4, CODE_HOOK | HOOK_UINT8, 0xB8},
 	{0x00039FD5, CODE_HOOK | HOOK_UINT32, (uint32_t)&do_evil_grin},

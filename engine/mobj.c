@@ -28,6 +28,8 @@ uint32_t *displayplayer;
 
 thinker_t *thinkercap;
 
+uint32_t *respawnmonsters;
+
 uint32_t mo_puff_type = 37;
 uint32_t mo_puff_flags;
 
@@ -1754,6 +1756,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// import variables
 	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
+	{0x0002B3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&respawnmonsters},
 	// replace 'P_SpawnPlayer'
 	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},
 	// replace call to 'memset' in 'P_SpawnMobj'

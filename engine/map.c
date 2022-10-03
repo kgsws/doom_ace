@@ -15,6 +15,8 @@
 #include "demo.h"
 #include "sound.h"
 #include "map.h"
+#include "menu.h"
+#include "stbar.h"
 #include "ldr_flat.h"
 #include "ldr_texture.h"
 #include "textpars.h"
@@ -84,8 +86,6 @@ uint32_t *automapactive;
 static uint32_t *am_lastlevel;
 
 static uint32_t *d_skill;
-static uint32_t *d_map;
-static uint32_t *d_episode;
 
 plat_t **activeplats;
 ceiling_t **activeceilings;
@@ -134,8 +134,11 @@ static int32_t cluster_music;
 static int32_t patch_finshed;
 static int32_t patch_entering;
 
-static uint32_t intermission_mode;
+static uint32_t fake_game_mode;
 static patch_t *victory_patch;
+
+uint32_t map_episode_count;
+map_episode_t map_episode_def[MAX_EPISODES];
 
 //
 static uint8_t **mapnames;
@@ -150,7 +153,8 @@ static map_level_t map_info_unnamed =
 	.next_normal = MAP_END_DOOM_CAST,
 	.next_secret = MAP_END_DOOM_CAST,
 	.title_lump = -1,
-	.music_lump = -1,
+	.music_level = -1,
+	.music_inter = -1,
 	.win_lump = {-1, -1},
 	.par_time = 0,
 };
@@ -165,7 +169,8 @@ static const map_attr_t map_attr[] =
 	{.name = "cluster", .type = IT_U8, .offset = offsetof(map_level_t, cluster)},
 	{.name = "par", .type = IT_U16, .offset = offsetof(map_level_t, par_time)},
 	{.name = "titlepatch", .type = IT_PATCH, .offset = offsetof(map_level_t, title_lump)},
-	{.name = "music", .type = IT_MUSIC, .offset = offsetof(map_level_t, music_lump)},
+	{.name = "music", .type = IT_MUSIC, .offset = offsetof(map_level_t, music_level)},
+	{.name = "intermusic", .type = IT_MUSIC, .offset = offsetof(map_level_t, music_inter)},
 	{.name = "sky1", .type = IT_TEXTURE, .offset = offsetof(map_level_t, texture_sky[0])},
 	{.name = "sky2", .type = IT_TEXTURE, .offset = offsetof(map_level_t, texture_sky[1])},
 	{.name = "next", .type = IT_MAP, .offset = offsetof(map_level_t, next_normal)},
@@ -200,7 +205,14 @@ static const map_attr_t clst_attr[] =
 	// terminator
 	{.name = NULL}
 };
-
+// episode attributes
+static const map_attr_t epi_attr[] =
+{
+	{.name = "picname", .type = IT_PATCH, .offset = offsetof(map_episode_t, title_lump)},
+	{.name = "noskillmenu", .type = IT_FLAG, .offset = offsetof(map_episode_t, flags), .flag = EPI_FLAG_NO_SKILL_MENU},
+	// terminator
+	{.name = NULL}
+};
 
 //
 
@@ -284,7 +296,7 @@ static map_cluster_t *map_find_cluster(uint32_t num)
 // map loading
 
 __attribute((regparm(2),no_caller_saved_registers))
-void map_load_setup()
+uint32_t map_load_setup()
 {
 	uint32_t cache;
 
@@ -300,6 +312,7 @@ void map_load_setup()
 	*viewactive = 1;
 	*automapactive = 0;
 	*am_lastlevel = -1;
+	*respawnmonsters = *gameskill == sk_nightmare || *respawnparm;
 
 	if(*gameepisode)
 	{
@@ -312,6 +325,8 @@ void map_load_setup()
 		map_lump.wame = 0x50414D454C544954; // TITLEMAP
 		is_title_map = 1;
 		cache = 0;
+		// disable status bar
+		stbar_setup_empty();
 	}
 
 	// find map lump
@@ -324,15 +339,18 @@ void map_load_setup()
 	// setup level info
 	map_level_info = map_get_info(map_lump_idx);
 
-	// hack for original or new levels
+	// hack for original levels
+	// to keep 'A_BossDeath' working properly
 	if(map_level_info->levelhack)
 	{
 		if(map_level_info->levelhack & 0x80)
 		{
+			fake_game_mode = 1;
 			*gameepisode = 1;
 			*gamemap = map_level_info->levelhack & 0x7F;
 		} else
 		{
+			fake_game_mode = 0;
 			*gameepisode = map_level_info->levelhack >> 4;
 			*gamemap = map_level_info->levelhack & 15;
 		}
@@ -343,7 +361,7 @@ void map_load_setup()
 	}
 
 	// music
-	start_music(map_level_info->music_lump, 1);
+	start_music(map_level_info->music_level, 1);
 
 	// sky
 	*skytexture = map_level_info->texture_sky[0];
@@ -386,7 +404,7 @@ void map_load_setup()
 	// in the level
 	*gamestate = GS_LEVEL;
 	*usergame = !is_title_map && !*demoplayback;
-	return;
+	return 0;
 
 map_load_error:
 	if(is_title_map)
@@ -398,37 +416,8 @@ map_load_error:
 	} else
 		map_start_title();
 	*wipegamestate = *gamestate;
-	M_StartMessage("This map does not exist!", NULL, 0);
-	return;
-}
-
-void map_setup_old(uint32_t skill, uint32_t episode, uint32_t level)
-{
-	for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		players[i].playerstate = PST_REBORN;
-
-	if(episode)
-	{
-		if(!episode || episode > 9)
-			episode = 1;
-
-		if(level > 99)
-			level = 1;
-
-		if(*gamemode)
-		{
-			episode = 1;
-			doom_sprintf(map_lump.name, "MAP%02u", level);
-		} else
-			doom_sprintf(map_lump.name, "E%uM%u", episode, level);
-	} else
-		episode = 1;
-
-	*gameskill = skill;
-	*gameepisode = episode;
-	*wipegamestate = -1;
-
-	map_load_setup();
+	M_StartMessage("Requested map is invalid!", NULL, 0);
+	return 1;
 }
 
 //
@@ -686,7 +675,8 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 		info->texture_sky[1] = info->texture_sky[0];
 
 		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[(episode - 1) * 9 + i + 1].name);
-		info->music_lump = wad_check_lump(text);
+		info->music_level = wad_check_lump(text);
+		info->music_inter = map_info_unnamed.music_inter;
 		info->par_time = pars[info->levelnum + 10];
 
 		if(i == 8)
@@ -751,7 +741,8 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 		info->texture_sky[1] = info->texture_sky[0];
 
 		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[start + i + 33].name);
-		info->music_lump = wad_check_lump(text);
+		info->music_level = wad_check_lump(text);
+		info->music_inter = map_info_unnamed.music_inter;
 		info->par_time = cpars[info->levelnum - 1];
 
 		switch(start + i)
@@ -1041,6 +1032,19 @@ skip_block:
 			goto skip_block;
 		}
 
+		if(!strcmp("episode", kw))
+		{
+			// episode map
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+
+			goto skip_block;
+		}
+
+		if(!strcmp("clearepisodes", kw))
+			continue;
+
 		I_Error("[MAPINFO] Unknown block '%s'!", kw);
 	}
 
@@ -1169,6 +1173,38 @@ static void cb_mapinfo(lumpinfo_t *li)
 			continue;
 		}
 
+		if(!strcmp("episode", kw))
+		{
+			map_episode_t *epi;
+
+			if(map_episode_count >= MAX_EPISODES)
+				I_Error("[MAPINFO] Too many episodes defined!");
+
+			epi = map_episode_def + map_episode_count;
+
+			// episode map
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+
+			lump = wad_check_lump(kw);
+			epi->map_lump = lump;
+
+			// get properties
+			if(parse_attributes(epi_attr, epi))
+				break;
+
+			map_episode_count++;
+
+			continue;
+		}
+
+		if(!strcmp("clearepisodes", kw))
+		{
+			map_episode_count = 0;
+			continue;
+		}
+
 		I_Error("[MAPINFO] Unknown keyword '%s'!", kw);
 	}
 
@@ -1197,13 +1233,17 @@ void init_map()
 	// default clusters and maps
 	if(*gamemode)
 	{
-		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024B40 + doom_data_segment);
+		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024B50 + doom_data_segment); // d_%s dm2int
+		map_info_unnamed.music_inter = wad_check_lump(text);
+		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024B40 + doom_data_segment); // d_%s read_m
 		num_clusters = D2_CLUSTER_COUNT;
 		def_clusters = d2_clusters;
 		num_maps = NUM_D2_MAPS;
 	} else
 	{
-		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024A30 + doom_data_segment);
+		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024A18 + doom_data_segment); // d_%s inter
+		map_info_unnamed.music_inter = wad_check_lump(text);
+		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024A30 + doom_data_segment); // d_%s victor
 		num_clusters = D1_CLUSTER_COUNT;
 		def_clusters = d1_clusters;
 		num_maps = NUM_D1_MAPS;
@@ -1240,6 +1280,10 @@ void init_map()
 		setup_cluster(MAPD2_MAP31, 1, 9, 3);
 		// cluster 10
 		setup_cluster(MAPD2_MAP32, 1, 10, 3);
+		// episodes
+		map_episode_count = 1;
+		map_episode_def[0].map_lump = wad_check_lump("MAP01");
+		map_episode_def[0].title_lump = wad_check_lump("M_EPID2");
 	} else
 	{
 		// episode 1
@@ -1251,6 +1295,14 @@ void init_map()
 		// this is not the same as in ZDoom, but cast is broken in D1
 		map_info_unnamed.next_normal = MAP_END_TO_TITLE;
 		map_info_unnamed.next_secret = MAP_END_TO_TITLE;
+		// episodes
+		map_episode_count = 3;
+		map_episode_def[0].map_lump = wad_check_lump("E1M1");
+		map_episode_def[0].title_lump = wad_check_lump((void*)0x000122B2 + doom_data_segment);
+		map_episode_def[1].map_lump = wad_check_lump("E2M1");
+		map_episode_def[1].title_lump = wad_check_lump((void*)0x000122C3 + doom_data_segment);
+		map_episode_def[2].map_lump = wad_check_lump("E3M1");
+		map_episode_def[2].title_lump = wad_check_lump((void*)0x000122D4 + doom_data_segment);
 	}
 
 	// count clusters, add map names
@@ -1264,7 +1316,7 @@ void init_map()
 	memset(map_cluster, 0, max_cluster * sizeof(map_cluster_t));
 
 	// prepare default clusters
-	for(uint32_t i = 0; i < max_cluster; i++)
+	for(uint32_t i = 0; i < num_clusters; i++)
 	{
 		map_cluster_t *clst = map_cluster + i;
 		const def_cluster_t *defc = def_clusters + i;
@@ -1312,6 +1364,11 @@ void init_map()
 			info->name = dec_reloc_es(target, info->name);
 		}
 	}
+
+	// prepare episode menu
+	if(!map_episode_count)
+		I_Error("[MAPINFO] No episodes defined!");
+	menu_setup_episodes();
 }
 
 //
@@ -1331,11 +1388,18 @@ static void do_new_game()
 	*nomonsters = 0;
 	*consoleplayer = 0;
 
-	playeringame[0] = 1;
-	for(uint32_t i = 1; i < MAXPLAYERS; i++)
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		players[i].playerstate = PST_REBORN;
 		playeringame[i] = 0;
+	}
+	playeringame[0] = 1;
 
-	map_setup_old(*d_skill, *d_episode, *d_map);
+	*gameskill = *d_skill;
+	*gameepisode = 1;
+	*wipegamestate = -1;
+
+	map_load_setup();
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1345,7 +1409,25 @@ static void do_autostart_game()
 	uint32_t *startepisode = (void*)0x0002A3A4 + doom_data_segment;
 	uint32_t *startmap = (void*)0x0002A39C + doom_data_segment;
 
-	map_setup_old(*startskill, *startepisode, *startmap);
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		players[i].playerstate = PST_REBORN;
+
+	if(*startepisode)
+	{
+		if(*startmap > 9)
+			*startmap = 1;
+		doom_sprintf(map_lump.name, "E%uM%u", *startepisode, *startmap);
+	} else
+	{
+		if(*startmap > 99)
+			*startmap = 1;
+		doom_sprintf(map_lump.name, "MAP%02u", *startmap);
+	}
+
+	*gameepisode = 1;
+	*wipegamestate = -1;
+
+	map_load_setup();
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1410,14 +1492,14 @@ static void set_world_done()
 			case MAP_END_BUNNY_SCROLL:
 			{
 				uint8_t text[12];
-				intermission_mode = 0;
+				fake_game_mode = 0;
 				*gameepisode = 3;
 				doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[30].name);
 				music_lump = W_CheckNumForName(text);
 			}
 			break;
 			case MAP_END_DOOM_CAST:
-				intermission_mode = 1;
+				fake_game_mode = 1;
 				*gamemap = 30;
 				if(!*finaletext)
 				{
@@ -1429,7 +1511,7 @@ static void set_world_done()
 			case MAP_END_CUSTOM_PIC_S:
 			{
 				int32_t lump;
-				intermission_mode = 0;
+				fake_game_mode = 0;
 				*gameepisode = 1;
 				lump = map_level_info->win_lump[next == MAP_END_CUSTOM_PIC_S];
 				if(lump < 0)
@@ -1438,7 +1520,7 @@ static void set_world_done()
 			}
 			break;
 			default:
-				intermission_mode = 1;
+				fake_game_mode = 1;
 				*gamemap = 1;
 			break;
 		}
@@ -1501,11 +1583,11 @@ static void do_completed()
 
 	if(map_next_info && map_next_info->levelhack && map_next_info->levelhack < 0x80)
 	{
-		intermission_mode = 0;
+		fake_game_mode = 0;
 		wminfo->next = (map_next_info->levelhack & 15) - 1;
 	} else
 	{
-		intermission_mode = 1;
+		fake_game_mode = 1;
 		if(!map_next_info)
 			// use of 30 disables 'entering' text
 			wminfo->next = 30;
@@ -1537,6 +1619,12 @@ static void do_world_done()
 	*gameaction = ga_nothing;
 	map_lump.wame = (*lumpinfo)[map_next_info->lump].wame;
 	map_load_setup();
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void music_intermission()
+{
+	start_music(map_level_info->music_inter, 1);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1681,6 +1769,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace call to 'G_DoWorldDone' in 'G_Ticker'
 	{0x00020547, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)do_world_done},
 	{0x0002054C, CODE_HOOK | HOOK_UINT16, 0x1BEB},
+	// replace call to 'S_ChangeMusic' in 'WI_Ticker'
+	{0x0003DBFA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)music_intermission},
 	// disable music setup in 'S_Start'
 	{0x0003F642, CODE_HOOK | HOOK_UINT16, 0x3EEB},
 	// use 'map_level_info->name' in 'HU_Start'
@@ -1697,18 +1787,23 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace 'WI_drawEL'
 	{0x0003C3F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)draw_entering},
 	// replace 'commercial' check in intermission code
-	{0x0003C568, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0003C60E, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0003C727, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0003CA80, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0003CAF0, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0003CE22, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0003D4CA, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0003D911, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0003DCCB, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0003C568, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003C60E, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003C727, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003CA80, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003CAF0, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003CE22, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003D4CA, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003D911, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003DCCB, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003DD1B, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	// replace 'commercial' check in finale code
-	{0x0001C4A8, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
-	{0x0001C51C, CODE_HOOK | HOOK_UINT32, (uint32_t)&intermission_mode},
+	{0x0001C4A8, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0001C51C, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	// replace 'commercial' check in 'A_BossDeath'
+	{0x000288FA, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	// replace 'commercial' check in 'R_FillBackScreen'
+	{0x00034ED2, CODE_HOOK | HOOK_UINT32, (uint32_t)&demo_map_mode},
 	// replace EP1 end pic in 'F_Drawer'
 	{0x0001CFD8, CODE_HOOK | HOOK_UINT8, 0xA1},
 	{0x0001CFD9, CODE_HOOK | HOOK_UINT32, (uint32_t)&victory_patch},
@@ -1754,8 +1849,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00012C5C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&automapactive},
 	{0x00012CA8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&am_lastlevel},
 	{0x0002B2EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_skill},
-	{0x0002B2F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_map},
-	{0x0002B2F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_episode},
 	// more variables
 	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
 	{0x0002B994, DATA_HOOK | HOOK_IMPORT, (uint32_t)&crushchange},

@@ -47,6 +47,21 @@ static fixed_t mlook_pitch;
 
 uint8_t r_palette[768];
 
+// mouselook scale
+static const uint16_t look_scale_table[] =
+{
+	1370,
+	1030,
+	820,
+	685,
+	585,
+	515,
+	455,
+};
+
+// basic colors
+uint8_t r_color_black;
+
 //
 // API
 
@@ -98,6 +113,7 @@ void r_init_palette(uint8_t *palette)
 
 void init_render()
 {
+	r_color_black = r_find_color(0, 0, 0);
 }
 
 //
@@ -107,11 +123,17 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void custom_SetupFrame(player_t *pl)
 {
 	fixed_t pn;
+	int32_t div;
+
+	if(*screenblocks < 10)
+		div = look_scale_table[*screenblocks - 3];
+	else
+		div = 410;
 
 	if(extra_config.mouse_look > 1)
 		pn = 0;
 	else
-		pn = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT] / 410; // TODO: depends on view height
+		pn = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT] / div;
 
 	if(mlook_pitch != pn)
 	{

@@ -1056,6 +1056,7 @@ int32_t P_Random() __attribute((regparm(2),no_caller_saved_registers));
 void ST_Init() __attribute((regparm(2),no_caller_saved_registers));
 void ST_Start() __attribute((regparm(2),no_caller_saved_registers));
 void ST_Drawer(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void ST_doPaletteStuff() __attribute((regparm(2),no_caller_saved_registers));
 
 // hu_stuff
 void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
@@ -1157,6 +1158,7 @@ void S_ChangeMusic(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_re
 // v_video
 void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));
 void V_DrawPatch(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));
+void V_MarkRect(int32_t,int32_t,int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
 void V_CopyRect(int32_t,int32_t,int32_t,int32_t,int32_t,int32_t,int32_t,int32_t); // this one is nasty
 
 // w_wad

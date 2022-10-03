@@ -1999,7 +1999,12 @@ void do_load()
 	*netgame = 0; // TODO: net saves?
 	*netdemo = 0;
 
-	map_load_setup();
+	if(map_load_setup())
+	{
+		map_skip_stuff = 0;
+		reader_close();
+		return;
+	}
 
 	*leveltime = info.leveltime;
 	*totalkills = info.kills;

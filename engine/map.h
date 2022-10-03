@@ -1,12 +1,16 @@
 // kgsws' ACE Engine
 ////
 
+#define MAX_EPISODES	5
+
 #define MAP_END_UNDEFINED	0xFFFA // must be first
 #define MAP_END_TO_TITLE	0xFFFB // must be second
 #define MAP_END_BUNNY_SCROLL	0xFFFC
 #define MAP_END_DOOM_CAST	0xFFFD
 #define MAP_END_CUSTOM_PIC_N	0xFFFE
 #define MAP_END_CUSTOM_PIC_S	0xFFFF
+
+#define EPI_FLAG_NO_SKILL_MENU	1
 
 #define MAP_FLAG_NO_INTERMISSION	0x0001
 #define MAP_FLAG_FALLING_DAMAGE	0x0002
@@ -187,6 +191,13 @@ typedef struct
 
 //
 
+typedef struct map_episode_s
+{
+	int32_t map_lump;
+	int32_t title_lump;
+	uint32_t flags;
+} map_episode_t;
+
 typedef struct
 {
 	uint8_t *text_enter;
@@ -205,7 +216,8 @@ typedef struct
 	uint16_t next_secret;
 	int32_t title_lump;
 	int32_t win_lump[2];
-	int32_t music_lump;
+	int32_t music_level;
+	int32_t music_inter;
 	uint16_t texture_sky[2];
 	uint16_t par_time;
 	uint16_t flags;
@@ -281,13 +293,16 @@ extern uint_fast8_t is_title_map;
 extern uint32_t num_clusters;
 extern map_cluster_t *map_cluster;
 
+extern uint32_t map_episode_count;
+extern map_episode_t map_episode_def[MAX_EPISODES];
+
 //
 
 void init_map();
 
 void map_start_title();
 
-void map_load_setup() __attribute((regparm(2),no_caller_saved_registers));
+uint32_t map_load_setup() __attribute((regparm(2),no_caller_saved_registers));
 void map_setup_old(uint32_t skill, uint32_t episode, uint32_t level);
 
 // thinker

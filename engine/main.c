@@ -13,6 +13,7 @@
 #include "menu.h"
 #include "stbar.h"
 #include "config.h"
+#include "demo.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
@@ -234,13 +235,6 @@ uint32_t ace_main()
 	// install hooks
 	utils_init();
 
-	// disable shareware
-	if(*gamemode_sw)
-	{
-		*gamemode_sw = 0;
-		*gamemode_reg = 1;
-	}
-
 	// WAD file
 	// - check if ACE is IWAD of PWAD
 	if(ace_wad_type == 0x44415749)
@@ -350,6 +344,12 @@ uint32_t ace_main()
 
 	// restore 'I_Error' modification
 	utils_install_hooks(restore_loader + 0, 1);
+
+	// disable shareware
+	demo_map_mode = *gamemode;
+	*gamemode = 1;
+	*gamemode_sw = 0;
+	*gamemode_reg = 0;
 
 	// continue running Doom
 }

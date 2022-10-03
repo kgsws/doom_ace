@@ -9,6 +9,8 @@
 #include "controls.h"
 #include "player.h"
 #include "render.h"
+#include "map.h"
+#include "wadfile.h"
 #include "menu.h"
 
 #define CONTROL_Y_BASE	(40 + LINEHEIGHT_SMALL * 3)
@@ -35,6 +37,11 @@ static int16_t control_pos;
 
 static const uint8_t *const off_on[] = {"OFF", "ON", "FAKE"}; // fake is used in mouse look
 static const uint8_t *const weapon_mode[] = {"ORIGINAL", "CENTER", "BOUNCY"};
+
+// episodes
+static menu_t *NewDef;
+static menu_t *EpiDef;
+static menuitem_t episode_items[MAX_EPISODES];
 
 // OPTIONS
 
@@ -685,6 +692,36 @@ void menu_items_draw(menu_t *menu)
 }
 
 //
+// new game menu
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void sel_episode(uint32_t sel)
+{
+	if(map_episode_def[sel].map_lump < 0)
+		map_lump.wame = 0xFF; // invalid name
+	else
+		strcpy(map_lump.name, (*lumpinfo)[map_episode_def[sel].map_lump].name);
+
+	if(map_episode_def[sel].flags & EPI_FLAG_NO_SKILL_MENU)
+	{
+		G_DeferedInitNew(sk_medium, 0, 0);
+		M_ClearMenus();
+		return;
+	}
+
+	M_SetupNextMenu(NewDef);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void sel_new_game()
+{
+	if(map_episode_count > 1)
+		M_SetupNextMenu(EpiDef);
+	else
+		sel_episode(0);
+}
+
+//
 // API
 
 void init_menu()
@@ -735,6 +772,24 @@ void menu_draw_slot_bg(uint32_t x, uint32_t y, uint32_t width)
 	V_DrawPatchDirect(last, y, 0, W_CacheLumpName((uint8_t*)0x00022478 + doom_data_segment, PU_CACHE));
 }
 
+void menu_setup_episodes()
+{
+	EpiDef->numitems = map_episode_count;
+	EpiDef->menuitems = episode_items;
+
+	for(uint32_t i = 0; i < map_episode_count; i++)
+	{
+		menuitem_t *mi = episode_items + i;
+		map_episode_t *epi = map_episode_def + i;
+		mi->status = 1;
+		mi->func = sel_episode;
+		if(epi->title_lump < 0)
+			strcpy(mi->name, (void*)0x0002265C + doom_data_segment); // M_EPISOD
+		else
+			strcpy(mi->name, (*lumpinfo)[epi->title_lump].name);
+	}
+}
+
 //
 // hooks
 
@@ -747,6 +802,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace 'options'
 	{0x000229B2, CODE_HOOK | HOOK_UINT32, (uint32_t)&options_menu},
 	{0x000229B8, CODE_HOOK | HOOK_UINT32, (uint32_t)&options_menu + offsetof(menu_t, last)},
+	// replace menu setup in 'M_NewGame'
+	{0x0002272D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sel_new_game},
+	{0x00022732, CODE_HOOK | HOOK_UINT16, 0x2CEB},
 	// import variables
 	{0x0002B6D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&menu_item_now},
 	{0x0002B67C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&currentMenu},
@@ -760,5 +818,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000229D0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&display_items[0].func},
 	{0x00022D00, CODE_HOOK | HOOK_IMPORT, (uint32_t)&display_items[1].func},
 	{0x00022C60, CODE_HOOK | HOOK_IMPORT, (uint32_t)&mouse_items[0].func},
+	// import menus
+	{0x000122E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&EpiDef},
+	{0x00012350, DATA_HOOK | HOOK_IMPORT, (uint32_t)&NewDef},
 };
 

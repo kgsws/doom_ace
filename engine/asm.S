@@ -355,6 +355,12 @@ ST_Init:
 ST_Start:
 	.byte	0xE9
 	.4byte	0x0003AF20
+////////////////////////////////// ST_doPaletteStuff
+.section .text.ST_doPaletteStuff
+.global ST_doPaletteStuff
+ST_doPaletteStuff:
+	.byte	0xE9
+	.4byte	0x0003A410
 ////////////////////////////////// ST_Drawer
 .section .text.ST_Drawer
 .global ST_Drawer
@@ -909,6 +915,19 @@ P_SpawnMobj:
 	mov	16(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x00031540
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// V_MarkRect
+.section .text.V_MarkRect
+.global V_MarkRect
+V_MarkRect:
+	push	%ebx
+	push	%ecx
+	mov	12(%esp),%ebx
+	mov	16(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x00038EE0
 	pop	%ecx
 	pop	%ebx
 	ret

@@ -22,3 +22,5 @@ void stbar_draw(player_t *pl);
 
 void stbar_set_xhair();
 
+void stbar_setup_empty();
+

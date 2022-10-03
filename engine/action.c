@@ -1148,7 +1148,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
-// A_FireBullets
+//  
 
 static const args_BulletAttack_t def_FireBullets =
 {
@@ -1221,6 +1221,9 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		else
 			spread = pl->refire;
 	}
+
+	if(!(arg->flags & FBF_NOFLASH))
+		A_GunFlash(mo, NULL, NULL);
 
 	damage = arg->damage;
 

@@ -116,6 +116,7 @@ static uint32_t *finalestage;
 
 map_lump_name_t map_lump;
 int32_t map_lump_idx;
+uint_fast8_t map_format;
 map_level_t *map_level_info;
 map_level_t *map_next_info;
 
@@ -140,11 +141,29 @@ static patch_t *victory_patch;
 uint32_t map_episode_count;
 map_episode_t map_episode_def[MAX_EPISODES];
 
+static map_thinghex_t *map_thing_spawn;
+
 //
 static uint8_t **mapnames;
 static uint8_t **mapnames2;
 static uint32_t *pars;
 static uint32_t *cpars;
+
+// map check
+static uint64_t map_wame_check[] =
+{
+	0x000053474E494854, // THINGS
+	0x53464544454E494C, // LINEDEFS
+	0x5346454445444953, // SIDEDEFS
+	0x5345584554524556, // VERTEXES
+	0x0000000053474553, // SEGS
+	0x53524F5443455353, // SSECTORS
+	0x0000005345444F4E, // NODES
+	0x0053524F54434553, // SECTORS
+	0x00005443454A4552, // REJECT
+	0x50414D4B434F4C42, // BLOCKMAP
+	0x524F495641484542, // BEHAVIOR (optional)
+};
 
 // unnamed map
 static map_level_t map_info_unnamed =
@@ -219,6 +238,10 @@ static const map_attr_t epi_attr[] =
 static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
 
 //
+static const hook_t hook_reject_en[];
+static const hook_t hook_reject_di[];
+static const hook_t patch_doom[];
+static const hook_t patch_hexen[];
 static const hook_t patch_new[];
 static const hook_t patch_old[];
 
@@ -295,6 +318,28 @@ static map_cluster_t *map_find_cluster(uint32_t num)
 //
 // map loading
 
+static inline uint32_t check_map(int32_t lump)
+{
+	if(lump < 0)
+		return 0;
+
+	for(uint32_t i = ML_THINGS; i < ML_BEHAVIOR; i++)
+	{
+		lump++;
+		if(lump >= lumpcount)
+			return 0;
+		if((*lumpinfo)[lump].wame != map_wame_check[i-1])
+			return 0;
+	}
+
+	lump++;
+
+	if(lump < lumpcount && (*lumpinfo)[lump].wame == map_wame_check[ML_BEHAVIOR-1])
+		return MAP_FORMAT_HEXEN;
+
+	return MAP_FORMAT_DOOM;
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t map_load_setup()
 {
@@ -331,10 +376,10 @@ uint32_t map_load_setup()
 
 	// find map lump
 	map_lump_idx = W_CheckNumForName(map_lump.name);
-
-	if(map_lump_idx < 0)
+	map_format = check_map(map_lump_idx);
+	if(!map_format)
 		goto map_load_error;
-	// TODO: check map validity
+	doom_printf("[MAP] %s map format\n", map_format == MAP_FORMAT_DOOM ? "Doom" : "Hexen");
 
 	// setup level info
 	map_level_info = map_get_info(map_lump_idx);
@@ -370,7 +415,7 @@ uint32_t map_load_setup()
 	mobj_for_each(cb_free_inventory);
 
 	// reset netID
-	mobj_netid = 1; // 0 is NULL, so start with 1
+	mobj_netid = 0;
 
 	think_clear();
 
@@ -380,6 +425,17 @@ uint32_t map_load_setup()
 	else
 		utils_install_hooks(patch_new, 0);
 
+	if(map_format == MAP_FORMAT_DOOM)
+		utils_install_hooks(patch_doom, 0);
+	else
+		utils_install_hooks(patch_hexen, 0);
+
+	if(W_LumpLength(map_lump_idx + ML_REJECT))
+		utils_install_hooks(hook_reject_en, 1);
+	else
+		utils_install_hooks(hook_reject_di, 1);
+
+	// load the level
 	P_SetupLevel();
 
 	// reset some stuff
@@ -397,8 +453,12 @@ uint32_t map_load_setup()
 	// specials
 	if(!map_skip_stuff)
 	{
-		P_SpawnSpecials();
-		spawn_line_scroll();
+		if(map_format == MAP_FORMAT_DOOM)
+		{
+			P_SpawnSpecials();
+			spawn_line_scroll();
+		}
+		// TODO: spawn ZDoom specials
 	}
 
 	// in the level
@@ -425,30 +485,54 @@ map_load_error:
 // hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
-static void spawn_map_thing(mapthing_t *mt)
+static void spawn_map_thing(mapthing_t *old_mt)
 {
+	map_thinghex_t mt;
 	uint32_t idx;
 	mobj_t *mo;
 	mobjinfo_t *info;
 	fixed_t x, y, z;
+	angle_t angle;
+
+	if(old_mt)
+	{
+		// convert old type to new
+		mt.x = old_mt->x;
+		mt.y = old_mt->y;
+		mt.angle = old_mt->angle;
+		mt.type = old_mt->type;
+		mt.flags = old_mt->options & 15;
+	} else
+		// use stored type
+		mt = *map_thing_spawn;
 
 	// deathmatch starts
-	if(mt->type == 11)
+	if(mt.type == 11)
 	{
 		if(*deathmatch_p < deathmatchstarts + 10)
 		{
-			**deathmatch_p = *mt;
+			mapthing_t *dt = *deathmatch_p;
+			dt->x = mt.x;
+			dt->y = mt.x;
+			dt->angle = mt.angle;
 			*deathmatch_p = *deathmatch_p + 1;
 		}
 		return;
 	}
 
+	angle = ANG45 * (mt.angle / 45);
+
 	// player starts
-	if(mt->type && mt->type <= 4)
+	if(mt.type && mt.type <= 4)
 	{
-		playerstarts[mt->type - 1] = *mt;
+		uint32_t idx = mt.type - 1;
+		playerstarts[idx].x = mt.x;
+		playerstarts[idx].y = mt.y;
+		playerstarts[idx].angle = mt.angle;
+		playerstarts[idx].type = mt.type;
+		playerstarts[idx].options = mt.arg[0];
 		if(!*deathmatch && !map_skip_stuff)
-			spawn_player(mt);
+			mobj_spawn_player(idx, mt.x * FRACUNIT, mt.y * FRACUNIT, angle);
 		return;
 	}
 
@@ -456,11 +540,11 @@ static void spawn_map_thing(mapthing_t *mt)
 		return;
 
 	// check network game
-	if(!*netgame && mt->options & 16)
+	if(old_mt && !*netgame && old_mt->options & 16)
 		return;
 
 	// check skill level
-	if(!(mt->options & skillbits[*gameskill]))
+	if(!(mt.flags & skillbits[*gameskill]))
 		return;
 
 	// backward search for type
@@ -468,7 +552,7 @@ static void spawn_map_thing(mapthing_t *mt)
 	do
 	{
 		idx--;
-		if(mobjinfo[idx].doomednum == mt->type)
+		if(mobjinfo[idx].doomednum == mt.type)
 			break;
 	} while(idx);
 	if(!idx)
@@ -484,20 +568,27 @@ static void spawn_map_thing(mapthing_t *mt)
 		return;
 
 	// position
-	x = (fixed_t)mt->x << FRACBITS;
-	y = (fixed_t)mt->y << FRACBITS;
+	x = (fixed_t)mt.x << FRACBITS;
+	y = (fixed_t)mt.y << FRACBITS;
 	z = info->flags & MF_SPAWNCEILING ? 0x7FFFFFFF : 0x80000000;
 
 	// spawn
 	mo = P_SpawnMobj(x, y, z, idx);
-	mo->spawnpoint = *mt;
-	mo->angle = ANG45 * (mt->angle / 45);
+	mo->spawnpoint.x = mt.x;
+	mo->spawnpoint.y = mt.y;
+	mo->angle = angle;
+
+	if(mt.flags & MTF_AMBUSH)
+		mo->flags |= MF_AMBUSH;
+
+	if(mt.flags & MTF_INACTIVE)
+	{
+		mo->flags1 |= MF1_DORMANT;
+		mo->tics = -1;
+	}
 
 	if(!(mo->flags1 & MF1_SYNCHRONIZED) && mo->tics > 0)
 		mo->tics = 1 + (P_Random() % mo->tics);
-
-	if(mt->options & 8)
-		mo->flags |= MF_AMBUSH;
 
 	if(mo->flags & MF_COUNTKILL)
 		*totalkills = *totalkills + 1;
@@ -1213,6 +1304,112 @@ static void cb_mapinfo(lumpinfo_t *li)
 }
 
 //
+// Hexen map format
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void map_LoadLineDefs(int lump)
+{
+	int nl;
+	line_t *ln;
+	map_linehex_t *ml;
+	void *buff;
+
+	nl = (*lumpinfo)[lump].size / sizeof(map_linehex_t);
+	ln = Z_Malloc(nl * sizeof(line_t), PU_LEVEL, NULL);
+	buff = W_CacheLumpNum(lump, PU_CACHE);
+	ml = buff;
+
+	*numlines = nl;
+	*lines = ln;
+
+	for(uint32_t i = 0; i < nl; i++, ln++, ml++)
+	{
+		vertex_t *v1 = *vertexes + ml->v1;
+		vertex_t *v2 = *vertexes + ml->v2;
+
+		ln->v1 = v1;
+		ln->v2 = v2;
+		ln->dx = v2->x - v1->x;
+		ln->dy = v2->y - v1->y;
+		ln->flags = ml->flags;
+		ln->special = ml->special;
+		ln->arg0 = ml->arg[0];
+		ln->arg1 = ml->arg[1];
+		ln->arg2 = ml->arg[2];
+		ln->arg3 = ml->arg[3];
+		ln->arg4 = ml->arg[4];
+		ln->sidenum[0] = ml->sidenum[0];
+		ln->sidenum[1] = ml->sidenum[1];
+		ln->validcount = 0;
+
+		if(v1->x < v2->x)
+		{
+			ln->bbox[BOXLEFT] = v1->x;
+			ln->bbox[BOXRIGHT] = v2->x;
+		} else
+		{
+			ln->bbox[BOXLEFT] = v2->x;
+			ln->bbox[BOXRIGHT] = v1->x;
+		}
+		if(v1->y < v2->y)
+		{
+			ln->bbox[BOXBOTTOM] = v1->y;
+			ln->bbox[BOXTOP] = v2->y;
+		} else
+		{
+			ln->bbox[BOXBOTTOM] = v2->y;
+			ln->bbox[BOXTOP] = v1->y;
+		}
+
+		if(!ln->dx)
+			ln->slopetype = ST_VERTICAL;
+		else
+		if(!ln->dy)
+			ln->slopetype = ST_HORIZONTAL;
+		else
+		{
+			if(FixedDiv(ln->dy, ln->dx) > 0)
+				ln->slopetype = ST_POSITIVE;
+			else
+				ln->slopetype = ST_NEGATIVE;
+		}
+
+		if(ln->sidenum[0] != 0xFFFF)
+			ln->frontsector = (*sides)[ln->sidenum[0]].sector;
+		else
+			ln->frontsector = NULL;
+
+		if(ln->sidenum[1] != 0xFFFF)
+			ln->backsector = (*sides)[ln->sidenum[1]].sector;
+		else
+			ln->backsector = NULL;
+	}
+
+	Z_Free(buff);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void map_LoadThings(int lump)
+{
+	map_thinghex_t *mt;
+	void *buff;
+	uint32_t count, idx;
+	uint16_t cflags = MTF_CLASS0 | MTF_CLASS1 | MTF_CLASS2;
+
+	buff = W_CacheLumpNum(lump, 1);
+	count = (*lumpinfo)[lump].size / sizeof(map_thinghex_t);
+	mt = buff;
+
+	for(uint32_t i = 0; i < count; i++, mt++)
+	{
+		map_thing_spawn = mt;
+		spawn_map_thing(NULL);
+	}
+
+	Z_Free(buff);
+}
+
+//
 // API
 
 void init_map()
@@ -1666,6 +1863,36 @@ static void draw_entering()
 
 //
 // hooks
+
+static const hook_t hook_reject_en[] =
+{
+	// enable rejectmatrix
+	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x508B},
+};
+
+static const hook_t hook_reject_di[] =
+{
+	// disable rejectmatrix
+	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x73EB},
+};
+
+static const hook_t patch_doom[] =
+{
+	// restore call to map format specific lump loading
+	{0x0002E8F2, CODE_HOOK | HOOK_CALL_DOOM, 0x0002E220},
+	{0x0002E93A, CODE_HOOK | HOOK_CALL_DOOM, 0x0002E180},
+	// terminator
+	{0}
+};
+
+static const hook_t patch_hexen[] =
+{
+	// replace call to map format specific lump loading
+	{0x0002E8F2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadLineDefs},
+	{0x0002E93A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadThings},
+	// terminator
+	{0}
+};
 
 static const hook_t patch_new[] =
 {

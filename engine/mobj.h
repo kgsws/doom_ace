@@ -27,7 +27,7 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state) __attribute((regparm(2),no_c
 void mobj_remove(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
 
 // spawns
-void spawn_player(mapthing_t *mt) __attribute((regparm(2),no_caller_saved_registers));
+mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle);
 void mobj_spawn_puff(divline_t *trace, mobj_t *target);
 void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage);
 

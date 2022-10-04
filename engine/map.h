@@ -3,6 +3,25 @@
 
 #define MAX_EPISODES	5
 
+#define MAP_FORMAT_DOOM	1
+#define MAP_FORMAT_HEXEN	2
+
+#define MTF_EASY	0x0001
+#define MTF_MEDIUM	0x0002
+#define MTF_HARD	0x0004
+#define MTF_AMBUSH	0x0008
+#define MTF_INACTIVE	0x0010
+#define MTF_CLASS0	0x0020
+#define MTF_CLASS1	0x0040
+#define MTF_CLASS2	0x0080
+#define MTF_SINGLE	0x0100
+#define MTF_COOPERATIVE	0x0200
+#define MTF_DEATHMATCH	0x0400
+#define MTF_SHADOW	0x0800
+#define MTF_ALTSHADOW	0x1000
+#define MTF_FRIENDLY	0x2000
+#define MTF_STANDSTILL	0x4000
+
 #define MAP_END_UNDEFINED	0xFFFA // must be first
 #define MAP_END_TO_TITLE	0xFFFB // must be second
 #define MAP_END_BUNNY_SCROLL	0xFFFC
@@ -172,6 +191,27 @@ typedef struct
 	uint16_t sidenum[2];
 } __attribute__((packed)) map_linedef_t;
 
+typedef struct
+{
+	uint16_t tid;
+	int16_t x, y, z;
+	int16_t angle;
+	uint16_t type;
+	uint16_t flags;
+	uint8_t special;
+	uint8_t arg[5];
+} __attribute__((packed)) map_thinghex_t;
+
+typedef struct
+{
+	uint16_t v1;
+	uint16_t v2;
+	uint16_t flags;
+	uint8_t special;
+	uint8_t arg[5];
+	uint16_t sidenum[2];
+} __attribute__((packed)) map_linehex_t;
+
 //
 
 typedef union
@@ -285,6 +325,7 @@ extern fixed_t *bmaporgy;
 
 extern map_lump_name_t map_lump;
 extern int32_t map_lump_idx;
+extern uint_fast8_t map_format;
 extern map_level_t *map_level_info;
 
 extern uint_fast8_t map_skip_stuff;

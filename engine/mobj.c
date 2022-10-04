@@ -572,24 +572,22 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 }
 
 //
-// hooks
+// player spawn
 
-__attribute((regparm(2),no_caller_saved_registers))
-void spawn_player(mapthing_t *mt)
+mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 {
 	player_t *pl;
-	int32_t idx = mt->type - 1;
 	mobj_t *mo;
 	mobjinfo_t *info;
 
 	if(!playeringame[idx])
-		return;
+		return NULL;
 
 	pl = players + idx;
 	info = mobjinfo + player_class[0]; // TODO
 
 	// create body
-	mo = P_SpawnMobj((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS, 0x80000000, player_class[0]);
+	mo = P_SpawnMobj(x, y, 0x80000000, player_class[0]);
 
 	// check for reset
 	if(pl->playerstate == PST_REBORN || map_level_info->flags & MAP_FLAG_RESET_INVENTORY)
@@ -661,7 +659,7 @@ void spawn_player(mapthing_t *mt)
 	// TODO: translation not in flags
 	mo->flags |= idx << 26;
 
-	mo->angle = ANG45 * (mt->angle / 45);
+	mo->angle = angle;
 	mo->player = pl;
 	mo->health = pl->health;
 
@@ -689,7 +687,12 @@ void spawn_player(mapthing_t *mt)
 		HU_Start();
 		player_viewheight(pl->viewheight);
 	}
+
+	return mo;
 }
+
+//
+// hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
@@ -718,9 +721,10 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	memset(mo, 0, sizeof(mobj_t));
 
 	// fill in new stuff
+	mobj_netid++;
 	mo->type = type;
 	mo->flags1 = info->flags1;
-	mo->netid = mobj_netid++;
+	mo->netid = mobj_netid;
 
 	// vertical speed
 	mo->momz = info->vspeed;
@@ -1790,8 +1794,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// import variables
 	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
 	{0x0002B3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&respawnmonsters},
-	// replace 'P_SpawnPlayer'
-	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},
 	// replace call to 'memset' in 'P_SpawnMobj'
 	{0x00031569, CODE_HOOK | HOOK_UINT16, 0xEA89},
 	{0x00031571, CODE_HOOK | HOOK_UINT32, 0x90C38900},

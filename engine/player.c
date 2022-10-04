@@ -342,7 +342,11 @@ void player_think(player_t *pl)
 	P_CalcHeight(pl);
 
 	if(pl->mo->subsector->sector->special)
-		P_PlayerInSpecialSector(pl);
+	{
+		if(map_format == MAP_FORMAT_DOOM)
+			P_PlayerInSpecialSector(pl);
+		// TODO: ZDoom specials
+	}
 
 	if(pl->inv_tick)
 		pl->inv_tick--;
@@ -578,6 +582,12 @@ void player_viewheight(fixed_t wh)
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t spawn_player(mapthing_t *mt)
+{
+	mobj_spawn_player(mt->type - 1, mt->x * FRACUNIT, mt->y * FRACUNIT, ANG45 * (mt->angle / 45));
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t respawn_check()
 {
 	if(*netgame)
@@ -592,6 +602,8 @@ uint32_t respawn_check()
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// replace 'P_SpawnPlayer'
+	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},
 	// replace call to 'P_PlayerThink' in 'P_Ticker'
 	{0x00032FBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_think},
 	// replace netgame check in 'G_DoReborn'

@@ -123,6 +123,7 @@ typedef uint32_t angle_t;
 #define ML_SECTORS	8
 #define ML_REJECT	9
 #define ML_BLOCKMAP	10
+#define ML_BEHAVIOR	11
 
 #define ML_BLOCKING	1
 #define ML_BLOCKMONSTERS	2
@@ -664,19 +665,27 @@ typedef struct
 } __attribute__((packed)) sector_t;
 
 typedef struct line_s
-{
+{ // this structure has been changed
 	vertex_t *v1, *v2;
 	fixed_t dx, dy;
 	uint16_t flags;
 	uint16_t special;
-	uint16_t tag;
+	union
+	{
+		uint16_t tag;
+		struct
+		{
+			uint8_t id;
+			uint8_t arg0;
+		};
+	};
 	uint16_t sidenum[2];
 	fixed_t bbox[4];
 	uint32_t slopetype;
 	sector_t *frontsector;
 	sector_t *backsector;
 	uint32_t validcount;
-	void *specialdata;
+	uint8_t arg1, arg2, arg3, arg4;
 } __attribute__((packed)) line_t;
 
 typedef struct

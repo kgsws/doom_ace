@@ -1,6 +1,7 @@
 // kgsws' ACE Engine
 ////
 
+extern mobj_t **shootthing;
 extern fixed_t *attackrange;
 
 //

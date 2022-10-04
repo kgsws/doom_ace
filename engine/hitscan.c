@@ -26,10 +26,10 @@ static line_t **bestslideline;
 static mobj_t **slidemo;
 
 static fixed_t *shootz;
-static mobj_t **shootthing;
 static fixed_t *aimslope;
 static uint32_t *la_damage;
 
+mobj_t **shootthing;
 fixed_t *attackrange;
 
 static uint32_t thing_slide_slope;
@@ -506,6 +506,12 @@ hitline:
 		if(!(th->flags & MF_SHOOTABLE))
 			return 1;
 
+		if(th->flags1 & MF1_SPECTRAL && !(mobjinfo[mo_puff_type].flags1 & MF1_SPECTRAL))
+			return 1;
+
+		if(th->flags1 & MF1_GHOST && mobjinfo[mo_puff_type].flags1 & MF1_THRUGHOST)
+			return 1;
+
 		dist = FixedMul(*attackrange, in->frac);
 		thingtopslope = FixedDiv(th->z + th->height - sz, dist);
 
@@ -525,7 +531,7 @@ hitline:
 		mobj_spawn_blood(trace, th, *la_damage);
 
 		if(*la_damage)
-			mobj_damage(th, *shootthing, *shootthing, *la_damage, 0);
+			mobj_damage(th, *shootthing, *shootthing, *la_damage, mobjinfo + mo_puff_type);
 
 		return 0;
 	}

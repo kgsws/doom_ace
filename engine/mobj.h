@@ -32,7 +32,7 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target);
 void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage);
 
 // internaction
-void mobj_damage(mobj_t *target, mobj_t *cause, mobj_t *source, uint32_t damage, uint32_t extra);
+void mobj_damage(mobj_t *target, mobj_t *cause, mobj_t *source, uint32_t damage, mobjinfo_t *pufftype);
 void explode_missile(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
 
 // inventory

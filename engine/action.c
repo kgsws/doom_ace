@@ -312,7 +312,7 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 //
 // player ammo
 
-uint32_t remove_ammo(mobj_t *mo)
+static uint32_t remove_ammo(mobj_t *mo)
 {
 	player_t *pl = mo->player;
 	mobjinfo_t *weap = pl->readyweapon;
@@ -341,6 +341,24 @@ uint32_t remove_ammo(mobj_t *mo)
 		inventory_take(mo, weap->weapon.ammo_type[1], weap->weapon.ammo_use[1]);
 
 	return 0;
+}
+
+//
+// extra functions
+
+static uint32_t find_puff(uint32_t type)
+{
+	// find correct replacement for this puff type
+	// this has to be done to correctly check flags1 in hitscan attack
+	mobjinfo_t *info = mobjinfo + type;
+	for(uint32_t i = 0; i < 8; i++)
+	{
+		if(!info->replacement)
+			return type;
+		type = info->replacement;
+		info = mobjinfo + type;
+	}
+	return type;
 }
 
 //
@@ -886,7 +904,6 @@ void A_FaceTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mo->flags &= ~MF_AMBUSH;
 	mo->angle = R_PointToAngle2(mo->x, mo->y, mo->target->x, mo->target->y);
 
-	// TODO: use correct flag
 	if(mo->target->flags & MF_SHADOW)
 		mo->angle += (P_Random() - P_Random()) << 21;
 }
@@ -1203,7 +1220,7 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	)
 		return;
 
-	mo_puff_type = arg->pufftype;
+	mo_puff_type = find_puff(arg->pufftype);
 	mo_puff_flags = arg->flags;
 
 	if(arg->blt_count < 0)

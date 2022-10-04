@@ -745,6 +745,10 @@ uint32_t finish_mobj(mobj_t *mo)
 	// add thinker
 	P_AddThinker(&mo->thinker);
 
+	// spawn inactive
+	if(mo->flags1 & MF1_DORMANT)
+		mo->tics = -1;
+
 	// ZDoom compatibility
 	// teleport fog starts teleport sound
 	if(mo->type == 39)
@@ -805,6 +809,12 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		uint32_t damage;
 
 		if(tmthing->target == thing)
+			return 1;
+
+		if(thing->flags1 & MF1_SPECTRAL && !(tmthing->flags1 & MF1_SPECTRAL))
+			return 1;
+
+		if(thing->flags1 & MF1_GHOST & tmthing->flags1 & MF1_THRUGHOST)
 			return 1;
 
 		if(tmthing->z > thing->z + thing->height)
@@ -1188,16 +1198,20 @@ void explode_missile(mobj_t *mo)
 	S_StartSound(mo, mo->info->deathsound);
 }
 
-void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t damage, uint32_t extra)
+void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t damage, mobjinfo_t *pufftype)
 {
 	// target = what is damaged
 	// inflictor = damage source (projectile or ...)
 	// source = what is responsible
 	player_t *player;
 	int32_t kickback;
+	uint32_t if_flags1;
 	uint_fast8_t forced;
 
 	if(!(target->flags & MF_SHOOTABLE))
+		return;
+
+	if(target->flags1 & MF1_DORMANT)
 		return;
 
 	if(target->health <= 0)
@@ -1209,6 +1223,17 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		target->momy = 0;
 		target->momz = 0;
 	}
+
+	if(pufftype)
+		if_flags1 = pufftype->flags1;
+	else
+	if(inflictor)
+		if_flags1 = inflictor->flags1;
+	else
+		if_flags1 = 0;
+
+	if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL))
+		return;
 
 	if(damage & DAMAGE_IS_CUSTOM)
 	{
@@ -1251,7 +1276,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		kickback &&
 		!(target->flags1 & MF1_DONTTHRUST) &&
 		!(target->flags & MF_NOCLIP) &&
-		!(inflictor->flags1 & MF1_NODAMAGETHRUST) // TODO: extra steps for hitscan
+		!(if_flags1 & MF1_NODAMAGETHRUST)
 	) {
 		angle_t angle;
 		int32_t thrust;
@@ -1273,7 +1298,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			thrust = (thrust * kickback) / 100;
 
 		if(	!(target->flags1 & (MF1_NOFORWARDFALL | MF1_INVULNERABLE | MF1_BUDDHA | MF1_NODAMAGE)) &&
-			!(inflictor->flags1 & MF1_NOFORWARDFALL) && // TODO: extra steps for hitscan
+			!(if_flags1 & MF1_NOFORWARDFALL) &&
 			damage < 40 &&
 			damage > target->health &&
 			target->z - inflictor->z > 64 * FRACUNIT &&
@@ -1347,14 +1372,11 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			} else
 			{
 				kill_xdeath = 0;
-				if(inflictor)
-				{
-					if(inflictor->flags1 & MF1_NOEXTREMEDEATH)
-						kill_xdeath = -1;
-					else
-					if(inflictor->flags1 & MF1_EXTREMEDEATH)
-						kill_xdeath = 1;
-				}
+				if(if_flags1 & MF1_NOEXTREMEDEATH)
+					kill_xdeath = -1;
+				else
+				if(if_flags1 & MF1_EXTREMEDEATH)
+					kill_xdeath = 1;
 				P_KillMobj(source, target);
 				return;
 			}
@@ -1688,7 +1710,11 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 {
 	mobj_t *mo;
 
-	if(target && !(target->flags & MF_NOBLOOD) && !(mobjinfo[mo_puff_type].flags1 & MF1_PUFFONACTORS))
+	if(	target &&
+		!(target->flags & MF_NOBLOOD) &&
+		!(target->flags1 & MF1_DORMANT) &&
+		!(mobjinfo[mo_puff_type].flags1 & MF1_PUFFONACTORS)
+	)
 		return;
 
 	if(!(mo_puff_flags & FBF_NORANDOMPUFFZ))
@@ -1708,6 +1734,8 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 		if(mo->tics <= 0)
 			mo->tics = 1;
 	}
+
+	mo->angle = (*shootthing)->angle + ANG180;
 }
 
 void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
@@ -1716,6 +1744,9 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
 	uint32_t state;
 
 	if(target->flags & MF_NOBLOOD)
+		return;
+
+	if(target->flags1 & MF1_DORMANT)
 		return;
 
 	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, 38);
@@ -1733,6 +1764,8 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
 		state >= mo->info->state_idx_limit - 1;
 
 	mobj_set_state(mo, state);
+
+	mo->angle = (*shootthing)->angle;
 }
 
 //

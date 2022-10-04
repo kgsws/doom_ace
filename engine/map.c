@@ -407,6 +407,7 @@ uint32_t map_load_setup()
 	return 0;
 
 map_load_error:
+	map_skip_stuff = 0;
 	if(is_title_map)
 	{
 		// actually start title
@@ -492,7 +493,7 @@ static void spawn_map_thing(mapthing_t *mt)
 	mo->spawnpoint = *mt;
 	mo->angle = ANG45 * (mt->angle / 45);
 
-	if(mo->tics > 0)
+	if(!(mo->flags1 & MF1_SYNCHRONIZED) && mo->tics > 0)
 		mo->tics = 1 + (P_Random() % mo->tics);
 
 	if(mt->options & 8)

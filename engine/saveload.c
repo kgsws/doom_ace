@@ -2001,7 +2001,6 @@ void do_load()
 
 	if(map_load_setup())
 	{
-		map_skip_stuff = 0;
 		reader_close();
 		return;
 	}

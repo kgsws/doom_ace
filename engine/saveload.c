@@ -277,7 +277,7 @@ typedef struct
 { // STH_DOOM_FLOOR
 	uint8_t type;
 	uint8_t crush;
-	uint8_t direction;
+	int8_t direction;
 	uint16_t sector;
 	uint16_t newspecial;
 	uint64_t texture;

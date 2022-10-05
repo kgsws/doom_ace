@@ -29,7 +29,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA4	// increment with updates
+#define SAVE_VERSION	0xE58BAFA5	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -66,7 +66,8 @@ enum
 {
 	SF_LINE_FLAGS,
 	SF_LINE_SPECIAL,
-	SF_LINE_TAG,
+	SF_LINE_TAG, // in Hexen: ID and ARG0
+	SF_LINE_ARGS, // only Hexen: ARG1 to ARG4
 };
 
 enum
@@ -172,6 +173,8 @@ typedef struct
 	//
 	uint32_t state;
 	int32_t tics;
+	//
+	mobj_special_t special;
 	//
 	struct
 	{
@@ -576,7 +579,7 @@ static inline void sv_put_sectors(int32_t lump)
 	map_sector_t *ms;
 	uint32_t count;
 
-	ms = W_CacheLumpNum(lump, PU_LEVEL);
+	ms = W_CacheLumpNum(lump, PU_STATIC);
 	count = W_LumpLength(lump) / sizeof(map_sector_t);
 
 	for(uint32_t i = 0; i < count; i++)
@@ -629,6 +632,8 @@ static inline void sv_put_sectors(int32_t lump)
 		}
 	}
 
+	Z_Free(ms);
+
 	// last entry
 	writer_add_u16(0);
 }
@@ -638,7 +643,7 @@ static inline void sv_put_sidedefs(int32_t lump)
 	map_sidedef_t *ms;
 	uint32_t count;
 
-	ms = W_CacheLumpNum(lump, PU_LEVEL);
+	ms = W_CacheLumpNum(lump, PU_STATIC);
 	count = W_LumpLength(lump) / sizeof(map_sidedef_t);
 
 	for(uint32_t i = 0; i < count; i++)
@@ -682,16 +687,18 @@ static inline void sv_put_sidedefs(int32_t lump)
 		}
 	}
 
+	Z_Free(ms);
+
 	// last entry
 	writer_add_u16(0);
 }
 
-static inline void sv_put_linedefs(int32_t lump)
+static inline void sv_put_linedefs_doom(int32_t lump)
 {
 	map_linedef_t *ml;
 	uint32_t count;
 
-	ml = W_CacheLumpNum(lump, PU_LEVEL);
+	ml = W_CacheLumpNum(lump, PU_STATIC);
 	count = W_LumpLength(lump) / sizeof(map_linedef_t);
 
 	for(uint32_t i = 0; i < count; i++)
@@ -714,6 +721,47 @@ static inline void sv_put_linedefs(int32_t lump)
 				writer_add_u16(line->tag);
 		}
 	}
+
+	Z_Free(ml);
+
+	// last entry
+	writer_add_u16(0);
+}
+
+static inline void sv_put_linedefs_hexen(int32_t lump)
+{
+	map_linehex_t *ml;
+	uint32_t count;
+
+	ml = W_CacheLumpNum(lump, PU_STATIC);
+	count = W_LumpLength(lump) / sizeof(map_linehex_t);
+
+	for(uint32_t i = 0; i < count; i++)
+	{
+		line_t *line = *lines + i;
+		uint32_t flags = 0;
+
+		flags |= (line->flags != ml[i].flags) << SF_LINE_FLAGS;
+		flags |= (line->special != ml[i].special) << SF_LINE_SPECIAL;
+		flags |= (!!line->id) << SF_LINE_TAG;
+		flags |= (line->arg0 != ml->arg0) << SF_LINE_TAG;
+		flags |= (line->args != ml->args) << SF_LINE_ARGS;
+
+		if(flags)
+		{
+			writer_add_u32(flags | (i << 16));
+			if(CHECK_BIT(flags, SF_LINE_FLAGS))
+				writer_add_u16(line->flags);
+			if(CHECK_BIT(flags, SF_LINE_SPECIAL))
+				writer_add_u16(line->special);
+			if(CHECK_BIT(flags, SF_LINE_TAG))
+				writer_add_u16(line->tag);
+			if(CHECK_BIT(flags, SF_LINE_ARGS))
+				writer_add_u32(line->args);
+		}
+	}
+
+	Z_Free(ml);
 
 	// last entry
 	writer_add_u16(0);
@@ -982,6 +1030,8 @@ static uint32_t svcb_thing(mobj_t *mo)
 	thing.state = sv_convert_state(mo->state, mo->info);
 	thing.tics = mo->tics;
 
+	thing.special = mo->special;
+
 	thing.spawn.x = mo->spawnpoint.x;
 	thing.spawn.y = mo->spawnpoint.y;
 	thing.spawn.angle = mo->spawnpoint.angle;
@@ -1188,7 +1238,10 @@ void do_save()
 	writer_add_u32(SAVE_VERSION);
 
 	// linedefs
-	sv_put_linedefs(map_lump_idx + ML_LINEDEFS);
+	if(map_format == MAP_FORMAT_DOOM)
+		sv_put_linedefs_doom(map_lump_idx + ML_LINEDEFS);
+	else
+		sv_put_linedefs_hexen(map_lump_idx + ML_LINEDEFS);
 	writer_add_u32(SAVE_VERSION);
 
 	// specials
@@ -1433,6 +1486,11 @@ static inline uint32_t ld_get_linedefs()
 			if(reader_get_u16(&line->tag))
 				return 1;
 		}
+		if(CHECK_BIT(flags, SF_LINE_ARGS))
+		{
+			if(reader_get_u32(&line->args))
+				return 1;
+		}
 	}
 
 	// version check
@@ -1492,7 +1550,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.line >= *numlines)
 					return 1;
 
-				now = Z_Malloc(sizeof(line_scroll_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(line_scroll_t), PU_LEVELSPEC, NULL);
 
 				now->line = *lines + sav.line;
 				now->x = sav.x;
@@ -1515,7 +1573,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.sector >= *numsectors)
 					return 1;
 
-				now = Z_Malloc(sizeof(ceiling_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(ceiling_t), PU_LEVELSPEC, NULL);
 
 				now->type = sav.type & 0x7F;
 				now->crush = sav.crush;
@@ -1548,7 +1606,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.sector >= *numsectors)
 					return 1;
 
-				now = Z_Malloc(sizeof(vldoor_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(vldoor_t), PU_LEVELSPEC, NULL);
 
 				now->type = sav.type;
 				now->direction = sav.direction;
@@ -1575,7 +1633,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.sector >= *numsectors)
 					return 1;
 
-				now = Z_Malloc(sizeof(floormove_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(floormove_t), PU_LEVELSPEC, NULL);
 
 				now->type = sav.type;
 				now->crush = sav.crush;
@@ -1603,7 +1661,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.sector >= *numsectors)
 					return 1;
 
-				now = Z_Malloc(sizeof(plat_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(plat_t), PU_LEVELSPEC, NULL);
 
 				now->type = sav.type & 0x7F;
 				now->crush = sav.crush;
@@ -1638,7 +1696,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.sector >= *numsectors)
 					return 1;
 
-				now = Z_Malloc(sizeof(lightflash_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(lightflash_t), PU_LEVELSPEC, NULL);
 
 				now->sector = *sectors + sav.sector;
 				now->maxlight = sav.maxlight;
@@ -1663,7 +1721,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.sector >= *numsectors)
 					return 1;
 
-				now = Z_Malloc(sizeof(strobe_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(strobe_t), PU_LEVELSPEC, NULL);
 
 				now->sector = *sectors + sav.sector;
 				now->minlight = sav.minlight;
@@ -1688,7 +1746,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.sector >= *numsectors)
 					return 1;
 
-				now = Z_Malloc(sizeof(glow_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(glow_t), PU_LEVELSPEC, NULL);
 
 				now->sector = *sectors + sav.sector;
 				now->minlight = sav.minlight;
@@ -1711,7 +1769,7 @@ static inline uint32_t ld_get_specials()
 				if(sav.sector >= *numsectors)
 					return 1;
 
-				now = Z_Malloc(sizeof(fireflicker_t), PU_LEVEL, NULL);
+				now = Z_Malloc(sizeof(fireflicker_t), PU_LEVELSPEC, NULL);
 
 				now->sector = *sectors + sav.sector;
 				now->maxlight = sav.maxlight;
@@ -1791,6 +1849,8 @@ static inline uint32_t ld_get_things()
 		mo->tics = thing.tics;
 		mo->sprite = mo->state->sprite;
 		mo->frame = mo->state->frame;
+
+		mo->special = thing.special;
 
 		mo->spawnpoint.x = thing.spawn.x;
 		mo->spawnpoint.y = thing.spawn.y;

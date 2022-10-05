@@ -168,6 +168,18 @@ hook_obj_key:
 	jmp	check_obj_key
 
 //
+// S_AdjustSoundParams hook
+.global hook_sound_adjust
+hook_sound_adjust:
+	push	%ecx
+	push	%ebx
+	push	%edx
+	push	%eax
+	call	sound_adjust
+	add	$16,%esp
+	ret	$4
+
+//
 // V_CopyRect - this one is nasty
 .global V_CopyRect
 V_CopyRect:
@@ -673,12 +685,12 @@ G_BuildTiccmd:
 G_CheckDemoStatus:
 	.byte	0xE9
 	.4byte	0x00021C40
-////////////////////////////////// doom_V_CopyRect
-.section .text.doom_V_CopyRect
-.global doom_V_CopyRect
-doom_V_CopyRect:
+////////////////////////////////// M_ClearBox
+.section .text.M_ClearBox
+.global M_ClearBox
+M_ClearBox:
 	.byte	0xE9
-	.4byte	0x00038F10
+	.4byte	0x000241C0
 ////////////////////////////////// EV_DoDoor
 .section .text.EV_DoDoor
 .global EV_DoDoor
@@ -703,6 +715,12 @@ doom_A_Chase:
 doom_A_BrainAwake:
 	.byte	0xE9
 	.4byte	0x00028AC0
+////////////////////////////////// doom_V_CopyRect
+.section .text.doom_V_CopyRect
+.global doom_V_CopyRect
+doom_V_CopyRect:
+	.byte	0xE9
+	.4byte	0x00038F10
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:
@@ -761,6 +779,16 @@ P_TryMove:
 	mov	8(%esp),%ebx
 	.byte	0xE8
 	.4byte	0x0002B200
+	pop	%ebx
+	ret
+////////////////////////////////// M_AddToBox
+.section .text.M_AddToBox
+.global M_AddToBox
+M_AddToBox:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x000241E0
 	pop	%ebx
 	ret
 ////////////////////////////////// M_WriteText

@@ -340,6 +340,29 @@ static inline uint32_t check_map(int32_t lump)
 	return MAP_FORMAT_DOOM;
 }
 
+static inline void parse_sectors()
+{
+	sector_extra_t *se;
+
+	se = Z_Malloc(*numsectors * sizeof(sector_extra_t), PU_LEVEL, NULL);
+
+	for(uint32_t i = 0; i < *numsectors; i++, se++)
+	{
+		sector_t *sec = *sectors + i;
+
+		sec->extra = se;
+
+		// this should be done in 'P_GroupLines'
+		M_ClearBox(se->bbox);
+		for(uint32_t j = 0; j < sec->linecount; j++)
+		{
+			line_t *li = sec->lines[j];
+			M_AddToBox(se->bbox, li->v1->x, li->v1->y);
+			M_AddToBox(se->bbox, li->v2->x, li->v2->y);
+		}
+	}
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t map_load_setup()
 {
@@ -437,6 +460,9 @@ uint32_t map_load_setup()
 
 	// load the level
 	P_SetupLevel();
+
+	// extra hacks
+	parse_sectors();
 
 	// reset some stuff
 	for(uint32_t i = 0; i < MAXPLATS; i++)
@@ -1316,7 +1342,7 @@ void map_LoadLineDefs(int lump)
 
 	nl = (*lumpinfo)[lump].size / sizeof(map_linehex_t);
 	ln = Z_Malloc(nl * sizeof(line_t), PU_LEVEL, NULL);
-	buff = W_CacheLumpNum(lump, PU_CACHE);
+	buff = W_CacheLumpNum(lump, PU_STATIC);
 	ml = buff;
 
 	*numlines = nl;
@@ -1396,7 +1422,7 @@ void map_LoadThings(int lump)
 	uint32_t count, idx;
 	uint16_t cflags = MTF_CLASS0 | MTF_CLASS1 | MTF_CLASS2;
 
-	buff = W_CacheLumpNum(lump, 1);
+	buff = W_CacheLumpNum(lump, PU_STATIC);
 	count = (*lumpinfo)[lump].size / sizeof(map_thinghex_t);
 	mt = buff;
 

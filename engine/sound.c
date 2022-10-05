@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "wadfile.h"
 #include "textpars.h"
+#include "map.h"
 #include "sound.h"
 
 #define NUMSFX	109
@@ -13,6 +14,11 @@
 #define NUM_SFX_HOOKS	8
 #define SFX_PRIORITY	666
 #define RNG_RECURSION	8
+
+#define S_CLIPPING_DIST	(1200 * FRACUNIT)
+#define S_STEREO_SWING	(96 * FRACUNIT)
+#define	S_CLOSE_DIST	(200 * FRACUNIT)
+#define S_ATTENUATOR	((S_CLIPPING_DIST - S_CLOSE_DIST) >> FRACBITS)
 
 typedef struct old_sfxinfo_s
 {
@@ -31,6 +37,8 @@ typedef struct old_sfxinfo_s
 
 static old_sfxinfo_t *S_sfx;
 musicinfo_t *S_music;
+
+static int32_t *volume_val;
 
 static musicinfo_t **music_now;
 
@@ -483,6 +491,78 @@ void init_sound()
 }
 
 //
+// sound update
+
+uint32_t sound_adjust(mobj_t *listener, mobj_t *source, int32_t *vol, int32_t *sep)
+{
+	fixed_t approx_dist;
+	fixed_t adx;
+	fixed_t ady;
+	angle_t angle;
+	void *end = *sectors + *numsectors;
+
+	// check for sector sound
+	// place sector sounds closest to the camera
+	if((void*)source >= (void*)*sectors && (void*)source < end)
+	{
+		sector_t *sec;
+		fixed_t tmp;
+
+		// update sector sound
+		sec = (void*)source - offsetof(sector_t, soundorg);
+
+		// set source to player location
+		source->x = listener->x;
+		source->y = listener->y;
+
+		// limit source to sector bounding box
+		if(source->x < sec->extra->bbox[BOXLEFT])
+			source->x = sec->extra->bbox[BOXLEFT];
+		else
+		if(source->x > sec->extra->bbox[BOXRIGHT])
+			source->x = sec->extra->bbox[BOXRIGHT];
+
+		if(source->y < sec->extra->bbox[BOXBOTTOM])
+			source->y = sec->extra->bbox[BOXBOTTOM];
+		else
+		if(source->y > sec->extra->bbox[BOXTOP])
+			source->y = sec->extra->bbox[BOXTOP];
+	}
+
+	// adjust volume
+	adx = abs(listener->x - source->x);
+	ady = abs(listener->y - source->y);
+
+	approx_dist = adx + ady - ((adx < ady ? adx : ady) >> 1);
+
+	if(!approx_dist)
+	{
+		*vol = *volume_val;
+		*sep = 128;
+		return 1;
+	}
+
+	if(approx_dist > S_CLIPPING_DIST)
+		return 0;
+
+	angle = R_PointToAngle2(listener->x, listener->y, source->x, source->y);
+	if(angle > listener->angle)
+		angle = angle - listener->angle;
+	else
+		angle = angle + (0xffffffff - listener->angle);
+	angle >>= ANGLETOFINESHIFT;
+
+	*sep = 128 - (FixedMul(S_STEREO_SWING,finesine[angle]) >> FRACBITS);
+
+	if(approx_dist < S_CLOSE_DIST)
+		*vol = *volume_val;
+	else
+		*vol = (*volume_val * ((S_CLIPPING_DIST - approx_dist) >> FRACBITS)) / S_ATTENUATOR;
+
+	return (*vol > 0);
+}
+
+//
 // hooks
 
 static hook_t sfx_hooks[NUM_SFX_HOOKS] =
@@ -504,9 +584,13 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001488C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&S_sfx},
 	{0x0001444C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&S_music},
 	{0x00014448, DATA_HOOK | HOOK_IMPORT, (uint32_t)&music_now},
+	{0x00075CA0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&volume_val},
 	// disable hardcoded sound randomization
 	{0x00027716, CODE_HOOK | HOOK_UINT16, 0x41EB}, // A_Look
 	{0x0002882B, CODE_HOOK | HOOK_UINT16, 0x47EB}, // A_Scream
+	// replace calls to 'S_AdjustSoundParams'
+	{0x0003F1F8, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_sound_adjust},
+	{0x0003F4D9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_sound_adjust},
 	// custom sound ID check and translation
 	// invalid sounds are skipped instead of causing error
 	{0x0003F13E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_start_check},

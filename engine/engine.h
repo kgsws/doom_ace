@@ -645,7 +645,12 @@ typedef struct
 } degenmobj_t;
 
 typedef struct
-{
+{ // this should be part of 'sector_t'
+	fixed_t bbox[4];
+} sector_extra_t;
+
+typedef struct
+{ // this structure has been changed
 	fixed_t floorheight;
 	fixed_t ceilingheight;
 	uint16_t floorpic;
@@ -656,7 +661,11 @@ typedef struct
 	int32_t sndtraversed;
 	struct mobj_s *soundtarget;
 	int32_t blockbox[4];
-	degenmobj_t soundorg;
+	union
+	{
+		sector_extra_t *extra;
+		degenmobj_t soundorg;
+	};
 	uint32_t validcount;
 	struct mobj_s *thinglist;
 	void *specialdata;
@@ -1008,6 +1017,7 @@ typedef struct
 void hook_mobj_damage();
 void hook_obj_key();
 void hook_path_traverse();
+void hook_sound_adjust();
 void skip_message_cancel() __attribute((noreturn));
 
 // some variables
@@ -1057,6 +1067,10 @@ void I_ReadScreen(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // m_argv
 uint32_t M_CheckParm(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+// m_bbox
+void M_ClearBox(fixed_t*) __attribute((regparm(2),no_caller_saved_registers));
+void M_AddToBox(fixed_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // m_random
 int32_t P_Random() __attribute((regparm(2),no_caller_saved_registers));

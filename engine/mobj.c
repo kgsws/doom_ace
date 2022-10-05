@@ -653,8 +653,18 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 			}
 		}
 	} else
-		// use existing inventory
-		mo->inventory = pl->inventory;
+	{
+		if(pl->inventory)
+			// use existing inventory
+			mo->inventory = pl->inventory;
+		else
+		if(pl->mo)
+		{
+			// voodoo doll ...
+			mo->inventory = pl->mo->inventory;
+			pl->mo->inventory = NULL;
+		}
+	}
 
 	// TODO: translation not in flags
 	mo->flags |= idx << 26;

@@ -208,7 +208,15 @@ typedef struct
 	uint16_t v2;
 	uint16_t flags;
 	uint8_t special;
-	uint8_t arg[5];
+	union
+	{
+		uint8_t arg[5];
+		struct
+		{
+			uint8_t arg0;
+			uint32_t args;
+		} __attribute__((packed));
+	};
 	uint16_t sidenum[2];
 } __attribute__((packed)) map_linehex_t;
 

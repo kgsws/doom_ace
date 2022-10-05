@@ -765,6 +765,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.flags = MF_NOGRAVITY,
 		.state_spawn = 149, // TODO: custom sprite
 		.state_idx_limit = NUMSTATES,
+		.alias = 0xFFFFFFFFFFFFFFFF, // for save game
 	},
 	[MOBJ_IDX_FIST - NUMMOBJTYPES] =
 	{

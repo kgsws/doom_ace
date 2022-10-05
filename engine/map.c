@@ -458,6 +458,10 @@ uint32_t map_load_setup()
 	else
 		utils_install_hooks(hook_reject_di, 1);
 
+	// clear player mobjs
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		players[i].mo = NULL;
+
 	// load the level
 	P_SetupLevel();
 
@@ -523,14 +527,19 @@ static void spawn_map_thing(mapthing_t *old_mt)
 	if(old_mt)
 	{
 		// convert old type to new
+		memset(&mt, 0, sizeof(map_thinghex_t));
 		mt.x = old_mt->x;
 		mt.y = old_mt->y;
 		mt.angle = old_mt->angle;
 		mt.type = old_mt->type;
 		mt.flags = old_mt->options & 15;
+		angle = ANG45 * (mt.angle / 45);
 	} else
+	{
 		// use stored type
 		mt = *map_thing_spawn;
+		angle = (ANG45 / 45) * mt.angle;
+	}
 
 	// deathmatch starts
 	if(mt.type == 11)
@@ -545,8 +554,6 @@ static void spawn_map_thing(mapthing_t *old_mt)
 		}
 		return;
 	}
-
-	angle = ANG45 * (mt.angle / 45);
 
 	// player starts
 	if(mt.type && mt.type <= 4)
@@ -604,6 +611,12 @@ static void spawn_map_thing(mapthing_t *old_mt)
 	mo->spawnpoint.y = mt.y;
 	mo->angle = angle;
 
+	if(	!(mo->flags & MF_SPAWNCEILING) &&
+		!old_mt &&
+		mo->subsector
+	)
+		mo->z = mo->subsector->sector->floorheight + mt.z * FRACUNIT;
+
 	if(mt.flags & MTF_AMBUSH)
 		mo->flags |= MF_AMBUSH;
 
@@ -621,6 +634,14 @@ static void spawn_map_thing(mapthing_t *old_mt)
 
 	if(mo->flags & MF_COUNTITEM)
 		*totalitems = *totalitems + 1;
+
+	mo->special.special = mt.special;
+	mo->special.arg[0] = mt.arg[0];
+	mo->special.arg[1] = mt.arg[1];
+	mo->special.arg[2] = mt.arg[2];
+	mo->special.arg[3] = mt.arg[3];
+	mo->special.arg[4] = mt.arg[4];
+	mo->special.tid = mt.tid;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))

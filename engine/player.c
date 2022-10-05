@@ -12,6 +12,7 @@
 #include "cheat.h"
 #include "config.h"
 #include "controls.h"
+#include "demo.h"
 #include "map.h"
 #include "player.h"
 
@@ -584,7 +585,22 @@ void player_viewheight(fixed_t wh)
 static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t spawn_player(mapthing_t *mt)
 {
-	mobj_spawn_player(mt->type - 1, mt->x * FRACUNIT, mt->y * FRACUNIT, ANG45 * (mt->angle / 45));
+	uint32_t angle;
+	uint32_t idx = mt->type - 1;
+	player_t *pl = players + idx;
+
+	if(*demoplayback == DEMO_OLD)
+		ANG45 * (mt->angle / 45);
+	else
+		angle = (ANG45 / 45) * mt->angle;
+
+	if(pl->mo)
+	{
+		inventory_destroy(pl->mo->inventory);
+		pl->mo->inventory = NULL;
+	}
+
+	mobj_spawn_player(mt->type - 1, mt->x * FRACUNIT, mt->y * FRACUNIT, angle);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

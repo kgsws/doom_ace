@@ -2093,8 +2093,13 @@ void do_load()
 	// players
 	if(ld_get_players())
 		goto error_fail;
+
 	if(!playeringame[*consoleplayer])
 		goto error_fail;
+
+	if(!players[*consoleplayer].mo)
+		goto error_fail;
+
 	pl = players + *consoleplayer;
 	if(pl->mo->info->extra_type != ETYPE_PLAYERPAWN)
 		goto error_fail;

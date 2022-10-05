@@ -694,7 +694,11 @@ typedef struct line_s
 	sector_t *frontsector;
 	sector_t *backsector;
 	uint32_t validcount;
-	uint8_t arg1, arg2, arg3, arg4;
+	union
+	{
+		uint32_t args;
+		uint8_t arg1, arg2, arg3, arg4;
+	};
 } __attribute__((packed)) line_t;
 
 typedef struct
@@ -810,6 +814,13 @@ typedef struct spritedef_s
 //
 // mobj
 
+typedef struct
+{
+	uint8_t special;
+	uint8_t arg[5];
+	uint16_t tid;
+} mobj_special_t;
+
 typedef struct mobj_s
 { // this structure has been changed
 	thinker_t thinker;
@@ -848,16 +859,27 @@ typedef struct mobj_s
 	int32_t lastlook;
 	mapthing_t spawnpoint;
 	struct mobj_s *tracer;
+	// new pointer
 	struct mobj_s *master;
-	uint8_t animation; // animation system
-	uint8_t intercept_side;	// path traverse
-	uint32_t netid;	// unique identification
+	// animation system
+	uint8_t animation;
+	// path traverse
+	uint8_t intercept_side;
+	// unique identification
+	uint32_t netid;
+	// new orientation
 	angle_t pitch;
+	// inventory
 	struct inventory_s *inventory;
-	mobjinfo_t *custom_inventory; // activating item, nesting is unsupported
-	uint32_t custom_state; // custom inventory state jumps
-	struct mobj_s *rip_thing; // to avaid mutiple rip damage per tick
+	// activating item, nesting is unsupported
+	mobjinfo_t *custom_inventory;
+	// custom inventory state jumps
+	uint32_t custom_state;
+	// to avaid mutiple rip damage per tick
+	struct mobj_s *rip_thing;
 	uint32_t rip_tick;
+	// special
+	mobj_special_t special;
 } __attribute__((packed)) mobj_t;
 
 //

@@ -799,6 +799,26 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 {
 	uint32_t damage;
 
+	if(map_format != MAP_FORMAT_DOOM && !(tmthing->flags & MF_MISSILE))
+	{
+		// thing-over-thing
+		// TODO: overlapping things should be marked and checked every tic
+
+		if(tmthing->z >= thing->z + thing->height)
+		{
+			if(*tmfloorz < thing->z + thing->height)
+				*tmfloorz = thing->z + thing->height;
+			return 1;
+		}
+
+		if(tmthing->z + tmthing->height <= thing->z)
+		{
+			if(*tmceilingz > thing->z)
+				*tmceilingz = thing->z;
+			return 1;
+		}
+	}
+
 	if(tmthing->flags & MF_SKULLFLY)
 	{
 		damage = tmthing->info->damage;
@@ -825,16 +845,16 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		if(tmthing->target == thing)
 			return 1;
 
+		if(tmthing->z >= thing->z + thing->height)
+			return 1;
+
+		if(tmthing->z + tmthing->height <= thing->z)
+			return 1;
+
 		if(thing->flags1 & MF1_SPECTRAL && !(tmthing->flags1 & MF1_SPECTRAL))
 			return 1;
 
 		if(thing->flags1 & MF1_GHOST & tmthing->flags1 & MF1_THRUGHOST)
-			return 1;
-
-		if(tmthing->z > thing->z + thing->height)
-			return 1;
-
-		if(tmthing->z + tmthing->height < thing->z)
 			return 1;
 
 		if(	!dehacked.no_species &&

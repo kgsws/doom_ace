@@ -97,6 +97,8 @@ uint32_t *nofit;
 uint32_t *crushchange;
 
 fixed_t *tmdropoffz;
+fixed_t *tmfloorz;
+fixed_t *tmceilingz;
 fixed_t *openrange;
 fixed_t *opentop;
 fixed_t *openbottom;
@@ -2128,6 +2130,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
 	{0x0002B994, DATA_HOOK | HOOK_IMPORT, (uint32_t)&crushchange},
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
+	{0x0002B9F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmfloorz},
+	{0x0002BA00, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmceilingz},
 	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},
 	{0x0002C034, DATA_HOOK | HOOK_IMPORT, (uint32_t)&opentop},
 	{0x0002C030, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openbottom},

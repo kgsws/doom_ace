@@ -782,22 +782,6 @@ typedef struct texture_s
 	texpatch_t patch[];
 } __attribute__((packed)) texture_t;
 
-typedef struct vissprite_s
-{
-	struct vissprite_s *next;
-	struct vissprite_s *prev;
-	int32_t x, y;
-	fixed_t gx, gy;
-	fixed_t gz, gzt;
-	fixed_t startfrac;
-	fixed_t scale;
-	fixed_t xiscale;
-	fixed_t texturemid;
-	int32_t patch;
-	void *colormap;
-	uint32_t mobjflags;
-} vissprite_t;
-
 typedef struct spriteframe_s
 {
 	uint32_t rotate;
@@ -881,6 +865,66 @@ typedef struct mobj_s
 	// special
 	mobj_special_t special;
 } __attribute__((packed)) mobj_t;
+
+//
+// render
+
+typedef struct
+{
+	vertex_t *v1, *v2;
+	fixed_t offset;
+	angle_t angle;
+	side_t *sidedef;
+	line_t *linedef;
+	sector_t *frontsector;
+	sector_t *backsector;
+} seg_t;
+
+typedef struct
+{
+	seg_t *curline;
+	int32_t x1, x2;
+	fixed_t scale1, scale2, scalestep;
+	int32_t silhouette;
+	fixed_t bsilheight;
+	fixed_t tsilheight;
+	int16_t *sprtopclip;
+	int16_t *sprbottomclip;
+	int16_t *maskedtexturecol;
+} drawseg_t;
+
+typedef struct
+{
+	fixed_t height;
+	int32_t picnum;
+	int32_t lightlevel;
+	int32_t minx, maxx;
+	uint8_t pad0;
+	uint8_t top[SCREENWIDTH];
+	uint8_t pad1[2];
+	uint8_t bottom[SCREENWIDTH];
+	uint8_t pad2;
+} __attribute__((packed)) visplane_t;
+
+typedef struct vissprite_s
+{ // this structure has been changed
+	struct vissprite_s *prev;
+	struct vissprite_s *next;
+	int x1, x2;
+	fixed_t gx, gy;
+	fixed_t gz, gzt;
+	fixed_t startfrac;
+	fixed_t scale;
+	fixed_t xiscale;
+	fixed_t texturemid;
+	int patch;
+	void *colormap;
+	union
+	{
+		uint32_t mobjflags;
+		mobj_t *mo;
+	};
+} vissprite_t;
 
 //
 // status bar

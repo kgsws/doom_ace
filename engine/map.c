@@ -1466,7 +1466,7 @@ void init_map()
 	int32_t temp;
 
 	doom_printf("[ACE] init MAPs\n");
-	ldr_alloc_message = "Map and game info memory allocation failed!";
+	ldr_alloc_message = "Map and game info";
 
 	//
 	// PASS 1

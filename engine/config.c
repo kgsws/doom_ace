@@ -16,6 +16,7 @@
 enum
 {
 	TYPE_U8,
+	TYPE_U16,
 	TYPE_S32,
 };
 
@@ -26,6 +27,7 @@ typedef struct
 	{
 		void *ptr;
 		uint8_t *u8;
+		uint16_t *u16;
 		int32_t *s32;
 	};
 	uint8_t type;
@@ -116,8 +118,13 @@ static config_entry_t config_game[] =
 
 static config_entry_t config_mod[] =
 {
+	{"render.visplane.count", &mod_config.visplane_count, TYPE_U16},
+	{"render.vissprite.count", &mod_config.vissprite_count, TYPE_U16},
+	{"render.drawseg.count", &mod_config.drawseg_count, TYPE_U16},
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
+	// terminator
+	{NULL}
 };
 
 static const hook_t def_set[];
@@ -125,12 +132,13 @@ static const hook_t def_set[];
 //
 // funcs
 
-static uint32_t parse_value(config_entry_t *conf)
+static uint32_t parse_value(config_entry_t *conf_def)
 {
 	uint8_t *kw, *kv;
 	int32_t value;
+	config_entry_t *conf;
 
-	while(conf->name)
+	while(1)
 	{
 		kw = tp_get_keyword_lc();
 		if(!kw)
@@ -140,21 +148,29 @@ static uint32_t parse_value(config_entry_t *conf)
 		if(!kv)
 			break;
 
-		if(!strcmp(conf->name, kw))
+		conf = conf_def;
+		while(conf->name)
 		{
-			switch(conf->type)
+			if(!strcmp(conf->name, kw))
 			{
-				case TYPE_U8:
-					if(doom_sscanf(kv, "%d", &value) == 1 && value >= 0 && value < 256)
-						*conf->u8 = value;
-				break;
-				case TYPE_S32:
-					if(doom_sscanf(kv, "%d", &value) == 1)
-						*conf->s32 = value;
-				break;
+				switch(conf->type)
+				{
+					case TYPE_U8:
+						if(doom_sscanf(kv, "%d", &value) == 1 && value >= 0 && value < 256)
+							*conf->u8 = value;
+					break;
+					case TYPE_U16:
+						if(doom_sscanf(kv, "%d", &value) == 1 && value >= 0 && value < 65535)
+							*conf->u16 = value;
+					break;
+					case TYPE_S32:
+						if(doom_sscanf(kv, "%d", &value) == 1)
+							*conf->s32 = value;
+					break;
+				}
 			}
+			conf++;
 		}
-		conf++;
 	}
 }
 

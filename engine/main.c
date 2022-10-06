@@ -112,7 +112,7 @@ void *ldr_malloc(uint32_t size)
 
 	ret = doom_malloc(size);
 	if(!ret)
-		I_Error("%s (%uB)", ldr_alloc_message, size);
+		I_Error("%s memory allocation failed! (%uB)", ldr_alloc_message, size);
 
 	return ret;
 }
@@ -123,7 +123,7 @@ void *ldr_realloc(void *ptr, uint32_t size)
 
 	ret = doom_realloc(ptr, size);
 	if(!ret)
-		I_Error("%s (%uB)", ldr_alloc_message, size);
+		I_Error("%s memory allocation failed! (%uB)", ldr_alloc_message, size);
 
 	return ret;
 }

@@ -2348,7 +2348,7 @@ void init_decorate()
 {
 	// To avoid unnecessary memory fragmentation, this function does multiple passes.
 	doom_printf("[ACE] init DECORATE\n");
-	ldr_alloc_message = "Decorate memory allocation failed!";
+	ldr_alloc_message = "Decorate";
 
 	// init sprite names
 	for(uint32_t i = 0; i < NUMSPRITES; i++)

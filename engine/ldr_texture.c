@@ -359,7 +359,7 @@ void init_textures(uint32_t count)
 	uint32_t idx;
 
 	doom_printf("[ACE] preparing %u textures\n", count);
-	ldr_alloc_message = "Texture memory allocation failed!";
+	ldr_alloc_message = "Texture";
 
 	count += EXTRA_TEXTURES;
 

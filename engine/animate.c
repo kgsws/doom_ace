@@ -820,7 +820,7 @@ void init_animations()
 	uint32_t size;
 
 	doom_printf("[ACE] init animations\n");
-	ldr_alloc_message = "Animation memory allocation failed!";
+	ldr_alloc_message = "Animation";
 
 	//
 	// PASS 1

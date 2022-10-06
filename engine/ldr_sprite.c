@@ -151,7 +151,7 @@ void *precache_setup_sprites(uint8_t *buff)
 void init_sprites(uint32_t count)
 {
 	doom_printf("[ACE] preparing %u sprites\n", count);
-	ldr_alloc_message = "Sprite memory allocation failed!";
+	ldr_alloc_message = "Sprite";
 
 	*spritewidth = ldr_malloc(count * sizeof(fixed_t));
 	*spriteoffset = ldr_malloc(count * sizeof(fixed_t));

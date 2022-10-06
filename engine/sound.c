@@ -421,7 +421,7 @@ void init_sound()
 	*((uint16_t*)temp) = 0x5344;
 
 	doom_printf("[ACE] init sounds\n");
-	ldr_alloc_message = "Sound info memory allocation failed!";
+	ldr_alloc_message = "Sound info";
 
 	// allocate memory for internal sounds
 	sfxinfo = ldr_malloc((NUMSFX + NUMSFX_RNG) * sizeof(sfxinfo_t));

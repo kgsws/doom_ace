@@ -45,6 +45,10 @@ static fixed_t cy_look;
 
 static fixed_t mlook_pitch;
 
+static void *ptr_visplanes;
+static void *ptr_vissprites;
+static void *ptr_drawsegs;
+
 uint8_t r_palette[768];
 
 // mouselook scale
@@ -61,6 +65,11 @@ static const uint16_t look_scale_table[] =
 
 // basic colors
 uint8_t r_color_black;
+
+// hooks
+static hook_t hook_drawseg[];
+static hook_t hook_visplane[];
+static hook_t hook_vissprite[];
 
 //
 // API
@@ -113,7 +122,54 @@ void r_init_palette(uint8_t *palette)
 
 void init_render()
 {
+	ldr_alloc_message = "Render";
+
+	// find some colors
 	r_color_black = r_find_color(0, 0, 0);
+
+	// drawseg limit
+	if(mod_config.drawseg_count > 256)
+	{
+		doom_printf("[RENDER] New drawseg limit %u\n", mod_config.drawseg_count);
+		// allocate new memory
+		ptr_drawsegs = ldr_malloc(mod_config.drawseg_count * sizeof(drawseg_t));
+		// update values in hooks
+		hook_drawseg[0].value = (uint32_t)ptr_drawsegs + mod_config.drawseg_count * sizeof(drawseg_t);
+		for(int i = 1; i <= 5; i++)
+			hook_drawseg[i].value = (uint32_t)ptr_drawsegs;
+		// install hooks
+		utils_install_hooks(hook_drawseg, 6);
+	}
+
+	// visplane limit
+	if(mod_config.visplane_count > 128)
+	{
+		doom_printf("[RENDER] New visplane limit %u\n", mod_config.visplane_count);
+		// allocate new memory
+		ptr_visplanes = ldr_malloc(mod_config.visplane_count * sizeof(visplane_t));
+		memset(ptr_visplanes, 0, mod_config.visplane_count * sizeof(visplane_t));
+		// update values in hooks
+		for(int i = 0; i <= 4; i++)
+			hook_visplane[i].value = (uint32_t)ptr_visplanes;
+		for(int i = 5; i <= 6; i++)
+			hook_visplane[i].value = mod_config.visplane_count;
+		// install hooks
+		utils_install_hooks(hook_visplane, 7);
+	}
+
+	// vissprite limit
+	if(mod_config.vissprite_count > 128)
+	{
+		doom_printf("[RENDER] New vissprite limit %u\n", mod_config.vissprite_count);
+		// allocate new memory
+		ptr_vissprites = ldr_malloc(mod_config.vissprite_count * sizeof(vissprite_t));
+		// update values in hooks
+		for(int i = 0; i <= 5; i++)
+			hook_vissprite[i].value = (uint32_t)ptr_vissprites;
+		hook_vissprite[6].value = (uint32_t)ptr_vissprites + mod_config.vissprite_count * sizeof(vissprite_t);
+		// install hooks
+		utils_install_hooks(hook_vissprite, 7);
+	}
 }
 
 //
@@ -190,6 +246,47 @@ void hook_RenderPlayerView(player_t *pl)
 	stbar_draw(pl);
 }
 
+// expanded drawseg limit
+static hook_t hook_drawseg[] =
+{
+	// change limit check pointer in 'R_StoreWallRange'
+	{0x00036d0f, CODE_HOOK | HOOK_UINT32, 0},
+	// drawseg base pointer at various locations
+	{0x00033596, CODE_HOOK | HOOK_UINT32, 0}, // R_ClearDrawSegs
+	{0x000383e4, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawSprite
+	{0x00038561, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawSprite
+	{0x0003861f, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
+	{0x0003863d, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
+};
+
+// expanded visplane limit
+static hook_t hook_visplane[] =
+{
+	// visplane base pointer at various locations
+	{0x000361f1, CODE_HOOK | HOOK_UINT32, 0}, // R_ClearPlanes
+	{0x0003628e, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
+	{0x000362bb, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
+	{0x000364fe, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
+	{0x00036545, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
+	// visplane max count at various locations
+	{0x000362d1, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
+	{0x0003650f, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
+};
+
+// expanded vissprite limit
+static hook_t hook_vissprite[] =
+{
+	// vissprite base pointer at various locations
+	{0x00037a66, CODE_HOOK | HOOK_UINT32, 0}, // R_ClearSprites
+	{0x000382c0, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
+	{0x000382e4, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
+	{0x0003830c, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
+	{0x00038311, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
+	{0x000385ee, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
+	// vissprite max pointer
+	{0x00037e5a, CODE_HOOK | HOOK_UINT32, 0}, // R_ProjectSprite
+};
+
 //
 // hooks
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -211,6 +308,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000235F0, CODE_HOOK | HOOK_UINT8, 10},
 	// call 'R_RenderPlayerView' even in automap
 	{0x0001D32B, CODE_HOOK | HOOK_UINT16, 0x07EB},
+	// disable "drawseg overflow" error in 'R_DrawPlanes'
+	{0x000364C9, CODE_HOOK | HOOK_UINT16, 0x2BEB},
 	// required variables
 	{0x0003952C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centeryfrac},
 	{0x00039534, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centerx},

@@ -93,6 +93,42 @@ uint32_t check_trace_line(vertex_t *v1, vertex_t *v2)
 	return 0;
 }
 
+fixed_t intercept_vector(divline_t *v2, divline_t *v1)
+{
+	// this version should have less issues with overflow
+	union
+	{
+		int64_t w;
+		struct
+		{
+			uint32_t a, b;
+		};
+	} num;
+	fixed_t den;
+	fixed_t frac;
+	fixed_t v1m2x = (v1->x - v2->x) >> 8;
+	fixed_t v2m1y = (v2->y - v1->y) >> 8;
+	fixed_t v1dx = v1->dx >> 8;
+	fixed_t v1dy = v1->dy >> 8;
+	fixed_t v2dx = v2->dx >> 8;
+	fixed_t v2dy = v2->dy >> 8;
+
+	den = ((int64_t)v1dy * (int64_t)v2dx - (int64_t)v1dx * (int64_t)v2dy) >> 16;
+	if(den == 0)
+		return FRACUNIT;
+
+	num.w = (int64_t)v1m2x * (int64_t)v1dy + (int64_t)v2m1y * (int64_t)v1dx;
+
+//	return num / den; // this should work, but GCC wants to use '__divdi3'
+
+	asm(	"idiv %%ecx"
+		: "=a" (frac)
+		: "a" (num.a), "d" (num.b), "c" (den)
+		: "cc");
+
+	return frac;
+}
+
 //
 // intercepts
 
@@ -113,7 +149,7 @@ static uint32_t add_line_intercepts(line_t *li)
 	dl.dx = li->dx;
 	dl.dy = li->dy;
 
-	frac = P_InterceptVector(trace, &dl);
+	frac = intercept_vector(trace, &dl);
 
 	if(frac < 0)
 		return 1;
@@ -205,7 +241,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 		dl.dx = v2.x - v1.x;
 		dl.dy = v2.y - v1.y;
 
-		tmpf = P_InterceptVector(trace, &dl);
+		tmpf = intercept_vector(trace, &dl);
 		if(tmpf >= 0)
 		{
 			frac = tmpf;
@@ -220,7 +256,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 		dl.dx = v3.x - v2.x;
 		dl.dy = v3.y - v2.y;
 
-		tmpf = P_InterceptVector(trace, &dl);
+		tmpf = intercept_vector(trace, &dl);
 		if(tmpf >= 0 && tmpf < frac)
 		{
 			frac = tmpf;

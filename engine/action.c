@@ -1171,7 +1171,7 @@ static const args_BulletAttack_t def_FireBullets =
 {
 	.pufftype = 37,
 	.flags = FBF_USEAMMO,
-	.range = 2048 * FRACUNIT, // ZDoom uses 8192 but that causes precision issues.
+	.range = 8192 * FRACUNIT,
 };
 
 static const dec_arg_flag_t flags_FireBullets[] =

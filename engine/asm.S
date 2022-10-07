@@ -781,6 +781,16 @@ P_TryMove:
 	.4byte	0x0002B200
 	pop	%ebx
 	ret
+////////////////////////////////// P_CheckPosition
+.section .text.P_CheckPosition
+.global P_CheckPosition
+P_CheckPosition:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002B060
+	pop	%ebx
+	ret
 ////////////////////////////////// M_AddToBox
 .section .text.M_AddToBox
 .global M_AddToBox

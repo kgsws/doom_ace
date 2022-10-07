@@ -32,6 +32,8 @@ typedef uint32_t angle_t;
 #define NUMSPRITES	138
 #define MAXEVENTS	64
 #define MAXINTERCEPTS	128
+#define MAXSPECIALCROSS	8
+#define MAXSPECIALBUMP	8
 
 //
 // tables
@@ -125,15 +127,28 @@ typedef uint32_t angle_t;
 #define ML_BLOCKMAP	10
 #define ML_BEHAVIOR	11
 
-#define ML_BLOCKING	1
-#define ML_BLOCKMONSTERS	2
-#define ML_TWOSIDED	4
-#define ML_DONTPEGTOP	8
-#define ML_DONTPEGBOTTOM	16
-#define ML_SECRET	32
-#define ML_SOUNDBLOCK	64
-#define ML_DONTDRAW	128
-#define ML_MAPPED	256
+#define ML_BLOCKING	0x0001
+#define ML_BLOCKMONSTERS	0x0002
+#define ML_TWOSIDED	0x0004
+#define ML_DONTPEGTOP	0x0008
+#define ML_DONTPEGBOTTOM	0x0010
+#define ML_SECRET	0x0020
+#define ML_SOUNDBLOCK	0x0040
+#define ML_DONTDRAW	0x0080
+#define ML_MAPPED	0x0100
+#define ML_REPEATABLE	0x0200
+#define ML_ACT_MASK	0x1C00
+#define ML_MONSTER_ACT	0x2000
+#define ML_BLOCK_PLAYER	0x4000
+#define ML_BLOCK_ALL	0x8000
+
+#define MLA_PLR_CROSS	0x0000
+#define MLA_PLR_USE	0x0400
+#define MLA_MON_CROSS	0x0800
+#define MLA_ATK_HIT	0x0C00
+#define MLA_PLR_BUMP	0x1000
+#define MLA_PROJ_CROSS	0x1400
+#define MLA_PASS	0x1800
 
 #define MAXCEILINGS	30
 #define MAXPLATS	30
@@ -1177,6 +1192,7 @@ void P_UseLines(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t P_AimLineAttack(mobj_t*,angle_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_SlideMove(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t P_CheckPosition(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

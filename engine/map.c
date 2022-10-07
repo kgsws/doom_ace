@@ -14,6 +14,7 @@
 #include "config.h"
 #include "demo.h"
 #include "sound.h"
+#include "special.h"
 #include "map.h"
 #include "menu.h"
 #include "stbar.h"
@@ -99,11 +100,10 @@ uint32_t *crushchange;
 fixed_t *tmdropoffz;
 fixed_t *tmfloorz;
 fixed_t *tmceilingz;
+fixed_t *lowfloor;
 fixed_t *openrange;
 fixed_t *opentop;
 fixed_t *openbottom;
-
-line_t **ceilingline;
 
 mobj_t **linetarget;
 
@@ -1415,6 +1415,14 @@ void map_LoadLineDefs(int lump)
 		ln->sidenum[1] = ml->sidenum[1];
 		ln->validcount = 0;
 
+		if(ln->special == 121) // Line_SetIdentification
+		{
+			ln->special = 0;
+			ln->id = ln->arg0;
+			ln->arg0 = 0;
+			ln->args = 0;
+		}
+
 		if(v1->x < v2->x)
 		{
 			ln->bbox[BOXLEFT] = v1->x;
@@ -1954,6 +1962,10 @@ static const hook_t patch_doom[] =
 	// restore call to map format specific lump loading
 	{0x0002E8F2, CODE_HOOK | HOOK_CALL_DOOM, 0x0002E220},
 	{0x0002E93A, CODE_HOOK | HOOK_CALL_DOOM, 0x0002E180},
+	// restore line special handlers
+	{0x0002B340, CODE_HOOK | HOOK_CALL_DOOM, 0x0002F500},
+	{0x00027286, CODE_HOOK | HOOK_CALL_DOOM, 0x00030710},
+	{0x0002BCFE, CODE_HOOK | HOOK_CALL_DOOM, 0x00030710},
 	// terminator
 	{0}
 };
@@ -1963,6 +1975,10 @@ static const hook_t patch_hexen[] =
 	// replace call to map format specific lump loading
 	{0x0002E8F2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadLineDefs},
 	{0x0002E93A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadThings},
+	// replace line special handlers
+	{0x0002B340, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_cross},
+	{0x00027286, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by monster
+	{0x0002BCFE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by player
 	// terminator
 	{0}
 };
@@ -2156,10 +2172,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
 	{0x0002B9F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmfloorz},
 	{0x0002BA00, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmceilingz},
+	{0x0002C02C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lowfloor},
 	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},
 	{0x0002C034, DATA_HOOK | HOOK_IMPORT, (uint32_t)&opentop},
 	{0x0002C030, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openbottom},
-	{0x0002B9F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ceilingline},
 	{0x0002B9F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&linetarget},
 	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
 	{0x0002C104, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bmaporgx},

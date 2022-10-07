@@ -9,6 +9,8 @@
 #include "player.h"
 #include "mobj.h"
 #include "map.h"
+#include "special.h"
+#include "hitscan.h"
 
 #define PIT_AddThingIntercepts	((void*)0x0002C720 + doom_code_segment)
 
@@ -119,7 +121,7 @@ fixed_t intercept_vector(divline_t *v2, divline_t *v1)
 
 	num.w = (int64_t)v1m2x * (int64_t)v1dy + (int64_t)v2m1y * (int64_t)v1dx;
 
-//	return num / den; // this should work, but GCC wants to use '__divdi3'
+//	return num.w / den; // this should work, but GCC wants to use '__divdi3'
 
 	asm(	"idiv %%ecx"
 		: "=a" (frac)
@@ -413,8 +415,18 @@ uint32_t hs_slide_traverse(intercept_t *in)
 		goto isblocking;
 	}
 
-	if(li->flags & ML_BLOCKING)
+	if(li->flags & (ML_BLOCKING | ML_BLOCK_ALL))
 		goto isblocking;
+
+	if(mo->player)
+	{
+		if(li->flags & ML_BLOCK_PLAYER)
+			goto isblocking;
+	} else
+	{
+		if(li->flags & ML_BLOCKMONSTERS)
+			goto isblocking;
+	}
 
 	P_LineOpening(li);
 
@@ -455,11 +467,12 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		fixed_t frac, dz, z;
 		sector_t *frontsector;
 		sector_t *backsector;
+		uint_fast8_t activate = map_format != MAP_FORMAT_DOOM;
 
-		if(li->special)
+		if(li->special && !activate)
 			P_ShootSpecialLine(*shootthing, li);
 
-		if(!(li->flags & ML_TWOSIDED))
+		if(!(li->flags & ML_TWOSIDED) || li->flags & ML_BLOCK_ALL)
 			goto hitline;
 
 		P_LineOpening(li);
@@ -478,6 +491,14 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 				goto hitline;
 		}
 
+		if(	activate &&
+			li->special &&
+			(li->flags & ML_ACT_MASK) == MLA_ATK_HIT &&
+			FixedDiv(*opentop - sz, dist) >= as &&
+			FixedDiv(*openbottom - sz, dist) <= as
+		)
+			spec_activate(li, *shootthing, SPEC_ACT_SHOOT);
+
 		return 1;
 
 hitline:
@@ -494,19 +515,25 @@ hitline:
 
 		frac = in->frac - FixedDiv(4 * FRACUNIT, *attackrange);
 		dz = FixedMul(as, FixedMul(frac, *attackrange));
-		z = *shootz + dz;
+		z = sz + dz;
 
 		if(frontsector)
 		{
 			if(as < 0)
 			{
 				if(z < frontsector->floorheight)
-					frac = -FixedDiv(FixedMul(frac, *shootz - frontsector->floorheight), dz);
+				{
+					frac = -FixedDiv(FixedMul(frac, sz - frontsector->floorheight), dz);
+					activate = 0;
+				}
 			} else
 			if(as > 0)
 			{
 				if(z > frontsector->ceilingheight)
-					frac = FixedDiv(FixedMul(frac, frontsector->ceilingheight - *shootz), dz);
+				{
+					frac = FixedDiv(FixedMul(frac, frontsector->ceilingheight - sz), dz);
+					activate = 0;
+				}
 			}
 
 			if(!(mobjinfo[mo_puff_type].flags1 & MF1_SKYEXPLODE))
@@ -528,6 +555,9 @@ hitline:
 		trace->dx = z;
 
 		mobj_spawn_puff(trace, NULL);
+
+		if(activate && li->special)
+			spec_activate(li, *shootthing, SPEC_ACT_SHOOT);
 
 		return 0;
 	} else

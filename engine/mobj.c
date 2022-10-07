@@ -13,6 +13,7 @@
 #include "player.h"
 #include "weapon.h"
 #include "hitscan.h"
+#include "special.h"
 #include "map.h"
 #include "stbar.h"
 #include "demo.h"
@@ -29,6 +30,15 @@ uint32_t *displayplayer;
 thinker_t *thinkercap;
 
 uint32_t *respawnmonsters;
+
+static line_t *ceilingline;
+static line_t *floorline;
+
+static line_t **spechit;
+static uint32_t *numspechit;
+
+static line_t *specbump[MAXSPECIALBUMP];
+static uint32_t numspecbump;
 
 uint32_t mo_puff_type = 37;
 uint32_t mo_puff_flags;
@@ -975,6 +985,66 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
+{
+	if(!ld->backsector)
+		goto blocked;
+
+	if(ld->flags & ML_BLOCK_ALL)
+		goto blocked;
+
+	if(!(tmthing->flags & MF_MISSILE))
+	{
+		if(ld->flags & ML_BLOCKING)
+			goto blocked;
+
+		if(tmthing->player)
+		{
+			if(ld->flags & ML_BLOCK_PLAYER)
+				goto blocked;
+		} else
+		{
+			if(ld->flags & ML_BLOCKMONSTERS)
+				goto blocked;
+		}
+	}
+
+	P_LineOpening(ld);
+
+	if(*opentop < *tmceilingz)
+	{
+		*tmceilingz = *opentop;
+		ceilingline = ld;
+	}
+
+	if(*openbottom > *tmfloorz)
+	{
+		*tmfloorz = *openbottom;
+		floorline = ld;
+	}
+
+	if(*lowfloor < *tmdropoffz)
+		*tmdropoffz = *lowfloor;
+
+	if(ld->special && *numspechit < MAXSPECIALCROSS)
+	{
+		spechit[*numspechit] = ld;
+		*numspechit = *numspechit + 1;
+	}
+
+	return 1;
+
+blocked:
+	if(ld->special && numspecbump < MAXSPECIALBUMP)
+	{
+		specbump[numspecbump] = ld;
+		numspecbump++;
+	}
+
+	return 0;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t pit_change_sector(mobj_t *thing)
 {
 	if(!(thing->flags1 & MF1_DONTGIB))
@@ -1029,6 +1099,29 @@ uint32_t pit_change_sector(mobj_t *thing)
 	}
 
 	return 1;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t try_move_check(mobj_t *mo, fixed_t x)
+{
+	fixed_t y;
+	uint32_t ret;
+
+	{
+		register fixed_t tmp asm("ebx"); // hack to extract 3rd argument
+		y = tmp;
+	}
+
+	ceilingline = NULL;
+	floorline = NULL;
+	numspecbump = 0;
+
+	ret = P_CheckPosition(mo, x, y);
+
+	while(numspecbump--)
+		spec_activate(specbump[numspecbump], mo, SPEC_ACT_BUMP);
+
+	return ret;
 }
 
 //
@@ -1564,20 +1657,21 @@ static void mobj_xy_move(mobj_t *mo)
 				} else
 				if(mo->flags & MF_MISSILE)
 				{
-					if(!(mo->flags1 & MF1_SKYEXPLODE) && *ceilingline && (*ceilingline)->backsector)
+					if(!(mo->flags1 & MF1_SKYEXPLODE) && ceilingline && ceilingline->backsector)
 					{
 						if(*demoplayback == DEMO_OLD)
 						{
-							if((*ceilingline)->backsector->ceilingpic == *skyflatnum)
+							if(ceilingline->backsector->ceilingpic == *skyflatnum)
 								mobj_remove(mo);
 						} else
 						{
-							if(	((*ceilingline)->backsector->ceilingpic == *skyflatnum && mo->z + mo->height >= (*ceilingline)->backsector->ceilingheight) ||
-								((*ceilingline)->frontsector->ceilingpic == *skyflatnum && mo->z + mo->height >= (*ceilingline)->frontsector->ceilingheight)
+							if(	(ceilingline->backsector->ceilingpic == *skyflatnum && mo->z + mo->height >= ceilingline->backsector->ceilingheight) ||
+								(ceilingline->frontsector->ceilingpic == *skyflatnum && mo->z + mo->height >= ceilingline->frontsector->ceilingheight)
 							)
 								mobj_remove(mo);
 						}
 					}
+					// TODO: floorline check
 
 					if(mo->thinker.function != (void*)-1)
 						explode_missile(mo);
@@ -1824,6 +1918,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// import variables
 	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
 	{0x0002B3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&respawnmonsters},
+	{0x0002B960, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spechit},
+	{0x0002B9D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numspechit},
 	// replace call to 'memset' in 'P_SpawnMobj'
 	{0x00031569, CODE_HOOK | HOOK_UINT16, 0xEA89},
 	{0x00031571, CODE_HOOK | HOOK_UINT32, 0x90C38900},
@@ -1858,10 +1954,17 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002AEDA, CODE_HOOK | HOOK_UINT16, 0xD889},
 	{0x0002AEDC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_check_thing},
 	{0x0002AEE1, CODE_HOOK | HOOK_UINT16, 0x56EB},
+	// replace most of 'PIT_CheckLine'
+	{0x0002ADC2, CODE_HOOK | HOOK_UINT16, 0x0AEB},
+	{0x0002ADD3, CODE_HOOK | HOOK_UINT16, 0xDA89},
+	{0x0002ADD5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_check_line},
+	{0x0002ADDA, CODE_HOOK | HOOK_UINT16, 0x05EB},
 	// replace most of 'PIT_ChangeSector'
 	{0x0002BEB3, CODE_HOOK | HOOK_UINT16, 0xF089},
 	{0x0002BEB5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_change_sector},
 	{0x0002BEBA, CODE_HOOK | HOOK_UINT16, 0x25EB},
+	// replace call to 'P_CheckPosition' in 'P_TryMove'
+	{0x0002B217, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)try_move_check},
 	// replace 'P_SetMobjState' with new animation system
 	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SEE << 8)}, // A_Look
 	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Look

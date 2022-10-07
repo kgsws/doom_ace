@@ -1183,6 +1183,14 @@ skip_block:
 			goto skip_block;
 		}
 
+		if(!strcmp("defaultmap", kw))
+		{
+			// must parse this here
+			if(parse_attributes(map_attr, &map_info_default))
+				break;
+			continue;
+		}
+
 		if(!strcmp("clearepisodes", kw))
 			continue;
 
@@ -1310,6 +1318,22 @@ static void cb_mapinfo(lumpinfo_t *li)
 				break;
 
 			num_clusters++;
+
+			continue;
+		}
+
+		if(!strcmp("defaultmap", kw))
+		{
+			// block entry
+			kw = tp_get_keyword();
+			if(!kw)
+				break;
+
+			if(kw[0] != '{')
+				I_Error("[MAPINFO] Broken syntax!");
+
+			if(tp_skip_code_block(1))
+				break;
 
 			continue;
 		}

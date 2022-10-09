@@ -208,15 +208,8 @@ typedef struct
 	uint16_t v2;
 	uint16_t flags;
 	uint8_t special;
-	union
-	{
-		uint8_t arg[5];
-		struct
-		{
-			uint8_t arg0;
-			uint32_t args;
-		} __attribute__((packed));
-	};
+	uint8_t arg0;
+	uint32_t args;
 	uint16_t sidenum[2];
 } __attribute__((packed)) map_linehex_t;
 
@@ -305,6 +298,8 @@ extern line_t **lines;
 extern vertex_t **vertexes;
 extern side_t **sides;
 extern sector_t **sectors;
+extern subsector_t **subsectors;
+extern seg_t **segs;
 
 extern uint32_t *prndindex;
 

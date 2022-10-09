@@ -9,7 +9,22 @@
 #include "player.h"
 #include "map.h"
 #include "stbar.h"
+#include "ldr_flat.h"
+#include "ldr_texture.h"
+#include "ldr_sprite.h"
+#include "extra3d.h"
 #include "render.h"
+
+#define HEIGHTBITS	12
+#define HEIGHTUNIT	(1 << HEIGHTBITS)
+
+typedef	struct
+{
+	int32_t first;
+	int32_t last;
+} cliprange_t;
+
+//
 
 uint32_t *viewheight;
 uint32_t *viewwidth;
@@ -24,6 +39,13 @@ uint32_t *screenblocks;
 
 uint32_t *usegamma;
 
+fixed_t *viewx;
+fixed_t *viewy;
+fixed_t *viewz;
+angle_t *viewangle;
+int32_t *extralight;
+uint8_t **fixedcolormap;
+
 fixed_t *centeryfrac;
 fixed_t *yslope;
 
@@ -31,6 +53,11 @@ uint32_t *dc_x;
 uint32_t *dc_yl;
 uint32_t *dc_yh;
 uint8_t **dc_source;
+fixed_t *dc_texturemid;
+uint8_t **dc_colormap;
+fixed_t *dc_iscale;
+
+uint8_t **ds_source;
 
 fixed_t *sprtopscreen;
 fixed_t *spryscale;
@@ -38,7 +65,48 @@ fixed_t *spryscale;
 int16_t **mfloorclip;
 int16_t **mceilingclip;
 
+static sector_t **r_frontsector;
+static sector_t **r_backsector;
+static seg_t **curline;
+static drawseg_t **ds_p;
+
+static visplane_t **ceilingplane;
+static visplane_t **floorplane;
+
+static visplane_t *fakeplane_ceiling;
+static visplane_t *fakeplane_floor;
+
+static extraplane_t *fakesource;
+
+static uint32_t *markceiling;
+static uint32_t *markfloor;
+
+static cliprange_t *solidsegs;
+
+static angle_t *rw_normalangle;
+static angle_t *rw_angle1;
+static fixed_t *rw_distance;
+
+static angle_t *xtoviewangle;
+static int16_t *floorclip;
+static int16_t *ceilingclip;
+
+static int16_t *e_floorclip;
+static int16_t *e_ceilingclip;
+
 void (**colfunc)();
+
+static vissprite_t **vissprite_p;
+static vissprite_t *vsprsortedhead;
+
+static fixed_t *planeheight;
+static uint8_t ***planezlight;
+static uint8_t **scalelight;
+static uint8_t **zlight;
+
+static int32_t clip_height_bot;
+static int32_t clip_height_top;
+static uint16_t masked_col_step;
 
 static fixed_t cy_weapon;
 static fixed_t cy_look;
@@ -46,8 +114,8 @@ static fixed_t cy_look;
 static fixed_t mlook_pitch;
 
 static void *ptr_visplanes;
-static void *ptr_vissprites;
-static void *ptr_drawsegs;
+static vissprite_t *ptr_vissprites;
+static drawseg_t *ptr_drawsegs;
 
 uint8_t r_palette[768];
 
@@ -135,11 +203,12 @@ void init_render()
 		ptr_drawsegs = ldr_malloc(mod_config.drawseg_count * sizeof(drawseg_t));
 		// update values in hooks
 		hook_drawseg[0].value = (uint32_t)ptr_drawsegs + mod_config.drawseg_count * sizeof(drawseg_t);
-		for(int i = 1; i <= 5; i++)
+		for(int i = 1; i <= 3; i++)
 			hook_drawseg[i].value = (uint32_t)ptr_drawsegs;
 		// install hooks
-		utils_install_hooks(hook_drawseg, 6);
-	}
+		utils_install_hooks(hook_drawseg, 4);
+	} else
+		ptr_drawsegs = (void*)0x0002D0A0 + doom_data_segment;
 
 	// visplane limit
 	if(mod_config.visplane_count > 128)
@@ -164,12 +233,868 @@ void init_render()
 		// allocate new memory
 		ptr_vissprites = ldr_malloc(mod_config.vissprite_count * sizeof(vissprite_t));
 		// update values in hooks
-		for(int i = 0; i <= 5; i++)
+		for(int i = 0; i <= 4; i++)
 			hook_vissprite[i].value = (uint32_t)ptr_vissprites;
-		hook_vissprite[6].value = (uint32_t)ptr_vissprites + mod_config.vissprite_count * sizeof(vissprite_t);
+		hook_vissprite[5].value = (uint32_t)ptr_vissprites + mod_config.vissprite_count * sizeof(vissprite_t);
 		// install hooks
-		utils_install_hooks(hook_vissprite, 7);
+		utils_install_hooks(hook_vissprite, 6);
+	} else
+		ptr_vissprites = (void*)0x0005A210 + doom_data_segment;
+
+	// extra planes
+	if(mod_config.e3dplane_count < 16)
+		mod_config.e3dplane_count = 16;
+	e3d_init(mod_config.e3dplane_count);
+}
+
+//
+// draw
+
+void draw_solid_column(void *data, int32_t fc, int32_t cc, int32_t height)
+{
+	int32_t top, bot;
+
+	if(height < 0)
+	{
+		top = 0;
+		bot = SCREENHEIGHT - 1;
+	} else
+	{
+		top = *sprtopscreen;
+		bot = top + *spryscale * height;
+		top = (top + FRACUNIT - 1) >> FRACBITS;
+		bot = (bot - 1) >> FRACBITS;
 	}
+
+	if(bot >= fc)
+		bot = fc - 1;
+	if(top <= cc)
+		top = cc + 1;
+
+	if(top <= bot)
+	{
+		*dc_yl = top;
+		*dc_yh = bot;
+		*dc_source = data;
+		(*colfunc)();
+	}
+}
+
+void draw_masked_column(column_t *column, int32_t fc, int32_t cc)
+{
+	int32_t top, bot;
+	fixed_t basetexturemid;
+
+	basetexturemid = *dc_texturemid;
+
+	while(column->topdelta != 255)
+	{
+		top = *sprtopscreen + *spryscale * column->topdelta;
+		bot = top + *spryscale * column->length;
+
+		top = (top + FRACUNIT - 1) >> FRACBITS;
+		bot = (bot - 1) >> FRACBITS;
+
+		if(bot >= fc)
+			bot = fc - 1;
+		if(top <= cc)
+			top = cc + 1;
+
+		if(top <= bot)
+		{
+			*dc_yl = top;
+			*dc_yh = bot;
+			*dc_source = (uint8_t*)column + 3;
+			*dc_texturemid = basetexturemid - (column->topdelta << FRACBITS);
+			(*colfunc)();
+		}
+		column = (column_t*)((uint8_t*)column + column->length + 4);
+	}
+
+	*dc_texturemid = basetexturemid;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
+{
+	int32_t lightnum;
+	int32_t scalestep;
+	int32_t height;
+	int32_t topfrac, topstep;
+	int32_t botfrac, botstep;
+	uint8_t **wlight;
+	int32_t texnum = 0;
+	uint16_t *tcol = (uint16_t*)ds->maskedtexturecol;
+	void *comp_s, *comp_e;
+	seg_t *seg = ds->curline;
+	sector_t *frontsector = seg->frontsector;
+	sector_t *backsector = seg->backsector;
+
+	// texture
+	if(clip_height_top < 0x7FFFFFFF)
+	{
+		extraplane_t *pl = backsector->exfloor;
+		while(pl)
+		{
+			if(	*pl->texture &&
+				clip_height_top <= pl->source->ceilingheight &&
+				clip_height_top > pl->source->floorheight
+			){
+				texnum = (*texturetranslation)[*pl->texture];
+				*dc_texturemid = pl->source->ceilingheight - *viewz;
+				height = -1;
+				break;
+			}
+			pl = pl->next;
+		}
+	}
+
+	if(!texnum)
+	{
+		texnum = (*texturetranslation)[seg->sidedef->midtexture];
+		if(texnum)
+		{
+			// mid texture offsets
+			if(seg->linedef->flags & ML_DONTPEGBOTTOM)
+			{
+				fixed_t mid = frontsector->floorheight > backsector->floorheight ? frontsector->floorheight : backsector->floorheight;
+				*dc_texturemid = mid + (*textureheight)[texnum] - *viewz;
+			} else
+			{
+				fixed_t mid = frontsector->ceilingheight < backsector->ceilingheight ? frontsector->ceilingheight : backsector->ceilingheight;
+				*dc_texturemid = mid - *viewz;
+			}
+			height = (*textureheight)[texnum] >> FRACBITS;
+		}
+	}
+
+	*dc_texturemid += seg->sidedef->rowoffset;
+
+	if(!texnum)
+	{
+		// there is no texture to draw
+		// but step has to be flipped anyway
+		for(int32_t x = x1; x <= x2; x++)
+			if((tcol[x] & 0x8000) == masked_col_step)
+				tcol[x] ^= 0x8000;
+		return;
+	}
+
+	// check texture composite // TODO: this does not work properly
+	comp_s = (*texturecomposite)[texnum];
+	if(comp_s)
+		comp_e = comp_s + (*texturecompositesize)[texnum];
+	else
+		comp_e = NULL;
+
+	// light
+
+	lightnum = (frontsector->lightlevel >> LIGHTSEGSHIFT) + *extralight;
+
+	if(seg->v1->y == seg->v2->y)
+		lightnum--;
+	else
+	if(seg->v1->x == seg->v2->x)
+		lightnum++;
+
+	if(lightnum < 0)
+		wlight = scalelight;
+	else
+	if(lightnum >= LIGHTLEVELS)
+		wlight = scalelight + (LIGHTLEVELS-1) * MAXLIGHTSCALE;
+	else
+		wlight = scalelight + lightnum * MAXLIGHTSCALE;
+
+	// scale
+
+	scalestep = ds->scalestep;
+	*spryscale = ds->scale1 + (x1 - ds->x1) * scalestep;
+	*mfloorclip = ds->sprbottomclip;
+	*mceilingclip = ds->sprtopclip;
+
+	if(*fixedcolormap)
+		*dc_colormap = *fixedcolormap;
+
+	// clip
+
+	if(clip_height_bot > -0x7FFFFFFF)
+	{
+		int temp = (clip_height_bot - *viewz) >> 4;
+		botfrac = (*centeryfrac >> 4) - FixedMul(temp, ds->scale1);
+		botstep = -FixedMul(scalestep, temp);
+		botfrac += botstep * (x1 - ds->x1);
+	}
+
+	if(clip_height_top < 0x7FFFFFFF)
+	{
+		int32_t temp = (clip_height_top - *viewz) >> 4;
+		topfrac = (*centeryfrac >> 4) - FixedMul(temp, ds->scale1);
+		topstep = -FixedMul(scalestep, temp);
+		topfrac += topstep * (x1 - ds->x1);
+	}
+
+	// draw
+
+	for(int32_t x = x1; x <= x2; x++)
+	{
+		*dc_x = x;
+		if((tcol[x] & 0x8000) == masked_col_step)
+		{
+			int32_t mfc, mcc;
+			void *data;
+
+			if(!*fixedcolormap)
+			{
+				uint32_t index = *spryscale >> LIGHTSCALESHIFT;
+				if(index >= MAXLIGHTSCALE)
+					index = MAXLIGHTSCALE - 1;
+				*dc_colormap = wlight[index];
+			}
+
+			*sprtopscreen = *centeryfrac - FixedMul(*dc_texturemid, *spryscale);
+			*dc_iscale = 0xFFFFFFFF / (uint32_t)*spryscale;
+
+			mfc = (*mfloorclip)[x];
+			mcc = (*mceilingclip)[x];
+
+			if(clip_height_bot > -0x7FFFFFFF)
+			{
+				int32_t tmp = (botfrac >> HEIGHTBITS) + 1;
+				if(tmp < mfc)
+					mfc = tmp;
+			}
+
+			if(clip_height_top < 0x7FFFFFFF)
+			{
+				int32_t tmp = ((topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS) - 1;
+				if(tmp > mcc)
+					mcc = tmp;
+			}
+
+			data = R_GetColumn(texnum, tcol[x] & 0x7FFF);
+
+			// TODO: medusa fix; pick solid draw vs masked draw
+			if(data >= comp_s && data < comp_e)
+				draw_solid_column(data, mfc, mcc, height);
+			else
+				draw_masked_column(data - 3, mfc, mcc);
+
+			tcol[x] ^= 0x8000;
+		}
+
+		if(clip_height_bot > -0x7FFFFFFF)
+			botfrac += botstep;
+		if(clip_height_top < 0x7FFFFFFF)
+			topfrac += topstep;
+		*spryscale += scalestep;
+	}
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void draw_vis_sprite(vissprite_t *vis)
+{
+	column_t *column;
+	int32_t texturecolumn;
+	fixed_t frac;
+	patch_t *patch;
+	int32_t fc, cc;
+
+	patch = W_CacheLumpNum(sprite_lump[vis->patch], PU_CACHE);
+
+	*dc_colormap = vis->colormap;
+//	if(!dc_colormap)
+//		colfunc = fuzzcolfunc;
+	// TODO: colfunc (normal, fuzz, translation)
+	// TODO: dc_translation
+
+	*dc_iscale = abs(vis->xiscale);
+	*dc_texturemid = vis->texturemid;
+	frac = vis->startfrac;
+	*spryscale = vis->scale;
+	*sprtopscreen = *centeryfrac - FixedMul(*dc_texturemid, *spryscale);
+
+	if(clip_height_bot > -0x7FFFFFFF)
+	{
+		if(clip_height_bot > *dc_texturemid + *viewz)
+			return;
+		fc = (*centeryfrac - FixedMul(clip_height_bot - *viewz, *spryscale)) / FRACUNIT;
+		if(fc < 0)
+			return;
+	} else
+		fc = 0x10000;
+
+	if(clip_height_top < 0x7FFFFFFF)
+	{
+		cc = ((*centeryfrac - FixedMul(clip_height_top - *viewz, *spryscale)) / FRACUNIT) - 1;
+		if(cc >= SCREENHEIGHT)
+			return;
+	} else
+		cc = -0x10000;
+
+	for(int32_t x = vis->x1; x <= vis->x2; x++, frac += vis->xiscale)
+	{
+		int32_t mfc, mcc;
+
+		mfc = (*mfloorclip)[x];
+		mcc = (*mceilingclip)[x];
+		*dc_x = x;
+
+		if(cc > mcc)
+			mcc = cc;
+		if(fc < mfc)
+			mfc = fc;
+
+		texturecolumn = frac >> FRACBITS;
+		column = (column_t*)((uint8_t*)patch + patch->offs[texturecolumn]);
+		draw_masked_column(column, mfc, mcc);
+	}
+}
+
+static inline void draw_player_sprites()
+{
+	*centery = cy_weapon;
+	*centeryfrac = cy_weapon << FRACBITS;
+
+	R_DrawPlayerSprites();
+
+	*centery = cy_look;
+	*centeryfrac = cy_look << FRACBITS;
+}
+
+static void draw_masked()
+{
+	vissprite_t *spr;
+	drawseg_t *ds;
+
+	if(*vissprite_p > ptr_vissprites)
+	{
+		for(spr = vsprsortedhead->next; spr != vsprsortedhead; spr = spr->next)
+			R_DrawSprite(spr);
+	}
+
+	for(ds = *ds_p - 1; ds >= ptr_drawsegs; ds--)
+		if(ds->maskedtexturecol)
+			R_RenderMaskedSegRange(ds, ds->x1, ds->x2);
+
+	// toggle clip stage
+	masked_col_step ^= 0x8000;
+}
+
+static inline void draw_masked_range()
+{
+	fixed_t ht;
+	extra_height_t *hh;
+
+	R_SortVisSprites();
+
+	// reset clip stage
+	masked_col_step = 0;
+
+	// from top to middle
+	clip_height_top = 0x7FFFFFFF;
+	hh = e3d_up_height;
+	while(hh)
+	{
+		// sprites and lines
+		clip_height_bot = hh->height;
+		draw_masked();
+		clip_height_top = clip_height_bot;
+		// planes
+		e3d_draw_height(hh->height);
+		// next
+		hh = hh->next;
+	}
+	ht = clip_height_top;
+
+	// from bottom to middle
+	clip_height_bot = -0x7FFFFFFF;
+	hh = e3d_dn_height;
+	while(hh)
+	{
+		// sprites and lines
+		clip_height_top = hh->height;
+		draw_masked();
+		clip_height_bot = clip_height_top;
+		// planes
+		e3d_draw_height(hh->height);
+		// next
+		hh = hh->next;
+	}
+
+	// middle - sprites and lines
+	clip_height_top = ht;
+	draw_masked();
+}
+
+void r_draw_plane(visplane_t *pl)
+{
+	int32_t light;
+	int32_t stop;
+
+	*ds_source = W_CacheLumpNum((*flattranslation)[pl->picnum], PU_CACHE);
+
+	*planeheight = abs(pl->height - *viewz);
+
+	light = (pl->lightlevel >> LIGHTSEGSHIFT) + *extralight;
+
+	if(light >= LIGHTLEVELS)
+	    light = LIGHTLEVELS - 1;
+
+	if(light < 0)
+	    light = 0;
+
+	*planezlight = zlight + light * MAXLIGHTZ;
+
+	pl->top[pl->maxx + 1] = 255;
+	pl->top[pl->minx - 1] = 255;
+
+	stop = pl->maxx + 1;
+	for(int32_t x = pl->minx; x <= stop; x++)
+		R_MakeSpans(x, pl->top[x-1], pl->bottom[x-1], pl->top[x], pl->bottom[x]);
+}
+
+//
+// BSP
+
+static void store_fake_range(int32_t start, int32_t stop)
+{
+	seg_t *seg = *curline;
+	fixed_t hyp;
+	fixed_t sineval;
+	angle_t distangle, offsetangle;
+	fixed_t scale;
+	fixed_t scalestep;
+	int32_t world;
+	int32_t worldstep;
+	int32_t worldfrac;
+
+	*rw_normalangle = seg->angle + ANG90;
+	offsetangle = abs(*rw_normalangle - *rw_angle1);
+
+	if(offsetangle > ANG90)
+		offsetangle = ANG90;
+
+	distangle = ANG90 - offsetangle;
+	hyp = R_PointToDist(seg->v1->x, seg->v1->y);
+	sineval = finesine[distangle >> ANGLETOFINESHIFT];
+	*rw_distance = FixedMul(hyp, sineval);
+
+	scale = R_ScaleFromGlobalAngle(*viewangle + xtoviewangle[start]);
+
+	if(stop > start)
+		scalestep = (R_ScaleFromGlobalAngle(*viewangle + xtoviewangle[stop]) - scale) / (stop - start);
+
+	world = *fakesource->height - *viewz;
+	world >>= 4;
+
+	worldstep = -FixedMul(scalestep, world);
+	worldfrac = (*centeryfrac >> 4) - FixedMul(world, scale);
+
+	if(fakeplane_floor)
+	{
+		fakeplane_floor = e3d_check_plane(fakeplane_floor, start, stop);
+		if(!fakeplane_floor)
+			return;
+
+		while(start <= stop)
+		{
+			int32_t top;
+			int32_t bot;
+
+			top = (worldfrac >> HEIGHTBITS) + 1;
+			if(top <= ceilingclip[start])
+				top = ceilingclip[start] + 1;
+
+			bot = e_floorclip[start] - 1;
+
+			if(top <= bot)
+			{
+				fakeplane_floor->top[start] = top;
+				fakeplane_floor->bottom[start] = bot;
+			}
+
+			worldfrac += worldstep;
+			start++;
+		}
+	} else
+	if(fakeplane_ceiling)
+	{
+		fakeplane_ceiling = e3d_check_plane(fakeplane_ceiling, start, stop);
+		if(!fakeplane_ceiling)
+			return;
+
+		while(start <= stop)
+		{
+			int32_t top;
+			int32_t bot;
+
+			bot = ((worldfrac + HEIGHTUNIT - 1) >> HEIGHTBITS) - 1;
+			top = e_ceilingclip[start] + 1;
+
+			if(bot >= floorclip[start])
+				bot = floorclip[start] - 1;
+
+			if(top <= bot)
+			{
+				fakeplane_ceiling->top[start] = top;
+				fakeplane_ceiling->bottom[start] = bot;
+			}
+
+			worldfrac += worldstep;
+			start++;
+		}
+	} else
+	if(e_floorclip)
+	{
+		while(start <= stop)
+		{
+			int32_t y;
+
+			y = (worldfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+
+			if(y > floorclip[start])
+				y = floorclip[start];
+
+			e_floorclip[start] = y;
+
+			worldfrac += worldstep;
+			start++;
+		}
+	} else
+	if(e_ceilingclip)
+	{
+		while(start <= stop)
+		{
+			int32_t y;
+
+			y = worldfrac >> HEIGHTBITS;
+
+			if(y < ceilingclip[start])
+				y = ceilingclip[start];
+
+			e_ceilingclip[start] = y;
+
+			worldfrac += worldstep;
+			start++;
+		}
+	}
+}
+
+static inline void clip_fake_segment(int32_t first, int32_t last)
+{
+	cliprange_t *start;
+
+	start = solidsegs;
+	while(start->last < first - 1)
+		start++;
+
+	if(first < start->first)
+	{
+		if(last < start->first - 1)
+		{
+			store_fake_range(first, last);
+			return;
+		}
+		store_fake_range(first, start->first - 1);
+	}
+
+	if(last <= start->last)
+		return;
+
+	while(last >= (start + 1)->first - 1)
+	{
+		store_fake_range(start->last + 1, (start + 1)->first - 1);
+		start++;
+		if(last <= start->last)
+			return;
+	}
+
+	store_fake_range(start->last + 1, last);
+}
+
+static __attribute((regparm(3),no_caller_saved_registers)) // three!
+void r_add_line(seg_t *line, int32_t x2, int32_t x1)
+{
+	// NOTE: this is only a second part
+	sector_t *frontsector;
+	sector_t *backsector;
+
+	if(fakesource)
+	{
+		clip_fake_segment(x1, x2-1);
+		return;
+	}
+
+	frontsector = *r_frontsector;
+
+	backsector = line->backsector;
+	*r_backsector = backsector;
+
+	if(!backsector)
+		goto clipsolid;
+
+	if(frontsector->floorheight >= frontsector->ceilingheight)
+		goto clipsolid;
+
+	if(backsector->ceilingheight <= frontsector->floorheight || backsector->floorheight >= frontsector->ceilingheight)
+		goto clipsolid;
+
+	if(backsector->ceilingheight != frontsector->ceilingheight || backsector->floorheight != frontsector->floorheight)
+		goto clippass;
+
+	if(	backsector->ceilingpic == frontsector->ceilingpic &&
+		backsector->floorpic == frontsector->floorpic &&
+		backsector->lightlevel == frontsector->lightlevel &&
+		line->sidedef->midtexture == 0 &&
+		!frontsector->exfloor && !backsector->exfloor
+	)
+		return;
+
+clippass:
+	R_ClipPassWallSegment(x1, x2-1);
+	return;
+
+clipsolid:
+	R_ClipSolidWallSegment(x1, x2-1);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void R_Subsector(uint32_t num)
+{
+	uint32_t count, idx;
+	seg_t *line;
+	subsector_t *sub;
+	sector_t *frontsector;
+	extraplane_t *pl;
+
+	sub = *subsectors + num;
+	frontsector = sub->sector;
+
+	*r_frontsector = frontsector;
+
+	//
+	// fake lines
+
+	idx = 0;
+	pl = frontsector->exfloor;
+	while(pl)
+	{
+		uint16_t light;
+
+		if(*pl->height < frontsector->floorheight)
+		{
+			pl = pl->next;
+			continue;
+		}
+
+		if(*pl->height >= *viewz)
+		{
+			// out of sight; but must add height for light effects and sides
+			e3d_add_height(*pl->height);
+			pl = pl->next;
+			continue;
+		}
+
+		if(pl->next)
+			light = *pl->next->light;
+		else
+			light = frontsector->lightlevel;
+
+		fakesource = pl;
+		fakeplane_floor = e3d_find_plane(*pl->height, *pl->pic, light);
+		if(fakeplane_floor)
+		{
+			e3d_add_height(*pl->height);
+			count = sub->numlines;
+			line = *segs + sub->firstline;
+			e_floorclip = e3d_floorclip + idx * SCREENWIDTH;
+
+			while(count--)
+			{
+				R_AddLine(line);
+				line++;
+			}
+		}
+
+		idx++;
+		pl = pl->next;
+	}
+
+	fakeplane_floor = NULL;
+	idx = 0;
+	pl = frontsector->exceiling;
+	while(pl)
+	{
+		uint16_t light;
+
+		if(*pl->height > frontsector->ceilingheight)
+		{
+			pl = pl->next;
+			continue;
+		}
+
+		if(*pl->height <= *viewz)
+		{
+			// out of sight; but must add height for light effects and sides
+			e3d_add_height(*pl->height);
+			pl = pl->next;
+			continue;
+		}
+
+		light = *pl->light; // TODO: this light is often correct, but not always
+
+		fakesource = pl;
+		fakeplane_ceiling = e3d_find_plane(*pl->height, *pl->pic, light);
+		if(fakeplane_ceiling)
+		{
+			e3d_add_height(*pl->height);
+			count = sub->numlines;
+			line = *segs + sub->firstline;
+			e_ceilingclip = e3d_ceilingclip + idx * SCREENWIDTH;
+
+			while(count--)
+			{
+				R_AddLine(line);
+				line++;
+			}
+		}
+
+		idx++;
+		pl = pl->next;
+	}
+
+	//
+	// real lines
+
+	fakeplane_ceiling = NULL;
+	fakeplane_floor = NULL;
+	fakesource = NULL;
+
+	count = sub->numlines;
+	line = *segs + sub->firstline;
+
+	if(frontsector->floorheight < *viewz)
+	{
+		// find correct light in extra3D
+		uint16_t light = frontsector->lightlevel;
+
+		pl = frontsector->exfloor;
+		while(pl)
+		{
+			if(*pl->height >= frontsector->floorheight)
+			{
+				light = *pl->light;
+				break;
+			}
+			pl = pl->next;
+		}
+
+		*floorplane = R_FindPlane(frontsector->floorheight, frontsector->floorpic, light);
+	} else
+		*floorplane = NULL;
+
+	if(frontsector->ceilingheight > *viewz || frontsector->ceilingpic == *skyflatnum)
+	{
+		// find correct light in extra3D
+		uint16_t light = frontsector->lightlevel;
+
+		if(frontsector->ceilingpic == *skyflatnum)
+			pl = NULL;
+		else
+			pl = frontsector->exfloor;
+
+		while(pl)
+		{
+			if(*pl->height >= frontsector->ceilingheight)
+			{
+				light = *pl->light;
+				break;
+			}
+			pl = pl->next;
+		}
+
+		*ceilingplane = R_FindPlane(frontsector->ceilingheight, frontsector->ceilingpic, light);
+	} else
+		*ceilingplane = NULL;
+
+	R_AddSprites(frontsector);
+
+	while(count--)
+	{
+		// real line
+		R_AddLine(line);
+		// fake line
+		if(line->backsector)
+		{
+			e_ceilingclip = NULL;
+			idx = 0;
+			pl = line->backsector->exfloor;
+			while(pl)
+			{
+				fakesource = pl;
+
+				if(*pl->height >= line->backsector->floorheight)
+				{
+					e_floorclip = e3d_floorclip + idx * SCREENWIDTH;
+					R_AddLine(line);
+					idx++;
+				}
+
+				pl = pl->next;
+			}
+
+			e_floorclip = NULL;
+			idx = 0;
+			pl = line->backsector->exceiling;
+			while(pl)
+			{
+				fakesource = pl;
+
+				if(*pl->height <= line->backsector->ceilingheight)
+				{
+					e_ceilingclip = e3d_ceilingclip + idx * SCREENWIDTH;
+					R_AddLine(line);
+					idx++;
+				}
+
+				pl = pl->next;
+			}
+
+			fakesource = NULL;
+		}
+		// next
+		line++;
+	}
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void extra_mark_check()
+{
+	sector_t *frontsector = *r_frontsector;
+	sector_t *backsector = *r_backsector;
+
+	if(	frontsector->exfloor || backsector->exfloor ||
+		backsector->ceilingheight <= frontsector->floorheight ||
+		backsector->floorheight >= frontsector->ceilingheight ||
+		backsector->floorheight >= backsector->ceilingheight
+	){
+		*markceiling = 1;
+		*markfloor = 1;
+	}
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t masked_side_check(side_t *side)
+{
+	if(side->midtexture)
+		return 1;
+
+	if(	((*r_backsector)->exfloor || (*r_backsector)->exceiling) &&
+		(*r_frontsector)->tag != (*r_backsector)->tag
+	)
+		return 1;
+
+	return 0;
 }
 
 //
@@ -224,23 +1149,19 @@ void custom_SetupFrame(player_t *pl)
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void custom_DrawPlayerSprites()
-{
-	*centery = cy_weapon;
-	*centeryfrac = cy_weapon << FRACBITS;
-
-	R_DrawPlayerSprites();
-
-	*centery = cy_look;
-	*centeryfrac = cy_look << FRACBITS;
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
 void hook_RenderPlayerView(player_t *pl)
 {
 	if(!*automapactive)
-		// render 3D view
+	{
+		// cleanup new stuff
+		e3d_reset();
+		// 3D view
 		R_RenderPlayerView(pl);
+		// masked
+		draw_masked_range();
+		// weapon sprites
+		draw_player_sprites();
+	}
 
 	// status bar
 	stbar_draw(pl);
@@ -255,8 +1176,6 @@ static hook_t hook_drawseg[] =
 	{0x00033596, CODE_HOOK | HOOK_UINT32, 0}, // R_ClearDrawSegs
 	{0x000383e4, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawSprite
 	{0x00038561, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawSprite
-	{0x0003861f, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
-	{0x0003863d, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
 };
 
 // expanded visplane limit
@@ -282,7 +1201,6 @@ static hook_t hook_vissprite[] =
 	{0x000382e4, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
 	{0x0003830c, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
 	{0x00038311, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
-	{0x000385ee, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawMasked
 	// vissprite max pointer
 	{0x00037e5a, CODE_HOOK | HOOK_UINT32, 0}, // R_ProjectSprite
 };
@@ -295,8 +1213,32 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001D361, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_RenderPlayerView},
 	// replace call to 'R_SetupFrame' in 'R_RenderPlayerView'
 	{0x00035FB0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)custom_SetupFrame},
-	// replace call to 'R_DrawPlayerSprites' in 'R_DrawMasked'
-	{0x0003864C, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)custom_DrawPlayerSprites},
+	// skip 'R_RenderPlayerView' in 'R_RenderPlayerView'
+	{0x00035FE3, CODE_HOOK | HOOK_JMP_DOOM, 0x0001F170},
+	// replace call to 'R_DrawVisSprite' in 'R_DrawSprite'
+	{0x000385CE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_vis_sprite},
+	// replace part of 'R_AddLine'
+	{0x000337E0, CODE_HOOK | HOOK_UINT32, 0xD889F289},
+	{0x000337E4, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)r_add_line},
+	{0x000337E9, CODE_HOOK | HOOK_UINT16, 0x6AEB},
+	// replace 'R_Subsector'
+	{0x00033ACF, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_Subsector},
+	{0x00033ADB, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_Subsector},
+	// add extra 'mark' checks to 'R_StoreWallRange'
+	{0x000370C1, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)extra_mark_check},
+	{0x000370C6, CODE_HOOK | HOOK_UINT16, 0x21EB},
+	// replace 'masked' check in 'R_StoreWallRange'
+	{0x000371AD, CODE_HOOK | HOOK_UINT16, 0x0D89},
+	{0x000371AF, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0005A1CC},
+	{0x000371B3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)masked_side_check},
+	{0x000371B8, CODE_HOOK | HOOK_UINT16, 0xC085},
+	// replace call to 'R_RenderMaskedSegRange' in 'R_DrawSprite'
+	{0x0003846D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_masked_range_draw},
+	// mask 'maskedtexturecol' with 0x7FFF in 'R_RenderSegLoop'
+	{0x00036C94, CODE_HOOK | HOOK_UINT16, 0x5DEB},
+	{0x00036CF3, CODE_HOOK | HOOK_UINT32, 0x007FE580},
+	{0x00036CF6, CODE_HOOK | HOOK_UINT32, 0x500C8966},
+	{0x00036CFA, CODE_HOOK | HOOK_UINT16, 0x9CEB},
 	// replace 'yslope' calculation in 'R_ExecuteSetViewSize'
 	{0x00035C10, CODE_HOOK | HOOK_UINT32, 0xFFFFFFB8},
 	{0x00035C14, CODE_HOOK | HOOK_UINT16, 0xA37F},
@@ -310,7 +1252,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001D32B, CODE_HOOK | HOOK_UINT16, 0x07EB},
 	// disable "drawseg overflow" error in 'R_DrawPlanes'
 	{0x000364C9, CODE_HOOK | HOOK_UINT16, 0x2BEB},
-	// required variables
+	// import variables
 	{0x0003952C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centeryfrac},
 	{0x00039534, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centerx},
 	{0x00039538, DATA_HOOK | HOOK_IMPORT, (uint32_t)&centery},
@@ -321,15 +1263,50 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003230C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewwidth},
 	{0x0002B698, DATA_HOOK | HOOK_IMPORT, (uint32_t)&screenblocks},
 	{0x00074FC0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usegamma},
+	// location variables
+	{0x00039540, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewx},
+	{0x00039544, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewy},
+	{0x00039548, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewz},
+	{0x00039528, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewangle},
+	{0x00039014, DATA_HOOK | HOOK_IMPORT, (uint32_t)&extralight},
+	{0x00038FFC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&fixedcolormap},
 	// import render variables
 	{0x00039010, DATA_HOOK | HOOK_IMPORT, (uint32_t)&colfunc},
 	{0x000322EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_x},
 	{0x000322F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yl},
 	{0x000322F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_yh},
 	{0x000322E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_source},
+	{0x000322D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_colormap},
+	{0x000322FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_texturemid},
+	{0x00032300, DATA_HOOK | HOOK_IMPORT, (uint32_t)&dc_iscale},
+	{0x000322E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ds_source},
 	{0x0005C888, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sprtopscreen},
 	{0x0005C8A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spryscale},
 	{0x0005C890, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mfloorclip},
 	{0x0005C88C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mceilingclip},
+	{0x000300B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_frontsector},
+	{0x000300AC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_backsector},
+	{0x000300A4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&curline},
+	{0x000300A8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ds_p},
+	{0x0005A168, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ceilingplane},
+	{0x0005A16C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&floorplane},
+	{0x0005A1EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&markceiling},
+	{0x0005A1F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&markfloor},
+	{0x0002CFA0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&solidsegs},
+	{0x0005A1FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&rw_normalangle},
+	{0x0005A1E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&rw_angle1},
+	{0x0005A200, DATA_HOOK | HOOK_IMPORT, (uint32_t)&rw_distance},
+	// vissprites
+	{0x0005C894, DATA_HOOK | HOOK_IMPORT, (uint32_t)&vissprite_p},
+	{0x0005C8A4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&vsprsortedhead},
+	// more variables
+	{0x0005A150, DATA_HOOK | HOOK_IMPORT, (uint32_t)&planeheight},
+	{0x0005A154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&planezlight},
+	{0x000343E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&scalelight},
+	{0x000323E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&zlight},
+	// import arrays
+	{0x00039020, DATA_HOOK | HOOK_IMPORT, (uint32_t)&xtoviewangle},
+	{0x0004F6A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&floorclip},
+	{0x0004F420, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ceilingclip},
 };
 

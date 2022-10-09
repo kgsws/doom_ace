@@ -33,7 +33,13 @@ typedef uint32_t angle_t;
 #define MAXEVENTS	64
 #define MAXINTERCEPTS	128
 #define MAXSPECIALCROSS	8
-#define MAXSPECIALBUMP	8
+#define MAXSPECIALBUMP	8	// new
+#define LIGHTLEVELS	16
+#define LIGHTSEGSHIFT	4
+#define MAXLIGHTSCALE	48
+#define LIGHTSCALESHIFT	12
+#define MAXLIGHTZ	128
+#define LIGHTZSHIFT	20
 
 //
 // tables
@@ -359,7 +365,11 @@ typedef struct patch_s
 	uint32_t offs[];
 } patch_t;
 
-struct column_s;
+typedef struct column_s
+{
+	uint8_t topdelta;
+	uint8_t length;
+} column_t;
 
 //
 // WAD
@@ -678,7 +688,12 @@ typedef struct
 	int32_t blockbox[4];
 	union
 	{
-		sector_extra_t *extra;
+		struct
+		{
+			sector_extra_t *extra;
+			struct extraplane_s *exfloor;
+			struct extraplane_s *exceiling;
+		};
 		degenmobj_t soundorg;
 	};
 	uint32_t validcount;
@@ -712,7 +727,10 @@ typedef struct line_s
 	union
 	{
 		uint32_t args;
-		uint8_t arg1, arg2, arg3, arg4;
+		struct
+		{
+			uint8_t arg1, arg2, arg3, arg4;
+		};
 	};
 } __attribute__((packed)) line_t;
 
@@ -1099,6 +1117,7 @@ void hook_mobj_damage();
 void hook_obj_key();
 void hook_path_traverse();
 void hook_sound_adjust();
+void hook_masked_range_draw();
 void skip_message_cancel() __attribute((noreturn));
 
 // some variables
@@ -1237,6 +1256,11 @@ void P_CalcHeight(player_t*) __attribute((regparm(2),no_caller_saved_registers))
 void P_MovePlayer(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_DeathThink(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 
+// r_bsp
+void R_AddLine(seg_t*) __attribute((regparm(2),no_caller_saved_registers));
+void R_ClipPassWallSegment(int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void R_ClipSolidWallSegment(int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
+
 // r_data
 void R_GenerateLookup(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -1247,11 +1271,19 @@ void R_ExecuteSetViewSize() __attribute((regparm(2),no_caller_saved_registers));
 void R_RenderPlayerView(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 angle_t R_PointToAngle2(fixed_t,fixed_t,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 void R_SetupFrame(player_t*) __attribute((regparm(2),no_caller_saved_registers));
+fixed_t R_ScaleFromGlobalAngle(angle_t) __attribute((regparm(2),no_caller_saved_registers));
+fixed_t R_PointToDist(fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
+
+// r_plane
+visplane_t *R_FindPlane(fixed_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void R_MakeSpans(int32_t,int32_t,int32_t,int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_things
-void R_DrawMaskedColumn(struct column_s*) __attribute((regparm(2),no_caller_saved_registers));
+void R_AddSprites(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
 void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawPlayerSprites() __attribute((regparm(2),no_caller_saved_registers));
+void R_DrawSprite(vissprite_t*) __attribute((regparm(2),no_caller_saved_registers));
+void R_SortVisSprites() __attribute((regparm(2),no_caller_saved_registers));
 
 // s_sound.c
 void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));

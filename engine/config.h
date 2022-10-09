@@ -6,6 +6,7 @@ typedef struct
 	uint16_t visplane_count;
 	uint16_t vissprite_count;
 	uint16_t drawseg_count;
+	uint16_t e3dplane_count;
 	uint8_t enable_decorate;
 	uint8_t enable_dehacked;
 } mod_config_t;

@@ -20,7 +20,7 @@ static int32_t *spr_maxframe;
 static spriteframe_t *spr_temp;
 static spritedef_t **sprites;
 
-static uint16_t *sprite_lump;
+uint16_t *sprite_lump;
 
 static uint32_t tmp_count;
 

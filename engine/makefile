@@ -1,5 +1,5 @@
 program = code
-OBJ = asm.o main.o utils.o bugfix.o wadfile.o config.o controls.o ldr_texture.o ldr_flat.o ldr_sprite.o textpars.o filebuf.o think.o sound.o mobj.o player.o decorate.o action.o dehacked.o animate.o inventory.o weapon.o map.o hitscan.o special.o render.o stbar.o menu.o saveload.o cheat.o demo.o
+OBJ = asm.o main.o utils.o bugfix.o wadfile.o config.o controls.o ldr_texture.o ldr_flat.o ldr_sprite.o textpars.o filebuf.o think.o sound.o mobj.o player.o decorate.o action.o dehacked.o animate.o inventory.o weapon.o map.o hitscan.o special.o render.o extra3d.o stbar.o menu.o saveload.o cheat.o demo.o
 CC = gcc -m32 -march=i386
 OPT = -O2 -g0
 BOTH = -fno-pie

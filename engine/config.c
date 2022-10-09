@@ -121,6 +121,7 @@ static config_entry_t config_mod[] =
 	{"render.visplane.count", &mod_config.visplane_count, TYPE_U16},
 	{"render.vissprite.count", &mod_config.vissprite_count, TYPE_U16},
 	{"render.drawseg.count", &mod_config.drawseg_count, TYPE_U16},
+	{"render.e3dplane.count", &mod_config.e3dplane_count, TYPE_U16},
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
 	// terminator

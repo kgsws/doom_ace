@@ -18,6 +18,7 @@
 #include "map.h"
 #include "menu.h"
 #include "stbar.h"
+#include "extra3d.h"
 #include "ldr_flat.h"
 #include "ldr_texture.h"
 #include "textpars.h"
@@ -79,6 +80,8 @@ line_t **lines;
 vertex_t **vertexes;
 side_t **sides;
 sector_t **sectors;
+subsector_t **subsectors;
+seg_t **segs;
 
 uint32_t *prndindex;
 
@@ -353,6 +356,8 @@ static inline void parse_sectors()
 		sector_t *sec = *sectors + i;
 
 		sec->extra = se;
+		sec->exfloor = NULL;
+		sec->exceiling = NULL;
 
 		// this should be done in 'P_GroupLines'
 		M_ClearBox(se->bbox);
@@ -489,8 +494,11 @@ uint32_t map_load_setup()
 		{
 			P_SpawnSpecials();
 			spawn_line_scroll();
+		} else
+		{
+			e3d_create();
+			// TODO: more ZDoom specials
 		}
-		// TODO: spawn ZDoom specials
 	}
 
 	// in the level
@@ -1406,11 +1414,8 @@ void map_LoadLineDefs(int lump)
 		ln->dy = v2->y - v1->y;
 		ln->flags = ml->flags;
 		ln->special = ml->special;
-		ln->arg0 = ml->arg[0];
-		ln->arg1 = ml->arg[1];
-		ln->arg2 = ml->arg[2];
-		ln->arg3 = ml->arg[3];
-		ln->arg4 = ml->arg[4];
+		ln->arg0 = ml->arg0;
+		ln->args = ml->args;
 		ln->sidenum[0] = ml->sidenum[0];
 		ln->sidenum[1] = ml->sidenum[1];
 		ln->validcount = 0;
@@ -2156,6 +2161,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002C138, DATA_HOOK | HOOK_IMPORT, (uint32_t)&vertexes},
 	{0x0002C118, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sides},
 	{0x0002C148, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sectors},
+	{0x0002C140, DATA_HOOK | HOOK_IMPORT, (uint32_t)&subsectors},
+	{0x0002C12C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&segs},
 	{0x0002C040, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeplats},
 	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
 	{0x0002B40C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usergame},

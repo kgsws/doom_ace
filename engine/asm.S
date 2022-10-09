@@ -180,6 +180,15 @@ hook_sound_adjust:
 	ret	$4
 
 //
+// R_RenderMaskedSegRange hook
+.global hook_masked_range_draw
+hook_masked_range_draw:
+	push	%ebx
+	call	R_RenderMaskedSegRange
+	add	$4,%esp
+	ret
+
+//
 // V_CopyRect - this one is nasty
 .global V_CopyRect
 V_CopyRect:
@@ -343,12 +352,42 @@ R_GenerateLookup:
 R_GetColumn:
 	.byte	0xE9
 	.4byte	0x00033F50
-////////////////////////////////// R_DrawMaskedColumn
-.section .text.R_DrawMaskedColumn
-.global R_DrawMaskedColumn
-R_DrawMaskedColumn:
+////////////////////////////////// R_AddSprites
+.section .text.R_AddSprites
+.global R_AddSprites
+R_AddSprites:
 	.byte	0xE9
-	.4byte	0x00037AA0
+	.4byte	0x00037F90
+////////////////////////////////// R_AddLine
+.section .text.R_AddLine
+.global R_AddLine
+R_AddLine:
+	.byte	0xE9
+	.4byte	0x00033720
+////////////////////////////////// R_ScaleFromGlobalAngle
+.section .text.R_ScaleFromGlobalAngle
+.global R_ScaleFromGlobalAngle
+R_ScaleFromGlobalAngle:
+	.byte	0xE9
+	.4byte	0x000357D0
+////////////////////////////////// R_PointToDist
+.section .text.R_PointToDist
+.global R_PointToDist
+R_PointToDist:
+	.byte	0xE9
+	.4byte	0x00035760
+////////////////////////////////// R_SortVisSprites
+.section .text.R_SortVisSprites
+.global R_SortVisSprites
+R_SortVisSprites:
+	.byte	0xE9
+	.4byte	0x000382B0
+////////////////////////////////// R_DrawSprite
+.section .text.R_DrawSprite
+.global R_DrawSprite
+R_DrawSprite:
+	.byte	0xE9
+	.4byte	0x000383A0
 ////////////////////////////////// M_LoadDefaults
 .section .text.M_LoadDefaults
 .global M_LoadDefaults
@@ -881,6 +920,36 @@ P_PointOnLineSide:
 	.4byte	0x0002C010
 	pop	%ebx
 	ret
+////////////////////////////////// R_ClipPassWallSegment
+.section .text.R_ClipPassWallSegment
+.global R_ClipPassWallSegment
+R_ClipPassWallSegment:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x00033670
+	pop	%ebx
+	ret
+////////////////////////////////// R_ClipSolidWallSegment
+.section .text.R_ClipSolidWallSegment
+.global R_ClipSolidWallSegment
+R_ClipSolidWallSegment:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x000335A0
+	pop	%ebx
+	ret
+////////////////////////////////// R_FindPlane
+.section .text.R_FindPlane
+.global R_FindPlane
+R_FindPlane:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x00036270
+	pop	%ebx
+	ret
 ////////////////////////////////// end
 .section .text.__reloc_code_arg3_end
 __reloc_code_arg3_end:
@@ -991,6 +1060,21 @@ P_LineAttack:
 	mov	20(%esp),%ecx
 	.byte	0xE8
 	.4byte	0x0002BC20
+	pop	%ecx
+	pop	%ebx
+	ret
+////////////////////////////////// R_MakeSpans
+.section .text.R_MakeSpans
+.global R_MakeSpans
+R_MakeSpans:
+	push	%ebx
+	push	%ecx
+	mov	20(%esp),%ecx
+	push	%ecx
+	mov	16(%esp),%ebx
+	mov	20(%esp),%ecx
+	.byte	0xE8
+	.4byte	0x000363E0
 	pop	%ecx
 	pop	%ebx
 	ret

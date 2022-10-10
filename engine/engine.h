@@ -959,6 +959,12 @@ typedef struct vissprite_s
 	};
 } vissprite_t;
 
+typedef	struct
+{
+	int32_t first;
+	int32_t last;
+} cliprange_t;
+
 //
 // status bar
 
@@ -1120,21 +1126,8 @@ void hook_sound_adjust();
 void hook_masked_range_draw();
 void skip_message_cancel() __attribute((noreturn));
 
-// some variables
-extern uint8_t *screen_buffer;
-extern uint32_t *wipegamestate;
-extern uint32_t *gametic;
-extern uint32_t *gamemode;
-extern uint32_t *gamestate;
-extern uint32_t *gameaction;
-extern uint32_t *paused;
-extern uint32_t *menuactive;
-extern uint32_t *demosequence;
-extern uint32_t *advancedemo;
-extern fixed_t *finetangent;
-extern fixed_t *finesine;
-extern fixed_t *finecosine;
-extern angle_t *tantoangle;
+// doom variables
+#include "doom_vars.h"
 
 // math
 fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2),no_caller_saved_registers));

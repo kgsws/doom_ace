@@ -77,6 +77,16 @@ SECTIONS
 		*(.rel.ifunc)
 	}
 
+	/* [kg] this section is fake but used for relocations in DOOM data */
+	/* this section allows relocation of doom variables */
+
+	. = ALIGN(0x1000000);
+	.doom.data          :
+	{
+		KEEP(*(.doom.data))
+		*(.doom.data .doom.data.* .gnu.linkonce.r.*)
+	}
+
 	/* [kg] we do not care about any of these */
 
   . = SEGMENT_START("rodata-segment", ALIGN(CONSTANT (MAXPAGESIZE)) + (. & (CONSTANT (MAXPAGESIZE) - 1)));

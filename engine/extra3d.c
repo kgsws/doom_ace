@@ -45,7 +45,7 @@ void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line)
 	new->source = sec;
 	new->height = &sec->ceilingheight;
 	new->pic = &sec->ceilingpic;
-	new->texture = &(*sides)[line->sidenum[0]].midtexture;
+	new->texture = &sides[line->sidenum[0]].midtexture;
 	new->light = &sec->lightlevel;
 	new->validcount = 0;
 }
@@ -70,7 +70,7 @@ void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line)
 	new->source = sec;
 	new->height = &sec->floorheight;
 	new->pic = &sec->floorpic;
-	new->texture = &(*sides)[line->sidenum[0]].midtexture;
+	new->texture = &sides[line->sidenum[0]].midtexture;
 	new->light = &sec->lightlevel;
 	new->validcount = 0;
 }
@@ -171,7 +171,7 @@ void e3d_add_height(fixed_t height)
 	extra_height_t *check;
 	extra_height_t **pnext;
 
-	if(height < *viewz)
+	if(height < viewz)
 	{
 		pnext = &e3d_dn_height;
 		check = e3d_dn_height;
@@ -230,7 +230,7 @@ void e3d_reset()
 	// clipping
 	for(uint32_t i = 0; i < extra_clip_count; i++)
 	{
-		e3d_floorclip[i] = *viewheight;
+		e3d_floorclip[i] = viewheight;
 		e3d_ceilingclip[i] = -1;
 	}
 
@@ -245,10 +245,17 @@ void e3d_create()
 	uint32_t top_count = 0;
 	uint32_t height_count = 0;
 
-	// spawn extra floors
-	for(uint32_t i = 0; i < *numlines; i++)
+	if(map_format == MAP_FORMAT_DOOM)
 	{
-		line_t *ln = *lines + i;
+		extra_clip_count = 0;
+		height_count = 0;
+		return;
+	}
+
+	// spawn extra floors
+	for(uint32_t i = 0; i < numlines; i++)
+	{
+		line_t *ln = lines + i;
 		sector_t *src;
 		uint32_t tag;
 
@@ -260,13 +267,13 @@ void e3d_create()
 		)
 			I_Error("[EX3D] Unsupported extra floor type!");
 
-		src = (*sides)[ln->sidenum[0]].sector;
+		src = sides[ln->sidenum[0]].sector;
 
 		tag = ln->arg0 + ln->arg4 * 256;
 
-		for(uint32_t j = 0; j < *numsectors; j++)
+		for(uint32_t j = 0; j < numsectors; j++)
 		{
-			sector_t *sec = *sectors + j;
+			sector_t *sec = sectors + j;
 
 			if(sec->tag == tag)
 			{
@@ -295,10 +302,10 @@ void e3d_create()
 	}
 
 	// find maxium extra floor count per sector
-	for(uint32_t i = 0; i < *numsectors; i++)
+	for(uint32_t i = 0; i < numsectors; i++)
 	{
 		extraplane_t *pl;
-		sector_t *sec = *sectors + i;
+		sector_t *sec = sectors + i;
 		uint32_t count = 0;
 
 		pl = sec->exfloor;

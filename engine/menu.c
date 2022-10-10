@@ -365,7 +365,7 @@ void xhair_color(uint32_t dir)
 static __attribute((regparm(2),no_caller_saved_registers))
 void change_gamma(uint32_t dir)
 {
-	uint32_t value = *usegamma;
+	uint32_t value = usegamma;
 
 	if(dir)
 	{
@@ -381,7 +381,7 @@ void change_gamma(uint32_t dir)
 			value = 4;
 	}
 
-	*usegamma = value;
+	usegamma = value;
 	I_SetPalette(W_CacheLumpName("PLAYPAL", PU_CACHE));
 }
 
@@ -397,11 +397,11 @@ void display_draw()
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[!!*showMessages]);
 
 	// screen size
-	doom_sprintf(text, "%u", *screenblocks);
+	doom_sprintf(text, "%u", screenblocks);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, text);
 
 	// gamma
-	doom_sprintf(text, "%u", *usegamma);
+	doom_sprintf(text, "%u", usegamma);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, text);
 
 	// crosshair type
@@ -686,7 +686,7 @@ void menu_items_draw(menu_t *menu)
 			y += LINEHEIGHT;
 		}
 
-		patch = W_CacheLumpName((uint8_t*)&skull_name[!!(*gametic & 8)], PU_CACHE);
+		patch = W_CacheLumpName((uint8_t*)&skull_name[!!(gametic & 8)], PU_CACHE);
 		V_DrawPatchDirect(x + SKULLXOFF, menu->y - 5 + *menu_item_now * LINEHEIGHT, 0, patch);
 	}
 }

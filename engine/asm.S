@@ -27,6 +27,9 @@ _start:
 	// get DATA base
 	mov	%edi,doom_data_segment(%ecx)
 
+	// offset for relocator
+	add	$-0x1000000,%edi
+
 	// relocate ACE
 	// relocations have to be processed by python script
 	lea	_bss_start(%ecx),%ebx
@@ -34,7 +37,14 @@ rel_ace_loop:
 	mov	(%ebx),%eax
 	test	%eax,%eax
 	jz	rel_ace_end
-	add	%ecx,(%ecx,%eax,1)
+	lea	(%ecx,%eax,1),%edx
+	test	$0x01,3(%edx)
+	jz	_rel_normal
+	add	%edi,(%edx)
+	jmp	_rel_next
+_rel_normal:
+	add	%ecx,(%edx)
+_rel_next:
 	add	$4,%ebx
 	jmp	rel_ace_loop
 rel_ace_end:

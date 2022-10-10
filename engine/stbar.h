@@ -11,7 +11,6 @@
 #define STU_EVERYTHING	0x00FF
 
 extern uint_fast8_t stbar_refresh_force;
-extern uint32_t *screenblocks;
 
 void stbar_init();
 

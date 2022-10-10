@@ -90,8 +90,6 @@ typedef struct
 
 //
 
-extern mobj_t **linetarget;
-
 extern const args_singleFixed_t def_LowerRaise;
 
 //

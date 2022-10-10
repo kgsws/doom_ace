@@ -38,23 +38,6 @@ typedef struct
 
 // SDK variables
 
-uint32_t *wipegamestate;
-uint32_t *gametic;
-uint32_t *gamestate;
-uint32_t *gameaction;
-uint32_t *paused;
-uint32_t *menuactive;
-uint32_t *gamemode;
-uint32_t *demosequence;
-uint32_t *advancedemo;
-static uint32_t *gamemode_sw;
-static uint32_t *gamemode_reg;
-
-fixed_t *finetangent;
-fixed_t *finesine;
-fixed_t *finecosine;
-angle_t *tantoangle;
-
 //
 
 uint8_t *ldr_alloc_message;
@@ -346,10 +329,10 @@ uint32_t ace_main()
 	utils_install_hooks(restore_loader + 0, 1);
 
 	// disable shareware
-	demo_map_mode = *gamemode;
-	*gamemode = 1;
-	*gamemode_sw = 0;
-	*gamemode_reg = 0;
+	demo_map_mode = gamemode;
+	gamemode = 1;
+	gamemode_sw = 0;
+	gamemode_reg = 0;
 
 	// continue running Doom
 }
@@ -399,26 +382,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001AB1E, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// force single page in 'I_FinishUpdate'
 	{0x00019FE7, CODE_HOOK | HOOK_UINT8, 0x00},
-	// import variables
-	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
-	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles},
-	// SDK variables
-	{0x00001A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finetangent},
-	{0x00005A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finesine},
-	{0x00007A84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finecosine},
-	{0x0000FA84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tantoangle},
-	{0x0002B404, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameaction},
-	{0x0002B408, DATA_HOOK | HOOK_IMPORT, (uint32_t)&paused},
-	{0x0002B6CC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&menuactive},
-	{0x0002A3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode},
-	{0x0002A3AC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_sw},
-	{0x0002A3B4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemode_reg},
-	{0x0002B3F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamestate},
-	{0x00011B40, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wipegamestate},
-	{0x0002B3BC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gametic},
-	{0x0002A384, DATA_HOOK | HOOK_IMPORT, (uint32_t)&demosequence},
-	{0x0002A38C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&advancedemo},
 	// read stuff
+	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},
 };

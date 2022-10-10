@@ -24,18 +24,8 @@
 #define FLOATSPEED	(FRACUNIT * 4)
 #define GRAVITY	FRACUNIT
 
-uint32_t *consoleplayer;
-uint32_t *displayplayer;
-
-thinker_t *thinkercap;
-
-uint32_t *respawnmonsters;
-
 static line_t *ceilingline;
 static line_t *floorline;
-
-static line_t **spechit;
-static uint32_t *numspechit;
 
 static line_t *specbump[MAXSPECIALBUMP];
 static uint32_t numspecbump;
@@ -110,7 +100,7 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 		mo->sprite = st->sprite;
 		mo->frame = st->frame;
 
-		if(st->tics > 1 && (*fastparm || *gameskill == sk_nightmare) && st->frame & FF_FAST)
+		if(st->tics > 1 && (fastparm || gameskill == sk_nightmare) && st->frame & FF_FAST)
 			mo->tics = st->tics / 2;
 		else
 			mo->tics = st->tics;
@@ -203,7 +193,7 @@ static uint32_t give_ammo(mobj_t *mo, uint16_t type, uint16_t count, uint32_t dr
 	}
 
 	if(	!(mobjinfo[type].eflags & MFE_INVENTORY_IGNORESKILL) &&
-		(*gameskill == sk_baby || *gameskill == sk_nightmare)
+		(gameskill == sk_baby || gameskill == sk_nightmare)
 	)
 		count *= 2;
 
@@ -483,7 +473,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			{
 				pl->stbar_update |= STU_WEAPON_NEW; // evil grin
 				// auto-weapon-switch optional
-				if(*demoplayback == DEMO_OLD || pl->info_flags & PLF_AUTO_SWITCH)
+				if(demoplayback == DEMO_OLD || pl->info_flags & PLF_AUTO_SWITCH)
 					pl->pendingweapon = info;
 				if(!pl->psprites[0].state)
 					// fix 'no weapon' state
@@ -573,7 +563,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	}
 
 	// sound
-	if(pl == players + *consoleplayer)
+	if(pl == players + consoleplayer)
 		S_StartSound(NULL, info->inventory.sound_pickup);
 
 	// message
@@ -653,7 +643,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 
 		pl->readyweapon = pl->pendingweapon;
 
-		if(*deathmatch)
+		if(deathmatch)
 		{
 			for(uint32_t i = 0; i < num_mobj_types; i++)
 			{
@@ -701,7 +691,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 
 	weapon_setup(pl);
 
-	if(idx == *consoleplayer)
+	if(idx == consoleplayer)
 	{
 		stbar_start(pl);
 		HU_Start();
@@ -753,7 +743,7 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	if(info->flags & MF_MISSILE)
 	{
 		// this modifies opcodes in 'P_SpawnMissile' even if called from anywhere else
-		if(info->fast_speed && (*fastparm || *gameskill == sk_nightmare))
+		if(info->fast_speed && (fastparm || gameskill == sk_nightmare))
 			utils_install_hooks(hook_fast_missile, 3);
 		else
 			utils_install_hooks(hook_slow_missile, 3);
@@ -816,15 +806,15 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 		if(tmthing->z >= thing->z + thing->height)
 		{
-			if(*tmfloorz < thing->z + thing->height)
-				*tmfloorz = thing->z + thing->height;
+			if(tmfloorz < thing->z + thing->height)
+				tmfloorz = thing->z + thing->height;
 			return 1;
 		}
 
 		if(tmthing->z + tmthing->height <= thing->z)
 		{
-			if(*tmceilingz > thing->z)
-				*tmceilingz = thing->z;
+			if(tmceilingz > thing->z)
+				tmceilingz = thing->z;
 			return 1;
 		}
 	}
@@ -890,10 +880,10 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 		if(!(thing->flags1 & MF1_DONTRIP) && tmthing->flags1 & MF1_RIPPER)
 		{
-			if(tmthing->rip_thing == thing && tmthing->rip_tick == *leveltime)
+			if(tmthing->rip_thing == thing && tmthing->rip_tick == leveltime)
 				return 1;
 			tmthing->rip_thing = thing;
-			tmthing->rip_tick = *leveltime;
+			tmthing->rip_tick = leveltime;
 			is_ripper = 1;
 			damage = tmthing->info->damage;
 			if(!(damage & DAMAGE_IS_CUSTOM))
@@ -932,7 +922,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 			angle = R_PointToAngle2(thing->x, thing->y, tmthing->x, tmthing->y);
 
-			if(tmthing->info->fast_speed && (*fastparm || *gameskill == sk_nightmare))
+			if(tmthing->info->fast_speed && (fastparm || gameskill == sk_nightmare))
 				speed = tmthing->info->fast_speed;
 			else
 				speed = tmthing->info->speed;
@@ -1011,25 +1001,25 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 
 	P_LineOpening(ld);
 
-	if(*opentop < *tmceilingz)
+	if(opentop < tmceilingz)
 	{
-		*tmceilingz = *opentop;
+		tmceilingz = opentop;
 		ceilingline = ld;
 	}
 
-	if(*openbottom > *tmfloorz)
+	if(openbottom > tmfloorz)
 	{
-		*tmfloorz = *openbottom;
+		tmfloorz = openbottom;
 		floorline = ld;
 	}
 
-	if(*lowfloor < *tmdropoffz)
-		*tmdropoffz = *lowfloor;
+	if(lowfloor < tmdropoffz)
+		tmdropoffz = lowfloor;
 
-	if(ld->special && *numspechit < MAXSPECIALCROSS)
+	if(ld->special && numspechit < MAXSPECIALCROSS)
 	{
-		spechit[*numspechit] = ld;
-		*numspechit = *numspechit + 1;
+		spechit[numspechit] = ld;
+		numspechit++;
 	}
 
 	return 1;
@@ -1053,7 +1043,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 		{
 			thing->flags1 |= MF1_DONTGIB;
 
-			if(!(thing->flags & MF_NOBLOOD) || *demoplayback == DEMO_OLD)
+			if(!(thing->flags & MF_NOBLOOD) || demoplayback == DEMO_OLD)
 			{
 				uint32_t state;
 
@@ -1082,13 +1072,13 @@ uint32_t pit_change_sector(mobj_t *thing)
 	if(!(thing->flags & MF_SHOOTABLE))
 		return 1;
 
-	*nofit = 1;
+	nofit = 1;
 
-	if(*crushchange && !(*leveltime & 3))
+	if(crushchange && !(leveltime & 3))
 	{
 		mobj_damage(thing, NULL, NULL, 10, 0);
 
-		if(!(thing->flags & MF_NOBLOOD) || *demoplayback == DEMO_OLD)
+		if(!(thing->flags & MF_NOBLOOD) || demoplayback == DEMO_OLD)
 		{
 			mobj_t *mo;
 
@@ -1253,11 +1243,11 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 
 uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*))
 {
-	if(!thinkercap->next)
+	if(!thinkercap.next)
 		// this happens only before any level was loaded
 		return 0;
 
-	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
 	{
 		uint32_t ret;
 
@@ -1277,10 +1267,10 @@ mobj_t *mobj_by_netid(uint32_t netid)
 	if(!netid)
 		return NULL;
 
-	if(!thinkercap->next)
+	if(!thinkercap.next)
 		return NULL;
 
-	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
 	{
 		mobj_t *mo;
 
@@ -1396,7 +1386,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 	player = target->player;
 
-	if(player && *gameskill == sk_baby)
+	if(player && gameskill == sk_baby)
 		damage /= 2;
 
 	if(	inflictor &&
@@ -1411,7 +1401,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		angle = R_PointToAngle2(inflictor->x, inflictor->y, target->x, target->y);
 		thrust = damage > 10000 ? 10000 : damage;
 
-		if(*demoplayback != DEMO_OLD)
+		if(demoplayback != DEMO_OLD)
 		{
 			thrust = (thrust * (FRACUNIT >> 5) * 100 / target->info->mass);
 			if(thrust > (30 * FRACUNIT) >> 2)
@@ -1576,7 +1566,7 @@ static void mobj_xy_move(mobj_t *mo)
 		return;
 	}
 
-	if(*demoplayback != DEMO_OLD)
+	if(demoplayback != DEMO_OLD)
 	{
 		// new, better movement code
 		// split movement into half-radius steps
@@ -1659,14 +1649,14 @@ static void mobj_xy_move(mobj_t *mo)
 				{
 					if(!(mo->flags1 & MF1_SKYEXPLODE) && ceilingline && ceilingline->backsector)
 					{
-						if(*demoplayback == DEMO_OLD)
+						if(demoplayback == DEMO_OLD)
 						{
-							if(ceilingline->backsector->ceilingpic == *skyflatnum)
+							if(ceilingline->backsector->ceilingpic == skyflatnum)
 								mobj_remove(mo);
 						} else
 						{
-							if(	(ceilingline->backsector->ceilingpic == *skyflatnum && mo->z + mo->height >= ceilingline->backsector->ceilingheight) ||
-								(ceilingline->frontsector->ceilingpic == *skyflatnum && mo->z + mo->height >= ceilingline->frontsector->ceilingheight)
+							if(	(ceilingline->backsector->ceilingpic == skyflatnum && mo->z + mo->height >= ceilingline->backsector->ceilingheight) ||
+								(ceilingline->frontsector->ceilingpic == skyflatnum && mo->z + mo->height >= ceilingline->frontsector->ceilingheight)
 							)
 								mobj_remove(mo);
 						}
@@ -1788,12 +1778,12 @@ static void mobj_z_move(mobj_t *mo)
 		mo->z = mo->floorz;
 		if((mo->flags & MF_MISSILE) && !(mo->flags & MF_NOCLIP))
 		{
-			if(	*demoplayback == DEMO_OLD ||
+			if(	demoplayback == DEMO_OLD ||
 				mo->flags1 & MF1_SKYEXPLODE ||
 				!mo->subsector ||
 				!mo->subsector->sector ||
 				mo->subsector->sector->floorheight < mo->z ||
-				mo->subsector->sector->floorpic != *skyflatnum
+				mo->subsector->sector->floorpic != skyflatnum
 			)
 				explode_missile(mo);
 			else
@@ -1819,12 +1809,12 @@ static void mobj_z_move(mobj_t *mo)
 
 		if((mo->flags & MF_MISSILE) && !(mo->flags & MF_NOCLIP))
 		{
-			if(	*demoplayback == DEMO_OLD ||
+			if(	demoplayback == DEMO_OLD ||
 				mo->flags1 & MF1_SKYEXPLODE ||
 				!mo->subsector ||
 				!mo->subsector->sector ||
 				mo->subsector->sector->ceilingheight > mo->z + mo->height ||
-				mo->subsector->sector->ceilingpic != *skyflatnum
+				mo->subsector->sector->ceilingpic != skyflatnum
 			)
 				explode_missile(mo);
 			else
@@ -1915,11 +1905,6 @@ static const hook_t hook_slow_missile[] =
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// import variables
-	{0x0002CF74, DATA_HOOK | HOOK_IMPORT, (uint32_t)&thinkercap},
-	{0x0002B3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&respawnmonsters},
-	{0x0002B960, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spechit},
-	{0x0002B9D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numspechit},
 	// replace call to 'memset' in 'P_SpawnMobj'
 	{0x00031569, CODE_HOOK | HOOK_UINT16, 0xEA89},
 	{0x00031571, CODE_HOOK | HOOK_UINT32, 0x90C38900},
@@ -1987,6 +1972,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000314AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_xy_move},
 	// replace call to 'P_ZMovement' in 'P_MobjThinker'
 	{0x000314C9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_z_move},
-
 };
 

@@ -303,10 +303,10 @@ uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t 
 	trace->dx = x2 - x1;
 	trace->dy = y2 - y1;
 
-	x1 -= *bmaporgx;
-	y1 -= *bmaporgy;
-	x2 -= *bmaporgx;
-	y2 -= *bmaporgy;
+	x1 -= bmaporgx;
+	y1 -= bmaporgy;
+	x2 -= bmaporgx;
+	y2 -= bmaporgy;
 
 	x1 >>= MAPBLOCKSHIFT;
 	y1 >>= MAPBLOCKSHIFT;
@@ -430,13 +430,13 @@ uint32_t hs_slide_traverse(intercept_t *in)
 
 	P_LineOpening(li);
 
-	if(*openrange < mo->height)
+	if(openrange < mo->height)
 		goto isblocking;
 
-	if(*opentop - mo->z < mo->height)
+	if(opentop - mo->z < mo->height)
 		goto isblocking;
 
-	if(*openbottom - mo->z > mo->info->step_height)
+	if(openbottom - mo->z > mo->info->step_height)
 		goto isblocking;
 
 	return 1;
@@ -481,21 +481,21 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 
 		if(li->frontsector->floorheight != li->backsector->floorheight)
 		{
-			if(FixedDiv(*openbottom - sz, dist) > as)
+			if(FixedDiv(openbottom - sz, dist) > as)
 				goto hitline;
 		}
 
 		if(li->frontsector->ceilingheight != li->backsector->ceilingheight)
 		{
-			if(FixedDiv(*opentop - sz, dist) < as)
+			if(FixedDiv(opentop - sz, dist) < as)
 				goto hitline;
 		}
 
 		if(	activate &&
 			li->special &&
 			(li->flags & ML_ACT_MASK) == MLA_ATK_HIT &&
-			FixedDiv(*opentop - sz, dist) >= as &&
-			FixedDiv(*openbottom - sz, dist) <= as
+			FixedDiv(opentop - sz, dist) >= as &&
+			FixedDiv(openbottom - sz, dist) <= as
 		)
 			spec_activate(li, *shootthing, SPEC_ACT_SHOOT);
 
@@ -539,12 +539,12 @@ hitline:
 			if(!(mobjinfo[mo_puff_type].flags1 & MF1_SKYEXPLODE))
 			{
 				// TODO: floor sky hack
-				if(frontsector->ceilingpic == *skyflatnum)
+				if(frontsector->ceilingpic == skyflatnum)
 				{
 					if(z > frontsector->ceilingheight)
 						return 0;
 
-					if(backsector && backsector->ceilingpic == *skyflatnum && backsector->ceilingheight < z)
+					if(backsector && backsector->ceilingpic == skyflatnum && backsector->ceilingheight < z)
 						return 0;
 				}
 			}

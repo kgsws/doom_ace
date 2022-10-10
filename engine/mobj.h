@@ -10,9 +10,6 @@
 
 //
 
-extern uint32_t *respawnmonsters;
-
-extern thinker_t *thinkercap;
 extern uint32_t mobj_netid;
 
 extern uint32_t mo_puff_type;

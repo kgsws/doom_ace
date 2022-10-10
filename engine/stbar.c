@@ -206,13 +206,13 @@ static inline void draw_full_stbar(player_t *pl)
 	uint16_t stbar_y, stbar_hp_x, stbar_ar_x;
 	patch_t **numfont;
 
-	if(*screenblocks < 11)
+	if(screenblocks < 11)
 		return;
 
-	if(*screenblocks > 12)
+	if(screenblocks > 12)
 		return;
 
-	if(*screenblocks > 11)
+	if(screenblocks > 11)
 	{
 		stbar_y = stbar_s_y;
 		stbar_hp_x = stbar_s_hp_x;
@@ -255,7 +255,7 @@ static inline void draw_keybar(player_t *pl, uint32_t skip)
 {
 	uint32_t tx, ty, cc, cm;
 
-	if(*screenblocks > 12)
+	if(screenblocks > 12)
 		return;
 
 	cm = 0;
@@ -313,7 +313,7 @@ static void draw_invbar(player_t *pl)
 		inventory_t *item;
 		uint32_t idx;
 
-		if(*screenblocks < 11)
+		if(screenblocks < 11)
 			invbar_was_on = 1;
 
 		for(uint32_t x = INVBAR_START; x < INVBAR_END; x += INVBAR_STEP)
@@ -358,7 +358,7 @@ static void draw_invbar(player_t *pl)
 		return;
 	}
 
-	if(*screenblocks < 11 && invbar_was_on)
+	if(screenblocks < 11 && invbar_was_on)
 	{
 		invbar_was_on = 0;
 		stbar_refresh_force = 1;
@@ -366,7 +366,7 @@ static void draw_invbar(player_t *pl)
 
 	if(pl->inv_sel)
 	{
-		if(*screenblocks == 11 && !*automapactive)
+		if(screenblocks == 11 && !automapactive)
 		{
 			// current selection
 			mobjinfo_t *info = mobjinfo + pl->inv_sel->type;
@@ -385,14 +385,14 @@ static inline void draw_crosshair(player_t *pl)
 	if(!xhair)
 		return;
 
-	y = *viewwindowy + *viewheight / 2;
+	y = viewwindowy + viewheight / 2;
 
 	if(extra_config.mouse_look > 1)
 	{
-		int32_t height = *viewwindowy + *viewheight;
+		int32_t height = viewwindowy + viewheight;
 		y -= finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT] / 410;
-		if(y < *viewwindowy + xhair->y)
-			y = *viewwindowy + xhair->y;
+		if(y < viewwindowy + xhair->y)
+			y = viewwindowy + xhair->y;
 		else
 		if(y > height - xhair->height + xhair->y)
 			y = height - xhair->height + xhair->y;
@@ -415,7 +415,7 @@ void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 		return;
 	}
 
-	if(*automapactive)
+	if(automapactive)
 		return;
 
 	refresh |= stbar_refresh_force;
@@ -736,7 +736,7 @@ void stbar_draw(player_t *pl)
 	// not if dead
 	if(pl->playerstate != PST_LIVE)
 	{
-		if(*screenblocks < 11 && invbar_was_on)
+		if(screenblocks < 11 && invbar_was_on)
 		{
 			invbar_was_on = 0;
 			stbar_refresh_force = 1;
@@ -744,10 +744,10 @@ void stbar_draw(player_t *pl)
 		return;
 	}
 
-	if(!*automapactive)
+	if(!automapactive)
 	{
 		// keys overlay
-		draw_keybar(pl, *screenblocks < 11);
+		draw_keybar(pl, screenblocks < 11);
 
 		// status bar
 		draw_full_stbar(pl);

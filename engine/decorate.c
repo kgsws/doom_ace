@@ -2628,7 +2628,7 @@ void init_decorate()
 __attribute((regparm(2),no_caller_saved_registers))
 static uint32_t check_step_height(fixed_t floorz, mobj_t *mo)
 {
-	if(mo->flags & MF_MISSILE && *demoplayback != DEMO_OLD)
+	if(mo->flags & MF_MISSILE && demoplayback != DEMO_OLD)
 	{
 		// projectiles can't step-up
 		if(floorz > mo->z)
@@ -2642,7 +2642,7 @@ static uint32_t check_step_height(fixed_t floorz, mobj_t *mo)
 
 	// dropoff
 	if(	!(mo->flags & (MF_DROPOFF|MF_FLOAT)) &&
-		floorz - *tmdropoffz > mo->info->dropoff
+		floorz - tmdropoffz > mo->info->dropoff
 	)
 		return 1;
 

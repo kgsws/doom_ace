@@ -499,11 +499,11 @@ uint32_t sound_adjust(mobj_t *listener, mobj_t *source, int32_t *vol, int32_t *s
 	fixed_t adx;
 	fixed_t ady;
 	angle_t angle;
-	void *end = *sectors + *numsectors;
+	void *end = sectors + numsectors;
 
 	// check for sector sound
 	// place sector sounds closest to the camera
-	if((void*)source >= (void*)*sectors && (void*)source < end)
+	if((void*)source >= (void*)sectors && (void*)source < end)
 	{
 		sector_t *sec;
 		fixed_t tmp;

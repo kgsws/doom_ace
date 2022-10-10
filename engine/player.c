@@ -30,11 +30,6 @@ typedef struct
 
 uint_fast8_t player_flags_changed = 1; // force update
 
-uint32_t *playeringame;
-player_t *players;
-
-static int32_t *mousey;
-
 player_info_t player_info[MAXPLAYERS] =
 {
 	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
@@ -270,7 +265,7 @@ void player_think(player_t *pl)
 
 	if(pl->stbar_update)
 	{
-		if(idx == *consoleplayer)
+		if(idx == consoleplayer)
 			stbar_update(pl);
 		else
 			pl->stbar_update = 0;
@@ -446,7 +441,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 	{
 		// send info change over ticcmd
 		// can send only one change at the time
-		player_info_t *pli = player_info + *consoleplayer;
+		player_info_t *pli = player_info + consoleplayer;
 
 		if((pli->flags & PLF_AUTO_SWITCH) != (extra_config.auto_switch << plf_auto_switch))
 		{
@@ -478,8 +473,8 @@ static void build_ticcmd(ticcmd_t *cmd)
 	}
 
 	// mouse look
-	cmd->pitchturn = *mousey * 8;
-	*mousey = 0;
+	cmd->pitchturn = mousey * 8;
+	mousey = 0;
 
 	// use (mouse)
 	if(mousebuttons[mouseb_use])
@@ -528,7 +523,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 		mouse_inv_use = !!mousebuttons[mouseb_inv_use];
 
 	// cheat char
-	if(!*paused)
+	if(!paused)
 		cmd->chatchar = HU_dequeueChatChar();
 }
 
@@ -589,7 +584,7 @@ uint32_t spawn_player(mapthing_t *mt)
 	uint32_t idx = mt->type - 1;
 	player_t *pl = players + idx;
 
-	if(*demoplayback == DEMO_OLD)
+	if(demoplayback == DEMO_OLD)
 		ANG45 * (mt->angle / 45);
 	else
 		angle = (ANG45 / 45) * mt->angle;
@@ -606,7 +601,7 @@ uint32_t spawn_player(mapthing_t *mt)
 static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t respawn_check()
 {
-	if(*netgame)
+	if(netgame)
 		return 1;
 	if(map_level_info->flags & MAP_FLAG_ALLOW_RESPAWN)
 		return 1;
@@ -638,11 +633,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001FD81, CODE_HOOK | HOOK_SET_NOPS, 8},
 	// change 'BT_SPECIAL' check in 'G_Ticker'
 	{0x0002079A, CODE_HOOK | HOOK_UINT8, BT_SPECIALMASK},
-	// import variables
-	{0x0002B2D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playeringame},
-	{0x0002AE78, DATA_HOOK | HOOK_IMPORT, (uint32_t)&players},
-	{0x0002B3D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&displayplayer},
-	{0x0002B3DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&consoleplayer},
-	{0x0002B33C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mousey},
 };
 

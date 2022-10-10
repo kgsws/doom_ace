@@ -129,7 +129,7 @@ void *precache_setup_sprites(uint8_t *buff)
 
 	memset(buff, 0, num_spr_names);
 
-	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
 	{
 		mobj_t *mo;
 

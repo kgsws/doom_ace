@@ -51,74 +51,6 @@ typedef struct
 
 //
 
-mapthing_t *playerstarts;
-mapthing_t *deathmatchstarts;
-mapthing_t **deathmatch_p;
-
-uint32_t *nomonsters;
-uint32_t *fastparm;
-uint32_t *respawnparm;
-
-uint32_t *secretexit;
-uint32_t *deathmatch;
-uint32_t *gamemap;
-uint32_t *gameepisode;
-uint32_t *gameskill;
-uint32_t *leveltime;
-
-uint32_t *totalkills;
-uint32_t *totalitems;
-uint32_t *totalsecret;
-
-uint32_t *skytexture;
-uint32_t *skyflatnum;
-
-uint32_t *numsides;
-uint32_t *numlines;
-uint32_t *numsectors;
-line_t **lines;
-vertex_t **vertexes;
-side_t **sides;
-sector_t **sectors;
-subsector_t **subsectors;
-seg_t **segs;
-
-uint32_t *prndindex;
-
-uint32_t *viewactive;
-uint32_t *automapactive;
-static uint32_t *am_lastlevel;
-
-static uint32_t *d_skill;
-
-plat_t **activeplats;
-ceiling_t **activeceilings;
-
-uint32_t *netgame;
-uint32_t *usergame;
-
-uint32_t *nofit;
-uint32_t *crushchange;
-
-fixed_t *tmdropoffz;
-fixed_t *tmfloorz;
-fixed_t *tmceilingz;
-fixed_t *lowfloor;
-fixed_t *openrange;
-fixed_t *opentop;
-fixed_t *openbottom;
-
-mobj_t **linetarget;
-
-fixed_t *bmaporgx;
-fixed_t *bmaporgy;
-
-static wbstartstruct_t *wminfo;
-static int32_t *finaleflat; // type is changed!
-static uint8_t **finaletext;
-static uint32_t *finalecount;
-static uint32_t *finalestage;
-
 map_lump_name_t map_lump;
 int32_t map_lump_idx;
 uint_fast8_t map_format;
@@ -147,12 +79,6 @@ uint32_t map_episode_count;
 map_episode_t map_episode_def[MAX_EPISODES];
 
 static map_thinghex_t *map_thing_spawn;
-
-//
-static uint8_t **mapnames;
-static uint8_t **mapnames2;
-static uint32_t *pars;
-static uint32_t *cpars;
 
 // map check
 static uint64_t map_wame_check[] =
@@ -265,16 +191,16 @@ static uint32_t cb_free_inventory(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 void think_line_scroll(line_scroll_t *ls)
 {
-	side_t *side = *sides + ls->line->sidenum[0];
+	side_t *side = sides + ls->line->sidenum[0];
 	side->textureoffset += (fixed_t)ls->x * FRACUNIT;
 	side->rowoffset += (fixed_t)ls->y * FRACUNIT;
 }
 
 static inline void spawn_line_scroll()
 {
-	for(uint32_t i = 0; i < *numlines; i++)
+	for(uint32_t i = 0; i < numlines; i++)
 	{
-		line_t *ln = *lines + i;
+		line_t *ln = lines + i;
 
 		if(ln->special == 48)
 		{
@@ -349,11 +275,11 @@ static inline void parse_sectors()
 {
 	sector_extra_t *se;
 
-	se = Z_Malloc(*numsectors * sizeof(sector_extra_t), PU_LEVEL, NULL);
+	se = Z_Malloc(numsectors * sizeof(sector_extra_t), PU_LEVEL, NULL);
 
-	for(uint32_t i = 0; i < *numsectors; i++, se++)
+	for(uint32_t i = 0; i < numsectors; i++, se++)
 	{
-		sector_t *sec = *sectors + i;
+		sector_t *sec = sectors + i;
 
 		sec->extra = se;
 		sec->exfloor = NULL;
@@ -375,24 +301,24 @@ uint32_t map_load_setup()
 {
 	uint32_t cache;
 
-	if(*paused) 
+	if(paused) 
 	{ 
-		*paused = 0;
+		paused = 0;
 		S_ResumeSound();
 	}
 
-	if(*gameskill > sk_nightmare)
-		*gameskill = sk_nightmare;
+	if(gameskill > sk_nightmare)
+		gameskill = sk_nightmare;
 
-	*viewactive = 1;
-	*automapactive = 0;
-	*am_lastlevel = -1;
-	*respawnmonsters = *gameskill == sk_nightmare || *respawnparm;
+	viewactive = 1;
+	automapactive = 0;
+	am_lastlevel = -1;
+	respawnmonsters = gameskill == sk_nightmare || respawnparm;
 
-	if(*gameepisode)
+	if(gameepisode)
 	{
 		is_title_map = 0;
-		cache = !*demoplayback;
+		cache = !demoplayback;
 	} else
 	{
 		// titlemap can be visited by other means
@@ -421,25 +347,25 @@ uint32_t map_load_setup()
 		if(map_level_info->levelhack & 0x80)
 		{
 			fake_game_mode = 1;
-			*gameepisode = 1;
-			*gamemap = map_level_info->levelhack & 0x7F;
+			gameepisode = 1;
+			gamemap = map_level_info->levelhack & 0x7F;
 		} else
 		{
 			fake_game_mode = 0;
-			*gameepisode = map_level_info->levelhack >> 4;
-			*gamemap = map_level_info->levelhack & 15;
+			gameepisode = map_level_info->levelhack >> 4;
+			gamemap = map_level_info->levelhack & 15;
 		}
 	} else
 	{
-		*gameepisode = 1;
-		*gamemap = 1;
+		gameepisode = 1;
+		gamemap = 1;
 	}
 
 	// music
 	start_music(map_level_info->music_level, 1);
 
 	// sky
-	*skytexture = map_level_info->texture_sky[0];
+	skytexture = map_level_info->texture_sky[0];
 
 	// free old inventories
 	mobj_for_each(cb_free_inventory);
@@ -450,7 +376,7 @@ uint32_t map_load_setup()
 	think_clear();
 
 	// apply game patches
-	if(*demoplayback == DEMO_OLD)
+	if(demoplayback == DEMO_OLD)
 		utils_install_hooks(patch_old, 0);
 	else
 		utils_install_hooks(patch_new, 0);
@@ -487,6 +413,9 @@ uint32_t map_load_setup()
 	if(cache)
 		R_PrecacheLevel();
 
+	// extra (unsaved stuff)
+	e3d_create();
+
 	// specials
 	if(!map_skip_stuff)
 	{
@@ -494,16 +423,13 @@ uint32_t map_load_setup()
 		{
 			P_SpawnSpecials();
 			spawn_line_scroll();
-		} else
-		{
-			e3d_create();
-			// TODO: more ZDoom specials
 		}
+		// TODO: ZDoom specials
 	}
 
 	// in the level
-	*gamestate = GS_LEVEL;
-	*usergame = !is_title_map && !*demoplayback;
+	gamestate = GS_LEVEL;
+	usergame = !is_title_map && !demoplayback;
 	return 0;
 
 map_load_error:
@@ -511,12 +437,12 @@ map_load_error:
 	if(is_title_map)
 	{
 		// actually start title
-		*gameaction = ga_nothing;
-		*demosequence = -1;
-		*advancedemo = 1;
+		gameaction = ga_nothing;
+		demosequence = -1;
+		advancedemo = 1;
 	} else
 		map_start_title();
-	*wipegamestate = *gamestate;
+	wipegamestate = gamestate;
 	M_StartMessage("Requested map is invalid!", NULL, 0);
 	return 1;
 }
@@ -554,13 +480,13 @@ static void spawn_map_thing(mapthing_t *old_mt)
 	// deathmatch starts
 	if(mt.type == 11)
 	{
-		if(*deathmatch_p < deathmatchstarts + 10)
+		if(deathmatch_p < deathmatchstarts + 10)
 		{
-			mapthing_t *dt = *deathmatch_p;
+			mapthing_t *dt = deathmatch_p;
 			dt->x = mt.x;
 			dt->y = mt.x;
 			dt->angle = mt.angle;
-			*deathmatch_p = *deathmatch_p + 1;
+			deathmatch_p++;
 		}
 		return;
 	}
@@ -574,7 +500,7 @@ static void spawn_map_thing(mapthing_t *old_mt)
 		playerstarts[idx].angle = mt.angle;
 		playerstarts[idx].type = mt.type;
 		playerstarts[idx].options = mt.arg[0];
-		if(!*deathmatch && !map_skip_stuff)
+		if(!deathmatch && !map_skip_stuff)
 			mobj_spawn_player(idx, mt.x * FRACUNIT, mt.y * FRACUNIT, angle);
 		return;
 	}
@@ -583,11 +509,11 @@ static void spawn_map_thing(mapthing_t *old_mt)
 		return;
 
 	// check network game
-	if(old_mt && !*netgame && old_mt->options & 16)
+	if(old_mt && !netgame && old_mt->options & 16)
 		return;
 
 	// check skill level
-	if(!(mt.flags & skillbits[*gameskill]))
+	if(!(mt.flags & skillbits[gameskill]))
 		return;
 
 	// backward search for type
@@ -603,11 +529,11 @@ static void spawn_map_thing(mapthing_t *old_mt)
 	info = mobjinfo + idx;
 
 	// 'not in deathmatch'
-	if(*deathmatch && info->flags & MF_NOTDMATCH)
+	if(deathmatch && info->flags & MF_NOTDMATCH)
 		return;
 
 	// '-nomonsters'
-	if(*nomonsters && info->flags1 & MF1_ISMONSTER)
+	if(nomonsters && info->flags1 & MF1_ISMONSTER)
 		return;
 
 	// position
@@ -640,10 +566,10 @@ static void spawn_map_thing(mapthing_t *old_mt)
 		mo->tics = 1 + (P_Random() % mo->tics);
 
 	if(mo->flags & MF_COUNTKILL)
-		*totalkills = *totalkills + 1;
+		totalkills++;
 
 	if(mo->flags & MF_COUNTITEM)
-		*totalitems = *totalitems + 1;
+		totalitems++;
 
 	mo->special.special = mt.special;
 	mo->special.arg[0] = mt.arg[0];
@@ -762,32 +688,32 @@ void map_start_title()
 {
 	int32_t lump;
 
-	*gameaction = ga_nothing;
+	gameaction = ga_nothing;
 
 	lump = W_CheckNumForName("TITLEMAP");
 	if(lump < 0)
 	{
-		*demosequence = -1;
-		*advancedemo = 1;
+		demosequence = -1;
+		advancedemo = 1;
 		return;
 	}
 
-	if(*gameepisode)
-		*wipegamestate = -1;
+	if(gameepisode)
+		wipegamestate = -1;
 	else
-		*wipegamestate = GS_LEVEL;
+		wipegamestate = GS_LEVEL;
 
-	*gameskill = sk_medium;
-	*fastparm = 0;
-	*respawnparm = 0;
-	*nomonsters = 0;
-	*deathmatch = 0;
-	*gameepisode = 0;
-	*prndindex = 0;
-	*netgame = 0;
-	*netdemo = 0;
+	gameskill = sk_medium;
+	fastparm = 0;
+	respawnparm = 0;
+	nomonsters = 0;
+	deathmatch = 0;
+	gameepisode = 0;
+	prndindex = 0;
+	netgame = 0;
+	netdemo = 0;
 
-	*consoleplayer = 0;
+	consoleplayer = 0;
 	memset(players, 0, sizeof(player_t) * MAXPLAYERS);
 	players[0].playerstate = PST_REBORN;
 
@@ -1400,13 +1326,13 @@ void map_LoadLineDefs(int lump)
 	buff = W_CacheLumpNum(lump, PU_STATIC);
 	ml = buff;
 
-	*numlines = nl;
-	*lines = ln;
+	numlines = nl;
+	lines = ln;
 
 	for(uint32_t i = 0; i < nl; i++, ln++, ml++)
 	{
-		vertex_t *v1 = *vertexes + ml->v1;
-		vertex_t *v2 = *vertexes + ml->v2;
+		vertex_t *v1 = vertexes + ml->v1;
+		vertex_t *v2 = vertexes + ml->v2;
 
 		ln->v1 = v1;
 		ln->v2 = v2;
@@ -1461,12 +1387,12 @@ void map_LoadLineDefs(int lump)
 		}
 
 		if(ln->sidenum[0] != 0xFFFF)
-			ln->frontsector = (*sides)[ln->sidenum[0]].sector;
+			ln->frontsector = sides[ln->sidenum[0]].sector;
 		else
 			ln->frontsector = NULL;
 
 		if(ln->sidenum[1] != 0xFFFF)
-			ln->backsector = (*sides)[ln->sidenum[1]].sector;
+			ln->backsector = sides[ln->sidenum[1]].sector;
 		else
 			ln->backsector = NULL;
 	}
@@ -1515,7 +1441,7 @@ void init_map()
 	patch_entering = wad_get_lump((void*)0x000247C0 + doom_data_segment);
 
 	// default clusters and maps
-	if(*gamemode)
+	if(gamemode)
 	{
 		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024B50 + doom_data_segment); // d_%s dm2int
 		map_info_unnamed.music_inter = wad_check_lump(text);
@@ -1550,7 +1476,7 @@ void init_map()
 	memset(map_info, 0, num_maps * sizeof(map_level_t));
 
 	// prepare default maps
-	if(*gamemode)
+	if(gamemode)
 	{
 		// cluster 5
 		setup_cluster(MAPD2_MAP01, MAPD2_MAP07 - MAPD2_MAP01, 5, 1);
@@ -1661,16 +1587,16 @@ void init_map()
 __attribute((regparm(2),no_caller_saved_registers))
 static void do_new_game()
 {
-	*gameaction = ga_nothing;
+	gameaction = ga_nothing;
 
-	*demoplayback = 0;
-	*netdemo = 0;
-	*netgame = 0;
-	*deathmatch = 0;
-	*respawnparm = 0;
-	*fastparm = 0;
-	*nomonsters = 0;
-	*consoleplayer = 0;
+	demoplayback = 0;
+	netdemo = 0;
+	netgame = 0;
+	deathmatch = 0;
+	respawnparm = 0;
+	fastparm = 0;
+	nomonsters = 0;
+	consoleplayer = 0;
 
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
@@ -1679,9 +1605,9 @@ static void do_new_game()
 	}
 	playeringame[0] = 1;
 
-	*gameskill = *d_skill;
-	*gameepisode = 1;
-	*wipegamestate = -1;
+	gameskill = d_skill;
+	gameepisode = 1;
+	wipegamestate = -1;
 
 	map_load_setup();
 }
@@ -1708,8 +1634,8 @@ static void do_autostart_game()
 		doom_sprintf(map_lump.name, "MAP%02u", *startmap);
 	}
 
-	*gameepisode = 1;
-	*wipegamestate = -1;
+	gameepisode = 1;
+	wipegamestate = -1;
 
 	map_load_setup();
 }
@@ -1721,10 +1647,10 @@ static void set_world_done()
 	int32_t music_lump = -1;
 	uint16_t next;
 
-	*gameaction = ga_worlddone;
+	gameaction = ga_worlddone;
 
 	// mark secret level visited
-	if(*secretexit)
+	if(secretexit)
 	{
 		for(uint32_t i = 0; i < MAXPLAYERS; i++)
 			players[i].didsecret = 1;
@@ -1739,37 +1665,37 @@ static void set_world_done()
 	else
 		new_cl = NULL;
 
-	*finaletext = NULL;
+	finaletext = NULL;
 
 	if(old_cl != new_cl)
 	{
 		if(new_cl && new_cl->text_enter)
 		{
-			*finaletext = new_cl->text_enter;
-			*finaleflat = new_cl->lump_flat;
+			finaletext = new_cl->text_enter;
+			finaleflat = new_cl->lump_flat;
 			music_lump = new_cl->lump_music;
 		} else
 		if(old_cl)
 		{
-			*finaletext = old_cl->text_leave;
-			*finaleflat = old_cl->lump_flat;
+			finaletext = old_cl->text_leave;
+			finaleflat = old_cl->lump_flat;
 			music_lump = old_cl->lump_music;
 		}
 	}
 
 	// finale?
-	if(*finaletext || next > MAP_END_TO_TITLE)
+	if(finaletext || next > MAP_END_TO_TITLE)
 	{
-		*gameaction = ga_nothing;
-		*gamestate = GS_FINALE;
-		*viewactive = 0;
-		*automapactive = 0;
-		*finalecount = 0;
+		gameaction = ga_nothing;
+		gamestate = GS_FINALE;
+		viewactive = 0;
+		automapactive = 0;
+		finalecount = 0;
 
-		if(!*finaletext)
-			*finalestage = 1;
+		if(!finaletext)
+			finalestage = 1;
 		else
-			*finalestage = 0;
+			finalestage = 0;
 
 		switch(next)
 		{
@@ -1777,15 +1703,15 @@ static void set_world_done()
 			{
 				uint8_t text[12];
 				fake_game_mode = 0;
-				*gameepisode = 3;
+				gameepisode = 3;
 				doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[30].name);
 				music_lump = W_CheckNumForName(text);
 			}
 			break;
 			case MAP_END_DOOM_CAST:
 				fake_game_mode = 1;
-				*gamemap = 30;
-				if(!*finaletext)
+				gamemap = 30;
+				if(!finaletext)
 				{
 					F_StartCast();
 					music_lump = -2;
@@ -1796,7 +1722,7 @@ static void set_world_done()
 			{
 				int32_t lump;
 				fake_game_mode = 0;
-				*gameepisode = 1;
+				gameepisode = 1;
 				lump = map_level_info->win_lump[next == MAP_END_CUSTOM_PIC_S];
 				if(lump < 0)
 					lump = W_GetNumForName((void*)0x00024750 + doom_data_segment); // INTERPIC
@@ -1805,7 +1731,7 @@ static void set_world_done()
 			break;
 			default:
 				fake_game_mode = 1;
-				*gamemap = 1;
+				gamemap = 1;
 			break;
 		}
 		if(music_lump >= -1) // -1 means STOP
@@ -1818,10 +1744,10 @@ static void do_completed()
 {
 	uint16_t next;
 
-	*gameaction = ga_nothing;
+	gameaction = ga_nothing;
 
 	// leave automap
-	if(*automapactive)
+	if(automapactive)
 		AM_Stop();
 
 	// clean-up players
@@ -1829,7 +1755,7 @@ static void do_completed()
 		player_finish(players + i);
 
 	// check next level
-	if(*secretexit)
+	if(secretexit)
 		next = map_level_info->next_secret;
 	else
 		next = map_level_info->next_normal;
@@ -1840,12 +1766,10 @@ static void do_completed()
 		map_next_info = NULL;
 
 	// intermission
-	*gamestate = GS_INTERMISSION;
-	*viewactive = 0;
+	gamestate = GS_INTERMISSION;
+	viewactive = 0;
 
 	// endgame
-	// *gamemap = 30; // to enable 'cast' finale
-	// D1 endings: F_Ticker
 
 	if(map_level_info->flags & MAP_FLAG_NO_INTERMISSION)
 	{
@@ -1854,40 +1778,40 @@ static void do_completed()
 	}
 
 	// setup intermission
-	wminfo->didsecret = players[*consoleplayer].didsecret;
-	wminfo->epsd = *gameepisode - 1;
-	wminfo->last = *gamemap - 1;
-	wminfo->next = *gamemap;
-	wminfo->maxkills = *totalkills;
-	wminfo->maxitems = *totalitems;
-	wminfo->maxsecret = *totalsecret;
-	wminfo->maxfrags = 0;
-	wminfo->partime = map_level_info->par_time * 35;
-	wminfo->pnum = *consoleplayer;
+	wminfo.didsecret = players[consoleplayer].didsecret;
+	wminfo.epsd = gameepisode - 1;
+	wminfo.last = gamemap - 1;
+	wminfo.next = gamemap;
+	wminfo.maxkills = totalkills;
+	wminfo.maxitems = totalitems;
+	wminfo.maxsecret = totalsecret;
+	wminfo.maxfrags = 0;
+	wminfo.partime = map_level_info->par_time * 35;
+	wminfo.pnum = consoleplayer;
 
 	if(map_next_info && map_next_info->levelhack && map_next_info->levelhack < 0x80)
 	{
 		fake_game_mode = 0;
-		wminfo->next = (map_next_info->levelhack & 15) - 1;
+		wminfo.next = (map_next_info->levelhack & 15) - 1;
 	} else
 	{
 		fake_game_mode = 1;
 		if(!map_next_info)
 			// use of 30 disables 'entering' text
-			wminfo->next = 30;
+			wminfo.next = 30;
 	}
 
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
-		wminfo->plyr[i].in = playeringame[i];
-		wminfo->plyr[i].skills = players[i].killcount;
-		wminfo->plyr[i].sitems = players[i].itemcount;
-		wminfo->plyr[i].ssecret = players[i].secretcount;
-		wminfo->plyr[i].stime = *leveltime;
+		wminfo.plyr[i].in = playeringame[i];
+		wminfo.plyr[i].skills = players[i].killcount;
+		wminfo.plyr[i].sitems = players[i].itemcount;
+		wminfo.plyr[i].ssecret = players[i].secretcount;
+		wminfo.plyr[i].stime = leveltime;
 		// TODO: frags - these are no longer in player structure
 	}
 
-	WI_Start(wminfo);
+	WI_Start(&wminfo);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1900,7 +1824,7 @@ static void do_world_done()
 		return;
 	}
 
-	*gameaction = ga_nothing;
+	gameaction = ga_nothing;
 	map_lump.wame = (*lumpinfo)[map_next_info->lump].wame;
 	map_load_setup();
 }
@@ -2137,66 +2061,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003E308, CODE_HOOK | HOOK_UINT16, 0x08EB},
 	// automap is fullscreen
 	{0x00012C64, DATA_HOOK | HOOK_UINT32, SCREENHEIGHT},
-	// import variables
-	{0x0002C0D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&playerstarts},
-	{0x0002C154, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatchstarts},
-	{0x0002C150, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatch_p},
-	{0x0002A3C0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nomonsters},
-	{0x0002A3C4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&fastparm},
-	{0x0002A3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&respawnparm},
-	{0x0002B3FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deathmatch},
-	{0x0002B3E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamemap},
-	{0x0002B3F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameepisode},
-	{0x0002B3E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gameskill},
-	{0x0002CF80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&leveltime},
-	{0x0002B3C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalsecret},
-	{0x0002B3D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalitems},
-	{0x0002B3D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&totalkills},
-	{0x0005A170, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skytexture},
-	{0x0005A164, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skyflatnum},
-	{0x0002C11C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsides},
-	{0x0002C134, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlines},
-	{0x0002C14C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsectors},
-	{0x0002C120, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lines},
-	{0x0002C138, DATA_HOOK | HOOK_IMPORT, (uint32_t)&vertexes},
-	{0x0002C118, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sides},
-	{0x0002C148, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sectors},
-	{0x0002C140, DATA_HOOK | HOOK_IMPORT, (uint32_t)&subsectors},
-	{0x0002C12C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&segs},
-	{0x0002C040, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeplats},
-	{0x0002B840, DATA_HOOK | HOOK_IMPORT, (uint32_t)&activeceilings},
-	{0x0002B40C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&usergame},
-	{0x0002B400, DATA_HOOK | HOOK_IMPORT, (uint32_t)&netgame},
-	{0x0002B2F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&secretexit},
-	{0x00012720, DATA_HOOK | HOOK_IMPORT, (uint32_t)&prndindex},
-	{0x0002B3B8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&viewactive},
-	{0x00012C5C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&automapactive},
-	{0x00012CA8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&am_lastlevel},
-	{0x0002B2EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_skill},
-	// more variables
-	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
-	{0x0002B994, DATA_HOOK | HOOK_IMPORT, (uint32_t)&crushchange},
-	{0x0002B9E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmdropoffz},
-	{0x0002B9F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmfloorz},
-	{0x0002BA00, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tmceilingz},
-	{0x0002C02C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lowfloor},
-	{0x0002C038, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openrange},
-	{0x0002C034, DATA_HOOK | HOOK_IMPORT, (uint32_t)&opentop},
-	{0x0002C030, DATA_HOOK | HOOK_IMPORT, (uint32_t)&openbottom},
-	{0x0002B9F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&linetarget},
-	{0x0002B990, DATA_HOOK | HOOK_IMPORT, (uint32_t)&nofit},
-	{0x0002C104, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bmaporgx},
-	{0x0002C108, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bmaporgy},
-	// map stuff
-	{0x00013C04, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mapnames},
-	{0x00013CBC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mapnames2},
-	{0x00011B80, DATA_HOOK | HOOK_IMPORT, (uint32_t)&pars},
-	{0x00011C20, DATA_HOOK | HOOK_IMPORT, (uint32_t)&cpars},
-	// finale, victory .. and others
-	{0x0002ADB0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wminfo},
-	{0x0002929C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finaleflat},
-	{0x000292A0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finaletext},
-	{0x000292A4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finalecount},
-	{0x000292A8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&finalestage},
 };
 

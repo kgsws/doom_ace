@@ -277,17 +277,17 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 	{
 		// autoaim enabled
 		sl = P_AimLineAttack(mo, an, AIMRANGE);
-		if(!*linetarget)
+		if(!linetarget)
 		{
 			an += 1 << 26;
 			sl = P_AimLineAttack(mo, an, AIMRANGE);
 
-			if(!*linetarget)
+			if(!linetarget)
 			{
 				an -= 2 << 26;
 				sl = P_AimLineAttack(mo, an, AIMRANGE);
 
-				if(!*linetarget)
+				if(!linetarget)
 				{
 					*slope = 0;
 					return 0;
@@ -302,7 +302,7 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 		// autoaim disabled
 		*slope = 0;
 		// seeker missile check
-		*linetarget = NULL;
+		linetarget = NULL;
 		if(seeker)
 			P_AimLineAttack(mo, an, AIMRANGE);
 		return 0;
@@ -368,7 +368,7 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 {
 	fixed_t speed;
 
-	if(mo->info->fast_speed && (*fastparm || *gameskill == sk_nightmare))
+	if(mo->info->fast_speed && (fastparm || gameskill == sk_nightmare))
 		speed = mo->info->fast_speed;
 	else
 		speed = mo->info->speed;
@@ -453,7 +453,7 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	inventory_take(mo, ammo, count);
 
-	if(*demoplayback == DEMO_OLD)
+	if(demoplayback == DEMO_OLD)
 	{
 		P_SpawnPlayerMissile(mo, proj);
 		return;
@@ -526,7 +526,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	angle = mo->angle;
 
-	if(*demoplayback != DEMO_OLD)
+	if(demoplayback != DEMO_OLD)
 	{
 		if(!player_aim(pl, &angle, bulletslope, 0))
 			*bulletslope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
@@ -739,7 +739,7 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(pl->pendingweapon || !pl->health)
 	{
 		stfunc(mo, pl->readyweapon->st_weapon.lower);
-		if(*demoplayback != DEMO_OLD)
+		if(demoplayback != DEMO_OLD)
 			// this has to be set regardless of weapon mode, for (new) demo compatibility
 			pl->psprites[0].sy = WEAPONTOP;
 		return;
@@ -766,9 +766,9 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl->weapon_ready = 1;
 
 	// weapon bob, for old demo
-	if(*demoplayback == DEMO_OLD)
+	if(demoplayback == DEMO_OLD)
 	{
-		angle_t angle = (128 * *leveltime) & FINEMASK;
+		angle_t angle = (128 * leveltime) & FINEMASK;
 		pl->psprites[0].sx = FRACUNIT + FixedMul(pl->bob, finecosine[angle]);
 		angle &= FINEANGLES / 2 - 1;
 		pl->psprites[0].sy = WEAPONTOP + FixedMul(pl->bob, finesine[angle]);
@@ -954,7 +954,7 @@ void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	fixed_t speed;
 
-	if(mo->info->fast_speed && *fastparm || *gameskill == sk_nightmare)
+	if(mo->info->fast_speed && fastparm || gameskill == sk_nightmare)
 		speed = mo->info->fast_speed;
 	else
 		speed = mo->info->speed;
@@ -1161,7 +1161,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
 	if(th->flags & MF_MISSILE)
-		missile_stuff(th, mo, *linetarget, angle, pitch, slope);
+		missile_stuff(th, mo, linetarget, angle, pitch, slope);
 }
 
 //

@@ -3,7 +3,7 @@
 // WAD initialization replacement.
 // Fixes bug: https://doomwiki.org/wiki/PWAD_size_limit
 
-extern uint8_t **wadfiles;
+extern uint8_t *wadfiles[MAXWADFILES];
 extern lumpinfo_t **lumpinfo;
 extern void ***lumpcache;
 

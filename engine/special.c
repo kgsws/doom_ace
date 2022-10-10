@@ -83,7 +83,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 void spec_line_cross(uint32_t lidx, uint32_t side)
 {
 	register mobj_t *mo asm("ebx"); // hack to extract 3rd argument
-	spec_activate(*lines + lidx, mo, (side * SPEC_ACT_BACK_SIDE) | SPEC_ACT_CROSS);
+	spec_activate(lines + lidx, mo, (side * SPEC_ACT_BACK_SIDE) | SPEC_ACT_CROSS);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))

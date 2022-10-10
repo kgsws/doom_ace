@@ -183,12 +183,12 @@ static void cf_idclev(player_t *pl, uint8_t *arg)
 {
 	uint32_t map, epi;
 
-	if(*gamemode)
+	if(gamemode)
 	{
 		// map only
 		if(doom_sscanf(arg, "%u", &map) == 1)
 		{
-			G_DeferedInitNew(*gameskill, 1, map);
+			G_DeferedInitNew(gameskill, 1, map);
 			return;
 		}
 	} else
@@ -196,7 +196,7 @@ static void cf_idclev(player_t *pl, uint8_t *arg)
 		// episode and map
 		if(doom_sscanf(arg, "%u %u", &epi, &map) == 2)
 		{
-			G_DeferedInitNew(*gameskill, epi, map);
+			G_DeferedInitNew(gameskill, epi, map);
 			return;
 		}
 	}
@@ -225,7 +225,7 @@ static void cf_map(player_t *pl, uint8_t *arg)
 	}
 
 	strncpy(map_lump.name, arg, 8);
-	G_DeferedInitNew(*gameskill, 0, 0);
+	G_DeferedInitNew(gameskill, 0, 0);
 }
 
 static void cf_buddha(player_t *pl, uint8_t *arg)
@@ -250,12 +250,12 @@ static void cf_mdk(player_t *pl, uint8_t *arg)
 {
 	fixed_t slope;
 
-	if(pl->info_flags & PLF_AUTO_AIM)
+	if(pl->info_flags & PLF_AUTO_AIM || map_level_info->flags & MAP_FLAG_NO_FREELOOK)
 		slope = P_AimLineAttack(pl->mo, pl->mo->angle, 1024 * FRACUNIT);
 	else
-		*linetarget = NULL;
+		linetarget = NULL;
 
-	if(!*linetarget)
+	if(!linetarget)
 		slope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
 
 	P_LineAttack(pl->mo, pl->mo->angle, MISSILERANGE, slope, 1000000);
@@ -392,7 +392,7 @@ void cheat_check(uint32_t pidx)
 	if(!cf->name)
 		pl->message = "Unknown cheat!";
 
-	if(!pl->message && *demoplayback)
+	if(!pl->message && demoplayback)
 		pl->message = "Cheat activated!";
 
 	if(pl->message)

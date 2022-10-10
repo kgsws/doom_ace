@@ -584,7 +584,7 @@ static inline void sv_put_sectors(int32_t lump)
 
 	for(uint32_t i = 0; i < count; i++)
 	{
-		sector_t *sec = *sectors + i;
+		sector_t *sec = sectors + i;
 		uint32_t flags = 0;
 		uint64_t tname;
 		fixed_t height;
@@ -648,7 +648,7 @@ static inline void sv_put_sidedefs(int32_t lump)
 
 	for(uint32_t i = 0; i < count; i++)
 	{
-		side_t *side = *sides + i;
+		side_t *side = sides + i;
 		uint32_t flags = 0;
 		uint64_t tname;
 		fixed_t offs;
@@ -703,7 +703,7 @@ static inline void sv_put_linedefs_doom(int32_t lump)
 
 	for(uint32_t i = 0; i < count; i++)
 	{
-		line_t *line = *lines + i;
+		line_t *line = lines + i;
 		uint32_t flags = 0;
 
 		flags |= (line->flags != ml[i].flags) << SF_LINE_FLAGS;
@@ -738,7 +738,7 @@ static inline void sv_put_linedefs_hexen(int32_t lump)
 
 	for(uint32_t i = 0; i < count; i++)
 	{
-		line_t *line = *lines + i;
+		line_t *line = lines + i;
 		uint32_t flags = 0;
 
 		flags |= (line->flags != ml[i].flags) << SF_LINE_FLAGS;
@@ -786,7 +786,7 @@ static inline void sv_put_buttons()
 		sw.base = slot->base;
 		sw.animate = slot->animate;
 		sw.delay = slot->delay;
-		sw.line = slot->line - *lines;
+		sw.line = slot->line - lines;
 
 		writer_add(&sw, sizeof(sw));
 	}
@@ -805,7 +805,7 @@ static inline void sv_put_thinkers()
 
 			writer_add_u16(STH_ACE_LINE_SCROLL);
 
-			sav.line = now->line - *lines;
+			sav.line = now->line - lines;
 			sav.x = now->x;
 			sav.y = now->y;
 
@@ -817,7 +817,7 @@ static inline void sv_put_thinkers()
 static inline void sv_put_specials()
 {
 	// only old Doom level specials
-	for(thinker_t *th = thinkercap->next; th != thinkercap; th = th->next)
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
 	{
 		uint32_t ret;
 		uint32_t type;
@@ -855,7 +855,7 @@ add_ceiling:
 
 				sav.type = now->type;
 				sav.crush = now->crush;
-				sav.sector = now->sector - *sectors;
+				sav.sector = now->sector - sectors;
 				sav.bottomheight = now->bottomheight;
 				sav.topheight = now->topheight;
 				sav.speed = now->speed;
@@ -878,7 +878,7 @@ add_ceiling:
 
 			sav.type = now->type;
 			sav.direction = now->direction;
-			sav.sector = now->sector - *sectors;
+			sav.sector = now->sector - sectors;
 			sav.topheight = now->topheight;
 			sav.speed = now->speed;
 			sav.topwait = now->topwait;
@@ -896,7 +896,7 @@ add_ceiling:
 			sav.type = now->type;
 			sav.crush = now->crush;
 			sav.direction = now->direction;
-			sav.sector = now->sector - *sectors;
+			sav.sector = now->sector - sectors;
 			sav.newspecial = now->newspecial;
 			sav.texture = texture_get_name(now->texture);
 			sav.floordestheight = now->floordestheight;
@@ -919,7 +919,7 @@ add_plat:
 				sav.oldstatus = now->oldstatus;
 				sav.wait = now->wait;
 				sav.count = now->count;
-				sav.sector = now->sector - *sectors;
+				sav.sector = now->sector - sectors;
 				sav.tag = now->tag;
 				sav.speed = now->speed;
 				sav.low = now->low;
@@ -938,7 +938,7 @@ add_plat:
 
 			writer_add_u16(STH_DOOM_FLASH);
 
-			sav.sector = now->sector - *sectors;
+			sav.sector = now->sector - sectors;
 			sav.maxlight = now->maxlight;
 			sav.minlight = now->minlight;
 			sav.count = now->count;
@@ -954,7 +954,7 @@ add_plat:
 
 			writer_add_u16(STH_DOOM_STROBE);
 
-			sav.sector = now->sector - *sectors;
+			sav.sector = now->sector - sectors;
 			sav.minlight = now->minlight;
 			sav.maxlight = now->maxlight;
 			sav.count = now->count;
@@ -970,7 +970,7 @@ add_plat:
 
 			writer_add_u16(STH_DOOM_GLOW);
 
-			sav.sector = now->sector - *sectors;
+			sav.sector = now->sector - sectors;
 			sav.minlight = now->minlight;
 			sav.maxlight = now->maxlight;
 			sav.direction = now->direction;
@@ -984,7 +984,7 @@ add_plat:
 
 			writer_add_u16(STH_DOOM_FLICKER);
 
-			sav.sector = now->sector - *sectors;
+			sav.sector = now->sector - sectors;
 			sav.maxlight = now->maxlight;
 			sav.minlight = now->minlight;
 			sav.count = now->count;
@@ -1161,20 +1161,20 @@ void do_save()
 
 	// prepare save slot
 	generate_save_name(*saveslot);
-	*gameaction = ga_nothing;
+	gameaction = ga_nothing;
 
 	// generate preview - so much stuff to make it look cool
-	old_cmap = players[*consoleplayer].fixedcolormap;
-	players[*consoleplayer].fixedcolormap = 0;
+	old_cmap = players[consoleplayer].fixedcolormap;
+	players[consoleplayer].fixedcolormap = 0;
 	old_size = *r_setblocks;
 	*r_setblocks = 20; // fullscreen with no status bar
 	R_ExecuteSetViewSize();
-	R_RenderPlayerView(players + *consoleplayer);
+	R_RenderPlayerView(players + consoleplayer);
 	*r_rdptr = *r_fbptr; // fullscreen hack
 	I_ReadScreen(screen_buffer);
 	*r_setblocks = old_size;
 	R_ExecuteSetViewSize();
-	players[*consoleplayer].fixedcolormap = old_cmap;
+	players[consoleplayer].fixedcolormap = old_cmap;
 	stbar_refresh_force = 1;
 
 	// open file
@@ -1213,18 +1213,18 @@ void do_save()
 	info.map_wame = map_lump.wame;
 	info.mod_csum = 0; // TODO
 
-	info.flags = *gameskill << 13;
-	info.flags |= (!!*fastparm) << 0;
-	info.flags |= (!!*respawnparm) << 1;
-	info.flags |= (!!*nomonsters) << 2;
-	info.flags |= (!!*deathmatch) << 3;
+	info.flags = gameskill << 13;
+	info.flags |= (!!fastparm) << 0;
+	info.flags |= (!!respawnparm) << 1;
+	info.flags |= (!!nomonsters) << 2;
+	info.flags |= (!!deathmatch) << 3;
 
-	info.leveltime = *leveltime;
+	info.leveltime = leveltime;
 
-	info.kills = *totalkills;
-	info.items = *totalitems;
-	info.secret = *totalsecret;
-	info.rng = *prndindex;
+	info.kills = totalkills;
+	info.items = totalitems;
+	info.secret = totalsecret;
+	info.rng = prndindex;
 
 	writer_add(&info, sizeof(info));
 	writer_add_u32(SAVE_VERSION);
@@ -1337,10 +1337,10 @@ static inline uint32_t ld_get_sectors()
 		if(reader_get_u16(&idx))
 			return 1;
 
-		if(idx >= *numsectors)
+		if(idx >= numsectors)
 			return 1;
 
-		sec = *sectors + idx;
+		sec = sectors + idx;
 
 		if(CHECK_BIT(flags, SF_SEC_TEXTURE_FLOOR))
 		{
@@ -1410,10 +1410,10 @@ static inline uint32_t ld_get_sidedefs()
 		if(reader_get_u16(&idx))
 			return 1;
 
-		if(idx >= *numsides)
+		if(idx >= numsides)
 			return 1;
 
-		side = *sides + idx;
+		side = sides + idx;
 
 		if(CHECK_BIT(flags, SF_SIDE_OFFSX))
 		{
@@ -1466,10 +1466,10 @@ static inline uint32_t ld_get_linedefs()
 		if(reader_get_u16(&idx))
 			return 1;
 
-		if(idx >= *numlines)
+		if(idx >= numlines)
 			return 1;
 
-		line = *lines + idx;
+		line = lines + idx;
 
 		if(CHECK_BIT(flags, SF_LINE_FLAGS))
 		{
@@ -1525,11 +1525,11 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sw, sizeof(sw)))
 					return 1;
 
-				if(sw.line >= *numlines)
+				if(sw.line >= numlines)
 					return 1;
 
 				type -= STH__BUTTON;
-				slot = anim_switch_make(type, *lines + sw.line, sw.texture);
+				slot = anim_switch_make(type, lines + sw.line, sw.texture);
 				if(!slot)
 					break;
 
@@ -1547,12 +1547,12 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.line >= *numlines)
+				if(sav.line >= numlines)
 					return 1;
 
 				now = Z_Malloc(sizeof(line_scroll_t), PU_LEVELSPEC, NULL);
 
-				now->line = *lines + sav.line;
+				now->line = lines + sav.line;
 				now->x = sav.x;
 				now->y = sav.y;
 
@@ -1570,14 +1570,14 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.sector >= *numsectors)
+				if(sav.sector >= numsectors)
 					return 1;
 
 				now = Z_Malloc(sizeof(ceiling_t), PU_LEVELSPEC, NULL);
 
 				now->type = sav.type & 0x7F;
 				now->crush = sav.crush;
-				now->sector = *sectors + sav.sector;
+				now->sector = sectors + sav.sector;
 				now->bottomheight = sav.bottomheight;
 				now->topheight = sav.topheight;
 				now->speed = sav.speed;
@@ -1603,14 +1603,14 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.sector >= *numsectors)
+				if(sav.sector >= numsectors)
 					return 1;
 
 				now = Z_Malloc(sizeof(vldoor_t), PU_LEVELSPEC, NULL);
 
 				now->type = sav.type;
 				now->direction = sav.direction;
-				now->sector = *sectors + sav.sector;
+				now->sector = sectors + sav.sector;
 				now->topheight = sav.topheight;
 				now->speed = sav.speed;
 				now->topwait = sav.topwait;
@@ -1630,7 +1630,7 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.sector >= *numsectors)
+				if(sav.sector >= numsectors)
 					return 1;
 
 				now = Z_Malloc(sizeof(floormove_t), PU_LEVELSPEC, NULL);
@@ -1638,7 +1638,7 @@ static inline uint32_t ld_get_specials()
 				now->type = sav.type;
 				now->crush = sav.crush;
 				now->direction = sav.direction;
-				now->sector = *sectors + sav.sector;
+				now->sector = sectors + sav.sector;
 				now->newspecial = sav.newspecial;
 				now->texture = texture_num_get((uint8_t*)&sav.texture);
 				now->floordestheight = sav.floordestheight;
@@ -1658,7 +1658,7 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.sector >= *numsectors)
+				if(sav.sector >= numsectors)
 					return 1;
 
 				now = Z_Malloc(sizeof(plat_t), PU_LEVELSPEC, NULL);
@@ -1669,7 +1669,7 @@ static inline uint32_t ld_get_specials()
 				now->oldstatus = sav.oldstatus;
 				now->wait = sav.wait;
 				now->count = sav.count;
-				now->sector = *sectors + sav.sector;
+				now->sector = sectors + sav.sector;
 				now->tag = sav.tag;
 				now->speed = sav.speed;
 				now->low = sav.low;
@@ -1693,12 +1693,12 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.sector >= *numsectors)
+				if(sav.sector >= numsectors)
 					return 1;
 
 				now = Z_Malloc(sizeof(lightflash_t), PU_LEVELSPEC, NULL);
 
-				now->sector = *sectors + sav.sector;
+				now->sector = sectors + sav.sector;
 				now->maxlight = sav.maxlight;
 				now->minlight = sav.minlight;
 				now->count = sav.count;
@@ -1718,12 +1718,12 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.sector >= *numsectors)
+				if(sav.sector >= numsectors)
 					return 1;
 
 				now = Z_Malloc(sizeof(strobe_t), PU_LEVELSPEC, NULL);
 
-				now->sector = *sectors + sav.sector;
+				now->sector = sectors + sav.sector;
 				now->minlight = sav.minlight;
 				now->maxlight = sav.maxlight;
 				now->count = sav.count;
@@ -1743,12 +1743,12 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.sector >= *numsectors)
+				if(sav.sector >= numsectors)
 					return 1;
 
 				now = Z_Malloc(sizeof(glow_t), PU_LEVELSPEC, NULL);
 
-				now->sector = *sectors + sav.sector;
+				now->sector = sectors + sav.sector;
 				now->minlight = sav.minlight;
 				now->maxlight = sav.maxlight;
 				now->direction = sav.direction;
@@ -1766,12 +1766,12 @@ static inline uint32_t ld_get_specials()
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
-				if(sav.sector >= *numsectors)
+				if(sav.sector >= numsectors)
 					return 1;
 
 				now = Z_Malloc(sizeof(fireflicker_t), PU_LEVELSPEC, NULL);
 
-				now->sector = *sectors + sav.sector;
+				now->sector = sectors + sav.sector;
 				now->maxlight = sav.maxlight;
 				now->minlight = sav.minlight;
 				now->count = sav.count;
@@ -1913,9 +1913,9 @@ static inline uint32_t ld_get_things()
 	mobj_for_each(ldcb_thing);
 
 	// relocate soundtargets
-	for(uint32_t i = 0; i < *numsectors; i++)
+	for(uint32_t i = 0; i < numsectors; i++)
 	{
-		sector_t *sec = *sectors + i;
+		sector_t *sec = sectors + i;
 		sec->soundtarget = mobj_by_netid((uint32_t)sec->soundtarget);
 	}
 
@@ -2016,7 +2016,7 @@ void do_load()
 
 	// prepare save slot
 	generate_save_name(*saveslot);
-	*gameaction = ga_nothing;
+	gameaction = ga_nothing;
 
 	// open file
 	reader_open(savename);
@@ -2045,19 +2045,19 @@ void do_load()
 
 	// load map
 	map_skip_stuff = 1;
-	*gameskill = info.flags >> 13;
-	*fastparm = info.flags & 1;
-	*respawnparm = !!(info.flags & 2);
-	*nomonsters = !!(info.flags & 4);
-	*deathmatch = !!(info.flags & 8);
+	gameskill = info.flags >> 13;
+	fastparm = info.flags & 1;
+	respawnparm = !!(info.flags & 2);
+	nomonsters = !!(info.flags & 4);
+	deathmatch = !!(info.flags & 8);
 
 	map_lump.wame = info.map_wame;
 
-	if(*gameskill > sk_nightmare)
+	if(gameskill > sk_nightmare)
 		goto error_fail;
 
-	*netgame = 0; // TODO: net saves?
-	*netdemo = 0;
+	netgame = 0; // TODO: net saves?
+	netdemo = 0;
 
 	if(map_load_setup())
 	{
@@ -2065,10 +2065,10 @@ void do_load()
 		return;
 	}
 
-	*leveltime = info.leveltime;
-	*totalkills = info.kills;
-	*totalitems = info.items;
-	*totalsecret = info.secret;
+	leveltime = info.leveltime;
+	totalkills = info.kills;
+	totalitems = info.items;
+	totalsecret = info.secret;
 
 	// sectors
 	if(ld_get_sectors())
@@ -2094,13 +2094,13 @@ void do_load()
 	if(ld_get_players())
 		goto error_fail;
 
-	if(!playeringame[*consoleplayer])
+	if(!playeringame[consoleplayer])
 		goto error_fail;
 
-	if(!players[*consoleplayer].mo)
+	if(!players[consoleplayer].mo)
 		goto error_fail;
 
-	pl = players + *consoleplayer;
+	pl = players + consoleplayer;
 	if(pl->mo->info->extra_type != ETYPE_PLAYERPAWN)
 		goto error_fail;
 
@@ -2114,7 +2114,7 @@ void do_load()
 	player_viewheight(pl->mo->info->player.view_height);
 
 	// DONE
-	*prndindex = info.rng;
+	prndindex = info.rng;
 	map_skip_stuff = 0;
 	reader_close();
 
@@ -2159,7 +2159,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void select_load(uint32_t slot)
 {
 	*saveslot = slot;
-	*gameaction = ga_loadgame;
+	gameaction = ga_loadgame;
 	M_ClearMenus();
 }
 

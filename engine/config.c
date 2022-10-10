@@ -224,7 +224,7 @@ void init_config()
 	control_setup();
 
 	// player setup
-	pli = player_info + *consoleplayer;
+	pli = player_info + consoleplayer;
 	extra_config.auto_switch = !!extra_config.auto_switch;
 	extra_config.auto_aim = !!extra_config.auto_aim;
 	if(extra_config.mouse_look > 2)

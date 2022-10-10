@@ -8,7 +8,6 @@
 //
 
 static uint32_t *numlumps;
-uint8_t **wadfiles;
 lumpinfo_t **lumpinfo;
 void ***lumpcache;
 
@@ -368,7 +367,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// disable call to 'W_Reload' in 'P_SetupLevel'
 	{0x0002E858, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// import variables
-	{0x00029730, DATA_HOOK | HOOK_IMPORT, (uint32_t)&wadfiles},
 	{0x00074FA0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlumps},
 	{0x00074FA4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lumpinfo},
 	{0x00074F94, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lumpcache},

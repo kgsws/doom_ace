@@ -269,64 +269,6 @@ typedef struct
 
 //
 
-extern mapthing_t *playerstarts;
-extern mapthing_t *deathmatchstarts;
-extern mapthing_t **deathmatch_p;
-
-extern uint32_t *nomonsters;
-extern uint32_t *fastparm;
-extern uint32_t *respawnparm;
-
-extern uint32_t *netgame;
-extern uint32_t *deathmatch;
-extern uint32_t *gamemap;
-extern uint32_t *gameepisode;
-extern uint32_t *gameskill;
-extern uint32_t *leveltime;
-
-extern uint32_t *totalkills;
-extern uint32_t *totalitems;
-extern uint32_t *totalsecret;
-
-extern uint32_t *skytexture;
-extern uint32_t *skyflatnum;
-
-extern uint32_t *numsides;
-extern uint32_t *numlines;
-extern uint32_t *numsectors;
-extern line_t **lines;
-extern vertex_t **vertexes;
-extern side_t **sides;
-extern sector_t **sectors;
-extern subsector_t **subsectors;
-extern seg_t **segs;
-
-extern uint32_t *prndindex;
-
-extern uint32_t *automapactive;
-
-extern plat_t **activeplats;
-extern ceiling_t **activeceilings;
-
-extern uint32_t *netgame;
-extern uint32_t *usergame;
-
-extern uint32_t *nofit;
-extern uint32_t *crushchange;
-
-extern fixed_t *tmdropoffz;
-extern fixed_t *tmfloorz;
-extern fixed_t *tmceilingz;
-extern fixed_t *lowfloor;
-extern fixed_t *openrange;
-extern fixed_t *opentop;
-extern fixed_t *openbottom;
-
-extern mobj_t **linetarget;
-
-extern fixed_t *bmaporgx;
-extern fixed_t *bmaporgy;
-
 extern map_lump_name_t map_lump;
 extern int32_t map_lump_idx;
 extern uint_fast8_t map_format;

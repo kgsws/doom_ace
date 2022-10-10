@@ -27,11 +27,6 @@ typedef struct
 
 extern player_info_t player_info[MAXPLAYERS];
 
-extern uint32_t *playeringame;
-extern player_t *players;
-extern uint32_t *consoleplayer;
-extern uint32_t *displayplayer;
-
 extern uint_fast8_t player_flags_changed;
 
 //

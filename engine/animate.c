@@ -236,7 +236,7 @@ static uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t d
 				// animated
 				slot->dest = dest;
 				slot->swtch = swtch;
-				slot->base = *leveltime;
+				slot->base = leveltime;
 				slot->delay = state ? BUTTON_TIME + swtch->tick_total : 0;
 				slot->animate = animate;
 			}
@@ -768,7 +768,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void do_line_switch(line_t *ln, uint32_t repeat)
 {
 	void *ptr = switch_ptr;
-	side_t *side = *sides + ln->sidenum[0];
+	side_t *side = sides + ln->sidenum[0];
 
 	if(!repeat)
 		ln->special = 0;
@@ -890,7 +890,7 @@ void animate_step()
 				ptr += sizeof(anim_header_t) + sizeof(animt_single_t) + anim->head.count * sizeof(animframe_t);
 
 				// tick offset
-				tick_offs = *leveltime % anim->single.tick_total;
+				tick_offs = leveltime % anim->single.tick_total;
 
 				// find current frame
 				for(uint32_t i = 0; i < anim->head.count; i++)
@@ -911,7 +911,7 @@ void animate_step()
 			case ANIM_TYPE_TEXTURE_RANGE:
 			{
 				uint32_t count = anim->head.count;
-				uint32_t offset = *leveltime / anim->range.tics;
+				uint32_t offset = leveltime / anim->range.tics;
 
 				// pointer offset
 				ptr += sizeof(anim_header_t) + sizeof(animt_range_t) + (count * 2 - 1) * sizeof(uint16_t);
@@ -945,7 +945,7 @@ void animate_step()
 		if(!active->dest)
 			continue;
 
-		diff = *leveltime - active->base;
+		diff = leveltime - active->base;
 
 		if(active->delay && diff >= active->delay)
 		{
@@ -964,7 +964,7 @@ void animate_step()
 
 		if(active->animate)
 		{
-			active->animate = switch_line_texture(active->swtch, active->dest, *leveltime - active->base, -1, NULL);
+			active->animate = switch_line_texture(active->swtch, active->dest, leveltime - active->base, -1, NULL);
 			if(!active->animate && !active->delay)
 				active->dest = NULL;
 		}
@@ -994,9 +994,9 @@ uint16_t anim_switch_type(switch_t *slot)
 		return 0;
 
 	num = slot->line->sidenum[0];
-	if(num < *numsides)
+	if(num < numsides)
 	{
-		side = *sides + num;
+		side = sides + num;
 
 		if(slot->dest == &side->toptexture)
 			return 1;
@@ -1007,9 +1007,9 @@ uint16_t anim_switch_type(switch_t *slot)
 	}
 
 	num = slot->line->sidenum[1];
-	if(num < *numsides)
+	if(num < numsides)
 	{
-		side = *sides + num;
+		side = sides + num;
 
 		if(slot->dest == &side->toptexture)
 			return 4;
@@ -1036,7 +1036,7 @@ switch_t *anim_switch_make(uint16_t type, line_t *line, uint64_t wame)
 	void *ptr = switch_ptr;
 
 	// check
-	if(line->sidenum[type > 3] >= *numsides)
+	if(line->sidenum[type > 3] >= numsides)
 		return NULL;
 
 	// get texture
@@ -1068,22 +1068,22 @@ switch_t *anim_switch_make(uint16_t type, line_t *line, uint64_t wame)
 	switch(type)
 	{
 		case 1:
-			dest = &(*sides)[line->sidenum[0]].toptexture;
+			dest = &sides[line->sidenum[0]].toptexture;
 		break;
 		case 2:
-			dest = &(*sides)[line->sidenum[0]].bottomtexture;
+			dest = &sides[line->sidenum[0]].bottomtexture;
 		break;
 		case 3:
-			dest = &(*sides)[line->sidenum[0]].midtexture;
+			dest = &sides[line->sidenum[0]].midtexture;
 		break;
 		case 4:
-			dest = &(*sides)[line->sidenum[1]].toptexture;
+			dest = &sides[line->sidenum[1]].toptexture;
 		break;
 		case 5:
-			dest = &(*sides)[line->sidenum[1]].bottomtexture;
+			dest = &sides[line->sidenum[1]].bottomtexture;
 		break;
 		case 6:
-			dest = &(*sides)[line->sidenum[1]].midtexture;
+			dest = &sides[line->sidenum[1]].midtexture;
 		break;
 	}
 

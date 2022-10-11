@@ -131,7 +131,7 @@ void init_render()
 		// install hooks
 		utils_install_hooks(hook_drawseg, 4);
 	} else
-		ptr_drawsegs = (void*)0x0002D0A0 + doom_data_segment;
+		ptr_drawsegs = d_drawsegs;
 
 	// visplane limit
 	if(mod_config.visplane_count > 128)
@@ -162,7 +162,7 @@ void init_render()
 		// install hooks
 		utils_install_hooks(hook_vissprite, 6);
 	} else
-		ptr_vissprites = (void*)0x0005A210 + doom_data_segment;
+		ptr_vissprites = d_vissprites;
 
 	// extra planes
 	if(mod_config.e3dplane_count < 16)
@@ -263,7 +263,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				clip_height_top <= pl->source->ceilingheight &&
 				clip_height_top > pl->source->floorheight
 			){
-				texnum = (*texturetranslation)[*pl->texture];
+				texnum = texturetranslation[*pl->texture];
 				dc_texturemid = pl->source->ceilingheight - viewz;
 				height = -1;
 				break;
@@ -274,20 +274,20 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 
 	if(!texnum)
 	{
-		texnum = (*texturetranslation)[seg->sidedef->midtexture];
+		texnum = texturetranslation[seg->sidedef->midtexture];
 		if(texnum)
 		{
 			// mid texture offsets
 			if(seg->linedef->flags & ML_DONTPEGBOTTOM)
 			{
 				fixed_t mid = frontsector->floorheight > backsector->floorheight ? frontsector->floorheight : backsector->floorheight;
-				dc_texturemid = mid + (*textureheight)[texnum] - viewz;
+				dc_texturemid = mid + textureheight[texnum] - viewz;
 			} else
 			{
 				fixed_t mid = frontsector->ceilingheight < backsector->ceilingheight ? frontsector->ceilingheight : backsector->ceilingheight;
 				dc_texturemid = mid - viewz;
 			}
-			height = (*textureheight)[texnum] >> FRACBITS;
+			height = textureheight[texnum] >> FRACBITS;
 		}
 	}
 
@@ -304,9 +304,9 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	}
 
 	// check texture composite // TODO: this does not work properly
-	comp_s = (*texturecomposite)[texnum];
+	comp_s = texturecomposite[texnum];
 	if(comp_s)
-		comp_e = comp_s + (*texturecompositesize)[texnum];
+		comp_e = comp_s + texturecompositesize[texnum];
 	else
 		comp_e = NULL;
 
@@ -552,7 +552,7 @@ void r_draw_plane(visplane_t *pl)
 	int32_t light;
 	int32_t stop;
 
-	ds_source = W_CacheLumpNum((*flattranslation)[pl->picnum], PU_CACHE);
+	ds_source = W_CacheLumpNum(flattranslation[pl->picnum], PU_CACHE);
 
 	planeheight = abs(pl->height - viewz);
 

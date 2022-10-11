@@ -58,16 +58,6 @@ typedef struct maptexure_s
 
 //
 
-uint32_t *numtextures;
-static texture_t ***textures;
-static uint16_t ***texturecolumnlump;
-static uint16_t ***texturecolumnofs;
-uint8_t ***texturecomposite;
-uint32_t **texturecompositesize;
-static uint32_t **texturewidthmask;
-fixed_t **textureheight;
-uint32_t **texturetranslation;
-
 static uint16_t *patch_lump;
 static uint32_t tmp_count;
 
@@ -110,7 +100,6 @@ int32_t texture_num_get(const uint8_t *name)
 {
 	uint64_t wame;
 	uint32_t idx;
-	texture_t **tex = *textures;
 
 	// check for 'no texture'
 	if(name[0] == '-')
@@ -120,16 +109,16 @@ int32_t texture_num_get(const uint8_t *name)
 	wame = wad_name64(name);
 
 	// do a backward search
-	idx = *numtextures;
+	idx = numtextures;
 	do
 	{
 		idx--;
-		if(tex[idx]->wame == wame)
+		if(textures[idx]->wame == wame)
 			return idx;
 	} while(idx);
 
 	// last texture is 'unknown texture'
-	return *numtextures - 1;
+	return numtextures - 1;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -139,7 +128,7 @@ int32_t texture_num_check(const uint8_t *name)
 	int32_t idx;
 
 	idx = texture_num_get(name);
-	if(idx == *numtextures - 1)
+	if(idx == numtextures - 1)
 		return -1;
 
 	return idx;
@@ -148,17 +137,13 @@ int32_t texture_num_check(const uint8_t *name)
 __attribute((regparm(2),no_caller_saved_registers))
 uint64_t texture_get_name(uint32_t idx)
 {
-	texture_t **tex;
-
 	if(!idx)
 		return '-';
 
-	if(idx >= *numtextures)
+	if(idx >= numtextures)
 		return 0;
 
-	tex = *textures;
-
-	return tex[idx]->wame;
+	return textures[idx]->wame;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -184,7 +169,7 @@ static uint32_t texture_size_check(uint8_t *name, uint32_t idx)
 		for(uint32_t i = 0; i < td->count; i++, idx++)
 		{
 			maptexure_t *mt = (void*)td + td->offset[i];
-			uint32_t *dst = *texturecompositesize + idx;
+			uint32_t *dst = texturecompositesize + idx;
 			uint32_t size;
 
 			// header
@@ -216,7 +201,7 @@ static uint32_t texture_load(uint8_t *name, uint32_t idx)
 		for(uint32_t i = 0; i < td->count; i++, idx++)
 		{
 			maptexure_t *mt = (void*)td + td->offset[i];
-			texture_t *tex = (*textures)[idx];
+			texture_t *tex = textures[idx];
 
 			// copy texture info
 			tex->wame = mt->wame;
@@ -243,20 +228,20 @@ static uint32_t texture_load(uint8_t *name, uint32_t idx)
 				uint32_t size;
 
 				size = sizeof(texture_t) + tex->patchcount * sizeof(texpatch_t);
-				(*texturecolumnlump)[idx] = (void*)tex + size;
+				texturecolumnlump[idx] = (void*)tex + size;
 
 				size += tex->width * sizeof(uint16_t);
-				(*texturecolumnofs)[idx] = (void*)tex + size;
+				texturecolumnofs[idx] = (void*)tex + size;
 			}
 
 			// resolution
-			(*textureheight)[idx] = (uint32_t)tex->height << FRACBITS;
+			textureheight[idx] = (uint32_t)tex->height << FRACBITS;
 
 			{
 				uint32_t size = 1;
 				while(size * 2 <= tex->width)
 					size <<= 1;
-				(*texturewidthmask)[idx] = size - 1;
+				texturewidthmask[idx] = size - 1;
 			}
 		}
 
@@ -301,16 +286,16 @@ static void cb_tx_count(lumpinfo_t *li)
 	uint32_t size;
 	patch_t patch;
 
-	wad_read_lump(&patch, li - *lumpinfo, sizeof(patch_t));
+	wad_read_lump(&patch, li - lumpinfo, sizeof(patch_t));
 
-	(*texturewidthmask)[tmp_count] = patch.width;
-	(*textureheight)[tmp_count] = patch.height;
+	texturewidthmask[tmp_count] = patch.width;
+	textureheight[tmp_count] = patch.height;
 
 	size = sizeof(texture_t);
 	size += sizeof(texpatch_t);
 	size += (uint32_t)patch.width * sizeof(uint16_t) * 2;
 
-	(*texturecompositesize)[tmp_count] = size;
+	texturecompositesize[tmp_count] = size;
 
 	tmp_count++;
 }
@@ -321,31 +306,31 @@ static void cb_tx_load(lumpinfo_t *li)
 	uint32_t size;
 	uint32_t lump;
 
-	lump = li - *lumpinfo;
+	lump = li - lumpinfo;
 
-	tex = ldr_malloc((*texturecompositesize)[tmp_count]);
-	(*textures)[tmp_count] = tex;
+	tex = ldr_malloc(texturecompositesize[tmp_count]);
+	textures[tmp_count] = tex;
 
 	tex->wame = li->wame;
-	tex->width = (*texturewidthmask)[tmp_count];
-	tex->height = (*textureheight)[tmp_count];
+	tex->width = texturewidthmask[tmp_count];
+	tex->height = textureheight[tmp_count];
 	tex->patchcount = 1;
 	tex->patch[0].originx = 0;
 	tex->patch[0].originy = 0;
 	tex->patch[0].patch = lump;
 
-	(*textureheight)[tmp_count] <<= FRACBITS;
+	textureheight[tmp_count] <<= FRACBITS;
 
 	size = 1;
 	while(size * 2 <= tex->width)
 		size <<= 1;
-	(*texturewidthmask)[tmp_count] = size - 1;
+	texturewidthmask[tmp_count] = size - 1;
 
 	size = sizeof(texture_t) + tex->patchcount * sizeof(texpatch_t);
-	(*texturecolumnlump)[tmp_count] = (void*)tex + size;
+	texturecolumnlump[tmp_count] = (void*)tex + size;
 
 	size += tex->width * sizeof(uint16_t);
-	(*texturecolumnofs)[tmp_count] = (void*)tex + size;
+	texturecolumnofs[tmp_count] = (void*)tex + size;
 
 	tmp_count++;
 }
@@ -366,17 +351,17 @@ void init_textures(uint32_t count)
 	//
 	// PASS 1
 
-	*textures = ldr_malloc(count * 4);
-	*texturecolumnlump = ldr_malloc(count * 4);
-	*texturecolumnofs = ldr_malloc(count * 4);
-	*texturecomposite = ldr_malloc(count * 4);
-	*texturecompositesize = ldr_malloc(count * 4);
-	*texturewidthmask = ldr_malloc(count * 4);
-	*textureheight = ldr_malloc(count * 4);
-	*texturetranslation = ldr_malloc(count * 4);
+	textures = ldr_malloc(count * sizeof(void*));
+	texturecolumnlump = ldr_malloc(count * sizeof(void*));
+	texturecolumnofs = ldr_malloc(count * sizeof(void*));
+	texturecomposite = ldr_malloc(count * sizeof(void*));
+	texturecompositesize = ldr_malloc(count * sizeof(void*));
+	texturewidthmask = ldr_malloc(count * sizeof(void*));
+	textureheight = ldr_malloc(count * sizeof(void*));
+	texturetranslation = ldr_malloc(count * sizeof(void*));
 
 	for(uint32_t i = 0; i < count; i++)
-		(*texturetranslation)[i] = i;
+		texturetranslation[i] = i;
 
 	//
 	// PASS 2
@@ -393,7 +378,7 @@ void init_textures(uint32_t count)
 
 	// allocate memory for each texture[x]
 	for(idx = 0 ; idx < count - EXTRA_TEXTURES; idx++)
-		(*textures)[idx] = ldr_malloc((*texturecompositesize)[idx]);
+		textures[idx] = ldr_malloc(texturecompositesize[idx]);
 
 	//
 	// PASS 4
@@ -435,12 +420,12 @@ void init_textures(uint32_t count)
 		while(size * 2 <= tex->width)
 			size <<= 1;
 
-		(*texturewidthmask)[tmp_count] = size - 1;
-		(*textureheight)[tmp_count] = (uint32_t)tex->height << FRACBITS;
-		(*texturecolumnlump)[tmp_count] = (void*)tex->patch;
-		(*texturecolumnofs)[tmp_count] = it->columnofs;
-		(*texturecomposite)[tmp_count] = it->composite;
-		(*textures)[tmp_count] = tex;
+		texturewidthmask[tmp_count] = size - 1;
+		textureheight[tmp_count] = (uint32_t)tex->height << FRACBITS;
+		texturecolumnlump[tmp_count] = (void*)tex->patch;
+		texturecolumnofs[tmp_count] = it->columnofs;
+		texturecomposite[tmp_count] = it->composite;
+		textures[tmp_count] = tex;
 
 		memset((void*)tex->patch, 0xFF, (uint32_t)tex->width * sizeof(uint16_t));
 	}
@@ -448,7 +433,7 @@ void init_textures(uint32_t count)
 	//
 	// DONE
 
-	*numtextures = count;
+	numtextures = count;
 	tmp_count = count - EXTRA_TEXTURES;
 
 	return;
@@ -463,15 +448,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00034610, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)load_textures},
 	// replace 'R_TextureNumForName'
 	{0x00034750, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)texture_num_get},
-	// import variables
-	{0x000300E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numtextures},
-	{0x000300E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&textures},
-	{0x000300F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturecolumnlump},
-	{0x000300D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturecolumnofs},
-	{0x000300E8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturecomposite},
-	{0x000300D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturecompositesize},
-	{0x000300D8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturewidthmask},
-	{0x00030124, DATA_HOOK | HOOK_IMPORT, (uint32_t)&textureheight},
-	{0x0003010C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&texturetranslation},
 };
 

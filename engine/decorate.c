@@ -150,11 +150,7 @@ typedef struct
 
 //
 
-uint32_t num_spr_names = NUMSPRITES;
 uint32_t sprite_table[MAX_SPRITE_NAMES];
-
-static uint32_t **spr_names;
-static uint32_t *numsprites;
 
 uint32_t num_mobj_types = NUMMOBJTYPES + NUM_NEW_TYPES;
 mobjinfo_t *mobjinfo;
@@ -996,7 +992,7 @@ static void make_doom_weapon(uint32_t idx)
 	if(wpn->ammo < NUMAMMO)
 	{
 		info->weapon.ammo_type[0] = doom_ammo[wpn->ammo].clp;
-		info->weapon.ammo_give[0] = ((uint32_t*)(0x00012D80 + doom_data_segment))[wpn->ammo] * 2; // clipammo
+		info->weapon.ammo_give[0] = clipammo[wpn->ammo] * 2;
 	}
 	info->weapon.selection_order = (uint16_t)def->selection * 100;
 	info->weapon.ammo_use[0] = def->use;
@@ -1014,14 +1010,14 @@ static void make_doom_ammo(uint32_t idx)
 	mobjinfo_t *info;
 	uint16_t tmp;
 
-	tmp = ((uint32_t*)(0x00012D80 + doom_data_segment))[idx]; // clipammo
+	tmp = clipammo[idx];
 
 	info = mobjinfo + ammo->clp;
 	info->extra_type = ETYPE_AMMO;
 	info->eflags = MFE_INVENTORY_KEEPDEPLETED; // hack for original status bar
 	info->ammo = default_ammo.ammo;
 	info->ammo.inventory.count = tmp;
-	info->ammo.inventory.max_count = ((uint32_t*)(0x00012D70 + doom_data_segment))[idx]; // maxammo
+	info->ammo.inventory.max_count = maxammo[idx];
 	info->ammo.count = info->ammo.inventory.count;
 	info->ammo.max_count = info->ammo.inventory.max_count * 2;
 	info->ammo.inventory.message = ammo->msg_clp + doom_data_segment;
@@ -1132,7 +1128,7 @@ static uint32_t spr_add_name(uint32_t name)
 {
 	uint32_t i = 0;
 
-	for(i = 0; i < num_spr_names; i++)
+	for(i = 0; i < numsprites; i++)
 	{
 		if(sprite_table[i] == name)
 			return i;
@@ -1143,7 +1139,7 @@ static uint32_t spr_add_name(uint32_t name)
 
 	sprite_table[i] = name;
 
-	num_spr_names++;
+	numsprites++;
 
 	return i;
 }
@@ -2297,7 +2293,7 @@ static void parse_keyconf()
 
 	doom_printf("[ACE] load KEYCONF\n");
 
-	tp_load_lump(*lumpinfo + lump);
+	tp_load_lump(lumpinfo + lump);
 
 	while(1)
 	{
@@ -2351,6 +2347,7 @@ void init_decorate()
 	ldr_alloc_message = "Decorate";
 
 	// init sprite names
+	numsprites = NUMSPRITES;
 	for(uint32_t i = 0; i < NUMSPRITES; i++)
 		sprite_table[i] = *spr_names[i];
 
@@ -2609,9 +2606,6 @@ void init_decorate()
 		hook_states[i].value += (uint32_t)states;
 	utils_install_hooks(hook_states, NUM_STATE_HOOKS);
 
-	// done
-	*numsprites = num_spr_names;
-
 	//
 	// KEYCONF
 
@@ -2673,9 +2667,6 @@ static hook_t hook_states[NUM_STATE_HOOKS] =
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// import variables
-	{0x00015800, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spr_names},
-	{0x0005C8E0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numsprites},
 	// hook step height check in 'P_TryMove'
 	{0x0002B27C, CODE_HOOK | HOOK_UINT16, 0xF289},
 	{0x0002B27E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_step_height},

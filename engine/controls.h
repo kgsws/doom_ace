@@ -63,9 +63,6 @@ extern int32_t mouseb_fire_alt;
 extern int32_t mouseb_use;
 extern int32_t mouseb_inv_use;
 
-extern uint32_t *gamekeydown;
-extern uint32_t *mousebuttons;
-
 //
 
 void control_setup();

@@ -902,9 +902,9 @@ void animate_step()
 				}
 
 				if(anim->head.type == ANIM_TYPE_FLAT_SINGLE)
-					(*flattranslation)[anim->head.target] = frame->pic;
+					flattranslation[anim->head.target] = frame->pic;
 				else
-					(*texturetranslation)[anim->head.target] = frame->pic;
+					texturetranslation[anim->head.target] = frame->pic;
 			}
 			break;
 			case ANIM_TYPE_FLAT_RANGE:
@@ -921,9 +921,9 @@ void animate_step()
 					uint32_t idx = (offset + i) % anim->head.count;
 
 					if(anim->head.type == ANIM_TYPE_FLAT_RANGE)
-						(*flattranslation)[i] = anim->range.pic[idx];
+						flattranslation[i] = anim->range.pic[idx];
 					else
-						(*texturetranslation)[i] = anim->range.pic[idx];
+						texturetranslation[i] = anim->range.pic[idx];
 				}
 			}
 			break;

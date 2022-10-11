@@ -17,12 +17,6 @@
 #define CONTROL_X	80
 #define CONTROL_X_DEF	220
 
-uint16_t *menu_item_now;
-
-static menu_t **currentMenu;
-static uint64_t *skull_name;
-static uint32_t *showMessages;
-static uint32_t *mouseSensitivity;
 static uint8_t *auto_run;
 
 static int32_t title_options;
@@ -39,8 +33,6 @@ static const uint8_t *const off_on[] = {"OFF", "ON", "FAKE"}; // fake is used in
 static const uint8_t *const weapon_mode[] = {"ORIGINAL", "CENTER", "BOUNCY"};
 
 // episodes
-static menu_t *NewDef;
-static menu_t *EpiDef;
 static menuitem_t episode_items[MAX_EPISODES];
 
 // OPTIONS
@@ -279,8 +271,8 @@ static menu_t player_menu =
 
 static inline void M_SetupNextMenu(menu_t *menu)
 {
-	*currentMenu = menu;
-	*menu_item_now = menu->last;
+	currentMenu = menu;
+	menu_item_now = menu->last;
 }
 
 //
@@ -296,7 +288,7 @@ void options_next(uint32_t sel)
 		break;
 		case 3:
 			M_SetupNextMenu(&controls_menu);
-			control_old = *menu_item_now;
+			control_old = menu_item_now;
 		break;
 		case 4:
 			M_SetupNextMenu(&mouse_menu);
@@ -332,7 +324,7 @@ void xhair_color(uint32_t dir)
 {
 	uint8_t *ptr;
 
-	switch(*menu_item_now)
+	switch(menu_item_now)
 	{
 		case 6:
 			ptr = &extra_config.crosshair_red;
@@ -394,7 +386,7 @@ void display_draw()
 	V_DrawPatchDirect(117, 15, 0, W_CacheLumpNum(title_display, PU_CACHE));
 
 	// messages
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[!!*showMessages]);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[!!showMessages]);
 
 	// screen size
 	doom_sprintf(text, "%u", screenblocks);
@@ -452,11 +444,11 @@ void controls_draw()
 	int32_t old;
 
 	// position changes
-	if(*menu_item_now != control_old)
+	if(menu_item_now != control_old)
 	{
-		int32_t diff = *menu_item_now - control_old;
+		int32_t diff = menu_item_now - control_old;
 
-		control_old = *menu_item_now;
+		control_old = menu_item_now;
 
 		if(diff > 1)
 			diff = -1;
@@ -527,7 +519,7 @@ void controls_draw()
 static __attribute((regparm(2),no_caller_saved_registers))
 void mouse_change(uint32_t dir)
 {
-	uint32_t sel = *menu_item_now - 2;
+	uint32_t sel = menu_item_now - 2;
 	int32_t value;
 
 	value = *ctrl_mouse_ptr[sel];
@@ -555,7 +547,7 @@ void mouse_draw()
 	V_DrawPatchDirect(123, 15, 0, W_CacheLumpNum(title_mouse, PU_CACHE));
 
 	// sensitivity
-	doom_sprintf(text, "%u", *mouseSensitivity);
+	doom_sprintf(text, "%u", mouseSensitivity);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, text);
 
 	// buttons
@@ -569,7 +561,7 @@ void mouse_draw()
 static __attribute((regparm(2),no_caller_saved_registers))
 void player_change(uint32_t dir)
 {
-	switch(*menu_item_now)
+	switch(menu_item_now)
 	{
 		case 0:
 			*auto_run = !*auto_run;
@@ -662,9 +654,9 @@ void menu_items_draw(menu_t *menu)
 		y = -y;
 
 		patch = W_CacheLumpNum(small_selector, PU_STATIC);
-		if(menu->menuitems[*menu_item_now].status == 2)
-			V_DrawPatchDirect(x + CURSORX_SMALL - 6, y + *menu_item_now * LINEHEIGHT_SMALL, 0, patch);
-		V_DrawPatchDirect(x + CURSORX_SMALL, y + *menu_item_now * LINEHEIGHT_SMALL, 0, patch);
+		if(menu->menuitems[menu_item_now].status == 2)
+			V_DrawPatchDirect(x + CURSORX_SMALL - 6, y + menu_item_now * LINEHEIGHT_SMALL, 0, patch);
+		V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * LINEHEIGHT_SMALL, 0, patch);
 
 		for(uint32_t i = 0; i < menu->numitems; i++)
 		{
@@ -686,8 +678,8 @@ void menu_items_draw(menu_t *menu)
 			y += LINEHEIGHT;
 		}
 
-		patch = W_CacheLumpName((uint8_t*)&skull_name[!!(gametic & 8)], PU_CACHE);
-		V_DrawPatchDirect(x + SKULLXOFF, menu->y - 5 + *menu_item_now * LINEHEIGHT, 0, patch);
+		patch = W_CacheLumpName((uint8_t*)&dtxt_skull_name[!!(gametic & 8)], PU_CACHE);
+		V_DrawPatchDirect(x + SKULLXOFF, menu->y - 5 + menu_item_now * LINEHEIGHT, 0, patch);
 	}
 }
 
@@ -700,7 +692,7 @@ void sel_episode(uint32_t sel)
 	if(map_episode_def[sel].map_lump < 0)
 		map_lump.wame = 0xFF; // invalid name
 	else
-		strcpy(map_lump.name, (*lumpinfo)[map_episode_def[sel].map_lump].name);
+		strcpy(map_lump.name, lumpinfo[map_episode_def[sel].map_lump].name);
 
 	if(map_episode_def[sel].flags & EPI_FLAG_NO_SKILL_MENU)
 	{
@@ -709,14 +701,14 @@ void sel_episode(uint32_t sel)
 		return;
 	}
 
-	M_SetupNextMenu(NewDef);
+	M_SetupNextMenu(&NewDef);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void sel_new_game()
 {
 	if(map_episode_count > 1)
-		M_SetupNextMenu(EpiDef);
+		M_SetupNextMenu(&EpiDef);
 	else
 		sel_episode(0);
 }
@@ -728,7 +720,7 @@ void init_menu()
 {
 	small_selector = W_GetNumForName("STCFN042"); // it's from font, use PU_STATIC
 
-	title_options = W_GetNumForName((uint8_t*)0x00012247 + doom_data_segment);
+	title_options = W_GetNumForName(dtxt_m_option);
 
 	title_display = W_CheckNumForName("M_DISPL");
 	if(title_display < 0)
@@ -759,9 +751,9 @@ void menu_draw_slot_bg(uint32_t x, uint32_t y, uint32_t width)
 	width -= 7;
 	count = width / 8;
 
-	pc = W_CacheLumpName((uint8_t*)0x0002246C + doom_data_segment, PU_CACHE);
+	pc = W_CacheLumpName(dtxt_m_lscntr, PU_CACHE);
 
-	V_DrawPatchDirect(x, y, 0, W_CacheLumpName((uint8_t*)0x00022460 + doom_data_segment, PU_CACHE));
+	V_DrawPatchDirect(x, y, 0, W_CacheLumpName(dtxt_m_lsleft, PU_CACHE));
 
 	for(uint32_t i = 0; i < count; i++)
 	{
@@ -769,13 +761,13 @@ void menu_draw_slot_bg(uint32_t x, uint32_t y, uint32_t width)
 		V_DrawPatchDirect(x, y, 0, pc);
 	}
 
-	V_DrawPatchDirect(last, y, 0, W_CacheLumpName((uint8_t*)0x00022478 + doom_data_segment, PU_CACHE));
+	V_DrawPatchDirect(last, y, 0, W_CacheLumpName(dtxt_m_lsrght, PU_CACHE));
 }
 
 void menu_setup_episodes()
 {
-	EpiDef->numitems = map_episode_count;
-	EpiDef->menuitems = episode_items;
+	EpiDef.numitems = map_episode_count;
+	EpiDef.menuitems = episode_items;
 
 	for(uint32_t i = 0; i < map_episode_count; i++)
 	{
@@ -784,9 +776,9 @@ void menu_setup_episodes()
 		mi->status = 1;
 		mi->func = sel_episode;
 		if(epi->title_lump < 0)
-			strcpy(mi->name, (void*)0x0002265C + doom_data_segment); // M_EPISOD
+			strcpy(mi->name, dtxt_m_episod);
 		else
-			strcpy(mi->name, (*lumpinfo)[epi->title_lump].name);
+			strcpy(mi->name, lumpinfo[epi->title_lump].name);
 	}
 }
 
@@ -806,11 +798,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002272D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sel_new_game},
 	{0x00022732, CODE_HOOK | HOOK_UINT16, 0x2CEB},
 	// import variables
-	{0x0002B6D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&menu_item_now},
-	{0x0002B67C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&currentMenu},
-	{0x00012222, DATA_HOOK | HOOK_IMPORT, (uint32_t)&skull_name},
-	{0x0002B6B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&showMessages},
-	{0x0002B6C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mouseSensitivity},
 	{0x0001FBC5, CODE_HOOK | HOOK_IMPORT, (uint32_t)&auto_run},
 	// import functions
 	{0x00022A60, CODE_HOOK | HOOK_IMPORT, (uint32_t)&options_items[0].func},
@@ -818,8 +805,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000229D0, CODE_HOOK | HOOK_IMPORT, (uint32_t)&display_items[0].func},
 	{0x00022D00, CODE_HOOK | HOOK_IMPORT, (uint32_t)&display_items[1].func},
 	{0x00022C60, CODE_HOOK | HOOK_IMPORT, (uint32_t)&mouse_items[0].func},
-	// import menus
-	{0x000122E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&EpiDef},
-	{0x00012350, DATA_HOOK | HOOK_IMPORT, (uint32_t)&NewDef},
 };
 

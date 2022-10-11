@@ -645,6 +645,47 @@ typedef struct state_s
 } state_t;
 
 //
+// old info
+
+typedef struct
+{
+	int32_t doomednum;
+	int32_t spawnstate;
+	int32_t spawnhealth;
+	int32_t seestate;
+	int32_t seesound;
+	int32_t reactiontime;
+	int32_t attacksound;
+	int32_t painstate;
+	int32_t painchance;
+	int32_t painsound;
+	int32_t meleestate;
+	int32_t missilestate;
+	int32_t deathstate;
+	int32_t xdeathstate;
+	int32_t deathsound;
+	int32_t speed;
+	int32_t radius;
+	int32_t height;
+	int32_t mass;
+	int32_t damage;
+	int32_t activesound;
+	int32_t flags;
+	int32_t raisestate;
+} deh_mobjinfo_t;
+
+typedef struct deh_state_s
+{
+	int32_t sprite;
+	int32_t frame;
+	int32_t tics;
+	void *action;
+	int32_t nextstate;
+	int32_t misc1;
+	int32_t misc2;
+} deh_state_t;
+
+//
 // MAP
 
 typedef struct
@@ -770,6 +811,19 @@ typedef struct
 
 //
 // sound
+
+typedef struct old_sfxinfo_s
+{
+	uint8_t *name;
+	uint32_t single;
+	uint32_t priority;
+	struct old_sfxinfo_s *link;
+	int32_t pitch;
+	int32_t volume;
+	void *data;
+	int32_t usefulness;
+	int32_t lumpnum;
+} old_sfxinfo_t;
 
 typedef struct sfxinfo_s
 { // this structure has been changed

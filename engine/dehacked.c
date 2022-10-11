@@ -31,10 +31,6 @@ static uint8_t *deh_end;
 static uint16_t *ptr2state;
 static void **ptrtable;
 
-deh_mobjinfo_t *deh_mobjinfo;
-deh_state_t *deh_states;
-weaponinfo_t *deh_weaponinfo;
-
 deh_stuff_t dehacked =
 {
 	.start_health = 100,
@@ -421,7 +417,7 @@ static void parser_ammo(uint8_t *line)
 	void *base_ptr;
 
 	if(doom_sscanf(line, "%u", &idx) == 1 && idx < NUMAMMO)
-		base_ptr = (void*)doom_data_segment + 0x00012D70 + idx * sizeof(uint32_t);
+		base_ptr = maxammo + idx;
 	else
 		base_ptr = NULL;
 
@@ -624,7 +620,7 @@ void init_dehacked()
 			ptr2state[size++] = i;
 	}
 
-	size = (*lumpinfo)[lump].size;
+	size = lumpinfo[lump].size;
 
 	if(size <= TP_MEMORY_SIZE)
 	{
@@ -641,15 +637,4 @@ void init_dehacked()
 		doom_free(data);
 	doom_free(syst);
 }
-
-//
-// hooks
-
-static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
-{
-	// import variables
-	{0x0001C3EC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deh_mobjinfo},
-	{0x00015A28, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deh_states},
-	{0x00012D90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&deh_weaponinfo},
-};
 

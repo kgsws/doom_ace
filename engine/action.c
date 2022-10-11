@@ -15,6 +15,7 @@
 #include "stbar.h"
 #include "map.h"
 #include "demo.h"
+#include "config.h"
 #include "textpars.h"
 
 #define MAKE_FLAG(x)	{.name = #x, .bits = x}
@@ -528,8 +529,8 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(demoplayback != DEMO_OLD)
 	{
-		if(!player_aim(pl, &angle, bulletslope, 0))
-			*bulletslope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
+		if(!player_aim(pl, &angle, &bulletslope, 0))
+			bulletslope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
 	} else
 		P_BulletSlope(mo);
 
@@ -543,7 +544,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		aaa = angle;
 		if(hs)
 			aaa += (P_Random() - P_Random()) << hs;
-		sss = *bulletslope;
+		sss = bulletslope;
 		if(vs)
 			sss += (P_Random() - P_Random()) << 5;
 
@@ -722,6 +723,9 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(mo->custom_inventory)
 		return;
+
+	if(extra_config.center_weapon != 2)
+		pl->weapon_ready = 0;
 
 	psp = pl->psprites;
 

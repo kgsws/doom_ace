@@ -10,8 +10,6 @@
 
 //
 
-static uint32_t *numflats;
-uint32_t **flattranslation;
 uint16_t *flatlump;
 
 static uint32_t tmp_count;
@@ -26,9 +24,9 @@ static void cb_setup(lumpinfo_t *li)
 	if(li->size != 64 * 64)
 		return;
 
-	lump = li - *lumpinfo;
+	lump = li - lumpinfo;
 
-	(*flattranslation)[tmp_count] = lump;
+	flattranslation[tmp_count] = lump;
 	flatlump[tmp_count] = lump;
 
 	tmp_count++;
@@ -69,8 +67,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 int32_t flat_num_check(const uint8_t *name)
 {
 	uint64_t wame;
-	int32_t idx = *numflats;
-	lumpinfo_t *li = *lumpinfo + lumpcount;
+	int32_t idx = numflats;
 
 	// search as 64bit number
 	wame = wad_name64(name);
@@ -81,7 +78,7 @@ int32_t flat_num_check(const uint8_t *name)
 		lumpinfo_t *li;
 
 		idx--;
-		li = *lumpinfo + flatlump[idx];
+		li = lumpinfo + flatlump[idx];
 
 		if(li->wame == wame)
 			return idx;
@@ -95,10 +92,10 @@ uint64_t flat_get_name(uint32_t idx)
 {
 	lumpinfo_t *li;
 
-	if(idx >= *numflats)
+	if(idx >= numflats)
 		return 0;
 
-	li = *lumpinfo + flatlump[idx];
+	li = lumpinfo + flatlump[idx];
 
 	return li->wame;
 }
@@ -108,9 +105,9 @@ void init_flats()
 	tmp_count = 0;
 	wad_handle_range('F', cb_count);
 
-	*flattranslation = doom_malloc(tmp_count * sizeof(uint32_t));
+	flattranslation = doom_malloc(tmp_count * sizeof(uint32_t));
 	flatlump = doom_malloc(tmp_count * sizeof(uint16_t));
-	*numflats = tmp_count;
+	numflats = tmp_count;
 
 	tmp_count = 0;
 	wad_handle_range('F', cb_setup);
@@ -127,9 +124,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00034622, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace call to 'W_CacheLumpNum' in 'R_PrecacheLevel' (flat caching)
 	{0x0003483C, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)precache_flat},
-	// import variables
-	{0x000300DC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numflats},
-//	{0x000300FC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&firstflat}, // this is unused and kept 0
-	{0x00030110, DATA_HOOK | HOOK_IMPORT, (uint32_t)&flattranslation},
 };
 

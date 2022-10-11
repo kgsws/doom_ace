@@ -438,7 +438,7 @@ void tp_load_lump(lumpinfo_t *li)
 	tp_text_ptr = TP_MEMORY_ADDR;
 	tp_text_ptr[li->size] = 0;
 
-	wad_read_lump(tp_text_ptr, li - *lumpinfo, TP_MEMORY_SIZE);
+	wad_read_lump(tp_text_ptr, li - lumpinfo, TP_MEMORY_SIZE);
 
 	backup_char = 0;
 	pushed_kw = 0;

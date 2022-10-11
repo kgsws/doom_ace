@@ -32,10 +32,6 @@
 
 uint_fast8_t stbar_refresh_force;
 
-static patch_t **tallnum;
-static patch_t **tallpercent;
-static patch_t **shortnum;
-
 static uint_fast8_t invbar_was_on;
 
 static uint16_t stbar_t_y;
@@ -46,13 +42,6 @@ static uint16_t stbar_s_hp_x;
 static uint16_t stbar_s_ar_x;
 
 static uint8_t do_evil_grin;
-
-static st_number_t *w_ready;
-static st_number_t *w_ammo;
-static st_number_t *w_maxammo;
-static st_multicon_t *w_arms;
-
-static int32_t *keyboxes;
 
 static int32_t inv_box;
 static int32_t inv_sel;
@@ -99,9 +88,9 @@ static xhair_patch_t xhair_data =
 
 static patch_t *get_icon_ptr(int32_t lump)
 {
-	if((*lumpcache)[lump])
+	if(lumpcache[lump])
 		// already cachced, do not change TAG
-		return (*lumpcache)[lump];
+		return lumpcache[lump];
 
 	// cache new
 	return W_CacheLumpNum(lump, PU_CACHE);
@@ -225,9 +214,9 @@ static inline void draw_full_stbar(player_t *pl)
 		stbar_ar_x = stbar_t_ar_x;
 		numfont = tallnum;
 
-		V_DrawPatchDirect(stbar_hp_x, stbar_y, 0, *tallpercent);
+		V_DrawPatchDirect(stbar_hp_x, stbar_y, 0, tallpercent);
 		if(pl->armorpoints)
-			V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, *tallpercent);
+			V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, tallpercent);
 	}
 
 	// health
@@ -511,14 +500,14 @@ static void update_keys(player_t *pl)
 static void update_backpack(player_t *pl)
 {
 	uint32_t mult;
-	static uint16_t maxammo[NUMAMMO];
+	static uint16_t dispmax[NUMAMMO];
 
 	mult = pl->backpack ? 2 : 1;
 
 	for(uint32_t i = 0; i < NUMAMMO; i++)
 	{
-		w_maxammo[i].num = maxammo + i;
-		maxammo[i] = ((uint32_t*)(0x00012D70 + doom_data_segment))[i] * mult; // maxammo
+		w_maxammo[i].num = dispmax + i;
+		dispmax[i] = maxammo[i] * mult;
 	}
 }
 
@@ -530,7 +519,7 @@ static void update_ready_weapon(player_t *pl)
 
 	ammo_pri = NULL;
 	ammo_sec = NULL;
-	w_ready->num = NULL;
+	w_ready.num = NULL;
 
 	if(!info)
 		return;
@@ -554,7 +543,7 @@ static void update_ready_weapon(player_t *pl)
 		ammo_sec = NULL;
 
 	// old stbar ammo pointer
-	w_ready->num = ammo_pri ? ammo_pri : ammo_sec;
+	w_ready.num = ammo_pri ? ammo_pri : ammo_sec;
 }
 
 //
@@ -847,14 +836,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00039FD9, CODE_HOOK | HOOK_UINT32, 0xDB84188A},
 	{0x00039FDD, CODE_HOOK | HOOK_UINT32, 0x08FE5674},
 	{0x00039FE1, CODE_HOOK | HOOK_UINT16, 0x2FEB},
-	// some variables
-	{0x000752C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&shortnum},
-	{0x000752F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallnum},
-	{0x00075458, DATA_HOOK | HOOK_IMPORT, (uint32_t)&tallpercent},
-	{0x000751C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_ready},
-	{0x00075070, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_ammo},
-	{0x00074FF0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_maxammo},
-	{0x000750F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&w_arms},
-	{0x000753C0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&keyboxes},
 };
 

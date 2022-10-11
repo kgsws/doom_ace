@@ -6,10 +6,6 @@
 
 //
 
-extern musicinfo_t *S_music;
-
-//
-
 void init_sound();
 
 void start_music(int32_t lump, uint32_t loop);

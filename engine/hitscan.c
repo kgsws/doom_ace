@@ -14,26 +14,6 @@
 
 #define PIT_AddThingIntercepts	((void*)0x0002C720 + doom_code_segment)
 
-static uint32_t *validcount;
-
-static intercept_t *intercepts;
-static intercept_t **d_intercept_p;
-static divline_t *trace;
-
-static intercept_t *intercept_p;
-
-static fixed_t *bestslidefrac;
-static line_t **bestslideline;
-
-static mobj_t **slidemo;
-
-static fixed_t *shootz;
-static fixed_t *aimslope;
-static uint32_t *la_damage;
-
-mobj_t **shootthing;
-fixed_t *attackrange;
-
 static uint32_t thing_slide_slope;
 
 //
@@ -75,19 +55,19 @@ uint32_t check_divline_side(fixed_t x, fixed_t y, divline_t *line)
 
 uint32_t check_trace_line(vertex_t *v1, vertex_t *v2)
 {
-	if(	trace->dx > FRACUNIT*16 ||
-		trace->dy > FRACUNIT*16 ||
-		trace->dx < -FRACUNIT*16 ||
-		trace->dy < -FRACUNIT*16
+	if(	trace.dx > FRACUNIT*16 ||
+		trace.dy > FRACUNIT*16 ||
+		trace.dx < -FRACUNIT*16 ||
+		trace.dy < -FRACUNIT*16
 	) {
-		if(	P_PointOnDivlineSide(v1->x, v1->y, trace) ==
-			P_PointOnDivlineSide(v2->x, v2->y, trace)
+		if(	P_PointOnDivlineSide(v1->x, v1->y, &trace) ==
+			P_PointOnDivlineSide(v2->x, v2->y, &trace)
 		)
 			return 1;
 	} else
 	{
-		if(	check_divline_side(v1->x, v1->y, trace) ==
-			check_divline_side(v2->x, v2->y, trace)
+		if(	check_divline_side(v1->x, v1->y, &trace) ==
+			check_divline_side(v2->x, v2->y, &trace)
 		)
 			return 1;
 	}
@@ -151,7 +131,7 @@ static uint32_t add_line_intercepts(line_t *li)
 	dl.dx = li->dx;
 	dl.dy = li->dy;
 
-	frac = intercept_vector(trace, &dl);
+	frac = intercept_vector(&trace, &dl);
 
 	if(frac < 0)
 		return 1;
@@ -160,8 +140,8 @@ static uint32_t add_line_intercepts(line_t *li)
 		return 1;
 
 	if(	!frac &&
-		P_PointOnLineSide(trace->x, trace->y, li) ==
-		P_PointOnLineSide(trace->x + trace->dx, trace->y + trace->dy, li)
+		P_PointOnLineSide(trace.x, trace.y, li) ==
+		P_PointOnLineSide(trace.x + trace.dx, trace.y + trace.dy, li)
 	)
 		return 1;
 
@@ -182,18 +162,18 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 	fixed_t frac = FRACUNIT * 2;
 	uint8_t side[2];
 
-	if(mo->validcount == *validcount)
+	if(mo->validcount == validcount)
 		return 1;
 
-	mo->validcount = *validcount;
+	mo->validcount = validcount;
 
 	if(intercept_p >= intercepts + MAXINTERCEPTS)
 		return 0;
 
-	if(trace->x < mo->x)
+	if(trace.x < mo->x)
 	{
 		side[0] = INTH_SIDE_LEFT;
-		if(trace->y < mo->y)
+		if(trace.y < mo->y)
 		{
 			v1.x = mo->x - mo->radius;
 			v1.y = mo->y + mo->radius;
@@ -215,7 +195,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 	} else
 	{
 		side[0] = INTH_SIDE_RIGHT;
-		if(trace->y < mo->y)
+		if(trace.y < mo->y)
 		{
 			v1.x = mo->x + mo->radius;
 			v1.y = mo->y + mo->radius;
@@ -243,7 +223,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 		dl.dx = v2.x - v1.x;
 		dl.dy = v2.y - v1.y;
 
-		tmpf = intercept_vector(trace, &dl);
+		tmpf = intercept_vector(&trace, &dl);
 		if(tmpf >= 0)
 		{
 			frac = tmpf;
@@ -258,7 +238,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 		dl.dx = v3.x - v2.x;
 		dl.dy = v3.y - v2.y;
 
-		tmpf = intercept_vector(trace, &dl);
+		tmpf = intercept_vector(&trace, &dl);
 		if(tmpf >= 0 && tmpf < frac)
 		{
 			frac = tmpf;
@@ -295,13 +275,13 @@ uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t 
 	int32_t dx, dy;
 	int32_t ia, ib, ic;
 
-	*validcount = *validcount + 1;
+	validcount++;
 	intercept_p = intercepts;
 
-	trace->x = x1;
-	trace->y = y1;
-	trace->dx = x2 - x1;
-	trace->dy = y2 - y1;
+	trace.x = x1;
+	trace.y = y1;
+	trace.dx = x2 - x1;
+	trace.dy = y2 - y1;
 
 	x1 -= bmaporgx;
 	y1 -= bmaporgy;
@@ -366,7 +346,6 @@ uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t 
 		}
 	}
 
-	*d_intercept_p = intercept_p;
 	return P_TraverseIntercepts(trav, FRACUNIT);
 }
 
@@ -374,22 +353,21 @@ __attribute((regparm(2),no_caller_saved_registers))
 uint32_t hs_slide_traverse(intercept_t *in)
 {
 	line_t *li;
-	mobj_t *mo = *slidemo;
 
 	if(!in->isaline)
 	{
 		mobj_t *th = in->d.thing;
 
-		if(th == mo)
+		if(th == slidemo)
 			return 1;
 
 		if(!(th->flags & MF_SOLID))
 			return 1;
 
-		if(in->frac < *bestslidefrac)
+		if(in->frac < bestslidefrac)
 		{
-			*bestslidefrac = in->frac;
-			*bestslideline = (void*)&thing_slide_slope - offsetof(line_t, slopetype);
+			bestslidefrac = in->frac;
+			bestslideline = (void*)&thing_slide_slope - offsetof(line_t, slopetype);
 			switch(th->intercept_side)
 			{
 				case INTH_SIDE_LEFT:
@@ -410,7 +388,7 @@ uint32_t hs_slide_traverse(intercept_t *in)
 
 	if(!(li->flags & ML_TWOSIDED))
 	{
-		if(P_PointOnLineSide(mo->x, mo->y, li))
+		if(P_PointOnLineSide(slidemo->x, slidemo->y, li))
 			return 1;
 		goto isblocking;
 	}
@@ -418,7 +396,7 @@ uint32_t hs_slide_traverse(intercept_t *in)
 	if(li->flags & (ML_BLOCKING | ML_BLOCK_ALL))
 		goto isblocking;
 
-	if(mo->player)
+	if(slidemo->player)
 	{
 		if(li->flags & ML_BLOCK_PLAYER)
 			goto isblocking;
@@ -430,22 +408,22 @@ uint32_t hs_slide_traverse(intercept_t *in)
 
 	P_LineOpening(li);
 
-	if(openrange < mo->height)
+	if(openrange < slidemo->height)
 		goto isblocking;
 
-	if(opentop - mo->z < mo->height)
+	if(opentop - slidemo->z < slidemo->height)
 		goto isblocking;
 
-	if(openbottom - mo->z > mo->info->step_height)
+	if(openbottom - slidemo->z > slidemo->info->step_height)
 		goto isblocking;
 
 	return 1;
 
 isblocking:
-	if(in->frac < *bestslidefrac)
+	if(in->frac < bestslidefrac)
 	{
-		*bestslidefrac = in->frac;
-		*bestslideline = li;
+		bestslidefrac = in->frac;
+		bestslideline = li;
 	}
 
 	return 0;
@@ -458,8 +436,6 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 	fixed_t y;
 	fixed_t z;
 	fixed_t dist;
-	fixed_t sz = *shootz;
-	fixed_t as = *aimslope;
 
 	if(in->isaline)
 	{
@@ -470,40 +446,40 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		uint_fast8_t activate = map_format != MAP_FORMAT_DOOM;
 
 		if(li->special && !activate)
-			P_ShootSpecialLine(*shootthing, li);
+			P_ShootSpecialLine(shootthing, li);
 
 		if(!(li->flags & ML_TWOSIDED) || li->flags & ML_BLOCK_ALL)
 			goto hitline;
 
 		P_LineOpening(li);
 
-		dist = FixedMul(*attackrange, in->frac);
+		dist = FixedMul(attackrange, in->frac);
 
 		if(li->frontsector->floorheight != li->backsector->floorheight)
 		{
-			if(FixedDiv(openbottom - sz, dist) > as)
+			if(FixedDiv(openbottom - shootz, dist) > aimslope)
 				goto hitline;
 		}
 
 		if(li->frontsector->ceilingheight != li->backsector->ceilingheight)
 		{
-			if(FixedDiv(opentop - sz, dist) < as)
+			if(FixedDiv(opentop - shootz, dist) < aimslope)
 				goto hitline;
 		}
 
 		if(	activate &&
 			li->special &&
 			(li->flags & ML_ACT_MASK) == MLA_ATK_HIT &&
-			FixedDiv(opentop - sz, dist) >= as &&
-			FixedDiv(openbottom - sz, dist) <= as
+			FixedDiv(opentop - shootz, dist) >= aimslope &&
+			FixedDiv(openbottom - shootz, dist) <= aimslope
 		)
-			spec_activate(li, *shootthing, SPEC_ACT_SHOOT);
+			spec_activate(li, shootthing, SPEC_ACT_SHOOT);
 
 		return 1;
 
 hitline:
 
-		if(P_PointOnLineSide(trace->x, trace->y, li))
+		if(P_PointOnLineSide(trace.x, trace.y, li))
 		{
 			backsector = li->frontsector;
 			frontsector = li->backsector;
@@ -513,25 +489,25 @@ hitline:
 			backsector = li->backsector;
 		}
 
-		frac = in->frac - FixedDiv(4 * FRACUNIT, *attackrange);
-		dz = FixedMul(as, FixedMul(frac, *attackrange));
-		z = sz + dz;
+		frac = in->frac - FixedDiv(4 * FRACUNIT, attackrange);
+		dz = FixedMul(aimslope, FixedMul(frac, attackrange));
+		z = shootz + dz;
 
 		if(frontsector)
 		{
-			if(as < 0)
+			if(aimslope < 0)
 			{
 				if(z < frontsector->floorheight)
 				{
-					frac = -FixedDiv(FixedMul(frac, sz - frontsector->floorheight), dz);
+					frac = -FixedDiv(FixedMul(frac, shootz - frontsector->floorheight), dz);
 					activate = 0;
 				}
 			} else
-			if(as > 0)
+			if(aimslope > 0)
 			{
 				if(z > frontsector->ceilingheight)
 				{
-					frac = FixedDiv(FixedMul(frac, frontsector->ceilingheight - sz), dz);
+					frac = FixedDiv(FixedMul(frac, frontsector->ceilingheight - shootz), dz);
 					activate = 0;
 				}
 			}
@@ -550,14 +526,14 @@ hitline:
 			}
 		}
 
-		trace->x = trace->x + FixedMul(trace->dx, frac);
-		trace->y = trace->y + FixedMul(trace->dy, frac);
-		trace->dx = z;
+		trace.x = trace.x + FixedMul(trace.dx, frac);
+		trace.y = trace.y + FixedMul(trace.dy, frac);
+		trace.dx = z;
 
-		mobj_spawn_puff(trace, NULL);
+		mobj_spawn_puff(&trace, NULL);
 
 		if(activate && li->special)
-			spec_activate(li, *shootthing, SPEC_ACT_SHOOT);
+			spec_activate(li, shootthing, SPEC_ACT_SHOOT);
 
 		return 0;
 	} else
@@ -566,7 +542,7 @@ hitline:
 		fixed_t thingtopslope;
 		fixed_t thingbottomslope;
 
-		if(th == *shootthing)
+		if(th == shootthing)
 			return 1;
 
 		if(!(th->flags & MF_SHOOTABLE))
@@ -578,50 +554,28 @@ hitline:
 		if(th->flags1 & MF1_GHOST && mobjinfo[mo_puff_type].flags1 & MF1_THRUGHOST)
 			return 1;
 
-		dist = FixedMul(*attackrange, in->frac);
-		thingtopslope = FixedDiv(th->z + th->height - sz, dist);
+		dist = FixedMul(attackrange, in->frac);
+		thingtopslope = FixedDiv(th->z + th->height - shootz, dist);
 
-		if(thingtopslope < as)
+		if(thingtopslope < aimslope)
 			return 1;
 
-		thingbottomslope = FixedDiv(th->z - sz, dist);
+		thingbottomslope = FixedDiv(th->z - shootz, dist);
 
-		if(thingbottomslope > as)
+		if(thingbottomslope > aimslope)
 			return 1;
 
-		trace->x = trace->x + FixedMul(trace->dx, in->frac);
-		trace->y = trace->y + FixedMul(trace->dy, in->frac);
-		trace->dx = sz + FixedMul(as, FixedMul(in->frac, *attackrange));
+		trace.x = trace.x + FixedMul(trace.dx, in->frac);
+		trace.y = trace.y + FixedMul(trace.dy, in->frac);
+		trace.dx = shootz + FixedMul(aimslope, FixedMul(in->frac, attackrange));
 
-		mobj_spawn_puff(trace, th);
-		mobj_spawn_blood(trace, th, *la_damage);
+		mobj_spawn_puff(&trace, th);
+		mobj_spawn_blood(&trace, th, la_damage);
 
-		if(*la_damage)
-			mobj_damage(th, *shootthing, *shootthing, *la_damage, mobjinfo + mo_puff_type);
+		if(la_damage)
+			mobj_damage(th, shootthing, shootthing, la_damage, mobjinfo + mo_puff_type);
 
 		return 0;
 	}
 }
-
-//
-// hooks
-
-static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
-{
-	// import variables
-	{0x00013580, DATA_HOOK | HOOK_IMPORT, (uint32_t)&validcount},
-	{0x0002BA10, DATA_HOOK | HOOK_IMPORT, (uint32_t)&trace},
-	{0x0002BA20, DATA_HOOK | HOOK_IMPORT, (uint32_t)&intercepts},
-	{0x0002C028, DATA_HOOK | HOOK_IMPORT, (uint32_t)&d_intercept_p},
-	// slide variables
-	{0x0002B9D0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bestslidefrac},
-	{0x0002B9D4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bestslideline},
-	{0x0002B9C8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&slidemo},
-	// line attack variables
-	{0x0002B9A8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&shootz},
-	{0x0002B9AC, DATA_HOOK | HOOK_IMPORT, (uint32_t)&shootthing},
-	{0x0002B9B8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&attackrange},
-	{0x0002B9B4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&aimslope},
-	{0x0002B9B0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&la_damage},
-};
 

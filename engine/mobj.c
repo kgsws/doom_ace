@@ -1755,8 +1755,11 @@ static void mobj_z_move(mobj_t *mo)
 		{
 			if(mo->player && mo->momz < GRAVITY * -8)
 			{
-				mo->player->deltaviewheight = mo->momz >> 3;
-				S_StartSound(mo, mo->info->player.sound.land);
+				if(mo->health > 0)
+				{
+					mo->player->deltaviewheight = mo->momz >> 3;
+					S_StartSound(mo, mo->info->player.sound.land);
+				}
 			}
 			if(mo->momz < -23 * FRACUNIT)
 			{
@@ -1843,7 +1846,7 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 	if(!target && mo->info->state_crash)
 		mobj_set_state(mo, mo->info->state_crash);
 	else
-	if(*attackrange <= 64 * FRACUNIT && mo->info->state_melee)
+	if(attackrange <= 64 * FRACUNIT && mo->info->state_melee)
 		mobj_set_state(mo, mo->info->state_melee);
 
 	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
@@ -1853,7 +1856,7 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 			mo->tics = 1;
 	}
 
-	mo->angle = (*shootthing)->angle + ANG180;
+	mo->angle = shootthing->angle + ANG180;
 }
 
 void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
@@ -1883,7 +1886,7 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
 
 	mobj_set_state(mo, state);
 
-	mo->angle = (*shootthing)->angle;
+	mo->angle = shootthing->angle;
 }
 
 //

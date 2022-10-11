@@ -6,9 +6,6 @@
 #include "utils.h"
 #include "controls.h"
 
-uint32_t *gamekeydown;
-uint32_t *mousebuttons;
-
 uint8_t key_fire_alt;
 uint8_t key_inv_use = '\r';
 uint8_t key_inv_next = '.';
@@ -22,23 +19,23 @@ int32_t mouseb_inv_use = 2;
 key_ctrl_t control_list[NUM_CONTROLS] =
 {
 	//
-	[ctrl_key_up] = {0, "Move Forward"},
-	[ctrl_key_down] = {0, "Move Backward"},
-	[ctrl_key_strafeleft] = {0, "Strafe Left"},
-	[ctrl_key_straferight] = {0, "Strafe Right"},
-	[ctrl_key_left] = {0, "Turn Left"},
-	[ctrl_key_right] = {0, "Turn Right"},
+	[ctrl_key_up] = {0, "Move Forward", (uint8_t*)&key_up},
+	[ctrl_key_down] = {0, "Move Backward", (uint8_t*)&key_down},
+	[ctrl_key_strafeleft] = {0, "Strafe Left", (uint8_t*)&key_strafeleft},
+	[ctrl_key_straferight] = {0, "Strafe Right", (uint8_t*)&key_straferight},
+	[ctrl_key_left] = {0, "Turn Left", (uint8_t*)&key_left},
+	[ctrl_key_right] = {0, "Turn Right", (uint8_t*)&key_right},
 	//
-	[ctrl_key_fire] = {1, "Attack"},
+	[ctrl_key_fire] = {1, "Attack", (uint8_t*)&key_fire},
 	[ctrl_key_fire_alt] = {1, "Alt Attack", &key_fire_alt},
-	[ctrl_key_use] = {1, "Use"},
+	[ctrl_key_use] = {1, "Use", (uint8_t*)&key_use},
 	//
 	[ctrl_key_inv_use] = {2, "Use", &key_inv_use},
 	[ctrl_key_inv_next] = {2, "Next", &key_inv_next},
 	[ctrl_key_inv_prev] = {2, "Previous", &key_inv_prev},
 	//
-	[ctrl_key_speed] = {3, "Speed"},
-	[ctrl_key_strafe] = {3, "Strafe"},
+	[ctrl_key_speed] = {3, "Speed", (uint8_t*)&key_speed},
+	[ctrl_key_strafe] = {3, "Strafe", (uint8_t*)&key_strafe},
 	[ctrl_key_cheats] = {3, "Cheats", &key_cheats},
 };
 
@@ -52,11 +49,11 @@ const uint8_t *ctrl_group[NUM_CTRL_GROUPS] =
 
 int32_t *const ctrl_mouse_ptr[NUM_MOUSE_CTRL] =
 {
-	NULL, // mouseb_fire
+	&mouseb_fire,
 	&mouseb_fire_alt,
 	&mouseb_use,
 	&mouseb_inv_use,
-	NULL, // mouseb_strafe
+	&mouseb_strafe,
 };
 
 static const uint8_t *mouse_btn[NUM_MOUSE_BTNS+1] =
@@ -146,23 +143,7 @@ uint8_t *control_btn_name(uint8_t id)
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// import variables
-	{0x0002A880, DATA_HOOK | HOOK_IMPORT, (uint32_t)&gamekeydown},
-	{0x0002AC84, DATA_HOOK | HOOK_IMPORT, (uint32_t)&mousebuttons},
 	// original keys
-	{0x0002B344, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_up].ptr},
-	{0x0002B35C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_down].ptr},
-	{0x0002B360, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_strafeleft].ptr},
-	{0x0002B390, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_straferight].ptr},
-	{0x0002B364, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_left].ptr},
-	{0x0002B394, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_right].ptr},
-	{0x0002B384, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_fire].ptr},
-	{0x0002B354, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_use].ptr},
-	{0x0002B34C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_speed].ptr},
-	{0x0002B370, DATA_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_strafe].ptr},
 	{0x0003BA1B, CODE_HOOK | HOOK_IMPORT, (uint32_t)&control_list[ctrl_key_cheats].ptr},
-	// original mouse buttons
-	{0x0002B380, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ctrl_mouse_ptr[0]},
-	{0x0002B36C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&ctrl_mouse_ptr[4]},
 };
 

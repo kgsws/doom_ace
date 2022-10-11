@@ -7,12 +7,6 @@
 
 //
 
-static uint32_t *numlumps;
-lumpinfo_t **lumpinfo;
-void ***lumpcache;
-
-uint32_t lumpcount;
-
 static num64_t range_defs[4];
 
 //
@@ -24,7 +18,7 @@ static void wad_add(uint8_t *name)
 	uint32_t tmp;
 	wadhead_t head;
 	lumpinfo_t *info;
-	wadlump_t *lump = (void*)0x0002D0A0 + doom_data_segment; // drawsegs
+	wadlump_t *lump = (wadlump_t*)d_drawsegs; // temporary memory
 	uint32_t totalsize;
 	uint_fast8_t is_ignored = 0;
 
@@ -43,21 +37,12 @@ static void wad_add(uint8_t *name)
 		// load entire file as a single lump
 		uint8_t *ptr, *dst;
 
-		tmp = lumpcount + 1;
-		tmp *= sizeof(lumpinfo_t);
+		tmp = numlumps;
 
 		// realloc lump info
-		info = doom_realloc(*lumpinfo, tmp);
-		if(!info)
-		{
-			doom_printf("- realloc failed\n");
-			doom_close(fd);
-			return;
-		}
-
-		*lumpinfo = info;
-		info += lumpcount;
-		lumpcount = lumpcount + 1;
+		numlumps++;
+		lumpinfo = ldr_realloc(lumpinfo, numlumps * sizeof(lumpinfo_t));
+		info = lumpinfo + tmp;
 
 		// copy file name
 		ptr = name + totalsize - 4;
@@ -94,21 +79,12 @@ static void wad_add(uint8_t *name)
 		return;
 	}
 
-	tmp = lumpcount + head.numlumps;
-	tmp *= sizeof(lumpinfo_t);
+	tmp = numlumps;
 
 	// realloc lump info
-	info = doom_realloc(*lumpinfo, tmp);
-	if(!info)
-	{
-		doom_printf("- realloc failed\n");
-		doom_close(fd);
-		return;
-	}
-
-	*lumpinfo = info;
-	info += lumpcount;
-	lumpcount = lumpcount + head.numlumps;
+	numlumps += head.numlumps;
+	lumpinfo = ldr_realloc(lumpinfo, numlumps * sizeof(lumpinfo_t));
+	info = lumpinfo + tmp;
 
 	doom_lseek(fd, head.diroffs, SEEK_SET);
 
@@ -164,23 +140,21 @@ void wad_init()
 {
 	doom_printf("[ACE] wad_init\n");
 
-	*lumpinfo = doom_malloc(1);
+	ldr_alloc_message = "WAD";
+
+	lumpinfo = ldr_malloc(1);
 
 	for(uint32_t i = 0; i < MAXWADFILES && wadfiles[i]; i++)
 		wad_add(wadfiles[i]);
 
-	if(!lumpcount)
+	if(!numlumps)
 		I_Error("Umm. WADs are empty ...");
 
-	if(lumpcount >= 65535)
+	if(numlumps >= 65535)
 		I_Error("Wow. Too many lumps ...");
 
-	*lumpcache = doom_malloc(lumpcount * sizeof(void*));
-	if(!*lumpcache)
-		I_Error("Failed to allocate lump cache.");
-
-	*numlumps = lumpcount;
-	memset(*lumpcache, 0, lumpcount * sizeof(void*));
+	lumpcache = ldr_malloc(numlumps * sizeof(void*));
+	memset(lumpcache, 0, numlumps * sizeof(void*));
 }
 
 uint64_t wad_name64(const uint8_t *name)
@@ -209,13 +183,13 @@ int32_t wad_check_lump(const uint8_t *name)
 {
 	uint64_t wame;
 	uint32_t idx;
-	lumpinfo_t *li = *lumpinfo;
+	lumpinfo_t *li = lumpinfo;
 
 	// search as 64bit number
 	wame = wad_name64(name);
 
 	// do a backward search
-	idx = lumpcount;
+	idx = numlumps;
 	do
 	{
 		idx--;
@@ -241,7 +215,7 @@ int32_t wad_get_lump(const uint8_t *name)
 uint32_t wad_read_lump(void *dest, int32_t idx, uint32_t limit)
 {
 	int32_t ret;
-	lumpinfo_t *li = *lumpinfo + idx;
+	lumpinfo_t *li = lumpinfo + idx;
 
 	if(li->size < limit)
 		limit = li->size;
@@ -257,7 +231,7 @@ uint32_t wad_read_lump(void *dest, int32_t idx, uint32_t limit)
 void *wad_cache_lump(int32_t idx, uint32_t *size)
 {
 	uint8_t *data;
-	lumpinfo_t *li = *lumpinfo + idx;
+	lumpinfo_t *li = lumpinfo + idx;
 
 	if(!li->size)
 		I_Error("Lump %.8s is empty!");
@@ -285,7 +259,7 @@ void *wad_cache_optional(const uint8_t *name, uint32_t *size)
 	if(idx < 0)
 		return NULL;
 
-	li = *lumpinfo + idx;
+	li = lumpinfo + idx;
 
 	data = doom_malloc(li->size + 4); // extra space for text files
 	if(!data)
@@ -302,8 +276,8 @@ void *wad_cache_optional(const uint8_t *name, uint32_t *size)
 
 void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
 {
-	lumpinfo_t *li = *lumpinfo;
-	lumpinfo_t *le = *lumpinfo + lumpcount;
+	lumpinfo_t *li = lumpinfo;
+	lumpinfo_t *le = lumpinfo + numlumps;
 	uint32_t is_inside = 0;
 
 	if(ident > 255)
@@ -346,12 +320,12 @@ void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
 void wad_handle_lump(const uint8_t *name, void (*cb)(lumpinfo_t*))
 {
 	uint64_t wame;
-	lumpinfo_t *li = *lumpinfo;
+	lumpinfo_t *li = lumpinfo;
 
 	// search as 64bit number
 	wame = wad_name64(name);
 
-	for(uint32_t i = 0; i < lumpcount; i++, li++)
+	for(uint32_t i = 0; i < numlumps; i++, li++)
 	{
 		if(li->wame == wame)
 			cb(li);
@@ -366,9 +340,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00038A30, CODE_HOOK | HOOK_UINT8, 0xC3},
 	// disable call to 'W_Reload' in 'P_SetupLevel'
 	{0x0002E858, CODE_HOOK | HOOK_SET_NOPS, 5},
-	// import variables
-	{0x00074FA0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&numlumps},
-	{0x00074FA4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lumpinfo},
-	{0x00074F94, DATA_HOOK | HOOK_IMPORT, (uint32_t)&lumpcache},
 };
 

@@ -257,15 +257,15 @@ static inline uint32_t check_map(int32_t lump)
 	for(uint32_t i = ML_THINGS; i < ML_BEHAVIOR; i++)
 	{
 		lump++;
-		if(lump >= lumpcount)
+		if(lump >= numlumps)
 			return 0;
-		if((*lumpinfo)[lump].wame != map_wame_check[i-1])
+		if(lumpinfo[lump].wame != map_wame_check[i-1])
 			return 0;
 	}
 
 	lump++;
 
-	if(lump < lumpcount && (*lumpinfo)[lump].wame == map_wame_check[ML_BEHAVIOR-1])
+	if(lump < numlumps && lumpinfo[lump].wame == map_wame_check[ML_BEHAVIOR-1])
 		return MAP_FORMAT_HEXEN;
 
 	return MAP_FORMAT_DOOM;
@@ -595,7 +595,7 @@ static uint32_t check_door_key(line_t *line, mobj_t *mo)
 				return 0;
 			k0 = 47;
 			k1 = 52;
-			text = (uint8_t*)0x00022C90 + doom_data_segment;
+			text = dtxt_PD_BLUEK;
 		break;
 		case 27:
 		case 34:
@@ -603,7 +603,7 @@ static uint32_t check_door_key(line_t *line, mobj_t *mo)
 				return 0;
 			k0 = 49;
 			k1 = 50;
-			text = (uint8_t*)0x00022CB8 + doom_data_segment;
+			text = dtxt_PD_YELLOWK;
 		break;
 		case 28:
 		case 33:
@@ -611,7 +611,7 @@ static uint32_t check_door_key(line_t *line, mobj_t *mo)
 				return 0;
 			k0 = 48;
 			k1 = 51;
-			text = (uint8_t*)0x00022CE0 + doom_data_segment;
+			text = dtxt_PD_REDK;
 		break;
 		default:
 			return 1;
@@ -644,7 +644,7 @@ uint32_t check_obj_key(line_t *line, mobj_t *mo)
 				return 0;
 			k0 = 47;
 			k1 = 52;
-			text = (uint8_t*)0x00022C08 + doom_data_segment;
+			text = dtxt_PD_BLUEO;
 		break;
 		case 134:
 		case 135:
@@ -652,7 +652,7 @@ uint32_t check_obj_key(line_t *line, mobj_t *mo)
 				return 0;
 			k0 = 48;
 			k1 = 51;
-			text = (uint8_t*)0x00022C34 + doom_data_segment;
+			text = dtxt_PD_REDO;
 		break;
 		case 136:
 		case 137:
@@ -660,7 +660,7 @@ uint32_t check_obj_key(line_t *line, mobj_t *mo)
 				return 0;
 			k0 = 49;
 			k1 = 50;
-			text = (uint8_t*)0x00022C60 + doom_data_segment;
+			text = dtxt_PD_YELLOWO;
 		break;
 		default:
 			goto do_door;
@@ -749,7 +749,7 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 		info->texture_sky[0] = texture_num_get(text);
 		info->texture_sky[1] = info->texture_sky[0];
 
-		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[(episode - 1) * 9 + i + 1].name);
+		doom_sprintf(text, dtxt_mus_pfx, S_music[(episode - 1) * 9 + i + 1].name);
 		info->music_level = wad_check_lump(text);
 		info->music_inter = map_info_unnamed.music_inter;
 		info->par_time = pars[info->levelnum + 10];
@@ -766,12 +766,12 @@ static void setup_episode(uint32_t start, uint32_t episode, uint32_t secret, uin
 			switch(episode)
 			{
 				case 1:
-					info->win_lump[0] = W_CheckNumForName((void*)0x000213D0 + doom_data_segment); // HELP2 - shareware
+					info->win_lump[0] = W_CheckNumForName(dtxt_help2);
 					if(info->win_lump[0] < 0)
 						info->win_lump[0] = W_CheckNumForName("CREDIT"); // retail
 				break;
 				case 2:
-					info->win_lump[0] = W_CheckNumForName((void*)0x000213D8 + doom_data_segment); // VICTORY2
+					info->win_lump[0] = W_CheckNumForName(dtxt_victory2);
 				break;
 				case 3:
 					victory = MAP_END_BUNNY_SCROLL;
@@ -815,7 +815,7 @@ static void setup_cluster(uint32_t start, uint32_t count, uint32_t cluster, uint
 		info->texture_sky[0] = texture_num_get(text);
 		info->texture_sky[1] = info->texture_sky[0];
 
-		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[start + i + 33].name);
+		doom_sprintf(text, dtxt_mus_pfx, S_music[start + i + 33].name);
 		info->music_level = wad_check_lump(text);
 		info->music_inter = map_info_unnamed.music_inter;
 		info->par_time = cpars[info->levelnum - 1];
@@ -1321,7 +1321,7 @@ void map_LoadLineDefs(int lump)
 	map_linehex_t *ml;
 	void *buff;
 
-	nl = (*lumpinfo)[lump].size / sizeof(map_linehex_t);
+	nl = lumpinfo[lump].size / sizeof(map_linehex_t);
 	ln = Z_Malloc(nl * sizeof(line_t), PU_LEVEL, NULL);
 	buff = W_CacheLumpNum(lump, PU_STATIC);
 	ml = buff;
@@ -1409,7 +1409,7 @@ void map_LoadThings(int lump)
 	uint16_t cflags = MTF_CLASS0 | MTF_CLASS1 | MTF_CLASS2;
 
 	buff = W_CacheLumpNum(lump, PU_STATIC);
-	count = (*lumpinfo)[lump].size / sizeof(map_thinghex_t);
+	count = lumpinfo[lump].size / sizeof(map_thinghex_t);
 	mt = buff;
 
 	for(uint32_t i = 0; i < count; i++, mt++)
@@ -1437,23 +1437,23 @@ void init_map()
 	// PASS 1
 
 	// find some GFX
-	patch_finshed = wad_get_lump((void*)0x000247BC + doom_data_segment);
-	patch_entering = wad_get_lump((void*)0x000247C0 + doom_data_segment);
+	patch_finshed = wad_get_lump(dtxt_wif);
+	patch_entering = wad_get_lump(dtxt_wienter);
 
 	// default clusters and maps
 	if(gamemode)
 	{
-		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024B50 + doom_data_segment); // d_%s dm2int
+		doom_sprintf(text, dtxt_mus_pfx, dtxt_dm2int);
 		map_info_unnamed.music_inter = wad_check_lump(text);
-		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024B40 + doom_data_segment); // d_%s read_m
+		doom_sprintf(text, dtxt_mus_pfx, dtxt_read_m);
 		num_clusters = D2_CLUSTER_COUNT;
 		def_clusters = d2_clusters;
 		num_maps = NUM_D2_MAPS;
 	} else
 	{
-		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024A18 + doom_data_segment); // d_%s inter
+		doom_sprintf(text, dtxt_mus_pfx, dtxt_inter);
 		map_info_unnamed.music_inter = wad_check_lump(text);
-		doom_sprintf(text, (void*)0x00024908 + doom_data_segment, (void*)0x00024A30 + doom_data_segment); // d_%s victor
+		doom_sprintf(text, dtxt_mus_pfx, dtxt_victor);
 		num_clusters = D1_CLUSTER_COUNT;
 		def_clusters = d1_clusters;
 		num_maps = NUM_D1_MAPS;
@@ -1467,7 +1467,7 @@ void init_map()
 	map_info_unnamed.texture_sky[1] = map_info_unnamed.texture_sky[0];
 
 	map_info_default = map_info_unnamed;
-	map_info_default.texture_sky[0] = *numtextures - 1; // invalid texture
+	map_info_default.texture_sky[0] = numtextures - 1; // invalid texture
 	map_info_default.texture_sky[1] = map_info_default.texture_sky[0];
 	map_info_default.next_secret = MAP_END_UNDEFINED;
 
@@ -1508,11 +1508,11 @@ void init_map()
 		// episodes
 		map_episode_count = 3;
 		map_episode_def[0].map_lump = wad_check_lump("E1M1");
-		map_episode_def[0].title_lump = wad_check_lump((void*)0x000122B2 + doom_data_segment);
+		map_episode_def[0].title_lump = wad_check_lump(dtxt_m_epi1);
 		map_episode_def[1].map_lump = wad_check_lump("E2M1");
-		map_episode_def[1].title_lump = wad_check_lump((void*)0x000122C3 + doom_data_segment);
+		map_episode_def[1].title_lump = wad_check_lump(dtxt_m_epi2);
 		map_episode_def[2].map_lump = wad_check_lump("E3M1");
-		map_episode_def[2].title_lump = wad_check_lump((void*)0x000122D4 + doom_data_segment);
+		map_episode_def[2].title_lump = wad_check_lump(dtxt_m_epi3);
 	}
 
 	// count clusters, add map names
@@ -1535,11 +1535,11 @@ void init_map()
 		clst->idx = defc->idx;
 
 		if(defc->type)
-			clst->text_leave = defc->text + doom_data_segment;
+			clst->text_leave = defc->text;
 		else
-			clst->text_enter = defc->text + doom_data_segment;
+			clst->text_enter = defc->text;
 
-		clst->lump_flat = flatlump[flat_num_get(defc->flat + doom_data_segment)];
+		clst->lump_flat = flatlump[flat_num_get(defc->flat)];
 	}
 
 	// default, dummy
@@ -1615,25 +1615,22 @@ static void do_new_game()
 __attribute((regparm(2),no_caller_saved_registers))
 static void do_autostart_game()
 {
-	uint32_t *startskill = (void*)0x0002A398 + doom_data_segment;
-	uint32_t *startepisode = (void*)0x0002A3A4 + doom_data_segment;
-	uint32_t *startmap = (void*)0x0002A39C + doom_data_segment;
-
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 		players[i].playerstate = PST_REBORN;
 
-	if(*startepisode)
+	if(startepisode)
 	{
-		if(*startmap > 9)
-			*startmap = 1;
-		doom_sprintf(map_lump.name, "E%uM%u", *startepisode, *startmap);
+		if(startmap > 9)
+			startmap = 1;
+		doom_sprintf(map_lump.name, "E%uM%u", startepisode, startmap);
 	} else
 	{
-		if(*startmap > 99)
-			*startmap = 1;
-		doom_sprintf(map_lump.name, "MAP%02u", *startmap);
+		if(startmap > 99)
+			startmap = 1;
+		doom_sprintf(map_lump.name, "MAP%02u", startmap);
 	}
 
+	gameskill = startskill;
 	gameepisode = 1;
 	wipegamestate = -1;
 
@@ -1704,7 +1701,7 @@ static void set_world_done()
 				uint8_t text[12];
 				fake_game_mode = 0;
 				gameepisode = 3;
-				doom_sprintf(text, (void*)0x00024908 + doom_data_segment, S_music[30].name);
+				doom_sprintf(text, dtxt_mus_pfx, S_music[30].name);
 				music_lump = W_CheckNumForName(text);
 			}
 			break;
@@ -1725,7 +1722,7 @@ static void set_world_done()
 				gameepisode = 1;
 				lump = map_level_info->win_lump[next == MAP_END_CUSTOM_PIC_S];
 				if(lump < 0)
-					lump = W_GetNumForName((void*)0x00024750 + doom_data_segment); // INTERPIC
+					lump = W_GetNumForName(dtxt_interpic);
 				victory_patch = W_CacheLumpNum(lump, PU_CACHE);
 			}
 			break;
@@ -1825,7 +1822,7 @@ static void do_world_done()
 	}
 
 	gameaction = ga_nothing;
-	map_lump.wame = (*lumpinfo)[map_next_info->lump].wame;
+	map_lump.wame = lumpinfo[map_next_info->lump].wame;
 	map_load_setup();
 }
 

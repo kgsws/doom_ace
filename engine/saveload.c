@@ -19,6 +19,7 @@
 #include "think.h"
 #include "menu.h"
 #include "demo.h"
+#include "render.h"
 #include "saveload.h"
 
 #define SAVE_SLOT_COUNT	6
@@ -344,19 +345,9 @@ typedef struct
 
 //
 
-static uint32_t *r_setblocks; // TODO: move to 'render'
-static uint8_t **r_rdptr;
-static uint8_t **r_fbptr;
-
 static uint32_t *brain_sound_id;
 
 static save_name_t *save_name;
-static menuitem_t *load_items;
-static menu_t *load_menu;
-
-static uint8_t *savename;
-static uint8_t *savedesc;
-static uint32_t *saveslot;
 
 static patch_t *preview_patch;
 static uint_fast8_t show_save_slot = -1;
@@ -420,7 +411,7 @@ static inline void prepare_save_slot(int fd, uint32_t idx)
 	// create entry
 	info.title.text[SAVE_NAME_SIZE] = 0;
 	strcpy(save_name[idx].text, info.title.text);
-	load_items[idx].status = 1;
+	LoadMenu[idx].status = 1;
 
 	// preview
 
@@ -472,14 +463,14 @@ static inline void generate_preview_line(int fd, uint32_t y, save_name_t *slot)
 
 static void draw_check_preview()
 {
-	if(show_save_slot != *menu_item_now)
+	if(show_save_slot != menu_item_now)
 	{
 		// generate preview patch in RAM
 		int fd;
 		uint8_t *base;
 		save_name_t *slot;
 
-		show_save_slot = *menu_item_now;
+		show_save_slot = menu_item_now;
 		slot = save_name + show_save_slot;
 
 		if(slot->step)
@@ -541,14 +532,14 @@ static void draw_check_preview()
 static __attribute((regparm(2),no_caller_saved_registers))
 void draw_load_menu()
 {
-	V_DrawPatchDirect(97, 17, 0, W_CacheLumpName((uint8_t*)0x00022458 + doom_data_segment, PU_CACHE));
+	V_DrawPatchDirect(97, 17, 0, W_CacheLumpName(dtxt_m_loadg, PU_CACHE));
 	draw_check_preview();
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void draw_save_menu()
 {
-	V_DrawPatchDirect(97, 17, 0, W_CacheLumpName((uint8_t*)0x000224BC + doom_data_segment, PU_CACHE));
+	V_DrawPatchDirect(97, 17, 0, W_CacheLumpName(dtxt_m_saveg, PU_CACHE));
 	draw_check_preview();
 }
 
@@ -1160,19 +1151,19 @@ void do_save()
 	uint32_t old_cmap;
 
 	// prepare save slot
-	generate_save_name(*saveslot);
+	generate_save_name(saveslot);
 	gameaction = ga_nothing;
 
 	// generate preview - so much stuff to make it look cool
 	old_cmap = players[consoleplayer].fixedcolormap;
 	players[consoleplayer].fixedcolormap = 0;
-	old_size = *r_setblocks;
-	*r_setblocks = 20; // fullscreen with no status bar
+	old_size = r_setblocks;
+	r_setblocks = 20; // fullscreen with no status bar
 	R_ExecuteSetViewSize();
 	R_RenderPlayerView(players + consoleplayer);
-	*r_rdptr = *r_fbptr; // fullscreen hack
+	r_rdptr = r_fbptr; // fullscreen hack
 	I_ReadScreen(screen_buffer);
-	*r_setblocks = old_size;
+	r_setblocks = old_size;
 	R_ExecuteSetViewSize();
 	players[consoleplayer].fixedcolormap = old_cmap;
 	stbar_refresh_force = 1;
@@ -1184,7 +1175,7 @@ void do_save()
 	writer_add(&bmp_header, sizeof(bmp_header));
 
 	// palette
-	src = W_CacheLumpName((uint8_t*)0x0001FD14 + doom_data_segment, PU_CACHE);
+	src = r_palette;
 	dst = writer_reserve(256 * sizeof(uint32_t));
 	for(uint32_t i = 0; i < 256; i++)
 	{
@@ -2015,7 +2006,7 @@ void do_load()
 	player_t *pl;
 
 	// prepare save slot
-	generate_save_name(*saveslot);
+	generate_save_name(saveslot);
 	gameaction = ga_nothing;
 
 	// open file
@@ -2142,7 +2133,7 @@ void setup_save_slots()
 		// prepare empty or broken
 		strcpy(save_name[i].text, empty_slot);
 		save_name[i].step = 0;
-		load_items[i].status = 0;
+		LoadMenu[i].status = 0;
 
 		// try to read
 		generate_save_name(i);
@@ -2158,7 +2149,7 @@ void setup_save_slots()
 static __attribute((regparm(2),no_caller_saved_registers))
 void select_load(uint32_t slot)
 {
-	*saveslot = slot;
+	saveslot = slot;
 	gameaction = ga_loadgame;
 	M_ClearMenus();
 }
@@ -2188,14 +2179,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00028AFC, CODE_HOOK | HOOK_IMPORT, (uint32_t)&brain_sound_id},
 	// import variables
 	{0x0002B568, DATA_HOOK | HOOK_IMPORT, (uint32_t)&save_name},
-	{0x000124A8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&load_items},
-	{0x00012510, DATA_HOOK | HOOK_IMPORT, (uint32_t)&load_menu},
-	{0x0002A780, DATA_HOOK | HOOK_IMPORT, (uint32_t)&savename},
-	{0x0002B300, DATA_HOOK | HOOK_IMPORT, (uint32_t)&saveslot},
-	{0x0002AC90, DATA_HOOK | HOOK_IMPORT, (uint32_t)&savedesc},
-	// extra, temporary
-	{0x00038FE0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_setblocks},
-	{0x000290F8, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_rdptr},
-	{0x0002914C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&r_fbptr},
 };
 

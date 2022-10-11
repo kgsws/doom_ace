@@ -20,27 +20,7 @@
 #define	S_CLOSE_DIST	(200 * FRACUNIT)
 #define S_ATTENUATOR	((S_CLIPPING_DIST - S_CLOSE_DIST) >> FRACBITS)
 
-typedef struct old_sfxinfo_s
-{
-	uint8_t *name;
-	uint32_t single;
-	uint32_t priority;
-	struct old_sfxinfo_s *link;
-	int32_t pitch;
-	int32_t volume;
-	void *data;
-	int32_t usefulness;
-	int32_t lumpnum;
-} old_sfxinfo_t;
-
 //
-
-static old_sfxinfo_t *S_sfx;
-musicinfo_t *S_music;
-
-static int32_t *volume_val;
-
-static musicinfo_t **music_now;
 
 static uint32_t numsfx = NUMSFX + NUMSFX_RNG;
 static sfxinfo_t *sfxinfo;
@@ -200,7 +180,7 @@ static void sfx_by_lump(uint8_t *name, int32_t lump)
 
 	// sanity check
 	if(sfx < sfxinfo + NUMSFX && sfx->lumpnum != lump)
-		I_Error("[SNDINFO] Illegal replacement of '%.8s' by '%.8s' in '%s' detected!", (*lumpinfo)[sfx->lumpnum].name, (*lumpinfo)[lump].name, name);
+		I_Error("[SNDINFO] Illegal replacement of '%.8s' by '%.8s' in '%s' detected!", lumpinfo[sfx->lumpnum].name, lumpinfo[lump].name, name);
 
 	// fill info
 	sfx->lumpnum = lump;
@@ -272,7 +252,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 
 				// sanity check
 				if(sfx < sfxinfo + NUMSFX)
-					I_Error("[SNDINFO] Illegal replacement of '%.8s' by random in '%s' detected!", (*lumpinfo)[sfx->lumpnum].name, name);
+					I_Error("[SNDINFO] Illegal replacement of '%.8s' by random in '%s' detected!", lumpinfo[sfx->lumpnum].name, name);
 
 				// modify
 				sfx->lumpnum = -1;
@@ -370,7 +350,7 @@ void start_music(int32_t lump, uint32_t loop)
 		return;
 	}
 
-	if(*music_now == S_music + 1)
+	if(music_now == S_music + 1)
 		idx = 2;
 	else
 		idx = 1;
@@ -488,6 +468,8 @@ void init_sound()
 	for(uint32_t i = 0; i < NUM_SFX_HOOKS; i++)
 		sfx_hooks[i].value += (uint32_t)sfxinfo;
 	utils_install_hooks(sfx_hooks, NUM_SFX_HOOKS);
+
+	 *((uint32_t*)((void*)0x0003F433 + doom_code_segment)) = numsfx * sizeof(sfxinfo_t);
 }
 
 //
@@ -537,7 +519,7 @@ uint32_t sound_adjust(mobj_t *listener, mobj_t *source, int32_t *vol, int32_t *s
 
 	if(!approx_dist)
 	{
-		*vol = *volume_val;
+		*vol = volume_val;
 		*sep = 128;
 		return 1;
 	}
@@ -555,9 +537,9 @@ uint32_t sound_adjust(mobj_t *listener, mobj_t *source, int32_t *vol, int32_t *s
 	*sep = 128 - (FixedMul(S_STEREO_SWING,finesine[angle]) >> FRACBITS);
 
 	if(approx_dist < S_CLOSE_DIST)
-		*vol = *volume_val;
+		*vol = volume_val;
 	else
-		*vol = (*volume_val * ((S_CLIPPING_DIST - approx_dist) >> FRACBITS)) / S_ATTENUATOR;
+		*vol = (volume_val * ((S_CLIPPING_DIST - approx_dist) >> FRACBITS)) / S_ATTENUATOR;
 
 	return (*vol > 0);
 }
@@ -580,11 +562,6 @@ static hook_t sfx_hooks[NUM_SFX_HOOKS] =
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// import variables
-	{0x0001488C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&S_sfx},
-	{0x0001444C, DATA_HOOK | HOOK_IMPORT, (uint32_t)&S_music},
-	{0x00014448, DATA_HOOK | HOOK_IMPORT, (uint32_t)&music_now},
-	{0x00075CA0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&volume_val},
 	// disable hardcoded sound randomization
 	{0x00027716, CODE_HOOK | HOOK_UINT16, 0x41EB}, // A_Look
 	{0x0002882B, CODE_HOOK | HOOK_UINT16, 0x47EB}, // A_Scream

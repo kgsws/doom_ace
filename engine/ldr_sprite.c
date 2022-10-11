@@ -12,14 +12,6 @@
 #include "mobj.h"
 #include "ldr_sprite.h"
 
-static fixed_t **spritewidth;
-static fixed_t **spriteoffset;
-static fixed_t **spritetopoffset;
-
-static int32_t *spr_maxframe;
-static spriteframe_t *spr_temp;
-static spritedef_t **sprites;
-
 uint16_t *sprite_lump;
 
 static uint32_t tmp_count;
@@ -29,26 +21,26 @@ static uint32_t tmp_count;
 
 static void install_sprites(uint32_t sprite_count)
 {
-	*sprites = doom_malloc(num_spr_names * sizeof(spritedef_t));
+	sprites = ldr_malloc(numsprites * sizeof(spritedef_t));
 
 	// process all sprites
-	for(uint32_t i = 0; i < num_spr_names; i++)
+	for(uint32_t i = 0; i < numsprites; i++)
 	{
 		if(sprite_table[i] == 0x31544E54)
 		{
 			// ignore 'TNT1'
-			(*sprites)[i].numframes = 0;
+			sprites[i].numframes = 0;
 			continue;
 		}
 
 		// reset
-		*spr_maxframe = -1;
-		memset(spr_temp, 0xFF, 29 * sizeof(spriteframe_t));
+		spr_maxframe = -1;
+		memset(sprtemp, 0xFF, 29 * sizeof(spriteframe_t));
 
 		// find all lumps
 		for(uint32_t idx = 0; idx < sprite_count; idx++)
 		{
-			lumpinfo_t *li = *lumpinfo + sprite_lump[idx];
+			lumpinfo_t *li = lumpinfo + sprite_lump[idx];
 
 			if(li->same[0] == sprite_table[i])
 			{
@@ -69,13 +61,13 @@ static void install_sprites(uint32_t sprite_count)
 
 		// finalize
 		{
-			uint32_t count = *spr_maxframe + 1;
-			(*sprites)[i].numframes = count;
+			uint32_t count = spr_maxframe + 1;
+			sprites[i].numframes = count;
 			if(count)
 			{
 				uint32_t size = count * sizeof(spriteframe_t);
-				(*sprites)[i].spriteframes = doom_malloc(size);
-				memcpy((*sprites)[i].spriteframes, spr_temp, size);
+				sprites[i].spriteframes = doom_malloc(size);
+				memcpy(sprites[i].spriteframes, sprtemp, size);
 			}
 		}
 	}
@@ -88,11 +80,11 @@ static void cb_s_load(lumpinfo_t *li)
 {
 	patch_t patch;
 
-	wad_read_lump(&patch, li - *lumpinfo, sizeof(patch_t));
+	wad_read_lump(&patch, li - lumpinfo, sizeof(patch_t));
 
-	(*spritewidth)[tmp_count] = (uint32_t)patch.width << FRACBITS;
-	(*spriteoffset)[tmp_count] = (uint32_t)patch.x << FRACBITS;
-	(*spritetopoffset)[tmp_count] = (uint32_t)patch.y << FRACBITS;
+	spritewidth[tmp_count] = (uint32_t)patch.width << FRACBITS;
+	spriteoffset[tmp_count] = (uint32_t)patch.x << FRACBITS;
+	spritetopoffset[tmp_count] = (uint32_t)patch.y << FRACBITS;
 
 	gfx_progress(1);
 
@@ -101,7 +93,7 @@ static void cb_s_load(lumpinfo_t *li)
 
 static void cb_s_parse(lumpinfo_t *li)
 {
-	sprite_lump[tmp_count] = li - *lumpinfo;
+	sprite_lump[tmp_count] = li - lumpinfo;
 	tmp_count++;
 }
 
@@ -127,7 +119,7 @@ void *precache_setup_sprites(uint8_t *buff)
 	// optionally, it is possible to precache every sprite used in any state
 	// but for now, let's do like Doom did
 
-	memset(buff, 0, num_spr_names);
+	memset(buff, 0, numsprites);
 
 	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
 	{
@@ -138,7 +130,7 @@ void *precache_setup_sprites(uint8_t *buff)
 
 		mo = (mobj_t*)th;
 
-		if(mo->sprite >= num_spr_names)
+		if(mo->sprite >= numsprites)
 			continue;
 
 		buff[mo->sprite] = 1;
@@ -153,9 +145,9 @@ void init_sprites(uint32_t count)
 	doom_printf("[ACE] preparing %u sprites\n", count);
 	ldr_alloc_message = "Sprite";
 
-	*spritewidth = ldr_malloc(count * sizeof(fixed_t));
-	*spriteoffset = ldr_malloc(count * sizeof(fixed_t));
-	*spritetopoffset = ldr_malloc(count * sizeof(fixed_t));
+	spritewidth = ldr_malloc(count * sizeof(fixed_t));
+	spriteoffset = ldr_malloc(count * sizeof(fixed_t));
+	spritetopoffset = ldr_malloc(count * sizeof(fixed_t));
 	sprite_lump = ldr_malloc(count * sizeof(uint16_t));
 
 	tmp_count = 0;
@@ -187,13 +179,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000376C5, CODE_HOOK | HOOK_UINT8, 0xEB},
 	{0x00037727, CODE_HOOK | HOOK_UINT8, 0xEB},
 	{0x00037767, CODE_HOOK | HOOK_UINT8, 0xEB},
-	// import variables
-//	{0x00030120, DATA_HOOK | HOOK_IMPORT, (uint32_t)&firstspritelump}, // this is unused and kept 0
-	{0x00030100, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spritewidth},
-	{0x00030118, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spriteoffset},
-	{0x00030114, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spritetopoffset},
-	{0x0005C884, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spr_maxframe},
-	{0x0005C554, DATA_HOOK | HOOK_IMPORT, (uint32_t)&spr_temp},
-	{0x0005C8E4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&sprites},
 };
 

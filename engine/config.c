@@ -59,55 +59,55 @@ mod_config_t mod_config =
 static config_entry_t config_game[] =
 {
 	// keys
-	{"input.key.move.forward", (void*)0x0002B344, TYPE_U8, 1},
-	{"input.key.move.backward", (void*)0x0002B35C, TYPE_U8, 1},
-	{"input.key.strafe.left", (void*)0x0002B360, TYPE_U8, 1},
-	{"input.key.strafe.right", (void*)0x0002B390, TYPE_U8, 1},
-	{"input.key.turn.left", (void*)0x0002B364, TYPE_U8, 1},
-	{"input.key.turn.right", (void*)0x0002B394, TYPE_U8, 1},
-	{"input.key.atk.pri", (void*)0x0002B384, TYPE_U8, 1},
+	{"input.key.move.forward", &key_up, TYPE_U8},
+	{"input.key.move.backward", &key_down, TYPE_U8},
+	{"input.key.strafe.left", &key_strafeleft, TYPE_U8},
+	{"input.key.strafe.right", &key_straferight, TYPE_U8},
+	{"input.key.turn.left", &key_left, TYPE_U8},
+	{"input.key.turn.right", &key_right, TYPE_U8},
+	{"input.key.atk.pri", &key_fire, TYPE_U8},
 	{"input.key.atk.sec", &key_fire_alt, TYPE_U8},
-	{"input.key.use", (void*)0x0002B354, TYPE_U8, 1},
+	{"input.key.use", &key_use, TYPE_U8},
 	{"input.key.inv.use", &key_inv_use, TYPE_U8},
 	{"input.key.inv.next", &key_inv_next, TYPE_U8},
 	{"input.key.inv.previous", &key_inv_prev, TYPE_U8},
-	{"input.key.speed", (void*)0x0002B34C, TYPE_U8, 1},
-	{"input.key.strafe", (void*)0x0002B370, TYPE_U8, 1},
-	{"input.key.cheats", (void*)0x0003BA1B, TYPE_U8, 2},
+	{"input.key.speed", &key_speed, TYPE_U8},
+	{"input.key.strafe", &key_strafe, TYPE_U8},
+	{"input.key.cheats", (void*)0x0003BA1B, TYPE_U8, 1},
 	// mouse
-	{"input.mouse.enable", (void*)0x0002B6E8, TYPE_S32, 1},
-	{"input.mouse.sensitivity", (void*)0x0002B6C8, TYPE_S32, 1},
-	{"input.mouse.atk.pri", (void*)0x0002B380, TYPE_S32, 1},
+	{"input.mouse.enable", &usemouse, TYPE_S32},
+	{"input.mouse.sensitivity", &mouseSensitivity, TYPE_S32},
+	{"input.mouse.atk.pri", &mouseb_fire, TYPE_S32},
 	{"input.mouse.atk.sec", &mouseb_fire_alt, TYPE_S32},
 	{"input.mouse.use", &mouseb_use, TYPE_S32},
 	{"input.mouse.inv.use", &mouseb_inv_use, TYPE_S32},
-	{"input.mouse.strafe", (void*)0x0002B36C, TYPE_S32, 1},
+	{"input.mouse.strafe", &mouseb_strafe, TYPE_S32},
 	// joystick
-	{"input.joy.enable", (void*)0x0002B6EC, TYPE_S32, 1},
-	{"input.joy.fire", (void*)0x0002B37C, TYPE_S32, 1},
-	{"input.joy.strafe", (void*)0x0002B368, TYPE_S32, 1},
-	{"input.joy.use", (void*)0x0002B350, TYPE_S32, 1},
-	{"input.joy.speed", (void*)0x0002B348, TYPE_S32, 1},
+	{"input.joy.enable", &usejoystick, TYPE_S32},
+	{"input.joy.fire", &joyb_fire, TYPE_S32},
+	{"input.joy.strafe", &joyb_strafe, TYPE_S32},
+	{"input.joy.use", &joyb_use, TYPE_S32},
+	{"input.joy.speed", &joyb_speed, TYPE_S32},
 	// sound
-	{"sound.channels", (void*)0x00075C94, TYPE_S32, 1},
-	{"sound.device.sfx", (void*)0x00029200, TYPE_S32, 1},
-	{"sound.device.music", (void*)0x00029204, TYPE_S32, 1},
-	{"sound.volume.sfx", (void*)0x0002B6B8, TYPE_S32, 1},
-	{"sound.volume.music", (void*)0x0002B6B4, TYPE_S32, 1},
-	{"sound.sb.port", (void*)0x00029208, TYPE_S32, 1},
-	{"sound.sb.irq", (void*)0x000291EC, TYPE_S32, 1},
-	{"sound.sb.dma", (void*)0x000291E0, TYPE_S32, 1},
-	{"sound.m.port", (void*)0x000291E4, TYPE_S32, 1},
+	{"sound.channels", &numChannels, TYPE_S32},
+	{"sound.device.sfx", &snd_sfxdevice, TYPE_S32},
+	{"sound.device.music", &snd_musicdevice, TYPE_S32},
+	{"sound.volume.sfx", &snd_SfxVolume, TYPE_S32},
+	{"sound.volume.music", &snd_MusicVolume, TYPE_S32},
+	{"sound.sb.port", &snd_sbport, TYPE_S32},
+	{"sound.sb.irq", &snd_sbirq, TYPE_S32},
+	{"sound.sb.dma", &snd_sbdma, TYPE_S32},
+	{"sound.m.port", &snd_mport, TYPE_S32},
 	// screen
-	{"display.messages", (void*)0x0002B6B0, TYPE_S32, 1},
-	{"display.size", (void*)0x0002B698, TYPE_S32, 1},
-	{"display.gamma", (void*)0x00074FC0, TYPE_S32, 1},
+	{"display.messages", &showMessages, TYPE_S32},
+	{"display.size", &screenblocks, TYPE_S32},
+	{"display.gamma", &usegamma, TYPE_S32},
 	{"display.xhair.type", &extra_config.crosshair_type, TYPE_U8},
 	{"display.xhair.red", &extra_config.crosshair_red, TYPE_U8},
 	{"display.xhair.green", &extra_config.crosshair_green, TYPE_U8},
 	{"display.xhair.blue", &extra_config.crosshair_blue, TYPE_U8},
 	// player
-	{"player.autorun", (void*)0x0001FBC5, TYPE_U8, 2},
+	{"player.autorun", (void*)0x0001FBC5, TYPE_U8, 1},
 	{"player.autoaim", &extra_config.auto_aim, TYPE_U8},
 	{"player.mouselook", &extra_config.mouse_look, TYPE_U8},
 	{"player.weapon.switch", &extra_config.auto_switch, TYPE_U8},
@@ -127,8 +127,6 @@ static config_entry_t config_mod[] =
 	// terminator
 	{NULL}
 };
-
-static const hook_t def_set[];
 
 //
 // funcs
@@ -188,10 +186,7 @@ void init_config()
 	conf = config_game;
 	while(conf->name)
 	{
-		if(conf->relocate == 1)
-			conf->ptr = conf->ptr + doom_data_segment;
-		else
-		if(conf->relocate == 2)
+		if(conf->relocate)
 			conf->ptr = conf->ptr + doom_code_segment;
 		conf++;
 	}
@@ -209,14 +204,15 @@ void init_config()
 	}
 
 	// forced values
-	utils_install_hooks(def_set, 0);
+	mouseb_forward = -1;
+	detaillevel = 0;
 
 	// mod configuration
 	lump = wad_check_lump("ACE_CONF");
 	if(lump >= 0)
 	{
 		doom_printf("[ACE] loading mod config ...\n");
-		tp_load_lump(*lumpinfo + lump);
+		tp_load_lump(lumpinfo + lump);
 		while(parse_value(config_mod));
 	}
 
@@ -273,16 +269,6 @@ void config_save()
 
 //
 // hooks
-
-static const hook_t def_set[] =
-{
-	// mousebforward = -1
-	{0x0002B358, DATA_HOOK | HOOK_UINT32, -1},
-	// detaillevel = 0
-	{0x0002B6AC, DATA_HOOK | HOOK_UINT32, 0},
-	// terminator
-	{0}
-};
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {

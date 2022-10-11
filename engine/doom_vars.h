@@ -14,6 +14,7 @@ extern mapthing_t *deathmatch_p;
 
 // stuff
 extern uint8_t *screen_buffer;
+extern uint32_t message_is_important;
 
 // game state
 extern uint32_t wipegamestate;
@@ -31,10 +32,29 @@ extern uint32_t netgame;
 extern uint32_t usergame;
 extern uint32_t viewactive;
 extern uint32_t d_skill;
+extern uint32_t startskill;
+extern uint32_t startepisode;
+extern uint32_t startmap;
 
 // automap
 extern uint32_t automapactive;
 extern uint32_t am_lastlevel;
+extern uint32_t am_cheating;
+
+// menu
+extern uint16_t menu_item_now; // itemOn
+extern menu_t *currentMenu;
+extern uint32_t showMessages;
+extern uint32_t mouseSensitivity;
+extern menu_t NewDef;
+extern menu_t EpiDef;
+extern menu_t LoadDef;
+extern menuitem_t LoadMenu[];
+
+// save / load
+extern uint8_t savename[];
+extern uint8_t savedesc[];
+extern uint32_t saveslot;
 
 // game play
 extern uint32_t nomonsters;
@@ -77,6 +97,20 @@ extern uint32_t crushchange;
 extern mobj_t *linetarget;
 extern line_t *spechit[];
 extern uint32_t numspechit;
+extern uint32_t validcount;
+extern intercept_t intercepts[];
+extern intercept_t *intercept_p;
+extern divline_t trace;
+extern fixed_t bestslidefrac;
+extern line_t *bestslideline;
+extern mobj_t *slidemo;
+extern fixed_t shootz;
+extern fixed_t aimslope;
+extern uint32_t la_damage;
+extern fixed_t bulletslope;
+
+extern mobj_t *shootthing;
+extern fixed_t attackrange;
 
 // player
 extern uint32_t playeringame[];
@@ -84,8 +118,38 @@ extern player_t players[];
 extern uint32_t consoleplayer;
 extern uint32_t displayplayer;
 
+// sprite
+extern fixed_t *spritewidth;
+extern fixed_t *spriteoffset;
+extern fixed_t *spritetopoffset;
+extern int32_t spr_maxframe;
+extern spriteframe_t sprtemp[];
+extern spritedef_t *sprites;
+extern uint32_t *spr_names[];
+extern uint32_t numsprites;
+
+// texture
+extern uint32_t numtextures;
+extern texture_t **textures;
+extern uint16_t **texturecolumnlump;
+extern uint16_t **texturecolumnofs;
+extern uint8_t **texturecomposite;
+extern uint32_t *texturecompositesize;
+extern uint32_t *texturewidthmask;
+extern fixed_t *textureheight;
+extern uint32_t *texturetranslation;
+
+// flat
+extern uint32_t numflats;
+extern uint32_t *flattranslation;
+
 // things
 extern thinker_t thinkercap;
+
+// render
+extern uint32_t r_setblocks;
+extern uint8_t *r_rdptr;
+extern uint8_t *r_fbptr;
 
 // render, textures
 extern uint32_t skytexture;
@@ -110,6 +174,7 @@ extern uint32_t viewheight;
 extern uint32_t viewwidth;
 extern uint32_t screenblocks;
 extern uint32_t usegamma;
+extern uint32_t detaillevel;
 
 // render, status
 extern sector_t *frontsector;
@@ -169,6 +234,62 @@ extern uint32_t demorecording;
 extern uint8_t *defdemoname;
 extern uint32_t singledemo;
 
+// sound
+extern old_sfxinfo_t S_sfx[];
+extern musicinfo_t S_music[];
+extern musicinfo_t *music_now;
+extern int32_t volume_val; // unknown name
+
+// wad
+extern uint8_t *wadfiles[MAXWADFILES];
+extern lumpinfo_t *lumpinfo;
+extern void **lumpcache;
+extern uint32_t numlumps;
+
+// gfx
+extern patch_t *tallnum[];
+extern patch_t *tallpercent;
+extern patch_t *shortnum[];
+extern st_number_t w_ready;
+extern st_number_t w_ammo[];
+extern st_number_t w_maxammo[];
+extern st_multicon_t w_arms[];
+extern int32_t keyboxes[];
+
+// controls
+extern uint32_t gamekeydown[];
+extern uint32_t mousebuttons[];
+extern int32_t mouseb_fire;
+extern int32_t mouseb_strafe;
+extern int32_t mouseb_forward;
+extern int32_t joyb_speed;
+extern int32_t joyb_use;
+extern int32_t joyb_strafe;
+extern int32_t joyb_fire;
+extern uint32_t key_up;
+extern uint32_t key_down;
+extern uint32_t key_strafeleft;
+extern uint32_t key_straferight;
+extern uint32_t key_left;
+extern uint32_t key_right;
+extern uint32_t key_fire;
+extern uint32_t key_use;
+extern uint32_t key_speed;
+extern uint32_t key_strafe;
+
+// config
+extern uint32_t usemouse;
+extern uint32_t usejoystick;
+extern uint32_t numChannels;
+extern uint32_t snd_sfxdevice;
+extern uint32_t snd_musicdevice;
+extern uint32_t snd_sbport;
+extern uint32_t snd_sbdma;
+extern uint32_t snd_mport;
+extern uint32_t snd_sbirq;
+extern uint32_t snd_MusicVolume;
+extern uint32_t snd_SfxVolume;
+
 // random
 extern uint32_t prndindex;
 
@@ -184,4 +305,74 @@ extern uint8_t *mapnames[];
 extern uint8_t *mapnames2[];
 extern uint32_t pars[];
 extern uint32_t cpars[];
+
+// original info
+extern uint32_t maxammo[];
+extern uint32_t clipammo[];
+extern deh_mobjinfo_t deh_mobjinfo[];
+extern deh_state_t deh_states[];
+extern weaponinfo_t deh_weaponinfo[];
+extern drawseg_t d_drawsegs[];
+extern vissprite_t d_vissprites[];
+
+// strings
+extern uint64_t dtxt_skull_name[];
+extern uint8_t dtxt_m_option[];
+extern uint8_t dtxt_m_lscntr[];
+extern uint8_t dtxt_m_lsleft[];
+extern uint8_t dtxt_m_lsrght[];
+extern uint8_t dtxt_m_episod[];
+extern uint8_t dtxt_PD_BLUEO[];
+extern uint8_t dtxt_PD_REDO[];
+extern uint8_t dtxt_PD_YELLOWO[];
+extern uint8_t dtxt_PD_BLUEK[];
+extern uint8_t dtxt_PD_YELLOWK[];
+extern uint8_t dtxt_PD_REDK[];
+extern uint8_t dtxt_mus_pfx[];
+extern uint8_t dtxt_help2[];
+extern uint8_t dtxt_victory2[];
+extern uint8_t dtxt_wif[];
+extern uint8_t dtxt_wienter[];
+extern uint8_t dtxt_dm2int[];
+extern uint8_t dtxt_read_m[];
+extern uint8_t dtxt_inter[];
+extern uint8_t dtxt_victor[];
+extern uint8_t dtxt_m_epi1[];
+extern uint8_t dtxt_m_epi2[];
+extern uint8_t dtxt_m_epi3[];
+extern uint8_t dtxt_interpic[];
+extern uint8_t dtxt_E1TEXT[];
+extern uint8_t dtxt_E2TEXT[];
+extern uint8_t dtxt_E3TEXT[];
+extern uint8_t dtxt_C1TEXT[];
+extern uint8_t dtxt_C2TEXT[];
+extern uint8_t dtxt_C3TEXT[];
+extern uint8_t dtxt_C4TEXT[];
+extern uint8_t dtxt_C5TEXT[];
+extern uint8_t dtxt_C6TEXT[];
+extern uint8_t dtxt_slime16[];
+extern uint8_t dtxt_rrock14[];
+extern uint8_t dtxt_rrock07[];
+extern uint8_t dtxt_rrock17[];
+extern uint8_t dtxt_rrock13[];
+extern uint8_t dtxt_rrock19[];
+extern uint8_t dtxt_floor4_8[];
+extern uint8_t dtxt_sflr6_1[];
+extern uint8_t dtxt_mflr8_4[];
+extern uint8_t dtxt_STSTR_DQDON[];
+extern uint8_t dtxt_STSTR_DQDOFF[];
+extern uint8_t dtxt_STSTR_FAADDED[];
+extern uint8_t dtxt_STSTR_KFAADDED[];
+extern uint8_t dtxt_STSTR_NCON[];
+extern uint8_t dtxt_STSTR_NCOFF[];
+extern uint8_t dtxt_m_loadg[];
+extern uint8_t dtxt_m_saveg[];
+extern uint8_t dtxt_[];
+extern uint8_t dtxt_[];
+extern uint8_t dtxt_[];
+extern uint8_t dtxt_[];
+extern uint8_t dtxt_[];
+extern uint8_t dtxt_[];
+extern uint8_t dtxt_[];
+extern uint8_t dtxt_[];
 

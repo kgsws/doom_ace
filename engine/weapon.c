@@ -15,10 +15,6 @@
 #include "demo.h"
 #include "player.h"
 
-//
-
-fixed_t *bulletslope;
-
 // from mobj.c
 extern const uint16_t base_anim_offs[NUM_MOBJ_ANIMS];
 
@@ -119,6 +115,7 @@ static void hook_lower_weapon(player_t *pl)
 	if(!pl->readyweapon)
 		return;
 
+	pl->weapon_ready = 0;
 	weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.lower);
 }
 
@@ -152,7 +149,7 @@ void weapon_move_pspr(player_t *pl)
 		}
 	}
 
-	if(demoplayback != DEMO_OLD && !pl->pendingweapon && (pl->weapon_ready || extra_config.center_weapon == 2))
+	if(demoplayback != DEMO_OLD && pl->weapon_ready)
 	{
 		// do weapon bob here for smooth chainsaw
 		angle = (128 * leveltime) & FINEMASK;
@@ -237,7 +234,8 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 	if(!(info->eflags & MFE_WEAPON_NOALERT))
 		P_NoiseAlert(pl->mo, pl->mo);
 
-	pl->weapon_ready = 0;
+	if(extra_config.center_weapon != 2)
+		pl->weapon_ready = 0;
 
 	if(demoplayback != DEMO_OLD && extra_config.center_weapon == 1)
 	{
@@ -305,6 +303,7 @@ uint32_t weapon_check_ammo(player_t *pl)
 	// just hope that this was not called in 'flash PSPR'
 	pl->psprites[0].state = NULL;
 	pl->psprites[0].tics = pl->readyweapon->st_weapon.lower;
+	pl->weapon_ready = 0;
 
 	return 0;
 }
@@ -376,7 +375,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00033278, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)weapon_move_pspr},
 	// change size of 'attackdown' in 'ST_updateFaceWidget'
 	{0x0003A187, CODE_HOOK | HOOK_UINT8, 0x80},
-	// import variables
-	{0x0002C0C0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&bulletslope},
 };
 

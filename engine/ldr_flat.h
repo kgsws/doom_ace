@@ -1,7 +1,6 @@
 // kgsws' ACE Engine
 ////
 
-extern uint32_t **flattranslation;
 extern uint16_t *flatlump;
 
 //

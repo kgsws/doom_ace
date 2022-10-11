@@ -26,8 +26,6 @@ typedef struct
 
 cheat_buf_t *cheat_buf;
 
-static uint32_t *am_cheating;
-static uint32_t *message_is_important;
 static mobj_t *tmp_mo;
 
 // cheat list
@@ -89,11 +87,11 @@ static void cf_noclip(player_t *pl, uint8_t *arg)
 	if(mo->flags & MF_NOCLIP)
 	{
 		pl->cheats |= CF_NOCLIP;
-		pl->message = (uint8_t*)0x00023EB8 + doom_data_segment;
+		pl->message = dtxt_STSTR_NCON;
 	} else
 	{
 		pl->cheats &= ~CF_NOCLIP;
-		pl->message = (uint8_t*)0x00023ECC + doom_data_segment;
+		pl->message = dtxt_STSTR_NCOFF;
 	}
 }
 
@@ -109,11 +107,11 @@ static void cf_iddqd(player_t *pl, uint8_t *arg)
 		pl->health = mo->health;
 		pl->cheats &= ~CF_BUDDHA;
 		pl->cheats |= CF_GODMODE;
-		pl->message = (uint8_t*)0x00023E30 + doom_data_segment;
+		pl->message = dtxt_STSTR_DQDON;
 	} else
 	{
 		pl->cheats &= ~CF_GODMODE;
-		pl->message = (uint8_t*)0x00023E48 + doom_data_segment;
+		pl->message = dtxt_STSTR_DQDOFF;
 	}
 }
 
@@ -157,7 +155,7 @@ static void cf_idfa(player_t *pl, uint8_t *arg)
 		pl->armortype = 44;
 	}
 
-	pl->message = (uint8_t*)0x00023E60 + doom_data_segment;
+	pl->message = dtxt_STSTR_FAADDED;
 }
 
 static void cf_idkfa(player_t *pl, uint8_t *arg)
@@ -176,7 +174,7 @@ static void cf_idkfa(player_t *pl, uint8_t *arg)
 			inventory_give(mo, i, INV_MAX_COUNT);
 	}
 
-	pl->message = (uint8_t*)0x00023E78 + doom_data_segment;
+	pl->message = dtxt_STSTR_KFAADDED;
 }
 
 static void cf_idclev(player_t *pl, uint8_t *arg)
@@ -206,11 +204,11 @@ static void cf_idclev(player_t *pl, uint8_t *arg)
 
 static void cf_iddt(player_t *pl, uint8_t *arg)
 {
-	uint32_t cheating = *am_cheating + 1;
+	uint32_t cheating = am_cheating + 1;
 	if(cheating > 2)
-		*am_cheating = 0;
+		am_cheating = 0;
 	else
-		*am_cheating = cheating;
+		am_cheating = cheating;
 }
 
 static void cf_map(player_t *pl, uint8_t *arg)
@@ -396,7 +394,7 @@ void cheat_check(uint32_t pidx)
 		pl->message = "Cheat activated!";
 
 	if(pl->message)
-		*message_is_important = 1;
+		message_is_important = 1;
 
 	cb->len = -1;
 }
@@ -441,7 +439,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003B64F, CODE_HOOK | HOOK_UINT16, 0x1AEB},
 	// import variables
 	{0x000756F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&cheat_buf}, // size: 0x1D4 (w_inputbuffer)
-	{0x000756F0, DATA_HOOK | HOOK_IMPORT, (uint32_t)&message_is_important},
-	{0x00012C50, DATA_HOOK | HOOK_IMPORT, (uint32_t)&am_cheating},
 };
 

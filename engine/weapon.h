@@ -3,10 +3,6 @@
 
 //
 
-extern fixed_t *bulletslope;
-
-//
-
 void weapon_setup(player_t *pl);
 uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire);
 uint32_t weapon_check_ammo(player_t *pl);

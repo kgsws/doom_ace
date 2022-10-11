@@ -26,9 +26,9 @@ void reader_open_lump(int32_t lump)
 	if(ffd >= 0)
 		I_Error("[READER] Attempt to open second file!");
 
-	ffd = (*lumpinfo)[lump].fd;
-	lump_offset = (*lumpinfo)[lump].offset;
-	lump_size = (*lumpinfo)[lump].size;
+	ffd = lumpinfo[lump].fd;
+	lump_offset = lumpinfo[lump].offset;
+	lump_size = lumpinfo[lump].size;
 
 	eptr = buffer;
 	bptr = buffer;

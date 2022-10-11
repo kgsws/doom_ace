@@ -248,7 +248,6 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	uint8_t **wlight;
 	int32_t texnum = 0;
 	uint16_t *tcol = (uint16_t*)ds->maskedtexturecol;
-	void *comp_s, *comp_e;
 	seg_t *seg = ds->curline;
 	sector_t *frontsector = seg->frontsector;
 	sector_t *backsector = seg->backsector;
@@ -302,13 +301,6 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				tcol[x] ^= 0x8000;
 		return;
 	}
-
-	// check texture composite // TODO: this does not work properly
-	comp_s = texturecomposite[texnum];
-	if(comp_s)
-		comp_e = comp_s + texturecompositesize[texnum];
-	else
-		comp_e = NULL;
 
 	// light
 
@@ -393,10 +385,8 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 					mcc = tmp;
 			}
 
-			data = R_GetColumn(texnum, tcol[dc_x] & 0x7FFF);
-
-			// TODO: medusa fix; pick solid draw vs masked draw
-			if(data >= comp_s && data < comp_e)
+			data = texture_get_column(texnum, tcol[dc_x] & 0x7FFF);
+			if(tex_was_composite)
 				draw_solid_column(data, mfc, mcc, height);
 			else
 				draw_masked_column(data - 3, mfc, mcc);

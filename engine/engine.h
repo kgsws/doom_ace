@@ -1309,8 +1309,8 @@ void R_ClipPassWallSegment(int32_t,int32_t) __attribute((regparm(2),no_caller_sa
 void R_ClipSolidWallSegment(int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_data
+void R_GenerateComposite(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void R_GenerateLookup(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
-void *R_GetColumn(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void R_PrecacheLevel() __attribute((regparm(2),no_caller_saved_registers));
 
 // r_main

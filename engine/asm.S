@@ -350,18 +350,18 @@ I_SetPalette:
 M_CheckParm:
 	.byte	0xE9
 	.4byte	0x00024110
+////////////////////////////////// R_GenerateComposite
+.section .text.R_GenerateComposite
+.global R_GenerateComposite
+R_GenerateComposite:
+	.byte	0xE9
+	.4byte	0x00033BB0
 ////////////////////////////////// R_GenerateLookup
 .section .text.R_GenerateLookup
 .global R_GenerateLookup
 R_GenerateLookup:
 	.byte	0xE9
 	.4byte	0x00033D40
-////////////////////////////////// R_GetColumn
-.section .text.R_GetColumn
-.global R_GetColumn
-R_GetColumn:
-	.byte	0xE9
-	.4byte	0x00033F50
 ////////////////////////////////// R_AddSprites
 .section .text.R_AddSprites
 .global R_AddSprites

@@ -58,6 +58,8 @@ typedef struct maptexure_s
 
 //
 
+uint_fast8_t tex_was_composite;
+
 static uint16_t *patch_lump;
 static uint32_t tmp_count;
 
@@ -437,6 +439,28 @@ void init_textures(uint32_t count)
 	tmp_count = count - EXTRA_TEXTURES;
 
 	return;
+}
+
+uint8_t *texture_get_column(uint32_t tex, uint32_t col)
+{
+	int32_t lump;
+	uint32_t offs;
+
+	col &= texturewidthmask[tex];
+	lump = texturecolumnlump[tex][col];
+	offs = texturecolumnofs[tex][col];
+
+	if(lump != 0xFFFF)
+	{
+		tex_was_composite = 0;
+		return W_CacheLumpNum(lump, PU_CACHE) + offs;
+	}
+
+	if(!texturecomposite[tex])
+		R_GenerateComposite(tex);
+
+	tex_was_composite = 1;
+	return texturecomposite[tex] + offs;
 }
 
 //

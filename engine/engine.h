@@ -942,7 +942,7 @@ typedef struct mobj_s
 	angle_t pitch;
 	// inventory
 	struct inventory_s *inventory;
-	// activating item, nesting is unsupported
+	// activating item, nesting is not supported
 	mobjinfo_t *custom_inventory;
 	// custom inventory state jumps
 	uint32_t custom_state;

@@ -1111,6 +1111,8 @@ uint32_t try_move_check(mobj_t *mo, fixed_t x)
 	while(numspecbump--)
 		spec_activate(specbump[numspecbump], mo, SPEC_ACT_BUMP);
 
+	numspecbump = 0;
+
 	return ret;
 }
 

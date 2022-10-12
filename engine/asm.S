@@ -38,7 +38,7 @@ rel_ace_loop:
 	test	%eax,%eax
 	jz	rel_ace_end
 	lea	(%ecx,%eax,1),%edx
-	test	$0x01,3(%edx)
+	testb	$0x01,3(%edx)
 	jz	_rel_normal
 	add	%edi,(%edx)
 	jmp	_rel_next

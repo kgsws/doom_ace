@@ -183,11 +183,34 @@ extern seg_t *curline;
 extern drawseg_t *ds_p;
 extern visplane_t *ceilingplane;
 extern visplane_t *floorplane;
+extern int16_t *maskedtexturecol;
 extern uint32_t markceiling;
 extern uint32_t markfloor;
+extern uint32_t segtextured;
+extern uint32_t maskedtexture;
+extern uint32_t midtexture;
+extern uint32_t bottomtexture;
+extern uint32_t toptexture;
 extern angle_t rw_normalangle;
 extern angle_t rw_angle1;
 extern fixed_t rw_distance;
+extern fixed_t rw_x;
+extern fixed_t rw_stopx;
+extern fixed_t bottomstep;
+extern fixed_t topstep;
+extern fixed_t bottomfrac;
+extern fixed_t topfrac;
+extern fixed_t rw_scalestep;
+extern fixed_t rw_scale;
+extern fixed_t rw_centerangle;
+extern fixed_t rw_offset;
+extern fixed_t rw_toptexturemid;
+extern fixed_t rw_midtexturemid;
+extern fixed_t rw_bottomtexturemid;
+extern fixed_t pixlow;
+extern fixed_t pixlowstep;
+extern fixed_t pixhigh;
+extern fixed_t pixhighstep;
 
 // render, map
 extern cliprange_t solidsegs[];
@@ -202,6 +225,7 @@ extern int16_t ceilingclip[];
 // render, light
 extern fixed_t planeheight;
 extern uint8_t **planezlight;
+extern uint8_t **walllights;
 extern uint8_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 extern uint8_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 

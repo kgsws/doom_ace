@@ -253,8 +253,9 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	sector_t *backsector = seg->backsector;
 
 	// texture
-	if(clip_height_top < 0x7FFFFFFF)
-	{
+	if(	clip_height_top < 0x7FFFFFFF &&
+		frontsector->tag != backsector->tag
+	){
 		extraplane_t *pl = backsector->exfloor;
 		while(pl)
 		{
@@ -399,6 +400,141 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 		if(clip_height_top < 0x7FFFFFFF)
 			topfrac += topstep;
 		spryscale += scalestep;
+	}
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+static void R_RenderSegLoop()
+{
+	angle_t angle;
+	uint32_t index;
+	int32_t yl;
+	int32_t yh;
+	fixed_t texturecolumn;
+	int32_t top;
+	int32_t bottom;
+
+	for( ; rw_x < rw_stopx; rw_x++)
+	{
+		yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+
+		if(yl < ceilingclip[rw_x] + 1)
+			yl = ceilingclip[rw_x] + 1;
+
+		if(markceiling)
+		{
+			top = ceilingclip[rw_x] + 1;
+			bottom = yl - 1;
+
+			if(bottom >= floorclip[rw_x])
+				bottom = floorclip[rw_x] - 1;
+
+			if(top <= bottom)
+			{
+				ceilingplane->top[rw_x] = top;
+				ceilingplane->bottom[rw_x] = bottom;
+			}
+		}
+
+		yh = bottomfrac >> HEIGHTBITS;
+
+		if(yh >= floorclip[rw_x])
+			yh = floorclip[rw_x] - 1;
+
+		if(markfloor)
+		{
+			top = yh + 1;
+			bottom = floorclip[rw_x] - 1;
+			if(top <= ceilingclip[rw_x])
+				top = ceilingclip[rw_x] + 1;
+			if(top <= bottom)
+			{
+				floorplane->top[rw_x] = top;
+				floorplane->bottom[rw_x] = bottom;
+			}
+		}
+
+		if(segtextured)
+		{
+			angle = (rw_centerangle + xtoviewangle[rw_x]) >> ANGLETOFINESHIFT;
+			texturecolumn = rw_offset - FixedMul(finetangent[angle], rw_distance);
+			texturecolumn >>= FRACBITS;
+
+			index = rw_scale >> LIGHTSCALESHIFT;
+			if(index >= MAXLIGHTSCALE)
+				index = MAXLIGHTSCALE - 1;
+
+			dc_colormap = walllights[index];
+			dc_x = rw_x;
+			dc_iscale = 0xFFFFFFFF / (uint32_t)rw_scale;
+		}
+
+		if(midtexture)
+		{
+			dc_yl = yl;
+			dc_yh = yh;
+			dc_texturemid = rw_midtexturemid;
+			dc_source = texture_get_column(midtexture, texturecolumn);
+			colfunc();
+			ceilingclip[rw_x] = viewheight;
+			floorclip[rw_x] = -1;
+		} else
+		{
+			if(toptexture)
+			{
+				int32_t mid = pixhigh >> HEIGHTBITS;
+				pixhigh += pixhighstep;
+
+				if(mid >= floorclip[rw_x])
+					mid = floorclip[rw_x] - 1;
+
+				if(mid >= yl)
+				{
+					dc_yl = yl;
+					dc_yh = mid;
+					dc_texturemid = rw_toptexturemid;
+					dc_source = texture_get_column(toptexture, texturecolumn);
+					colfunc();
+					ceilingclip[rw_x] = mid;
+				} else
+					ceilingclip[rw_x] = yl - 1;
+			} else
+			{
+				if(markceiling)
+					ceilingclip[rw_x] = yl - 1;
+			}
+
+			if(bottomtexture)
+			{
+				int32_t mid = (pixlow + HEIGHTUNIT - 1) >> HEIGHTBITS;
+				pixlow += pixlowstep;
+
+				if(mid <= ceilingclip[rw_x])
+					mid = ceilingclip[rw_x] + 1;
+
+				if(mid <= yh)
+				{
+					dc_yl = mid;
+					dc_yh = yh;
+					dc_texturemid = rw_bottomtexturemid;
+					dc_source = texture_get_column(bottomtexture, texturecolumn);
+					colfunc();
+					floorclip[rw_x] = mid;
+				} else
+					floorclip[rw_x] = yh + 1;
+			} else
+			{
+				if(markfloor)
+					floorclip[rw_x] = yh + 1;
+			}
+
+			if(maskedtexture)
+				maskedtexturecol[rw_x] = texturecolumn & 0x7FFF;
+		}
+
+		rw_scale += rw_scalestep;
+		topfrac += topstep;
+		bottomfrac += bottomstep;
 	}
 }
 
@@ -612,7 +748,7 @@ static void store_fake_range(int32_t start, int32_t stop)
 			int32_t top;
 			int32_t bot;
 
-			top = (worldfrac >> HEIGHTBITS) + 1;
+			top = ((worldfrac + HEIGHTUNIT - 1) >> HEIGHTBITS) - 1;
 			if(top <= ceilingclip[start])
 				top = ceilingclip[start] + 1;
 
@@ -639,7 +775,7 @@ static void store_fake_range(int32_t start, int32_t stop)
 			int32_t top;
 			int32_t bot;
 
-			bot = ((worldfrac + HEIGHTUNIT - 1) >> HEIGHTBITS) - 1;
+			bot = (worldfrac >> HEIGHTBITS) + 1;
 			top = e_ceilingclip[start] + 1;
 
 			if(bot >= floorclip[start])
@@ -1124,6 +1260,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace 'R_Subsector'
 	{0x00033ACF, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_Subsector},
 	{0x00033ADB, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_Subsector},
+	// replace 'R_RenderSegLoop'
+	{0x0003750A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_RenderSegLoop},
 	// add extra 'mark' checks to 'R_StoreWallRange'
 	{0x000370C1, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)extra_mark_check},
 	{0x000370C6, CODE_HOOK | HOOK_UINT16, 0x21EB},
@@ -1134,11 +1272,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000371B8, CODE_HOOK | HOOK_UINT16, 0xC085},
 	// replace call to 'R_RenderMaskedSegRange' in 'R_DrawSprite'
 	{0x0003846D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_masked_range_draw},
-	// mask 'maskedtexturecol' with 0x7FFF in 'R_RenderSegLoop'
-	{0x00036C94, CODE_HOOK | HOOK_UINT16, 0x5DEB},
-	{0x00036CF3, CODE_HOOK | HOOK_UINT32, 0x007FE580},
-	{0x00036CF6, CODE_HOOK | HOOK_UINT32, 0x500C8966},
-	{0x00036CFA, CODE_HOOK | HOOK_UINT16, 0x9CEB},
 	// replace 'yslope' calculation in 'R_ExecuteSetViewSize'
 	{0x00035C10, CODE_HOOK | HOOK_UINT32, 0xFFFFFFB8},
 	{0x00035C14, CODE_HOOK | HOOK_UINT16, 0xA37F},

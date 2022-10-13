@@ -403,60 +403,199 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	}
 }
 
+static void R_RenderSegStripe(uint32_t texture, fixed_t top, fixed_t bot, int32_t light)
+{
+	fixed_t tfrac;
+	fixed_t tstep;
+	fixed_t bfrac;
+	fixed_t bstep;
+	fixed_t scalefrac = rw_scale;
+
+	light = (light >> LIGHTSEGSHIFT) + extralight;
+
+	if(curline->v1->y == curline->v2->y)
+		light--;
+	else
+	if(curline->v1->x == curline->v2->x)
+		light++;
+
+	if(light < 0)
+		walllights = scalelight[0];
+	else if (light >= LIGHTLEVELS)
+		walllights = scalelight[LIGHTLEVELS-1];
+	else
+		walllights = scalelight[light];
+
+	top -= viewz >> 4;
+	bot -= viewz >> 4;
+
+	tstep = -FixedMul(rw_scalestep, top);
+	tfrac = (centeryfrac >> 4) - FixedMul(top, scalefrac);
+
+	bstep = -FixedMul(rw_scalestep, bot);
+	bfrac = (centeryfrac >> 4) - FixedMul(bot, scalefrac);
+
+	for(uint32_t x = rw_x; x < rw_stopx; x++)
+	{
+		angle_t angle;
+		fixed_t texturecolumn;
+		uint32_t index;
+
+		dc_yl = (tfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+		if(dc_yl < ceilingclip[x] + 1)
+			dc_yl = ceilingclip[x] + 1;
+
+		dc_yh = bfrac >> HEIGHTBITS;
+		if(dc_yh >= floorclip[x])
+			dc_yh = floorclip[x] - 1;
+
+		angle = (rw_centerangle + xtoviewangle[x]) >> ANGLETOFINESHIFT;
+		texturecolumn = rw_offset - FixedMul(finetangent[angle], rw_distance);
+		texturecolumn >>= FRACBITS;
+
+		index = scalefrac >> LIGHTSCALESHIFT;
+		if(index >= MAXLIGHTSCALE)
+			index = MAXLIGHTSCALE - 1;
+
+		dc_colormap = walllights[index];
+		dc_x = x;
+		dc_iscale = 0xFFFFFFFF / (uint32_t)scalefrac;
+
+		dc_source = texture_get_column(texture, texturecolumn);
+		colfunc();
+
+		scalefrac += rw_scalestep;
+		tfrac += tstep;
+		bfrac += bstep;
+	}
+}
+
+static void render_striped_seg(uint32_t texture, fixed_t ht, fixed_t hb)
+{
+	extraplane_t *pl;
+	fixed_t h0;
+	uint16_t light;
+
+	ht >>= 4;
+	hb >>= 4;
+
+	h0 = ht;
+	light = frontsector->lightlevel;
+
+	pl = frontsector->exfloor;
+	while(pl)
+	{
+		fixed_t h1 = *pl->height >> 4;
+		if(h1 >= ht)
+		{
+			h0 = h1;
+			light = *pl->light;
+		} else
+		if(h1 < h0 && light != *pl->light)
+		{
+			R_RenderSegStripe(texture, h0, h1, light);
+			h0 = h1;
+			light = *pl->light;
+		}
+		pl = pl->next;
+	}
+	if(h0 > hb)
+		R_RenderSegStripe(texture, h0, hb, light);
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 static void R_RenderSegLoop()
 {
-	angle_t angle;
-	uint32_t index;
-	int32_t yl;
-	int32_t yh;
-	fixed_t texturecolumn;
-	int32_t top;
-	int32_t bottom;
-
-	for( ; rw_x < rw_stopx; rw_x++)
+	if(!fixedcolormap && segtextured && frontsector->exfloor)
 	{
-		yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+		if(midtexture)
+		{
+			dc_texturemid = rw_midtexturemid;
+			render_striped_seg(midtexture, frontsector->ceilingheight, frontsector->floorheight);
+		} else
+		{
+			if(toptexture)
+			{
+				fixed_t top, bot;
 
-		if(yl < ceilingclip[rw_x] + 1)
-			yl = ceilingclip[rw_x] + 1;
+				dc_texturemid = rw_toptexturemid;
+
+				top = frontsector->ceilingheight;
+				bot = backsector->ceilingheight;
+
+				if(frontsector->floorheight > bot)
+					bot = frontsector->floorheight;
+
+				render_striped_seg(toptexture, top, bot);
+			}
+			if(bottomtexture)
+			{
+				fixed_t top, bot;
+
+				dc_texturemid = rw_bottomtexturemid;
+
+				top = backsector->floorheight;
+				bot = frontsector->floorheight;
+
+				if(frontsector->ceilingheight < top)
+					top = frontsector->ceilingheight;
+
+				render_striped_seg(bottomtexture, top, bot);
+			}
+		}
+		segtextured = 0;
+	}
+
+	for(uint32_t x = rw_x; x < rw_stopx; x++)
+	{
+		int32_t top;
+		int32_t bottom;
+		int32_t yl;
+		int32_t yh;
+		fixed_t texturecolumn;
+
+		yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+		if(yl < ceilingclip[x] + 1)
+			yl = ceilingclip[x] + 1;
 
 		if(markceiling)
 		{
-			top = ceilingclip[rw_x] + 1;
+			top = ceilingclip[x] + 1;
 			bottom = yl - 1;
 
-			if(bottom >= floorclip[rw_x])
-				bottom = floorclip[rw_x] - 1;
+			if(bottom >= floorclip[x])
+				bottom = floorclip[x] - 1;
 
 			if(top <= bottom)
 			{
-				ceilingplane->top[rw_x] = top;
-				ceilingplane->bottom[rw_x] = bottom;
+				ceilingplane->top[x] = top;
+				ceilingplane->bottom[x] = bottom;
 			}
 		}
 
 		yh = bottomfrac >> HEIGHTBITS;
-
-		if(yh >= floorclip[rw_x])
-			yh = floorclip[rw_x] - 1;
+		if(yh >= floorclip[x])
+			yh = floorclip[x] - 1;
 
 		if(markfloor)
 		{
 			top = yh + 1;
-			bottom = floorclip[rw_x] - 1;
-			if(top <= ceilingclip[rw_x])
-				top = ceilingclip[rw_x] + 1;
+			bottom = floorclip[x] - 1;
+			if(top <= ceilingclip[x])
+				top = ceilingclip[x] + 1;
 			if(top <= bottom)
 			{
-				floorplane->top[rw_x] = top;
-				floorplane->bottom[rw_x] = bottom;
+				floorplane->top[x] = top;
+				floorplane->bottom[x] = bottom;
 			}
 		}
 
 		if(segtextured)
 		{
-			angle = (rw_centerangle + xtoviewangle[rw_x]) >> ANGLETOFINESHIFT;
+			angle_t angle;
+			uint32_t index;
+
+			angle = (rw_centerangle + xtoviewangle[x]) >> ANGLETOFINESHIFT;
 			texturecolumn = rw_offset - FixedMul(finetangent[angle], rw_distance);
 			texturecolumn >>= FRACBITS;
 
@@ -465,19 +604,22 @@ static void R_RenderSegLoop()
 				index = MAXLIGHTSCALE - 1;
 
 			dc_colormap = walllights[index];
-			dc_x = rw_x;
+			dc_x = x;
 			dc_iscale = 0xFFFFFFFF / (uint32_t)rw_scale;
 		}
 
 		if(midtexture)
 		{
-			dc_yl = yl;
-			dc_yh = yh;
-			dc_texturemid = rw_midtexturemid;
-			dc_source = texture_get_column(midtexture, texturecolumn);
-			colfunc();
-			ceilingclip[rw_x] = viewheight;
-			floorclip[rw_x] = -1;
+			if(segtextured)
+			{
+				dc_yl = yl;
+				dc_yh = yh;
+				dc_texturemid = rw_midtexturemid;
+				dc_source = texture_get_column(midtexture, texturecolumn);
+				colfunc();
+			}
+			ceilingclip[x] = viewheight;
+			floorclip[x] = -1;
 		} else
 		{
 			if(toptexture)
@@ -485,23 +627,26 @@ static void R_RenderSegLoop()
 				int32_t mid = pixhigh >> HEIGHTBITS;
 				pixhigh += pixhighstep;
 
-				if(mid >= floorclip[rw_x])
-					mid = floorclip[rw_x] - 1;
+				if(mid >= floorclip[x])
+					mid = floorclip[x] - 1;
 
 				if(mid >= yl)
 				{
-					dc_yl = yl;
-					dc_yh = mid;
-					dc_texturemid = rw_toptexturemid;
-					dc_source = texture_get_column(toptexture, texturecolumn);
-					colfunc();
-					ceilingclip[rw_x] = mid;
+					if(segtextured)
+					{
+						dc_yl = yl;
+						dc_yh = mid;
+						dc_texturemid = rw_toptexturemid;
+						dc_source = texture_get_column(toptexture, texturecolumn);
+						colfunc();
+					}
+					ceilingclip[x] = mid;
 				} else
-					ceilingclip[rw_x] = yl - 1;
+					ceilingclip[x] = yl - 1;
 			} else
 			{
 				if(markceiling)
-					ceilingclip[rw_x] = yl - 1;
+					ceilingclip[x] = yl - 1;
 			}
 
 			if(bottomtexture)
@@ -509,27 +654,30 @@ static void R_RenderSegLoop()
 				int32_t mid = (pixlow + HEIGHTUNIT - 1) >> HEIGHTBITS;
 				pixlow += pixlowstep;
 
-				if(mid <= ceilingclip[rw_x])
-					mid = ceilingclip[rw_x] + 1;
+				if(mid <= ceilingclip[x])
+					mid = ceilingclip[x] + 1;
 
 				if(mid <= yh)
 				{
-					dc_yl = mid;
-					dc_yh = yh;
-					dc_texturemid = rw_bottomtexturemid;
-					dc_source = texture_get_column(bottomtexture, texturecolumn);
-					colfunc();
-					floorclip[rw_x] = mid;
+					if(segtextured)
+					{
+						dc_yl = mid;
+						dc_yh = yh;
+						dc_texturemid = rw_bottomtexturemid;
+						dc_source = texture_get_column(bottomtexture, texturecolumn);
+						colfunc();
+					}
+					floorclip[x] = mid;
 				} else
-					floorclip[rw_x] = yh + 1;
+					floorclip[x] = yh + 1;
 			} else
 			{
 				if(markfloor)
-					floorclip[rw_x] = yh + 1;
+					floorclip[x] = yh + 1;
 			}
 
 			if(maskedtexture)
-				maskedtexturecol[rw_x] = texturecolumn & 0x7FFF;
+				maskedtexturecol[x] = texturecolumn & 0x7FFF;
 		}
 
 		rw_scale += rw_scalestep;
@@ -539,7 +687,7 @@ static void R_RenderSegLoop()
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void draw_vis_sprite(vissprite_t *vis)
+void R_DrawVisSprite(vissprite_t *vis)
 {
 	column_t *column;
 	int32_t texturecolumn;
@@ -549,11 +697,87 @@ void draw_vis_sprite(vissprite_t *vis)
 
 	patch = W_CacheLumpNum(sprite_lump[vis->patch], PU_CACHE);
 
-	dc_colormap = vis->colormap;
-//	if(!dc_colormap)
-//		colfunc = fuzzcolfunc;
-	// TODO: colfunc (normal, fuzz, translation)
-	// TODO: dc_translation
+	if(!vis->mo)
+	{
+		// TODO: fuzz
+		if(fixedcolormap)
+			dc_colormap = fixedcolormap;
+		else
+		if(vis->psp->state->frame & FF_FULLBRIGHT)
+			dc_colormap = colormaps;
+		else
+		{
+			sector_t *sec = viewplayer->mo->subsector->sector;
+			extraplane_t *pl = sec->exfloor;
+			int32_t light = sec->lightlevel;
+			uint8_t **slight;
+
+			while(pl)
+			{
+				if(viewz <= *pl->height)
+				{
+					light = *pl->light;
+					break;
+				}
+				pl = pl->next;
+			}
+
+			light = (light >> LIGHTSEGSHIFT) + extralight;
+			if(light < 0)		
+				slight = scalelight[0];
+			else
+			if(light >= LIGHTLEVELS)
+				slight = scalelight[LIGHTLEVELS-1];
+			else
+				slight = scalelight[light];
+
+			dc_colormap = slight[MAXLIGHTSCALE-1];
+		}
+	} else
+	{
+		// TODO: render style
+		if(fixedcolormap)
+			dc_colormap = fixedcolormap;
+		else
+		if(vis->mo->frame & FF_FULLBRIGHT)
+			dc_colormap = colormaps;
+		else
+		{
+			sector_t *sec = vis->mo->subsector->sector;
+			extraplane_t *pl = sec->exfloor;
+			int32_t light = sec->lightlevel;
+			int32_t index;
+			uint8_t **slight;
+
+			while(pl)
+			{
+				if(clip_height_top <= *pl->height)
+				{
+					light = *pl->light;
+					break;
+				}
+				pl = pl->next;
+			}
+
+			light = (light >> LIGHTSEGSHIFT) + extralight;
+
+			if(light < 0)
+				slight = scalelight[0];
+			else
+			if(light >= LIGHTLEVELS)
+				slight = scalelight[LIGHTLEVELS-1];
+			else
+				slight = scalelight[light];
+
+			index = vis->scale >> LIGHTSCALESHIFT;
+			if(index >= MAXLIGHTSCALE)
+				index = MAXLIGHTSCALE - 1;
+
+			dc_colormap = slight[index];
+		}
+
+		// TODO: dc_translation
+	}
 
 	dc_iscale = abs(vis->xiscale);
 	dc_texturemid = vis->texturemid;
@@ -601,6 +825,9 @@ static inline void draw_player_sprites()
 {
 	centery = cy_weapon;
 	centeryfrac = cy_weapon << FRACBITS;
+
+	clip_height_top = 0x7FFFFFFF;
+	clip_height_bot = -0x7FFFFFFF;
 
 	R_DrawPlayerSprites();
 
@@ -1056,7 +1283,12 @@ void R_Subsector(uint32_t num)
 	} else
 		ceilingplane = NULL;
 
-	R_AddSprites(frontsector);
+	if(frontsector->validcount != validcount)
+	{
+		frontsector->validcount = validcount;
+		for(mobj_t *mo = frontsector->thinglist; mo; mo = mo->snext)
+			R_ProjectSprite(mo);
+	}
 
 	while(count--)
 	{
@@ -1251,8 +1483,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00035FB0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)custom_SetupFrame},
 	// skip 'R_RenderPlayerView' in 'R_RenderPlayerView'
 	{0x00035FE3, CODE_HOOK | HOOK_JMP_DOOM, 0x0001F170},
-	// replace call to 'R_DrawVisSprite' in 'R_DrawSprite'
-	{0x000385CE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_vis_sprite},
+	// replace 'R_DrawVisSprite'
+	{0x000381FE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawVisSprite},
+	{0x000385CE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawVisSprite},
 	// replace part of 'R_AddLine'
 	{0x000337E0, CODE_HOOK | HOOK_UINT32, 0xD889F289},
 	{0x000337E4, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)r_add_line},
@@ -1272,6 +1505,12 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000371B8, CODE_HOOK | HOOK_UINT16, 0xC085},
 	// replace call to 'R_RenderMaskedSegRange' in 'R_DrawSprite'
 	{0x0003846D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_masked_range_draw},
+	// skip 'vis->colormap' in 'R_ProjectSprite'; set 'vis->mo = mo'
+	{0x00037F31, CODE_HOOK | HOOK_UINT32, 0x7389 | (offsetof(vissprite_t, mo) << 16)},
+	{0x00037F34, CODE_HOOK | HOOK_UINT16, 0x17EB},
+	// skip 'vis->colormap' in 'R_DrawPSprite'; set vis->psp
+	{0x000381B2, CODE_HOOK | HOOK_UINT32, 0x7089 | (offsetof(vissprite_t, psp) << 16)},
+	{0x000381B5, CODE_HOOK | HOOK_UINT16, 0x41EB},
 	// replace 'yslope' calculation in 'R_ExecuteSetViewSize'
 	{0x00035C10, CODE_HOOK | HOOK_UINT32, 0xFFFFFFB8},
 	{0x00035C14, CODE_HOOK | HOOK_UINT16, 0xA37F},

@@ -22,6 +22,10 @@ static extra_height_t *cur_height;
 extra_height_t *e3d_up_height;
 extra_height_t *e3d_dn_height;
 
+fixed_t tmextrafloor;
+fixed_t tmextraceiling;
+fixed_t tmextradrop;
+
 //
 // funcs
 
@@ -212,6 +216,44 @@ void e3d_add_height(fixed_t height)
 
 //
 // API
+
+void e3d_check_heights(mobj_t *mo, sector_t *sec)
+{
+	extraplane_t *pl;
+	fixed_t z = mo->z;
+
+	tmextrafloor = tmfloorz;
+	tmextraceiling = tmceilingz;
+	tmextradrop = 0x7FFFFFFF;
+
+	if(!(mo->flags & MF_MISSILE))
+		z += mo->info->step_height;
+
+	pl = sec->exfloor;
+	while(pl)
+	{
+		if(*pl->height <= z && *pl->height > tmextrafloor)
+			tmextrafloor = *pl->height;
+		if(*pl->height <= mo->z)
+			tmextradrop = mo->z - *pl->height;
+		pl = pl->next;
+	}
+
+	if(mo->z < tmextrafloor)
+	{
+		z = tmextrafloor;
+		tmextradrop = 0;
+	} else
+		z = mo->z;
+
+	pl = sec->exceiling;
+	while(pl)
+	{
+		if(*pl->height >= z && *pl->height < tmextraceiling)
+			tmextraceiling = *pl->height;
+		pl = pl->next;
+	}
+}
 
 void e3d_draw_height(fixed_t height)
 {

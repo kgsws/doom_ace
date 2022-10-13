@@ -243,6 +243,8 @@ DOOM_VAR 0x0002B9C8, slidemo
 DOOM_VAR 0x0002B9D0, bestslidefrac
 DOOM_VAR 0x0002B9D4, bestslideline
 DOOM_VAR 0x0002B9D8, numspechit
+DOOM_VAR 0x0002B9DC, tmthing
+DOOM_VAR 0x0002B9E0, tmflags
 DOOM_VAR 0x0002B9E4, tmdropoffz
 DOOM_VAR 0x0002B9F0, tmfloorz
 DOOM_VAR 0x0002B9F8, linetarget
@@ -299,6 +301,7 @@ DOOM_VAR 0x000300E8, texturecomposite
 DOOM_VAR 0x000300F4, texturecolumnlump
 
 DOOM_VAR 0x00030100, spritewidth
+DOOM_VAR 0x00030104, colormaps
 DOOM_VAR 0x0003010C, texturetranslation
 DOOM_VAR 0x00030110, flattranslation
 DOOM_VAR 0x00030114, spritetopoffset
@@ -329,6 +332,7 @@ DOOM_VAR 0x00038FFC, fixedcolormap
 
 DOOM_VAR 0x00039010, colfunc
 DOOM_VAR 0x00039014, extralight
+DOOM_VAR 0x0003901C, viewplayer
 DOOM_VAR 0x00039020, xtoviewangle
 
 DOOM_VAR 0x00039528, viewangle

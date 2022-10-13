@@ -1005,12 +1005,8 @@ typedef struct vissprite_s
 	fixed_t xiscale;
 	fixed_t texturemid;
 	int patch;
-	void *colormap;
-	union
-	{
-		uint32_t mobjflags;
-		mobj_t *mo;
-	};
+	pspdef_t *psp;
+	mobj_t *mo;
 } vissprite_t;
 
 typedef	struct
@@ -1326,8 +1322,8 @@ visplane_t *R_FindPlane(fixed_t,uint32_t,uint32_t) __attribute((regparm(2),no_ca
 void R_MakeSpans(int32_t,int32_t,int32_t,int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_things
-void R_AddSprites(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
 void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+void R_ProjectSprite(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawPlayerSprites() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawSprite(vissprite_t*) __attribute((regparm(2),no_caller_saved_registers));
 void R_SortVisSprites() __attribute((regparm(2),no_caller_saved_registers));

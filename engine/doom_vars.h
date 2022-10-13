@@ -85,6 +85,8 @@ extern fixed_t bmaporgx;
 extern fixed_t bmaporgy;
 
 // map & maputl
+extern mobj_t *tmthing;
+extern uint32_t tmflags;
 extern fixed_t tmdropoffz;
 extern fixed_t tmfloorz;
 extern fixed_t tmceilingz;
@@ -156,6 +158,7 @@ extern uint32_t skytexture;
 extern uint32_t skyflatnum;
 
 // render, view
+extern player_t *viewplayer;
 extern fixed_t viewx;
 extern fixed_t viewy;
 extern fixed_t viewz;
@@ -223,6 +226,7 @@ extern int16_t floorclip[];
 extern int16_t ceilingclip[];
 
 // render, light
+extern uint8_t *colormaps;
 extern fixed_t planeheight;
 extern uint8_t **planezlight;
 extern uint8_t **walllights;
@@ -230,9 +234,9 @@ extern uint8_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 extern uint8_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 
 // render, draw
-extern uint32_t dc_x;
-extern uint32_t dc_yl;
-extern uint32_t dc_yh;
+extern int32_t dc_x;
+extern int32_t dc_yl;
+extern int32_t dc_yh;
 extern uint8_t *dc_source;
 extern fixed_t dc_texturemid;
 extern fixed_t dc_iscale;

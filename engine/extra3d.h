@@ -27,12 +27,17 @@ extern int16_t *e3d_ceilingclip;
 extern extra_height_t *e3d_up_height;
 extern extra_height_t *e3d_dn_height;
 
+extern fixed_t tmextrafloor;
+extern fixed_t tmextraceiling;
+extern fixed_t tmextradrop;
+
 //
 
 void e3d_init(uint32_t count);
 void e3d_create();
 void e3d_reset();
 void e3d_draw_height(fixed_t);
+void e3d_check_heights(mobj_t *mo, sector_t *sec);
 
 //
 

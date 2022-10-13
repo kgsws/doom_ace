@@ -18,6 +18,7 @@
 #include "stbar.h"
 #include "demo.h"
 #include "cheat.h"
+#include "extra3d.h"
 
 #define STOPSPEED	0x1000
 #define FRICTION	0xe800
@@ -977,6 +978,8 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 {
+	uint32_t is_safe = 0;
+
 	if(!ld->backsector)
 		goto blocked;
 
@@ -999,6 +1002,30 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 		}
 	}
 
+	e3d_check_heights(tmthing, ld->frontsector);
+
+	if(tmceilingz > tmextraceiling)
+		tmceilingz = tmextraceiling;
+	if(tmfloorz < tmextrafloor)
+		tmfloorz = tmextrafloor;
+
+	if(	tmextradrop <= tmthing->info->dropoff ||
+		ld->frontsector->floorheight >= tmthing->z - tmthing->info->dropoff
+	)
+		is_safe |= 1;
+
+	e3d_check_heights(tmthing, ld->backsector);
+
+	if(tmceilingz > tmextraceiling)
+		tmceilingz = tmextraceiling;
+	if(tmfloorz < tmextrafloor)
+		tmfloorz = tmextrafloor;
+
+	if(	tmextradrop <= tmthing->info->dropoff ||
+		ld->backsector->floorheight >= tmthing->z - tmthing->info->dropoff
+	)
+		is_safe |= 2;
+
 	P_LineOpening(ld);
 
 	if(opentop < tmceilingz)
@@ -1013,7 +1040,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 		floorline = ld;
 	}
 
-	if(lowfloor < tmdropoffz)
+	if(is_safe != 3 && lowfloor < tmdropoffz)
 		tmdropoffz = lowfloor;
 
 	if(ld->special && numspechit < MAXSPECIALCROSS)
@@ -1102,18 +1129,41 @@ uint32_t try_move_check(mobj_t *mo, fixed_t x)
 		y = tmp;
 	}
 
-	ceilingline = NULL;
-	floorline = NULL;
-	numspecbump = 0;
-
 	ret = P_CheckPosition(mo, x, y);
 
 	while(numspecbump--)
 		spec_activate(specbump[numspecbump], mo, SPEC_ACT_BUMP);
-
 	numspecbump = 0;
 
 	return ret;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t check_position_extra(sector_t *sec)
+{
+	ceilingline = NULL;
+	floorline = NULL;
+	numspecbump = 0;
+
+	tmceilingz = sec->ceilingheight;
+	tmfloorz = sec->floorheight;
+	tmdropoffz = tmfloorz;
+
+	if(tmflags & MF_NOCLIP)
+		return 1;
+
+	e3d_check_heights(tmthing, sec);
+
+	if(tmextraceiling < tmceilingz)
+		tmceilingz = tmextraceiling;
+
+	if(tmextrafloor > tmfloorz)
+	{
+		tmfloorz = tmextrafloor;
+		tmdropoffz = tmextrafloor;
+	}
+
+	return 0;
 }
 
 //
@@ -1695,7 +1745,7 @@ static void mobj_xy_move(mobj_t *mo)
 			mo->momy > FRACUNIT/4 ||
 			mo->momy < -FRACUNIT/4
 		) {
-			if(mo->floorz != mo->subsector->sector->floorheight)
+			if(mo->floorz != mo->subsector->sector->floorheight && !mo->subsector->sector->exfloor)
 				return;
 		}
 	}
@@ -1955,6 +2005,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002BEBA, CODE_HOOK | HOOK_UINT16, 0x25EB},
 	// replace call to 'P_CheckPosition' in 'P_TryMove'
 	{0x0002B217, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)try_move_check},
+	// add extra floor check into 'P_CheckPosition'
+	{0x0002B0D7, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_position_extra},
+	{0x0002B0DC, CODE_HOOK | HOOK_UINT32, 0x16EBC085},
 	// replace 'P_SetMobjState' with new animation system
 	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SEE << 8)}, // A_Look
 	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Look

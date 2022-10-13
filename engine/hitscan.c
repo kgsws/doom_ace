@@ -9,6 +9,7 @@
 #include "player.h"
 #include "mobj.h"
 #include "map.h"
+#include "extra3d.h"
 #include "special.h"
 #include "hitscan.h"
 
@@ -353,6 +354,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 uint32_t hs_slide_traverse(intercept_t *in)
 {
 	line_t *li;
+	uint32_t side;
 
 	if(!in->isaline)
 	{
@@ -407,6 +409,23 @@ uint32_t hs_slide_traverse(intercept_t *in)
 	}
 
 	P_LineOpening(li);
+
+	tmfloorz = openbottom;
+	tmceilingz = opentop;
+
+	if(P_PointOnLineSide(slidemo->x, slidemo->y, li))
+		e3d_check_heights(slidemo, li->frontsector);
+	else
+		e3d_check_heights(slidemo, li->backsector);
+
+	if(tmextraceiling - tmextrafloor)
+		goto isblocking;
+
+	if(opentop > tmextraceiling)
+		opentop = tmextraceiling;
+
+	if(openbottom < tmextrafloor)
+		openbottom = tmextrafloor;
 
 	if(openrange < slidemo->height)
 		goto isblocking;

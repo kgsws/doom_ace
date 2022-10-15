@@ -764,6 +764,16 @@ uint32_t finish_mobj(mobj_t *mo)
 	if(mo->flags1 & MF1_DORMANT)
 		mo->tics = -1;
 
+	// check for extra floors
+	if(mo->subsector && mo->subsector->sector->exfloor)
+	{
+		tmfloorz = mo->floorz;
+		tmceilingz = mo->ceilingz;
+		e3d_check_heights(mo, mo->subsector->sector, 1);
+		mo->floorz = tmextrafloor;
+		mo->ceilingz = tmextraceiling;
+	}
+
 	// ZDoom compatibility
 	// teleport fog starts teleport sound
 	if(mo->type == 39)
@@ -979,6 +989,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 {
 	uint32_t is_safe = 0;
+	fixed_t z;
 
 	if(!ld->backsector)
 		goto blocked;
@@ -1002,7 +1013,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 		}
 	}
 
-	e3d_check_heights(tmthing, ld->frontsector);
+	e3d_check_heights(tmthing, ld->frontsector, tmthing->flags & MF_MISSILE);
 
 	if(tmceilingz > tmextraceiling)
 		tmceilingz = tmextraceiling;
@@ -1014,7 +1025,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 	)
 		is_safe |= 1;
 
-	e3d_check_heights(tmthing, ld->backsector);
+	e3d_check_heights(tmthing, ld->backsector, tmthing->flags & MF_MISSILE);
 
 	if(tmceilingz > tmextraceiling)
 		tmceilingz = tmextraceiling;
@@ -1040,10 +1051,21 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 		floorline = ld;
 	}
 
+	if(tmthing->z < tmfloorz)
+		z = tmfloorz;
+	else
+		z = tmthing->z;
+
+	if(e3d_check_inside(ld->frontsector, z, E3D_SOLID))
+		goto blocked;
+
+	if(e3d_check_inside(ld->backsector, z, E3D_SOLID))
+		goto blocked;
+
 	if(is_safe != 3 && lowfloor < tmdropoffz)
 		tmdropoffz = lowfloor;
 
-	if(ld->special && numspechit < MAXSPECIALCROSS)
+	if(ld->hexspec && numspechit < MAXSPECIALCROSS)
 	{
 		spechit[numspechit] = ld;
 		numspechit++;
@@ -1052,7 +1074,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 	return 1;
 
 blocked:
-	if(ld->special && numspecbump < MAXSPECIALBUMP)
+	if(ld->hexspec && numspecbump < MAXSPECIALBUMP)
 	{
 		specbump[numspecbump] = ld;
 		numspecbump++;
@@ -1152,7 +1174,7 @@ uint32_t check_position_extra(sector_t *sec)
 	if(tmflags & MF_NOCLIP)
 		return 1;
 
-	e3d_check_heights(tmthing, sec);
+	e3d_check_heights(tmthing, sec, tmthing->flags & MF_MISSILE);
 
 	if(tmextraceiling < tmceilingz)
 		tmceilingz = tmextraceiling;
@@ -1162,6 +1184,9 @@ uint32_t check_position_extra(sector_t *sec)
 		tmfloorz = tmextrafloor;
 		tmdropoffz = tmextrafloor;
 	}
+
+	if(e3d_check_inside(sec, tmfloorz, E3D_SOLID))
+		tmceilingz = tmfloorz;
 
 	return 0;
 }

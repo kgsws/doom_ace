@@ -749,7 +749,15 @@ typedef struct line_s
 	vertex_t *v1, *v2;
 	fixed_t dx, dy;
 	uint16_t flags;
-	uint16_t special;
+	union
+	{
+		uint16_t doomspec;
+		struct
+		{
+			uint8_t hexspec;
+			uint8_t hexflags;
+		};
+	};
 	union
 	{
 		uint16_t tag;

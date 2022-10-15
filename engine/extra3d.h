@@ -1,6 +1,9 @@
 // kgsws' ACE Engine
 ////
 
+#define E3D_SOLID	1
+#define E3D_SWAP_PLANES	0x10000
+
 typedef struct extraplane_s
 {
 	struct extraplane_s *next;
@@ -10,7 +13,8 @@ typedef struct extraplane_s
 	uint16_t *texture;
 	uint16_t *pic;
 	uint16_t *light;
-	uint32_t validcount;
+	uint16_t flags;
+	uint8_t alpha;
 } extraplane_t;
 
 typedef struct extra_height_s
@@ -37,7 +41,11 @@ void e3d_init(uint32_t count);
 void e3d_create();
 void e3d_reset();
 void e3d_draw_height(fixed_t);
-void e3d_check_heights(mobj_t *mo, sector_t *sec);
+
+//
+
+extraplane_t *e3d_check_inside(sector_t *sec, fixed_t z, uint32_t flags);
+void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step);
 
 //
 

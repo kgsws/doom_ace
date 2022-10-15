@@ -17,6 +17,8 @@
 
 static uint32_t thing_slide_slope;
 
+static fixed_t hitscanz;
+
 //
 // functions
 
@@ -276,6 +278,8 @@ uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t 
 	int32_t dx, dy;
 	int32_t ia, ib, ic;
 
+	hitscanz = shootz; // hack for hitscan
+
 	validcount++;
 	intercept_p = intercepts;
 
@@ -354,7 +358,8 @@ __attribute((regparm(2),no_caller_saved_registers))
 uint32_t hs_slide_traverse(intercept_t *in)
 {
 	line_t *li;
-	uint32_t side;
+	sector_t *sec;
+	fixed_t z;
 
 	if(!in->isaline)
 	{
@@ -414,9 +419,11 @@ uint32_t hs_slide_traverse(intercept_t *in)
 	tmceilingz = opentop;
 
 	if(P_PointOnLineSide(slidemo->x, slidemo->y, li))
-		e3d_check_heights(slidemo, li->frontsector);
+		sec = li->frontsector;
 	else
-		e3d_check_heights(slidemo, li->backsector);
+		sec = li->backsector;
+
+	e3d_check_heights(slidemo, sec, slidemo->flags & MF_MISSILE);
 
 	if(tmextraceiling - tmextrafloor)
 		goto isblocking;
@@ -426,6 +433,14 @@ uint32_t hs_slide_traverse(intercept_t *in)
 
 	if(openbottom < tmextrafloor)
 		openbottom = tmextrafloor;
+
+	if(slidemo->z < openbottom)
+		z = openbottom;
+	else
+		z = slidemo->z;
+
+	if(e3d_check_inside(sec, z, E3D_SOLID))
+		goto isblocking;
 
 	if(openrange < slidemo->height)
 		goto isblocking;
@@ -448,6 +463,45 @@ isblocking:
 	return 0;
 }
 
+static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
+{
+	fixed_t dz, z;
+
+	dz = FixedMul(aimslope, FixedMul(frac, attackrange));
+	z = shootz + dz;
+
+	if(aimslope < 0)
+	{
+		extraplane_t *pl = sec->exfloor;
+		while(pl)
+		{
+			if(pl->flags & E3D_SOLID && hitscanz > *pl->height && z < *pl->height)
+			{
+				frac = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
+				*zz = *pl->height;
+				return frac;
+			}
+			pl = pl->next;
+		}
+	} else
+	if(aimslope > 0)
+	{
+		extraplane_t *pl = sec->exceiling;
+		while(pl)
+		{
+			if(pl->flags & E3D_SOLID && hitscanz < *pl->height && z > *pl->height)
+			{
+				frac = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
+				*zz = *pl->height;
+				return frac;
+			}
+			pl = pl->next;
+		}
+	}
+
+	return -1;
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t hs_shoot_traverse(intercept_t *in)
 {
@@ -464,7 +518,7 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		sector_t *backsector;
 		uint_fast8_t activate = map_format != MAP_FORMAT_DOOM;
 
-		if(li->special && !activate)
+		if(li->hexspec && !activate)
 			P_ShootSpecialLine(shootthing, li);
 
 		if(!(li->flags & ML_TWOSIDED) || li->flags & ML_BLOCK_ALL)
@@ -487,12 +541,51 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		}
 
 		if(	activate &&
-			li->special &&
+			li->hexspec &&
 			(li->flags & ML_ACT_MASK) == MLA_ATK_HIT &&
 			FixedDiv(opentop - shootz, dist) >= aimslope &&
 			FixedDiv(openbottom - shootz, dist) <= aimslope
 		)
 			spec_activate(li, shootthing, SPEC_ACT_SHOOT);
+
+		if(!li->frontsector->exfloor && !li->backsector->exfloor)
+			return 1;
+
+		if(P_PointOnLineSide(trace.x, trace.y, li))
+		{
+			backsector = li->frontsector;
+			frontsector = li->backsector;
+		} else
+		{
+			frontsector = li->frontsector;
+			backsector = li->backsector;
+		}
+
+		if(frontsector->exfloor)
+		{
+			frac = check_e3d_hit(frontsector, in->frac, &z);
+			if(frac >= 0)
+				goto do_puff;
+		}
+
+		if(frontsector->tag == backsector->tag)
+			return 1;
+
+		if(!backsector->exfloor)
+			return 1;
+
+		dz = FixedMul(aimslope, FixedMul(in->frac, attackrange));
+		z = shootz + dz;
+
+		if(e3d_check_inside(backsector, z, E3D_SOLID))
+		{
+			frac = in->frac - FixedDiv(4 * FRACUNIT, attackrange);
+			dz = FixedMul(aimslope, FixedMul(frac, attackrange));
+			z = shootz + dz;
+			goto do_puff;
+		}
+
+		hitscanz = z;
 
 		return 1;
 
@@ -502,6 +595,9 @@ hitline:
 		{
 			backsector = li->frontsector;
 			frontsector = li->backsector;
+			if(!frontsector)
+				// noclip?
+				return 1;
 		} else
 		{
 			frontsector = li->frontsector;
@@ -519,6 +615,7 @@ hitline:
 				if(z < frontsector->floorheight)
 				{
 					frac = -FixedDiv(FixedMul(frac, shootz - frontsector->floorheight), dz);
+					z = frontsector->floorheight;
 					activate = 0;
 				}
 			} else
@@ -527,6 +624,7 @@ hitline:
 				if(z > frontsector->ceilingheight)
 				{
 					frac = FixedDiv(FixedMul(frac, frontsector->ceilingheight - shootz), dz);
+					z = frontsector->ceilingheight;
 					activate = 0;
 				}
 			}
@@ -545,13 +643,25 @@ hitline:
 			}
 		}
 
+		if(frontsector->exfloor)
+		{
+			fixed_t tf, tz;
+			tf = check_e3d_hit(frontsector, in->frac, &tz);
+			if(tf >= 0)
+			{
+				frac = tf;
+				z = tz;
+			}
+		}
+
+do_puff:
 		trace.x = trace.x + FixedMul(trace.dx, frac);
 		trace.y = trace.y + FixedMul(trace.dy, frac);
 		trace.dx = z;
 
 		mobj_spawn_puff(&trace, NULL);
 
-		if(activate && li->special)
+		if(activate && li->hexspec)
 			spec_activate(li, shootthing, SPEC_ACT_SHOOT);
 
 		return 0;

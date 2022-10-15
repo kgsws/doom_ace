@@ -15,3 +15,5 @@ uint8_t r_find_color(uint8_t, uint8_t, uint8_t);
 
 void r_draw_plane(visplane_t *pl);
 
+void render_player_view(player_t *pl);
+

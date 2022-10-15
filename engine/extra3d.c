@@ -29,14 +29,15 @@ fixed_t tmextradrop;
 //
 // funcs
 
-void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line)
+void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t flags, uint8_t alpha)
 {
 	extraplane_t *pl = *dest;
 	extraplane_t *new;
 
 	while(pl)
 	{
-		if(sec->ceilingheight < *pl->height)
+		// sort, top to bottom
+		if(sec->ceilingheight > *pl->height)
 			break;
 		dest = &pl->next;
 		pl = pl->next;
@@ -47,21 +48,32 @@ void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line)
 	new->next = pl;
 	new->line = line;
 	new->source = sec;
-	new->height = &sec->ceilingheight;
-	new->pic = &sec->ceilingpic;
 	new->texture = &sides[line->sidenum[0]].midtexture;
-	new->light = &sec->lightlevel;
-	new->validcount = 0;
+	new->flags = flags;
+	new->alpha = alpha;
+
+	if(flags & E3D_SWAP_PLANES)
+	{
+		new->height = &sec->floorheight;
+		new->pic = &sec->floorpic;
+		new->light = NULL;
+	} else
+	{
+		new->height = &sec->ceilingheight;
+		new->pic = &sec->ceilingpic;
+		new->light = &sec->lightlevel;
+	}
 }
 
-void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line)
+void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t flags, uint8_t alpha)
 {
 	extraplane_t *pl = *dest;
 	extraplane_t *new;
 
 	while(pl)
 	{
-		if(sec->floorheight > *pl->height)
+		// sort, bottom to top
+		if(sec->floorheight < *pl->height)
 			break;
 		dest = &pl->next;
 		pl = pl->next;
@@ -72,11 +84,18 @@ void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line)
 	new->next = pl;
 	new->line = line;
 	new->source = sec;
-	new->height = &sec->floorheight;
-	new->pic = &sec->floorpic;
-	new->texture = &sides[line->sidenum[0]].midtexture;
-	new->light = &sec->lightlevel;
-	new->validcount = 0;
+	new->flags = flags;
+	new->alpha = alpha;
+
+	if(flags & E3D_SWAP_PLANES)
+	{
+		new->height = &sec->ceilingheight;
+		new->pic = &sec->ceilingpic;
+	} else
+	{
+		new->height = &sec->floorheight;
+		new->pic = &sec->floorpic;
+	}
 }
 
 //
@@ -217,7 +236,27 @@ void e3d_add_height(fixed_t height)
 //
 // API
 
-void e3d_check_heights(mobj_t *mo, sector_t *sec)
+extraplane_t *e3d_check_inside(sector_t *sec, fixed_t z, uint32_t flags)
+{
+	extraplane_t *pl = sec->exfloor;
+
+	if(!pl)
+		return NULL;
+
+	while(pl)
+	{
+		if(pl->flags & flags)
+		{
+			if(z < pl->source->ceilingheight && z >= pl->source->floorheight)
+				return pl;
+		}
+		pl = pl->next;
+	}
+
+	return NULL;
+}
+
+void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step)
 {
 	extraplane_t *pl;
 	fixed_t z = mo->z;
@@ -226,16 +265,19 @@ void e3d_check_heights(mobj_t *mo, sector_t *sec)
 	tmextraceiling = tmceilingz;
 	tmextradrop = 0x7FFFFFFF;
 
-	if(!(mo->flags & MF_MISSILE))
+	if(!no_step)
 		z += mo->info->step_height;
 
 	pl = sec->exfloor;
 	while(pl)
 	{
-		if(*pl->height <= z && *pl->height > tmextrafloor)
-			tmextrafloor = *pl->height;
-		if(*pl->height <= mo->z)
-			tmextradrop = mo->z - *pl->height;
+		if(pl->flags & E3D_SOLID)
+		{
+			if(*pl->height <= z && *pl->height > tmextrafloor)
+				tmextrafloor = *pl->height;
+			if(*pl->height <= mo->z)
+				tmextradrop = mo->z - *pl->height;
+		}
 		pl = pl->next;
 	}
 
@@ -249,8 +291,11 @@ void e3d_check_heights(mobj_t *mo, sector_t *sec)
 	pl = sec->exceiling;
 	while(pl)
 	{
-		if(*pl->height >= z && *pl->height < tmextraceiling)
-			tmextraceiling = *pl->height;
+		if(pl->flags & E3D_SOLID)
+		{
+			if(*pl->height >= z && *pl->height < tmextraceiling)
+				tmextraceiling = *pl->height;
+		}
 		pl = pl->next;
 	}
 }
@@ -299,9 +344,11 @@ void e3d_create()
 	{
 		line_t *ln = lines + i;
 		sector_t *src;
+		side_t *side;
 		uint32_t tag;
+		uint32_t flags;
 
-		if(ln->special != 160) // Sector_Set3dFloor
+		if(ln->hexspec != 160) // Sector_Set3dFloor
 			continue;
 
 		if(	(ln->arg1 != 1 && ln->arg1 != 3) ||
@@ -309,9 +356,19 @@ void e3d_create()
 		)
 			I_Error("[EX3D] Unsupported extra floor type!");
 
-		src = sides[ln->sidenum[0]].sector;
+		side = sides + ln->sidenum[0];
+
+		if(side->textureoffset || side->rowoffset)
+			I_Error("[EX3D] Texture offsets are not supported!");
+
+		src = side->sector;
 
 		tag = ln->arg0 + ln->arg4 * 256;
+
+		if(ln->arg1 == 1)
+			flags = E3D_SOLID;
+		else
+			flags = 0;
 
 		for(uint32_t j = 0; j < numsectors; j++)
 		{
@@ -319,15 +376,15 @@ void e3d_create()
 
 			if(sec->tag == tag)
 			{
-				add_floor_plane(&sec->exfloor, src, ln);
-				add_ceiling_plane(&sec->exceiling, src, ln);
+				add_floor_plane(&sec->exfloor, src, ln, flags, ln->arg3);
+				add_ceiling_plane(&sec->exceiling, src, ln, flags, ln->arg3);
 			}
 
 			// TODO: update things
 		}
 
 		// clear special
-		ln->special = 0;
+		ln->hexspec = 0;
 		ln->arg0 = 0;
 		ln->args = 0;
 
@@ -335,7 +392,7 @@ void e3d_create()
 		for(tag = 0; tag < src->linecount; tag++)
 		{
 			line_t *li = src->lines[tag];
-			if(li->special == 160)
+			if(li->hexspec == 160)
 				break;
 		}
 		if(tag >= src->linecount)

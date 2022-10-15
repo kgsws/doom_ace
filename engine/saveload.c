@@ -698,7 +698,7 @@ static inline void sv_put_linedefs_doom(int32_t lump)
 		uint32_t flags = 0;
 
 		flags |= (line->flags != ml[i].flags) << SF_LINE_FLAGS;
-		flags |= (line->special != ml[i].special) << SF_LINE_SPECIAL;
+		flags |= (line->doomspec != ml[i].special) << SF_LINE_SPECIAL;
 		flags |= (line->tag != ml[i].tag) << SF_LINE_TAG;
 
 		if(flags)
@@ -707,7 +707,7 @@ static inline void sv_put_linedefs_doom(int32_t lump)
 			if(CHECK_BIT(flags, SF_LINE_FLAGS))
 				writer_add_u16(line->flags);
 			if(CHECK_BIT(flags, SF_LINE_SPECIAL))
-				writer_add_u16(line->special);
+				writer_add_u16(line->doomspec);
 			if(CHECK_BIT(flags, SF_LINE_TAG))
 				writer_add_u16(line->tag);
 		}
@@ -733,7 +733,7 @@ static inline void sv_put_linedefs_hexen(int32_t lump)
 		uint32_t flags = 0;
 
 		flags |= (line->flags != ml[i].flags) << SF_LINE_FLAGS;
-		flags |= (line->special != ml[i].special) << SF_LINE_SPECIAL;
+		flags |= (line->doomspec != ml[i].special) << SF_LINE_SPECIAL; // this also stores hexflags
 		flags |= (!!line->id) << SF_LINE_TAG;
 		flags |= (line->arg0 != ml->arg0) << SF_LINE_TAG;
 		flags |= (line->args != ml->args) << SF_LINE_ARGS;
@@ -744,7 +744,7 @@ static inline void sv_put_linedefs_hexen(int32_t lump)
 			if(CHECK_BIT(flags, SF_LINE_FLAGS))
 				writer_add_u16(line->flags);
 			if(CHECK_BIT(flags, SF_LINE_SPECIAL))
-				writer_add_u16(line->special);
+				writer_add_u16(line->doomspec);
 			if(CHECK_BIT(flags, SF_LINE_TAG))
 				writer_add_u16(line->tag);
 			if(CHECK_BIT(flags, SF_LINE_ARGS))
@@ -1160,7 +1160,7 @@ void do_save()
 	old_size = r_setblocks;
 	r_setblocks = 20; // fullscreen with no status bar
 	R_ExecuteSetViewSize();
-	R_RenderPlayerView(players + consoleplayer);
+	render_player_view(players + consoleplayer);
 	r_rdptr = r_fbptr; // fullscreen hack
 	I_ReadScreen(screen_buffer);
 	r_setblocks = old_size;
@@ -1469,7 +1469,7 @@ static inline uint32_t ld_get_linedefs()
 		}
 		if(CHECK_BIT(flags, SF_LINE_SPECIAL))
 		{
-			if(reader_get_u16(&line->special))
+			if(reader_get_u16(&line->doomspec))
 				return 1;
 		}
 		if(CHECK_BIT(flags, SF_LINE_TAG))

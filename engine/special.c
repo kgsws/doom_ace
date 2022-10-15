@@ -69,11 +69,11 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		break;
 		default:
 			// unsupported
-			ln->special = 0;
+			ln->hexspec = 0;
 			return;
 	}
 
-	doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", ln->special, !!(type & SPEC_ACT_BACK_SIDE), mo, mo->player);
+	doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", ln->hexspec, !!(type & SPEC_ACT_BACK_SIDE), mo, mo->player);
 }
 
 //

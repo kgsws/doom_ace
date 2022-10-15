@@ -29,6 +29,7 @@ static int16_t *e_ceilingclip;
 
 static int32_t clip_height_bot;
 static int32_t clip_height_top;
+static int32_t clip_height_bot_last;
 static uint16_t masked_col_step;
 
 static fixed_t cy_weapon;
@@ -61,114 +62,6 @@ uint8_t r_color_black;
 static hook_t hook_drawseg[];
 static hook_t hook_visplane[];
 static hook_t hook_vissprite[];
-
-//
-// API
-
-uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
-{
-	uint8_t ret = 0;
-	uint32_t best = 0xFFFFFFFF;
-	uint8_t *pal = r_palette;
-
-	for(uint32_t i = 0; i < 256; i++)
-	{
-		int32_t tmp;
-		uint32_t value;
-
-		if(pal[0] == r && pal[1] == g && pal[2] == b)
-			return i;
-
-		tmp = pal[0];
-		tmp -= r;
-		tmp *= tmp;
-		value = tmp;
-
-		tmp = pal[1];
-		tmp -= g;
-		tmp *= tmp;
-		value += tmp;
-
-		tmp = pal[2];
-		tmp -= b;
-		tmp *= tmp;
-		value += tmp;
-
-		pal += 3;
-
-		if(value < best)
-		{
-			ret = i;
-			best = value;
-		}
-	}
-
-	return ret;
-}
-
-void r_init_palette(uint8_t *palette)
-{
-	memcpy(r_palette, palette, 768);
-}
-
-void init_render()
-{
-	ldr_alloc_message = "Render";
-
-	// find some colors
-	r_color_black = r_find_color(0, 0, 0);
-
-	// drawseg limit
-	if(mod_config.drawseg_count > 256)
-	{
-		doom_printf("[RENDER] New drawseg limit %u\n", mod_config.drawseg_count);
-		// allocate new memory
-		ptr_drawsegs = ldr_malloc(mod_config.drawseg_count * sizeof(drawseg_t));
-		// update values in hooks
-		hook_drawseg[0].value = (uint32_t)ptr_drawsegs + mod_config.drawseg_count * sizeof(drawseg_t);
-		for(int i = 1; i <= 3; i++)
-			hook_drawseg[i].value = (uint32_t)ptr_drawsegs;
-		// install hooks
-		utils_install_hooks(hook_drawseg, 4);
-	} else
-		ptr_drawsegs = d_drawsegs;
-
-	// visplane limit
-	if(mod_config.visplane_count > 128)
-	{
-		doom_printf("[RENDER] New visplane limit %u\n", mod_config.visplane_count);
-		// allocate new memory
-		ptr_visplanes = ldr_malloc(mod_config.visplane_count * sizeof(visplane_t));
-		memset(ptr_visplanes, 0, mod_config.visplane_count * sizeof(visplane_t));
-		// update values in hooks
-		for(int i = 0; i <= 4; i++)
-			hook_visplane[i].value = (uint32_t)ptr_visplanes;
-		for(int i = 5; i <= 6; i++)
-			hook_visplane[i].value = mod_config.visplane_count;
-		// install hooks
-		utils_install_hooks(hook_visplane, 7);
-	}
-
-	// vissprite limit
-	if(mod_config.vissprite_count > 128)
-	{
-		doom_printf("[RENDER] New vissprite limit %u\n", mod_config.vissprite_count);
-		// allocate new memory
-		ptr_vissprites = ldr_malloc(mod_config.vissprite_count * sizeof(vissprite_t));
-		// update values in hooks
-		for(int i = 0; i <= 4; i++)
-			hook_vissprite[i].value = (uint32_t)ptr_vissprites;
-		hook_vissprite[5].value = (uint32_t)ptr_vissprites + mod_config.vissprite_count * sizeof(vissprite_t);
-		// install hooks
-		utils_install_hooks(hook_vissprite, 6);
-	} else
-		ptr_vissprites = d_vissprites;
-
-	// extra planes
-	if(mod_config.e3dplane_count < 16)
-		mod_config.e3dplane_count = 16;
-	e3d_init(mod_config.e3dplane_count);
-}
 
 //
 // draw
@@ -254,18 +147,20 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 
 	// texture
 	if(	clip_height_top < 0x7FFFFFFF &&
+		clip_height_bot > -0x7FFFFFFF &&
 		frontsector->tag != backsector->tag
 	){
 		extraplane_t *pl = backsector->exfloor;
 		while(pl)
 		{
-			if(	*pl->texture &&
+			if(	pl->alpha &&
+				*pl->texture &&
 				clip_height_top <= pl->source->ceilingheight &&
 				clip_height_top > pl->source->floorheight
 			){
 				texnum = texturetranslation[*pl->texture];
-				dc_texturemid = pl->source->ceilingheight - viewz;
-				height = -1;
+				dc_texturemid = pl->source->ceilingheight - viewz; // TODO: PEG flags
+				height = textureheight[texnum] >> FRACBITS;
 				break;
 			}
 			pl = pl->next;
@@ -485,17 +380,20 @@ static void render_striped_seg(uint32_t texture, fixed_t ht, fixed_t hb)
 	pl = frontsector->exfloor;
 	while(pl)
 	{
-		fixed_t h1 = *pl->height >> 4;
-		if(h1 >= ht)
+		if(pl->light)
 		{
-			h0 = h1;
-			light = *pl->light;
-		} else
-		if(h1 < h0 && light != *pl->light)
-		{
-			R_RenderSegStripe(texture, h0, h1, light);
-			h0 = h1;
-			light = *pl->light;
+			fixed_t h1 = *pl->height >> 4;
+			if(h1 >= ht)
+			{
+				h0 = h1;
+				light = *pl->light;
+			} else
+			if(h1 < h0 && light != *pl->light)
+			{
+				R_RenderSegStripe(texture, h0, h1, light);
+				h0 = h1;
+				light = *pl->light;
+			}
 		}
 		pl = pl->next;
 	}
@@ -590,7 +488,7 @@ static void R_RenderSegLoop()
 			}
 		}
 
-		if(segtextured)
+		if(segtextured || maskedtexture)
 		{
 			angle_t angle;
 			uint32_t index;
@@ -714,11 +612,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 			while(pl)
 			{
-				if(viewz <= *pl->height)
-				{
+				if(pl->light && viewz <= *pl->height)
 					light = *pl->light;
-					break;
-				}
 				pl = pl->next;
 			}
 
@@ -751,11 +646,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 			while(pl)
 			{
-				if(clip_height_top <= *pl->height)
-				{
+				if(pl->light && clip_height_top <= *pl->height)
 					light = *pl->light;
-					break;
-				}
 				pl = pl->next;
 			}
 
@@ -787,9 +679,26 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 	if(clip_height_bot > -0x7FFFFFFF)
 	{
-		if(clip_height_bot > dc_texturemid + viewz)
+		fixed_t height = clip_height_bot;
+
+		if(height < viewz)
+		{
+			// this allows things "overdraw" into the floor
+			extraplane_t *pl = vis->mo->subsector->sector->exfloor;
+			while(pl)
+			{
+				if(*pl->height <= vis->mo->z)
+					break;
+				pl = pl->next;
+			}
+			if(pl && pl->alpha == 255 && *pl->height == clip_height_bot)
+				height = clip_height_bot_last;
+		}
+
+		if(height > dc_texturemid + viewz)
 			return;
-		fc = (centeryfrac - FixedMul(clip_height_bot - viewz, spryscale)) / FRACUNIT;
+
+		fc = (centeryfrac - FixedMul(height - viewz, spryscale)) / FRACUNIT;
 		if(fc < 0)
 			return;
 	} else
@@ -882,12 +791,14 @@ static inline void draw_masked_range()
 
 	// from bottom to middle
 	clip_height_bot = -0x7FFFFFFF;
+	clip_height_bot_last = -0x7FFFFFFF;
 	hh = e3d_dn_height;
 	while(hh)
 	{
 		// sprites and lines
 		clip_height_top = hh->height;
 		draw_masked();
+		clip_height_bot_last = clip_height_bot;
 		clip_height_bot = clip_height_top;
 		// planes
 		e3d_draw_height(hh->height);
@@ -1134,6 +1045,7 @@ void R_Subsector(uint32_t num)
 	seg_t *line;
 	subsector_t *sub;
 	extraplane_t *pl;
+	uint16_t light;
 
 	sub = subsectors + num;
 	frontsector = sub->sector;
@@ -1142,35 +1054,35 @@ void R_Subsector(uint32_t num)
 	// fake lines
 
 	idx = 0;
+	light = frontsector->lightlevel;
 	pl = frontsector->exfloor;
 	while(pl)
 	{
-		uint16_t light;
+		extraplane_t *pll;
 
 		if(*pl->height < frontsector->floorheight)
 		{
+			if(*pl->light)
+				light = *pl->light;
 			pl = pl->next;
 			continue;
 		}
 
-		if(*pl->height >= viewz)
+		e3d_add_height(*pl->height);
+
+		if(*pl->height >= viewz || !pl->alpha)
 		{
 			// out of sight; but must add height for light effects and sides
-			e3d_add_height(*pl->height);
+			if(*pl->light)
+				light = *pl->light;
 			pl = pl->next;
 			continue;
 		}
-
-		if(pl->next)
-			light = *pl->next->light;
-		else
-			light = frontsector->lightlevel;
 
 		fakesource = pl;
 		fakeplane_floor = e3d_find_plane(*pl->height, *pl->pic, light);
 		if(fakeplane_floor)
 		{
-			e3d_add_height(*pl->height);
 			count = sub->numlines;
 			line = segs + sub->firstline;
 			e_floorclip = e3d_floorclip + idx * SCREENWIDTH;
@@ -1183,6 +1095,8 @@ void R_Subsector(uint32_t num)
 		}
 
 		idx++;
+		if(*pl->light)
+			light = *pl->light;
 		pl = pl->next;
 	}
 
@@ -1191,7 +1105,7 @@ void R_Subsector(uint32_t num)
 	pl = frontsector->exceiling;
 	while(pl)
 	{
-		uint16_t light;
+		extraplane_t *pll;
 
 		if(*pl->height > frontsector->ceilingheight)
 		{
@@ -1199,21 +1113,29 @@ void R_Subsector(uint32_t num)
 			continue;
 		}
 
-		if(*pl->height <= viewz)
+		e3d_add_height(*pl->height);
+
+		if(*pl->height <= viewz || !pl->alpha)
 		{
-			// out of sight; but must add height for light effects and sides
-			e3d_add_height(*pl->height);
+			// out of sight; but must add height for sides
 			pl = pl->next;
 			continue;
 		}
 
-		light = *pl->light; // TODO: this light is often correct, but not always
+		// find correct light
+		light = frontsector->lightlevel;
+		pll = frontsector->exfloor;
+		while(pll)
+		{
+			if(pll->light && *pll->height >= *pl->height)
+				light = *pll->light;
+			pll = pll->next;
+		}
 
 		fakesource = pl;
 		fakeplane_ceiling = e3d_find_plane(*pl->height, *pl->pic, light);
 		if(fakeplane_ceiling)
 		{
-			e3d_add_height(*pl->height);
 			count = sub->numlines;
 			line = segs + sub->firstline;
 			e_ceilingclip = e3d_ceilingclip + idx * SCREENWIDTH;
@@ -1242,16 +1164,13 @@ void R_Subsector(uint32_t num)
 	if(frontsector->floorheight < viewz)
 	{
 		// find correct light in extra3D
-		uint16_t light = frontsector->lightlevel;
+		light = frontsector->lightlevel;
 
 		pl = frontsector->exfloor;
 		while(pl)
 		{
-			if(*pl->height >= frontsector->floorheight)
-			{
+			if(pl->light && *pl->height >= frontsector->floorheight)
 				light = *pl->light;
-				break;
-			}
 			pl = pl->next;
 		}
 
@@ -1262,7 +1181,7 @@ void R_Subsector(uint32_t num)
 	if(frontsector->ceilingheight > viewz || frontsector->ceilingpic == skyflatnum)
 	{
 		// find correct light in extra3D
-		uint16_t light = frontsector->lightlevel;
+		light = frontsector->lightlevel;
 
 		if(frontsector->ceilingpic == skyflatnum)
 			pl = NULL;
@@ -1271,11 +1190,8 @@ void R_Subsector(uint32_t num)
 
 		while(pl)
 		{
-			if(*pl->height >= frontsector->ceilingheight)
-			{
+			if(pl->light && *pl->height >= frontsector->ceilingheight)
 				light = *pl->light;
-				break;
-			}
 			pl = pl->next;
 		}
 
@@ -1304,7 +1220,7 @@ void R_Subsector(uint32_t num)
 			{
 				fakesource = pl;
 
-				if(*pl->height >= line->backsector->floorheight)
+				if(pl->alpha && *pl->height >= line->backsector->floorheight && *pl->height < viewz)
 				{
 					e_floorclip = e3d_floorclip + idx * SCREENWIDTH;
 					R_AddLine(line);
@@ -1321,7 +1237,7 @@ void R_Subsector(uint32_t num)
 			{
 				fakesource = pl;
 
-				if(*pl->height <= line->backsector->ceilingheight)
+				if(pl->alpha && *pl->height <= line->backsector->ceilingheight && *pl->height > viewz)
 				{
 					e_ceilingclip = e3d_ceilingclip + idx * SCREENWIDTH;
 					R_AddLine(line);
@@ -1363,6 +1279,126 @@ uint32_t masked_side_check(side_t *side)
 		return 1;
 
 	return 0;
+}
+
+//
+// API
+
+uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
+{
+	uint8_t ret = 0;
+	uint32_t best = 0xFFFFFFFF;
+	uint8_t *pal = r_palette;
+
+	for(uint32_t i = 0; i < 256; i++)
+	{
+		int32_t tmp;
+		uint32_t value;
+
+		if(pal[0] == r && pal[1] == g && pal[2] == b)
+			return i;
+
+		tmp = pal[0];
+		tmp -= r;
+		tmp *= tmp;
+		value = tmp;
+
+		tmp = pal[1];
+		tmp -= g;
+		tmp *= tmp;
+		value += tmp;
+
+		tmp = pal[2];
+		tmp -= b;
+		tmp *= tmp;
+		value += tmp;
+
+		pal += 3;
+
+		if(value < best)
+		{
+			ret = i;
+			best = value;
+		}
+	}
+
+	return ret;
+}
+
+void r_init_palette(uint8_t *palette)
+{
+	memcpy(r_palette, palette, 768);
+}
+
+void init_render()
+{
+	ldr_alloc_message = "Render";
+
+	// find some colors
+	r_color_black = r_find_color(0, 0, 0);
+
+	// drawseg limit
+	if(mod_config.drawseg_count > 256)
+	{
+		doom_printf("[RENDER] New drawseg limit %u\n", mod_config.drawseg_count);
+		// allocate new memory
+		ptr_drawsegs = ldr_malloc(mod_config.drawseg_count * sizeof(drawseg_t));
+		// update values in hooks
+		hook_drawseg[0].value = (uint32_t)ptr_drawsegs + mod_config.drawseg_count * sizeof(drawseg_t);
+		for(int i = 1; i <= 3; i++)
+			hook_drawseg[i].value = (uint32_t)ptr_drawsegs;
+		// install hooks
+		utils_install_hooks(hook_drawseg, 4);
+	} else
+		ptr_drawsegs = d_drawsegs;
+
+	// visplane limit
+	if(mod_config.visplane_count > 128)
+	{
+		doom_printf("[RENDER] New visplane limit %u\n", mod_config.visplane_count);
+		// allocate new memory
+		ptr_visplanes = ldr_malloc(mod_config.visplane_count * sizeof(visplane_t));
+		memset(ptr_visplanes, 0, mod_config.visplane_count * sizeof(visplane_t));
+		// update values in hooks
+		for(int i = 0; i <= 4; i++)
+			hook_visplane[i].value = (uint32_t)ptr_visplanes;
+		for(int i = 5; i <= 6; i++)
+			hook_visplane[i].value = mod_config.visplane_count;
+		// install hooks
+		utils_install_hooks(hook_visplane, 7);
+	}
+
+	// vissprite limit
+	if(mod_config.vissprite_count > 128)
+	{
+		doom_printf("[RENDER] New vissprite limit %u\n", mod_config.vissprite_count);
+		// allocate new memory
+		ptr_vissprites = ldr_malloc(mod_config.vissprite_count * sizeof(vissprite_t));
+		// update values in hooks
+		for(int i = 0; i <= 4; i++)
+			hook_vissprite[i].value = (uint32_t)ptr_vissprites;
+		hook_vissprite[5].value = (uint32_t)ptr_vissprites + mod_config.vissprite_count * sizeof(vissprite_t);
+		// install hooks
+		utils_install_hooks(hook_vissprite, 6);
+	} else
+		ptr_vissprites = d_vissprites;
+
+	// extra planes
+	if(mod_config.e3dplane_count < 16)
+		mod_config.e3dplane_count = 16;
+	e3d_init(mod_config.e3dplane_count);
+}
+
+void render_player_view(player_t *pl)
+{
+	// cleanup new stuff
+	e3d_reset();
+	// 3D view
+	R_RenderPlayerView(pl);
+	// masked
+	draw_masked_range();
+	// weapon sprites
+	draw_player_sprites();
 }
 
 //
@@ -1420,16 +1456,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void hook_RenderPlayerView(player_t *pl)
 {
 	if(!automapactive)
-	{
-		// cleanup new stuff
-		e3d_reset();
-		// 3D view
-		R_RenderPlayerView(pl);
-		// masked
-		draw_masked_range();
-		// weapon sprites
-		draw_player_sprites();
-	}
+		render_player_view(pl);
 
 	// status bar
 	stbar_draw(pl);

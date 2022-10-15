@@ -771,7 +771,7 @@ void do_line_switch(line_t *ln, uint32_t repeat)
 	side_t *side = sides + ln->sidenum[0];
 
 	if(!repeat)
-		ln->special = 0;
+		ln->hexspec = 0;
 
 	while(1)
 	{

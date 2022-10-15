@@ -84,6 +84,7 @@ static menu_t options_menu =
 
 // DISPLAY
 
+static void change_fps(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static void xhair_type(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static void xhair_color(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static void change_gamma(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -98,6 +99,12 @@ static menuitem_t display_items[] =
 		.text = "SCREEN SIZE",
 		.status = 2,
 		.key = 's'
+	},
+	{
+		.text = "SHOW FPS",
+		.status = 2,
+		.func = change_fps,
+		.key = 'f'
 	},
 	{
 		.text = "GAMMA",
@@ -310,6 +317,12 @@ void options_draw()
 // menu 'display'
 
 static __attribute((regparm(2),no_caller_saved_registers))
+void change_fps(uint32_t dir)
+{
+	show_fps = !show_fps;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 void xhair_type(uint32_t dir)
 {
 	if(dir)
@@ -392,21 +405,24 @@ void display_draw()
 	doom_sprintf(text, "%u", screenblocks);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, text);
 
+	// FPS
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, off_on[!!show_fps]);
+
 	// gamma
 	doom_sprintf(text, "%u", usegamma);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, text);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, text);
 
 	// crosshair type
 	doom_sprintf(text, "%u", extra_config.crosshair_type);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 5, text);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 6, text);
 
 	// crosshair color
 	doom_sprintf(text, "%u", extra_config.crosshair_red);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 6, text);
-	doom_sprintf(text, "%u", extra_config.crosshair_green);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 7, text);
-	doom_sprintf(text, "%u", extra_config.crosshair_blue);
+	doom_sprintf(text, "%u", extra_config.crosshair_green);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 8, text);
+	doom_sprintf(text, "%u", extra_config.crosshair_blue);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 9, text);
 }
 
 //

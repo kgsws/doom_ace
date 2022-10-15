@@ -308,6 +308,12 @@ doom_fclose:
 FixedDiv:
 	.byte	0xE9
 	.4byte	0x0001D180
+////////////////////////////////// I_GetTime
+.section .text.I_GetTime
+.global I_GetTime
+I_GetTime:
+	.byte	0xE9
+	.4byte	0x00019C10
 ////////////////////////////////// I_Error
 .section .text.I_Error
 .global I_Error

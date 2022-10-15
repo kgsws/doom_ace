@@ -54,6 +54,11 @@ static mobjinfo_t *keyinv[MAX_KEY_ICONS];
 static patch_t *xhair;
 static patch_t *xhair_custom;
 
+uint8_t show_fps;
+static uint32_t fps_value;
+static uint32_t fps_diff;
+static uint32_t last_gt;
+
 //
 // crosshairs
 
@@ -683,6 +688,11 @@ void stbar_start(player_t *pl)
 {
 	inventory_t *item;
 
+	// reset FPS counter
+	fps_value = 0;
+	fps_diff = 0;
+	last_gt = I_GetTime();
+
 	// original status bar
 	ST_Start();
 
@@ -749,6 +759,24 @@ void stbar_draw(player_t *pl)
 	} else
 		// inventory bar
 		draw_invbar(pl);
+
+	// FPS counter
+	if(show_fps)
+	{
+		uint32_t gettime = I_GetTime();
+		uint32_t gdiff = gettime - last_gt;
+		fps_diff++;
+		if(gdiff >= 35)
+		{
+			fps_value = fps_diff * FRACUNIT;
+			fps_value /= gdiff;
+			fps_value *= 35;
+			fps_value /= FRACUNIT;
+			fps_diff = 0;
+			last_gt = gettime;
+		}
+		stbar_draw_number_r(SCREENWIDTH - 2, 2, fps_value, 3, shortnum);
+	}
 }
 
 void stbar_setup_empty()

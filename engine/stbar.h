@@ -11,6 +11,9 @@
 #define STU_EVERYTHING	0x00FF
 
 extern uint_fast8_t stbar_refresh_force;
+extern uint8_t show_fps;
+
+//
 
 void stbar_init();
 

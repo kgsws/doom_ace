@@ -7,6 +7,7 @@
 #include "wadfile.h"
 #include "player.h"
 #include "map.h"
+#include "stbar.h"
 #include "textpars.h"
 #include "controls.h"
 #include "config.h"
@@ -103,6 +104,7 @@ static config_entry_t config_game[] =
 	{"display.messages", &showMessages, TYPE_S32},
 	{"display.size", &screenblocks, TYPE_S32},
 	{"display.gamma", &usegamma, TYPE_S32},
+	{"display.fps", &show_fps, TYPE_U8},
 	{"display.xhair.type", &extra_config.crosshair_type, TYPE_U8},
 	{"display.xhair.red", &extra_config.crosshair_red, TYPE_U8},
 	{"display.xhair.green", &extra_config.crosshair_green, TYPE_U8},

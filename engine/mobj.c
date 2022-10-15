@@ -734,6 +734,8 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	// fill in new stuff
 	mobj_netid++;
 	mo->type = type;
+	mo->render_style = info->render_style;
+	mo->render_alpha = info->render_alpha;
 	mo->flags1 = info->flags1;
 	mo->netid = mobj_netid;
 

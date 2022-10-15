@@ -1,6 +1,19 @@
 // kgsws' ACE Engine
 ////
 
+enum
+{
+	RS_NORMAL, // must be zero
+	RS_FUZZ,
+	RS_SHADOW,
+	RS_TRANSLUCENT,
+	RS_ADDITIVE,
+	RS_INVISIBLE, // must be last
+	NUM_RENDER_STYLES
+};
+
+//
+
 extern uint8_t r_palette[768];
 
 // basic colors

@@ -557,7 +557,8 @@ typedef struct mobjinfo_s
 	uint32_t state_death;
 	uint32_t state_xdeath;
 	uint16_t deathsound;
-	uint16_t __free_4C;
+	uint8_t render_style;
+	uint8_t render_alpha;
 	int32_t speed;
 	int32_t radius;
 	int32_t height;
@@ -941,6 +942,9 @@ typedef struct mobj_s
 	struct mobj_s *tracer;
 	// new pointer
 	struct mobj_s *master;
+	// render
+	uint8_t render_style;
+	uint8_t render_alpha;
 	// animation system
 	uint8_t animation;
 	// path traverse

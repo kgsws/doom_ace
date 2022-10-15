@@ -283,10 +283,14 @@ void e3d_check_midtex(mobj_t *mo, line_t *ln, uint32_t no_step)
 	} else
 		z = mo->z;
 
+	if(z >= bot && z < top)
+	{
+		tmextraceiling = tmextrafloor;
+		return;
+	}
+
 	if(bot >= z && bot < tmextraceiling)
 		tmextraceiling = bot;
-
-
 }
 
 extraplane_t *e3d_check_inside(sector_t *sec, fixed_t z, uint32_t flags)
@@ -408,7 +412,7 @@ void e3d_create()
 		if(ln->special != 160) // Sector_Set3dFloor
 			continue;
 
-		tag = ln->arg1 & ~4;
+		tag = ln->arg1 & ~(4 | 16 | 32);
 
 		if(	(tag != 1 && tag != 3) ||
 			ln->arg2
@@ -422,12 +426,18 @@ void e3d_create()
 
 		src = side->sector;
 
-		tag = ln->arg0 + ln->arg4 * 256;
-
-		if((ln->arg1 & 3) == 1)
-			flags = E3D_SOLID;
+		if(tag == 1)
+			flags = E3D_SOLID | E3D_BLOCK_HITSCAN | E3D_BLOCK_SIGHT;
 		else
 			flags = 0;
+
+		if(ln->arg1 & 16)
+			flags ^= E3D_BLOCK_SIGHT;
+
+		if(ln->arg1 & 32)
+			flags ^= E3D_BLOCK_HITSCAN;
+
+		tag = ln->arg0 + ln->arg4 * 256;
 
 		for(uint32_t j = 0; j < numsectors; j++)
 		{
@@ -439,7 +449,7 @@ void e3d_create()
 				add_ceiling_plane(&sec->exceiling, src, ln, flags, ln->arg3);
 				if(ln->arg1 & 4)
 				{
-					flags |= E3D_SWAP_PLANES;
+					flags = E3D_SWAP_PLANES;
 					add_floor_plane(&sec->exfloor, src, ln, flags, ln->arg3);
 					add_ceiling_plane(&sec->exceiling, src, ln, flags, ln->arg3);
 				}

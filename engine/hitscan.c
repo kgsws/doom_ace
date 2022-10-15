@@ -486,7 +486,7 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 		extraplane_t *pl = sec->exfloor;
 		while(pl)
 		{
-			if(pl->flags & E3D_SOLID && hitscanz > *pl->height && z < *pl->height)
+			if(pl->flags & E3D_BLOCK_HITSCAN && hitscanz > *pl->height && z < *pl->height)
 			{
 				frac = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
 				*zz = *pl->height;
@@ -500,7 +500,7 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 		extraplane_t *pl = sec->exceiling;
 		while(pl)
 		{
-			if(pl->flags & E3D_SOLID && hitscanz < *pl->height && z > *pl->height)
+			if(pl->flags & E3D_BLOCK_HITSCAN && hitscanz < *pl->height && z > *pl->height)
 			{
 				frac = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
 				*zz = *pl->height;
@@ -588,7 +588,7 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		dz = FixedMul(aimslope, FixedMul(in->frac, attackrange));
 		z = shootz + dz;
 
-		if(e3d_check_inside(backsector, z, E3D_SOLID))
+		if(e3d_check_inside(backsector, z, E3D_BLOCK_HITSCAN))
 		{
 			frac = in->frac - FixedDiv(4 * FRACUNIT, attackrange);
 			dz = FixedMul(aimslope, FixedMul(frac, attackrange));

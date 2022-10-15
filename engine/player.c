@@ -7,6 +7,7 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "mobj.h"
+#include "render.h"
 #include "weapon.h"
 #include "stbar.h"
 #include "cheat.h"
@@ -84,11 +85,14 @@ static void invul_stop(mobj_t *mo)
 static void invis_start(mobj_t *mo, mobjinfo_t *info)
 {
 	mo->flags |= MF_SHADOW;
+	mo->render_style = RS_FUZZ;
 }
 
 static void invis_stop(mobj_t *mo)
 {
 	mo->flags &= ~MF_SHADOW;
+	mo->render_style = mo->info->render_style;
+	mo->render_alpha = mo->info->render_alpha;
 }
 
 //

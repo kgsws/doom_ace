@@ -92,7 +92,7 @@ void draw_solid_column(void *data, int32_t fc, int32_t cc, int32_t height)
 		dc_yl = top;
 		dc_yh = bot;
 		dc_source = data;
-		(*colfunc)();
+		colfunc();
 	}
 }
 
@@ -122,7 +122,7 @@ void draw_masked_column(column_t *column, int32_t fc, int32_t cc)
 			dc_yh = bot;
 			dc_source = (uint8_t*)column + 3;
 			dc_texturemid = basetexturemid - (column->topdelta << FRACBITS);
-			(*colfunc)();
+			colfunc();
 		}
 		column = (column_t*)((uint8_t*)column + column->length + 4);
 	}
@@ -163,7 +163,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			){
 				texnum = texturetranslation[*pl->texture];
 				dc_texturemid = pl->source->ceilingheight - viewz;
-				height = textureheight[texnum] >> FRACBITS;
+				height = -1;
 				break;
 			}
 			pl = pl->next;
@@ -182,7 +182,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				){
 					texnum = texturetranslation[*pl->texture];
 					dc_texturemid = pl->source->ceilingheight - viewz;
-					height = textureheight[texnum] >> FRACBITS;
+					height = -1;
 					break;
 				}
 				pl = pl->next;
@@ -208,6 +208,9 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			height = textureheight[texnum] >> FRACBITS;
 		}
 	}
+
+	// TODO: render flags
+	colfunc = (void*)0x0001BD28 + doom_code_segment; // R_DrawColumn
 
 	dc_texturemid += seg->sidedef->rowoffset;
 
@@ -274,7 +277,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 		if((tcol[dc_x] & 0x8000) == masked_col_step)
 		{
 			int32_t mfc, mcc;
-			void *data;
+			uint8_t *data;
 
 			if(!fixedcolormap)
 			{
@@ -305,10 +308,10 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			}
 
 			data = texture_get_column(texnum, tcol[dc_x] & 0x7FFF);
-			if(tex_was_composite)
+			if(tex_was_composite || (height < 0 && data[-2] >= 128))
 				draw_solid_column(data, mfc, mcc, height);
 			else
-				draw_masked_column(data - 3, mfc, mcc);
+				draw_masked_column((column_t*)(data - 3), mfc, mcc);
 
 			tcol[dc_x] ^= 0x8000;
 		}
@@ -620,7 +623,11 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 	if(!vis->mo)
 	{
-		// TODO: fuzz
+		colfunc = (void*)0x0001BD28 + doom_code_segment; // R_DrawColumn
+
+		if(viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8)
+			colfunc = (void*)0x00034A90 + doom_code_segment; // R_DrawFuzzColumn
+		else
 		if(fixedcolormap)
 			dc_colormap = fixedcolormap;
 		else
@@ -653,7 +660,11 @@ void R_DrawVisSprite(vissprite_t *vis)
 		}
 	} else
 	{
-		// TODO: render style
+		colfunc = (void*)0x0001BD28 + doom_code_segment; // R_DrawColumn
+
+		if(vis->mo->render_style == RS_FUZZ)
+			colfunc = (void*)0x00034A90 + doom_code_segment; // R_DrawFuzzColumn
+		else
 		if(fixedcolormap)
 			dc_colormap = fixedcolormap;
 		else
@@ -1230,7 +1241,12 @@ void R_Subsector(uint32_t num)
 	{
 		frontsector->validcount = validcount;
 		for(mobj_t *mo = frontsector->thinglist; mo; mo = mo->snext)
-			R_ProjectSprite(mo);
+		{
+			if(	mo->render_style < RS_INVISIBLE &&
+				(mo->render_alpha || (mo->render_style != RS_TRANSLUCENT && mo->render_style != RS_ADDITIVE))
+			)
+				R_ProjectSprite(mo);
+		}
 	}
 
 	while(count--)
@@ -1431,6 +1447,8 @@ void render_player_view(player_t *pl)
 	draw_masked_range();
 	// weapon sprites
 	draw_player_sprites();
+	// restore solid wall drawing
+	colfunc = (void*)0x0001BD28 + doom_code_segment; // R_DrawColumn
 }
 
 //

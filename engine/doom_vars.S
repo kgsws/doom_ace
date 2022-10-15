@@ -331,6 +331,7 @@ DOOM_VAR 0x000323E0, zlight
 DOOM_VAR 0x000343E0, scalelight
 
 DOOM_VAR 0x00038FE0, r_setblocks
+
 DOOM_VAR 0x00038FFC, fixedcolormap
 
 DOOM_VAR 0x00039010, colfunc

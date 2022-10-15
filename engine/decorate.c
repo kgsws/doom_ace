@@ -14,6 +14,7 @@
 #include "mobj.h"
 #include "map.h"
 #include "demo.h"
+#include "render.h"
 #include "config.h"
 #include "textpars.h"
 
@@ -32,6 +33,8 @@ enum
 	DT_STRING,
 	DT_ICON,
 	DT_SKIP1,
+	DT_RENDER_STYLE,
+	DT_RENDER_ALPHA,
 	DT_POWERUP_TYPE,
 	DT_POWERUP_MODE,
 	DT_MONSTER,
@@ -207,6 +210,7 @@ static const mobjinfo_t default_mobj =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 };
 
 // default 'PlayerPawn'
@@ -218,6 +222,7 @@ static const mobjinfo_t default_player =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.painchance = 255,
 	.speed = 1 << FRACBITS,
 	.flags = MF_SOLID | MF_SHOOTABLE | MF_DROPOFF | MF_PICKUP | MF_NOTDMATCH | MF_SLIDE,
@@ -237,6 +242,7 @@ static const mobjinfo_t default_health =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.inventory.count = 1,
 	.inventory.max_count = 0,
@@ -253,6 +259,7 @@ static mobjinfo_t default_inventory =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.inventory.count = 1,
 	.inventory.max_count = 1,
@@ -270,6 +277,7 @@ static const mobjinfo_t default_weapon =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.weapon.inventory.count = 1,
 	.weapon.inventory.max_count = 1,
@@ -288,6 +296,7 @@ static mobjinfo_t default_ammo =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.ammo.inventory.count = 1,
 	.ammo.inventory.max_count = 1,
@@ -305,6 +314,7 @@ static const mobjinfo_t default_key =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.flags = MF_SPECIAL | MF_NOTDMATCH,
 	.flags1 = MF1_DONTGIB,
 	.inventory.count = 1,
@@ -322,6 +332,7 @@ static mobjinfo_t default_armor =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_AUTOACTIVATE,
 	.armor.inventory.count = 1,
@@ -340,6 +351,7 @@ static mobjinfo_t default_armor_bonus =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_AUTOACTIVATE | MFE_INVENTORY_ALWAYSPICKUP,
 	.armor.inventory.count = 1,
@@ -359,6 +371,7 @@ static mobjinfo_t default_powerup =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_ALWAYSPICKUP,
 	.powerup.inventory.count = 1,
@@ -430,6 +443,9 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"maxstepheight", DT_FIXED, offsetof(mobjinfo_t, step_height)},
 	{"maxdropoffheight", DT_FIXED, offsetof(mobjinfo_t, dropoff)},
+	//
+	{"renderstyle", DT_RENDER_STYLE},
+	{"alpha", DT_RENDER_ALPHA},
 	//
 	{"monster", DT_MONSTER},
 	{"projectile", DT_PROJECTILE},
@@ -813,6 +829,17 @@ static const dec_powerup_t powerup_type[NUMPOWERS] =
 	[pw_ironfeet] = {"ironfeet", -60},
 	[pw_allmap] = {""}, // this is not a powerup
 	[pw_infrared] = {"lightamp", -120},
+};
+
+// render styles
+static const char *render_style[NUM_RENDER_STYLES] =
+{
+	[RS_NORMAL] = "normal",
+	[RS_FUZZ] = "fuzzy",
+	[RS_SHADOW] = "shadow",
+	[RS_TRANSLUCENT] = "translucent",
+	[RS_ADDITIVE] = "add",
+	[RS_INVISIBLE] = "none",
 };
 
 // special inventory
@@ -1221,9 +1248,35 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			if(!kw)
 				return 1;
 		break;
+		case DT_RENDER_STYLE:
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			for(num.u32 = 0; num.u32 < NUM_RENDER_STYLES; num.u32++)
+			{
+				if(!strcmp(render_style[num.u32], kw))
+					break;
+			}
+			if(num.u32 >= NUM_RENDER_STYLES)
+				I_Error("[DECORATE] Unknown render style '%s' in '%s'!", kw, parse_actor_name);
+			parse_mobj_info->render_style = num.u32;
+		break;
+		case DT_RENDER_ALPHA:
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			if(tp_parse_fixed(kw, &num.s32))
+				return 1;
+			if(num.s32 < 0)
+				num.s32 = 0;
+			num.s32 >>= 8;
+			if(num.s32 > 255)
+				num.s32 = 255;
+			parse_mobj_info->render_alpha = num.s32;
+		break;
 		case DT_POWERUP_TYPE:
 			if(parse_mobj_info->powerup.type < NUMPOWERS)
-				I_Error("[DECORATE] Powerup mode specified multiple times in '%s'!", parse_actor_name);
+				I_Error("[DECORATE] Powerup type specified multiple times in '%s'!", parse_actor_name);
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
@@ -2383,6 +2436,10 @@ void init_decorate()
 		// modify projectiles
 		if(mobjinfo[i].flags & MF_MISSILE)
 			mobjinfo[i].flags1 |= MF1_NOTELEPORT;
+
+		// modify render style
+		if(mobjinfo[i].flags & MF_SHADOW)
+			mobjinfo[i].render_style = RS_SHADOW;
 	}
 
 	// copy internal stuff

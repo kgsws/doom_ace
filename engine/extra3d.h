@@ -2,6 +2,9 @@
 ////
 
 #define E3D_SOLID	1
+#define E3D_BLOCK_HITSCAN	2
+#define E3D_BLOCK_SIGHT	4
+
 #define E3D_SWAP_PLANES	0x10000
 
 typedef struct extraplane_s

@@ -65,6 +65,7 @@ static config_entry_t config_game[] =
 	{"input.key.strafe.right", &key_straferight, TYPE_U8},
 	{"input.key.turn.left", &key_left, TYPE_U8},
 	{"input.key.turn.right", &key_right, TYPE_U8},
+	{"input.key.jump", &key_jump, TYPE_U8},
 	{"input.key.atk.pri", &key_fire, TYPE_U8},
 	{"input.key.atk.sec", &key_fire_alt, TYPE_U8},
 	{"input.key.use", &key_use, TYPE_U8},

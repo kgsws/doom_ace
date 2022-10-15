@@ -224,6 +224,7 @@ static const mobjinfo_t default_player =
 	.flags1 = MF1_TELESTOMP,
 	.player.view_height = 41 << FRACBITS,
 	.player.attack_offs = 8 << FRACBITS,
+	.player.jump_z = 8 << FRACBITS,
 };
 
 // default 'Health'
@@ -553,6 +554,7 @@ static const dec_attr_t attr_player[] =
 {
 	{"player.viewheight", DT_FIXED, offsetof(mobjinfo_t, player.view_height)},
 	{"player.attackzoffset", DT_FIXED, offsetof(mobjinfo_t, player.attack_offs)},
+	{"player.jumpz", DT_FIXED, offsetof(mobjinfo_t, player.jump_z)},
 	{"player.soundclass", DT_SOUND_CLASS},
 	//
 	{"player.weaponslot", DT_PP_WPN_SLOT},
@@ -643,6 +645,7 @@ static const uint8_t *player_sound_slot[NUM_PLAYER_SOUNDS] =
 	[PLR_SND_PAIN100] = "*pain100",
 	[PLR_SND_LAND] = "*land",
 	[PLR_SND_USEFAIL] = "*usefail",
+	[PLR_SND_JUMP] = "*jump",
 };
 
 // actor inheritance

@@ -22,6 +22,7 @@ enum
 	ctrl_key_straferight,
 	ctrl_key_left,
 	ctrl_key_right,
+	ctrl_key_jump,
 	//
 	ctrl_key_fire,
 	ctrl_key_fire_alt,
@@ -51,6 +52,7 @@ extern int32_t *const ctrl_mouse_ptr[NUM_MOUSE_CTRL];
 extern key_ctrl_t control_list[NUM_CONTROLS];
 extern const uint8_t *ctrl_group[NUM_CTRL_GROUPS];
 
+extern uint8_t key_jump;
 extern uint8_t key_fire_alt;
 extern uint8_t key_inv_use;
 extern uint8_t key_inv_next;

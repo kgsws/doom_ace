@@ -1037,6 +1037,13 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 	)
 		is_safe |= 2;
 
+	e3d_check_midtex(tmthing, ld, tmthing->flags & MF_MISSILE);
+
+	if(tmceilingz > tmextraceiling)
+		tmceilingz = tmextraceiling;
+	if(tmfloorz < tmextrafloor)
+		tmfloorz = tmextrafloor;
+
 	P_LineOpening(ld);
 
 	if(opentop < tmceilingz)
@@ -1065,7 +1072,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 	if(is_safe != 3 && lowfloor < tmdropoffz)
 		tmdropoffz = lowfloor;
 
-	if(ld->hexspec && numspechit < MAXSPECIALCROSS)
+	if(ld->special && numspechit < MAXSPECIALCROSS)
 	{
 		spechit[numspechit] = ld;
 		numspechit++;
@@ -1074,7 +1081,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 	return 1;
 
 blocked:
-	if(ld->hexspec && numspecbump < MAXSPECIALBUMP)
+	if(ld->special && numspecbump < MAXSPECIALBUMP)
 	{
 		specbump[numspecbump] = ld;
 		numspecbump++;

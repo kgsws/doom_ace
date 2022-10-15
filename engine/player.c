@@ -171,6 +171,12 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 		return;
 	}
 
+	if(slot == BT_ACT_JUMP && pl->mo->info->player.jump_z && pl->mo->z <= pl->mo->floorz)
+	{
+		pl->mo->momz += pl->mo->info->player.jump_z;
+		S_StartSound(pl->mo, pl->mo->info->player.sound.jump);
+	}
+
 	slot--;
 	if(slot >= NUM_WPN_SLOTS)
 		return;
@@ -432,6 +438,10 @@ static void build_ticcmd(ticcmd_t *cmd)
 	// second, modify stuff
 	cmd->chatchar = 0;
 
+	// cheat char
+	if(!paused)
+		cmd->chatchar = HU_dequeueChatChar();
+
 	// do nothing on special request
 	if(cmd->buttons & BT_SPECIAL)
 		return;
@@ -487,6 +497,12 @@ static void build_ticcmd(ticcmd_t *cmd)
 	// mask off weapon chagnes
 	cmd->buttons &= BT_ATTACK | BT_USE | BT_ALTACK;
 
+	// clear mouse use
+	if(!gamekeydown[key_inv_use] || !mousebuttons[mouseb_inv_use])
+		mouse_inv_use = 0;
+
+	// action keys can not be combined
+
 	// new weapon changes
 	for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
 	{
@@ -499,32 +515,27 @@ static void build_ticcmd(ticcmd_t *cmd)
 		}
 	}
 
-	// inventory prev
-	if(gamekeydown[key_inv_prev])
+	if(gamekeydown[key_jump])
 	{
-		gamekeydown[key_inv_prev] = 0;
-		cmd->buttons |= BT_ACT_INV_PREV << BT_ACTIONSHIFT;
-	}
-
-	// inventory next
-	if(gamekeydown[key_inv_next])
-	{
-		gamekeydown[key_inv_next] = 0;
-		cmd->buttons |= BT_ACT_INV_NEXT << BT_ACTIONSHIFT;
-	}
-
-	// inventory use
+		gamekeydown[key_jump] = 0;
+		cmd->buttons |= BT_ACT_JUMP << BT_ACTIONSHIFT;
+	} else
 	if(gamekeydown[key_inv_use] || (!mouse_inv_use && mousebuttons[mouseb_inv_use]))
 	{
 		mouse_inv_use = 1;
 		gamekeydown[key_inv_use] = 0;
 		cmd->buttons |= BT_ACT_INV_USE << BT_ACTIONSHIFT;
 	} else
-		mouse_inv_use = !!mousebuttons[mouseb_inv_use];
-
-	// cheat char
-	if(!paused)
-		cmd->chatchar = HU_dequeueChatChar();
+	if(gamekeydown[key_inv_prev])
+	{
+		gamekeydown[key_inv_prev] = 0;
+		cmd->buttons |= BT_ACT_INV_PREV << BT_ACTIONSHIFT;
+	} else
+	if(gamekeydown[key_inv_next])
+	{
+		gamekeydown[key_inv_next] = 0;
+		cmd->buttons |= BT_ACT_INV_NEXT << BT_ACTIONSHIFT;
+	}
 }
 
 //

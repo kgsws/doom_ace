@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "controls.h"
 
+uint8_t key_jump = ' ';
 uint8_t key_fire_alt;
 uint8_t key_inv_use = '\r';
 uint8_t key_inv_next = '.';
@@ -25,6 +26,7 @@ key_ctrl_t control_list[NUM_CONTROLS] =
 	[ctrl_key_straferight] = {0, "Strafe Right", (uint8_t*)&key_straferight},
 	[ctrl_key_left] = {0, "Turn Left", (uint8_t*)&key_left},
 	[ctrl_key_right] = {0, "Turn Right", (uint8_t*)&key_right},
+	[ctrl_key_jump] = {0, "Jump", (uint8_t*)&key_jump},
 	//
 	[ctrl_key_fire] = {1, "Attack", (uint8_t*)&key_fire},
 	[ctrl_key_fire_alt] = {1, "Alt Attack", &key_fire_alt},

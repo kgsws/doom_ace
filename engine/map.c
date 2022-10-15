@@ -202,7 +202,7 @@ static inline void spawn_line_scroll()
 	{
 		line_t *ln = lines + i;
 
-		if(ln->hexspec == 48)
+		if(ln->special == 48)
 		{
 			line_scroll_t *ls;
 
@@ -587,7 +587,7 @@ static uint32_t check_door_key(line_t *line, mobj_t *mo)
 	uint16_t k0, k1;
 	uint8_t *text;
 
-	switch(line->doomspec)
+	switch(line->special)
 	{
 		case 26:
 		case 32:
@@ -636,7 +636,7 @@ uint32_t check_obj_key(line_t *line, mobj_t *mo)
 	uint16_t k0, k1;
 	uint8_t *text;
 
-	switch(line->doomspec)
+	switch(line->special)
 	{
 		case 99:
 		case 133:
@@ -1339,18 +1339,19 @@ void map_LoadLineDefs(int lump)
 		ln->dx = v2->x - v1->x;
 		ln->dy = v2->y - v1->y;
 		ln->flags = ml->flags;
-		ln->hexspec = ml->special;
-		ln->hexflags = 0;
+		ln->special = ml->special;
+		ln->iflags = 0;
 		ln->arg0 = ml->arg0;
 		ln->args = ml->args;
 		ln->sidenum[0] = ml->sidenum[0];
 		ln->sidenum[1] = ml->sidenum[1];
 		ln->validcount = 0;
 
-		if(ln->hexspec == 121) // Line_SetIdentification
+		if(ln->special == 121) // Line_SetIdentification
 		{
-			ln->hexflags = ln->arg1;
-			ln->hexspec = 0;
+			if(ln->arg1 & 32) // midtex3d
+				ln->iflags |= MLI_3D_MIDTEX;
+			ln->special = 0;
 			ln->id = ln->arg0;
 			ln->arg0 = 0;
 			ln->args = 0;

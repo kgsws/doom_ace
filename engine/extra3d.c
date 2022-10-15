@@ -236,6 +236,59 @@ void e3d_add_height(fixed_t height)
 //
 // API
 
+void e3d_check_midtex(mobj_t *mo, line_t *ln, uint32_t no_step)
+{
+	fixed_t bot, top;
+	fixed_t z;
+	side_t *side;
+
+	tmextrafloor = tmfloorz;
+	tmextraceiling = tmceilingz;
+
+	if(!(ln->iflags & MLI_3D_MIDTEX))
+		return;
+
+	side = sides + ln->sidenum[0];
+
+	if(!side->midtexture)
+		return;
+
+	if(ln->flags & ML_DONTPEGBOTTOM)
+	{
+		fixed_t hhh = ln->frontsector->floorheight;
+		if(ln->backsector->floorheight > hhh)
+			hhh = ln->backsector->floorheight;
+		bot = ln->frontsector->floorheight + side->rowoffset;
+		top = bot + textureheight[side->midtexture];
+	} else
+	{
+		fixed_t hhh = ln->frontsector->ceilingheight;
+		if(ln->backsector->ceilingheight < hhh)
+			hhh = ln->backsector->ceilingheight;
+		top = ln->frontsector->ceilingheight + side->rowoffset;
+		bot = top - textureheight[side->midtexture];
+	}
+
+	z = mo->z;
+	if(!no_step)
+		z += mo->info->step_height;
+
+	if(top <= z && top > tmextrafloor)
+		tmextrafloor = top;
+
+	if(mo->z < tmextrafloor)
+	{
+		z = tmextrafloor;
+		tmextradrop = 0;
+	} else
+		z = mo->z;
+
+	if(bot >= z && bot < tmextraceiling)
+		tmextraceiling = bot;
+
+
+}
+
 extraplane_t *e3d_check_inside(sector_t *sec, fixed_t z, uint32_t flags)
 {
 	extraplane_t *pl = sec->exfloor;
@@ -259,12 +312,16 @@ extraplane_t *e3d_check_inside(sector_t *sec, fixed_t z, uint32_t flags)
 void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step)
 {
 	extraplane_t *pl;
-	fixed_t z = mo->z;
+	fixed_t z;
 
 	tmextrafloor = tmfloorz;
 	tmextraceiling = tmceilingz;
 	tmextradrop = 0x7FFFFFFF;
 
+	if(!sec->exfloor)
+		return;
+
+	z = mo->z;
 	if(!no_step)
 		z += mo->info->step_height;
 
@@ -348,10 +405,12 @@ void e3d_create()
 		uint32_t tag;
 		uint32_t flags;
 
-		if(ln->hexspec != 160) // Sector_Set3dFloor
+		if(ln->special != 160) // Sector_Set3dFloor
 			continue;
 
-		if(	(ln->arg1 != 1 && ln->arg1 != 3) ||
+		tag = ln->arg1 & ~4;
+
+		if(	(tag != 1 && tag != 3) ||
 			ln->arg2
 		)
 			I_Error("[EX3D] Unsupported extra floor type!");
@@ -365,7 +424,7 @@ void e3d_create()
 
 		tag = ln->arg0 + ln->arg4 * 256;
 
-		if(ln->arg1 == 1)
+		if((ln->arg1 & 3) == 1)
 			flags = E3D_SOLID;
 		else
 			flags = 0;
@@ -378,13 +437,19 @@ void e3d_create()
 			{
 				add_floor_plane(&sec->exfloor, src, ln, flags, ln->arg3);
 				add_ceiling_plane(&sec->exceiling, src, ln, flags, ln->arg3);
+				if(ln->arg1 & 4)
+				{
+					flags |= E3D_SWAP_PLANES;
+					add_floor_plane(&sec->exfloor, src, ln, flags, ln->arg3);
+					add_ceiling_plane(&sec->exceiling, src, ln, flags, ln->arg3);
+				}
 			}
 
 			// TODO: update things
 		}
 
 		// clear special
-		ln->hexspec = 0;
+		ln->special = 0;
 		ln->arg0 = 0;
 		ln->args = 0;
 
@@ -392,7 +457,7 @@ void e3d_create()
 		for(tag = 0; tag < src->linecount; tag++)
 		{
 			line_t *li = src->lines[tag];
-			if(li->hexspec == 160)
+			if(li->special == 160)
 				break;
 		}
 		if(tag >= src->linecount)
@@ -416,6 +481,53 @@ void e3d_create()
 
 		if(count > top_count)
 			top_count = count;
+	}
+
+	// mark linedefs that make extra floor boundary
+	for(uint32_t i = 0; i < numlines; i++)
+	{
+		extraplane_t *pl;
+		line_t *ln = lines + i;
+		sector_t *frontsector = ln->frontsector;
+		sector_t *backsector = ln->backsector;
+
+		if(!backsector)
+			continue;
+
+		if(frontsector->tag == backsector->tag)
+			continue;
+
+		// find flipped extra floors
+		pl = frontsector->exfloor;
+		while(pl)
+		{
+			if(pl->alpha)
+			{
+				if(!pl->light)
+					// masked when viewed from front
+					ln->iflags |= MLI_EXTRA_FRONT;
+				else
+					// masked when viewed from back
+					ln->iflags |= MLI_EXTRA_BACK;
+			}
+			pl = pl->next;
+		}
+
+		// find normal extra floors
+		pl = backsector->exfloor;
+		while(pl)
+		{
+			if(pl->alpha)
+			{
+				if(!pl->light)
+					// masked when viewed from back
+					ln->iflags |= MLI_EXTRA_BACK;
+				else
+					// masked when viewed from front
+					ln->iflags |= MLI_EXTRA_FRONT;
+			}
+			pl = pl->next;
+		}
 	}
 
 	// allocate extra clip

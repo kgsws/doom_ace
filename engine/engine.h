@@ -156,6 +156,10 @@ typedef uint32_t angle_t;
 #define MLA_PROJ_CROSS	0x1400
 #define MLA_PASS	0x1800
 
+#define MLI_3D_MIDTEX	0x01
+#define MLI_EXTRA_FRONT	0x40
+#define MLI_EXTRA_BACK	0x80
+
 #define MAXCEILINGS	30
 #define MAXPLATS	30
 
@@ -232,6 +236,7 @@ typedef struct
 #define BT_ACT_INV_PREV	15
 #define BT_ACT_INV_NEXT	14
 #define BT_ACT_INV_USE	13
+#define BT_ACT_JUMP	12
 
 typedef struct
 { // this structure has been changed
@@ -440,6 +445,7 @@ enum
 	PLR_SND_PAIN100,
 	PLR_SND_LAND,
 	PLR_SND_USEFAIL,
+	PLR_SND_JUMP,
 	//
 	NUM_PLAYER_SOUNDS
 };
@@ -463,6 +469,7 @@ typedef struct
 	uint16_t *wpn_slot[NUM_WPN_SLOTS];
 	fixed_t view_height;
 	fixed_t attack_offs;
+	fixed_t jump_z;
 	union
 	{
 		struct
@@ -473,6 +480,7 @@ typedef struct
 			uint16_t pain[4];
 			uint16_t land;
 			uint16_t usefail;
+			uint16_t jump;
 		} sound;
 		uint16_t sound_slot[NUM_PLAYER_SOUNDS];
 	};
@@ -749,15 +757,8 @@ typedef struct line_s
 	vertex_t *v1, *v2;
 	fixed_t dx, dy;
 	uint16_t flags;
-	union
-	{
-		uint16_t doomspec;
-		struct
-		{
-			uint8_t hexspec;
-			uint8_t hexflags;
-		};
-	};
+	uint8_t special;
+	uint8_t iflags;
 	union
 	{
 		uint16_t tag;

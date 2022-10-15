@@ -425,7 +425,7 @@ uint32_t hs_slide_traverse(intercept_t *in)
 
 	e3d_check_heights(slidemo, sec, slidemo->flags & MF_MISSILE);
 
-	if(tmextraceiling - tmextrafloor)
+	if(tmextraceiling - tmextrafloor < slidemo->height)
 		goto isblocking;
 
 	if(opentop > tmextraceiling)
@@ -438,6 +438,17 @@ uint32_t hs_slide_traverse(intercept_t *in)
 		z = openbottom;
 	else
 		z = slidemo->z;
+
+	e3d_check_midtex(slidemo, li, slidemo->flags & MF_MISSILE);
+
+	if(tmextraceiling - tmextrafloor < slidemo->height)
+		goto isblocking;
+
+	if(opentop > tmextraceiling)
+		opentop = tmextraceiling;
+
+	if(openbottom < tmextrafloor)
+		openbottom = tmextrafloor;
 
 	if(e3d_check_inside(sec, z, E3D_SOLID))
 		goto isblocking;
@@ -518,7 +529,7 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		sector_t *backsector;
 		uint_fast8_t activate = map_format != MAP_FORMAT_DOOM;
 
-		if(li->hexspec && !activate)
+		if(li->special && !activate)
 			P_ShootSpecialLine(shootthing, li);
 
 		if(!(li->flags & ML_TWOSIDED) || li->flags & ML_BLOCK_ALL)
@@ -541,7 +552,7 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		}
 
 		if(	activate &&
-			li->hexspec &&
+			li->special &&
 			(li->flags & ML_ACT_MASK) == MLA_ATK_HIT &&
 			FixedDiv(opentop - shootz, dist) >= aimslope &&
 			FixedDiv(openbottom - shootz, dist) <= aimslope
@@ -661,7 +672,7 @@ do_puff:
 
 		mobj_spawn_puff(&trace, NULL);
 
-		if(activate && li->hexspec)
+		if(activate && li->special)
 			spec_activate(li, shootthing, SPEC_ACT_SHOOT);
 
 		return 0;

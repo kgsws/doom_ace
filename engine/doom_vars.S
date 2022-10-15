@@ -291,6 +291,9 @@ DOOM_VAR 0x000300A8, ds_p
 DOOM_VAR 0x000300AC, backsector
 DOOM_VAR 0x000300B0, frontsector
 
+DOOM_VAR 0x000300B4, linedef
+DOOM_VAR 0x000300B8, sidedef
+
 DOOM_VAR 0x000300D0, texturecolumnofs
 DOOM_VAR 0x000300D4, texturecompositesize
 DOOM_VAR 0x000300D8, texturewidthmask

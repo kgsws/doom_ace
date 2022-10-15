@@ -186,6 +186,8 @@ extern seg_t *curline;
 extern drawseg_t *ds_p;
 extern visplane_t *ceilingplane;
 extern visplane_t *floorplane;
+extern line_t *linedef;
+extern side_t *sidedef;
 extern int16_t *maskedtexturecol;
 extern uint32_t markceiling;
 extern uint32_t markfloor;

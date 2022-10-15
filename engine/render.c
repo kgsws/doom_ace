@@ -145,12 +145,15 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	sector_t *frontsector = seg->frontsector;
 	sector_t *backsector = seg->backsector;
 
-	// texture
+	// texture - extra floors
 	if(	clip_height_top < 0x7FFFFFFF &&
 		clip_height_bot > -0x7FFFFFFF &&
 		frontsector->tag != backsector->tag
 	){
-		extraplane_t *pl = backsector->exfloor;
+		extraplane_t *pl;
+
+		// back
+		pl = backsector->exfloor;
 		while(pl)
 		{
 			if(	pl->alpha &&
@@ -159,20 +162,40 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				clip_height_top > pl->source->floorheight
 			){
 				texnum = texturetranslation[*pl->texture];
-				dc_texturemid = pl->source->ceilingheight - viewz; // TODO: PEG flags
+				dc_texturemid = pl->source->ceilingheight - viewz;
 				height = textureheight[texnum] >> FRACBITS;
 				break;
 			}
 			pl = pl->next;
 		}
+
+		// font
+		if(!texnum)
+		{
+			pl = frontsector->exfloor;
+			while(pl)
+			{
+				if(	pl->alpha &&
+					*pl->texture &&
+					clip_height_top <= pl->source->ceilingheight &&
+					clip_height_top > pl->source->floorheight
+				){
+					texnum = texturetranslation[*pl->texture];
+					dc_texturemid = pl->source->ceilingheight - viewz;
+					height = textureheight[texnum] >> FRACBITS;
+					break;
+				}
+				pl = pl->next;
+			}
+		}
 	}
 
 	if(!texnum)
 	{
+		// texture - middle
 		texnum = texturetranslation[seg->sidedef->midtexture];
 		if(texnum)
 		{
-			// mid texture offsets
 			if(seg->linedef->flags & ML_DONTPEGBOTTOM)
 			{
 				fixed_t mid = frontsector->floorheight > backsector->floorheight ? frontsector->floorheight : backsector->floorheight;
@@ -691,16 +714,20 @@ void R_DrawVisSprite(vissprite_t *vis)
 					break;
 				pl = pl->next;
 			}
-			if(pl && pl->alpha == 255 && *pl->height == clip_height_bot)
+			if(pl && pl->alpha == 255 && pl->flags & E3D_SOLID && *pl->height == clip_height_bot)
 				height = clip_height_bot_last;
 		}
 
 		if(height > dc_texturemid + viewz)
 			return;
 
-		fc = (centeryfrac - FixedMul(height - viewz, spryscale)) / FRACUNIT;
-		if(fc < 0)
-			return;
+		if(height > -0x7FFFFFFF)
+		{
+			fc = (centeryfrac - FixedMul(height - viewz, spryscale)) / FRACUNIT;
+			if(fc < 0)
+				return;
+		} else
+			fc = 0x10000;
 	} else
 		fc = 0x10000;
 
@@ -1062,7 +1089,7 @@ void R_Subsector(uint32_t num)
 
 		if(*pl->height < frontsector->floorheight)
 		{
-			if(*pl->light)
+			if(pl->light)
 				light = *pl->light;
 			pl = pl->next;
 			continue;
@@ -1073,7 +1100,7 @@ void R_Subsector(uint32_t num)
 		if(*pl->height >= viewz || !pl->alpha)
 		{
 			// out of sight; but must add height for light effects and sides
-			if(*pl->light)
+			if(pl->light)
 				light = *pl->light;
 			pl = pl->next;
 			continue;
@@ -1095,7 +1122,7 @@ void R_Subsector(uint32_t num)
 		}
 
 		idx++;
-		if(*pl->light)
+		if(pl->light)
 			light = *pl->light;
 		pl = pl->next;
 	}
@@ -1273,10 +1300,15 @@ uint32_t masked_side_check(side_t *side)
 	if(side->midtexture)
 		return 1;
 
-	if(	(backsector->exfloor || backsector->exceiling) &&
-		frontsector->tag != backsector->tag
-	)
-		return 1;
+	if(frontsector == linedef->frontsector)
+	{
+		if(linedef->iflags & MLI_EXTRA_FRONT)
+			return 1;
+	} else
+	{
+		if(linedef->iflags & MLI_EXTRA_BACK)
+			return 1;
+	}
 
 	return 0;
 }

@@ -1163,7 +1163,6 @@ void do_save()
 	R_ExecuteSetViewSize();
 	render_player_view(players + consoleplayer);
 	r_rdptr = r_fbptr; // fullscreen hack
-	I_ReadScreen(screen_buffer);
 	r_setblocks = old_size;
 	R_ExecuteSetViewSize();
 	players[consoleplayer].fixedcolormap = old_cmap;

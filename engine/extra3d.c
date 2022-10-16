@@ -487,8 +487,6 @@ void e3d_create()
 					add_ceiling_plane(&sec->exceiling, src, ln, E3D_SWAP_PLANES, ln->arg3);
 				}
 			}
-
-			// TODO: update things
 		}
 
 		// clear special

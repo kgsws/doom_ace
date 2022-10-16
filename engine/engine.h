@@ -1230,7 +1230,6 @@ void G_CheckDemoStatus() __attribute((regparm(2),no_caller_saved_registers));
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));
 void I_UpdateNoBlit() __attribute((regparm(2),no_caller_saved_registers));
 void I_SetPalette(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
-void I_ReadScreen(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t I_GetTime() __attribute((regparm(2),no_caller_saved_registers));
 
 // m_argv
@@ -1328,6 +1327,7 @@ void P_DeathThink(player_t*) __attribute((regparm(2),no_caller_saved_registers))
 void R_AddLine(seg_t*) __attribute((regparm(2),no_caller_saved_registers));
 void R_ClipPassWallSegment(int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
 void R_ClipSolidWallSegment(int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
+subsector_t *R_PointInSubsector(int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_data
 void R_GenerateComposite(uint32_t) __attribute((regparm(2),no_caller_saved_registers));

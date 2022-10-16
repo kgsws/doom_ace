@@ -769,8 +769,8 @@ uint32_t finish_mobj(mobj_t *mo)
 	// check for extra floors
 	if(mo->subsector && mo->subsector->sector->exfloor)
 	{
-		tmfloorz = mo->floorz;
-		tmceilingz = mo->ceilingz;
+		tmfloorz = mo->subsector->sector->floorheight;
+		tmceilingz = mo->subsector->sector->ceilingheight;
 		e3d_check_heights(mo, mo->subsector->sector, 1);
 		mo->floorz = tmextrafloor;
 		mo->ceilingz = tmextraceiling;
@@ -812,7 +812,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 {
 	uint32_t damage;
 
-	if(map_format != MAP_FORMAT_DOOM && !(tmthing->flags & MF_MISSILE))
+	if(map_format != MAP_FORMAT_DOOM && thing->flags & MF_SOLID && !(tmthing->flags & MF_MISSILE))
 	{
 		// thing-over-thing
 		// TODO: overlapping things should be marked and checked every tic
@@ -1924,10 +1924,16 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 	)
 		return;
 
-	if(!(mo_puff_flags & FBF_NORANDOMPUFFZ))
-		trace->dx += ((P_Random() - P_Random()) << 10);
-
 	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, mo_puff_type);
+
+	if(!(mo_puff_flags & FBF_NORANDOMPUFFZ))
+	{
+		mo->z += ((P_Random() - P_Random()) << 10);
+		if(mo->z > mo->ceilingz - mo->height)
+			mo->z = mo->ceilingz - mo->height;
+		if(mo->z < mo->floorz)
+			mo->z = mo->floorz;
+	}
 
 	if(!target && mo->info->state_crash)
 		mobj_set_state(mo, mo->info->state_crash);

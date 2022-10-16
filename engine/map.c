@@ -78,8 +78,6 @@ static patch_t *victory_patch;
 uint32_t map_episode_count;
 map_episode_t map_episode_def[MAX_EPISODES];
 
-static map_thinghex_t *map_thing_spawn;
-
 // map check
 static uint64_t map_wame_check[] =
 {
@@ -398,9 +396,6 @@ uint32_t map_load_setup()
 	// load the level
 	P_SetupLevel();
 
-	// extra hacks
-	parse_sectors();
-
 	// reset some stuff
 	for(uint32_t i = 0; i < MAXPLATS; i++)
 		activeplats[i] = NULL;
@@ -412,9 +407,6 @@ uint32_t map_load_setup()
 
 	if(cache)
 		R_PrecacheLevel();
-
-	// extra (unsaved stuff)
-	e3d_create();
 
 	// specials
 	if(!map_skip_stuff)
@@ -450,58 +442,61 @@ map_load_error:
 //
 // hooks
 
-__attribute((regparm(2),no_caller_saved_registers))
-static void spawn_map_thing(mapthing_t *old_mt)
+static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 {
-	map_thinghex_t mt;
 	uint32_t idx;
 	mobj_t *mo;
 	mobjinfo_t *info;
 	fixed_t x, y, z;
 	angle_t angle;
 
-	if(old_mt)
+	if(ot)
 	{
 		// convert old type to new
-		memset(&mt, 0, sizeof(map_thinghex_t));
-		mt.x = old_mt->x;
-		mt.y = old_mt->y;
-		mt.angle = old_mt->angle;
-		mt.type = old_mt->type;
-		mt.flags = old_mt->options & 15;
-		angle = ANG45 * (mt.angle / 45);
+		static map_thinghex_t fake;
+
+		mt = &fake;
+
+		fake.x = ot->x;
+		fake.y = ot->y;
+		fake.angle = ot->angle;
+		fake.type = ot->type;
+		fake.flags = ot->options & 15;
+
+		angle = ANG45 * (fake.angle / 45);
+
+		if(ot->options & 16)
+			fake.flags |= 512 | 1024;
+		else
+			fake.flags |= 256;
 	} else
-	{
-		// use stored type
-		mt = *map_thing_spawn;
-		angle = (ANG45 / 45) * mt.angle;
-	}
+		angle = (ANG45 / 45) * mt->angle;
 
 	// deathmatch starts
-	if(mt.type == 11)
+	if(mt->type == 11)
 	{
 		if(deathmatch_p < deathmatchstarts + 10)
 		{
 			mapthing_t *dt = deathmatch_p;
-			dt->x = mt.x;
-			dt->y = mt.x;
-			dt->angle = mt.angle;
+			dt->x = mt->x;
+			dt->y = mt->x;
+			dt->angle = mt->angle;
 			deathmatch_p++;
 		}
 		return;
 	}
 
 	// player starts
-	if(mt.type && mt.type <= 4)
+	if(mt->type && mt->type <= 4)
 	{
-		uint32_t idx = mt.type - 1;
-		playerstarts[idx].x = mt.x;
-		playerstarts[idx].y = mt.y;
-		playerstarts[idx].angle = mt.angle;
-		playerstarts[idx].type = mt.type;
-		playerstarts[idx].options = mt.arg[0];
+		uint32_t idx = mt->type - 1;
+		playerstarts[idx].x = mt->x;
+		playerstarts[idx].y = mt->y;
+		playerstarts[idx].angle = mt->angle;
+		playerstarts[idx].type = mt->type;
+		playerstarts[idx].options = mt->arg[0];
 		if(!deathmatch && !map_skip_stuff)
-			mobj_spawn_player(idx, mt.x * FRACUNIT, mt.y * FRACUNIT, angle);
+			mobj_spawn_player(idx, mt->x * FRACUNIT, mt->y * FRACUNIT, angle);
 		return;
 	}
 
@@ -509,11 +504,25 @@ static void spawn_map_thing(mapthing_t *old_mt)
 		return;
 
 	// check network game
-	if(old_mt && !netgame && old_mt->options & 16)
-		return;
+	if(netgame)
+	{
+		if(deathmatch)
+		{
+			if(!(mt->flags & 1024))
+				return;
+		} else
+		{
+			if(!(mt->flags & 512))
+				return;
+		}
+	} else
+	{
+		if(!(mt->flags & 256))
+			return;
+	}
 
 	// check skill level
-	if(!(mt.flags & skillbits[gameskill]))
+	if(!(mt->flags & skillbits[gameskill]))
 		return;
 
 	// backward search for type
@@ -521,7 +530,7 @@ static void spawn_map_thing(mapthing_t *old_mt)
 	do
 	{
 		idx--;
-		if(mobjinfo[idx].doomednum == mt.type)
+		if(mobjinfo[idx].doomednum == mt->type)
 			break;
 	} while(idx);
 	if(!idx)
@@ -537,26 +546,31 @@ static void spawn_map_thing(mapthing_t *old_mt)
 		return;
 
 	// position
-	x = (fixed_t)mt.x << FRACBITS;
-	y = (fixed_t)mt.y << FRACBITS;
+	x = (fixed_t)mt->x << FRACBITS;
+	y = (fixed_t)mt->y << FRACBITS;
 	z = info->flags & MF_SPAWNCEILING ? 0x7FFFFFFF : 0x80000000;
+
+	if(info->flags & MF_SPAWNCEILING)
+		z = 0x7FFFFFFF;
+	else
+	if(mt && mt->z > 0)
+	{
+		subsector_t *ss;
+		ss = R_PointInSubsector(x, y);
+		z = ss->sector->floorheight + (fixed_t)mt->z * FRACUNIT;
+	} else
+		z = 0x80000000;
 
 	// spawn
 	mo = P_SpawnMobj(x, y, z, idx);
-	mo->spawnpoint.x = mt.x;
-	mo->spawnpoint.y = mt.y;
+	mo->spawnpoint.x = mt->x;
+	mo->spawnpoint.y = mt->y;
 	mo->angle = angle;
 
-	if(	!(mo->flags & MF_SPAWNCEILING) &&
-		!old_mt &&
-		mo->subsector
-	)
-		mo->z = mo->subsector->sector->floorheight + mt.z * FRACUNIT;
-
-	if(mt.flags & MTF_AMBUSH)
+	if(mt->flags & MTF_AMBUSH)
 		mo->flags |= MF_AMBUSH;
 
-	if(mt.flags & MTF_INACTIVE)
+	if(mt->flags & MTF_INACTIVE)
 	{
 		mo->flags1 |= MF1_DORMANT;
 		mo->tics = -1;
@@ -571,13 +585,13 @@ static void spawn_map_thing(mapthing_t *old_mt)
 	if(mo->flags & MF_COUNTITEM)
 		totalitems++;
 
-	mo->special.special = mt.special;
-	mo->special.arg[0] = mt.arg[0];
-	mo->special.arg[1] = mt.arg[1];
-	mo->special.arg[2] = mt.arg[2];
-	mo->special.arg[3] = mt.arg[3];
-	mo->special.arg[4] = mt.arg[4];
-	mo->special.tid = mt.tid;
+	mo->special.special = mt->special;
+	mo->special.arg[0] = mt->arg[0];
+	mo->special.arg[1] = mt->arg[1];
+	mo->special.arg[2] = mt->arg[2];
+	mo->special.arg[3] = mt->arg[3];
+	mo->special.arg[4] = mt->arg[4];
+	mo->special.tid = mt->tid;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1406,19 +1420,36 @@ void map_LoadLineDefs(int lump)
 static __attribute((regparm(2),no_caller_saved_registers))
 void map_LoadThings(int lump)
 {
-	map_thinghex_t *mt;
 	void *buff;
-	uint32_t count, idx;
-	uint16_t cflags = MTF_CLASS0 | MTF_CLASS1 | MTF_CLASS2;
+	uint32_t count;
 
-	buff = W_CacheLumpNum(lump, PU_STATIC);
-	count = lumpinfo[lump].size / sizeof(map_thinghex_t);
-	mt = buff;
+	// extra hacks
+	parse_sectors();
 
-	for(uint32_t i = 0; i < count; i++, mt++)
+	// spawn extra floors first
+	e3d_create();
+
+	// spawn all things
+	if(map_format == MAP_FORMAT_DOOM)
 	{
-		map_thing_spawn = mt;
-		spawn_map_thing(NULL);
+		mapthing_t *mt;
+
+		buff = W_CacheLumpNum(lump, PU_STATIC);
+		count = lumpinfo[lump].size / sizeof(mapthing_t);
+		mt = buff;
+
+		for(uint32_t i = 0; i < count; i++)
+			spawn_map_thing(NULL, mt + i);
+	} else
+	{
+		map_thinghex_t *mt;
+
+		buff = W_CacheLumpNum(lump, PU_STATIC);
+		count = lumpinfo[lump].size / sizeof(map_thinghex_t);
+		mt = buff;
+
+		for(uint32_t i = 0; i < count; i++)
+			spawn_map_thing(mt + i, NULL);
 	}
 
 	Z_Free(buff);
@@ -1890,7 +1921,6 @@ static const hook_t patch_doom[] =
 {
 	// restore call to map format specific lump loading
 	{0x0002E8F2, CODE_HOOK | HOOK_CALL_DOOM, 0x0002E220},
-	{0x0002E93A, CODE_HOOK | HOOK_CALL_DOOM, 0x0002E180},
 	// restore line special handlers
 	{0x0002B340, CODE_HOOK | HOOK_CALL_DOOM, 0x0002F500},
 	{0x00027286, CODE_HOOK | HOOK_CALL_DOOM, 0x00030710},
@@ -1903,7 +1933,6 @@ static const hook_t patch_hexen[] =
 {
 	// replace call to map format specific lump loading
 	{0x0002E8F2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadLineDefs},
-	{0x0002E93A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadThings},
 	// replace line special handlers
 	{0x0002B340, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_cross},
 	{0x00027286, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by monster
@@ -1979,8 +2008,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00032F88, CODE_HOOK | HOOK_UINT8, 0x74},
 	// replace call to 'P_SetupLevel' in 'G_DoLoadLevel'
 	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
-	// replace call to 'P_SpawnMapThing' in 'P_LoadThings'
-	{0x0002E1F9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spawn_map_thing},
+	// replace call to 'P_LoadThings' in 'P_SetupLevel'
+	{0x0002E93A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadThings},
 	// disable 'commercial' check in 'P_LoadThings'
 	{0x0002E1B4, CODE_HOOK | HOOK_UINT16, 0x41EB},
 	// disable call to 'P_SpawnSpecials' and 'R_PrecacheLevel' in 'P_SetupLevel'

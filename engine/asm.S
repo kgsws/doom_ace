@@ -348,12 +348,6 @@ I_InitGraphics:
 I_UpdateNoBlit:
 	.byte	0xE9
 	.4byte	0x00019E60
-////////////////////////////////// I_ReadScreen
-.section .text.I_ReadScreen
-.global I_ReadScreen
-I_ReadScreen:
-	.byte	0xE9
-	.4byte	0x0001A140
 ////////////////////////////////// I_SetPalette
 .section .text.I_SetPalette
 .global I_SetPalette
@@ -402,6 +396,12 @@ R_ScaleFromGlobalAngle:
 R_PointToDist:
 	.byte	0xE9
 	.4byte	0x00035760
+////////////////////////////////// R_PointInSubsector
+.section .text.R_PointInSubsector
+.global R_PointInSubsector
+R_PointInSubsector:
+	.byte	0xE9
+	.4byte	0x00035E20
 ////////////////////////////////// R_SortVisSprites
 .section .text.R_SortVisSprites
 .global R_SortVisSprites

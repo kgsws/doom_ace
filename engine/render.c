@@ -978,7 +978,7 @@ static void store_fake_range(int32_t start, int32_t stop)
 			int32_t top;
 			int32_t bot;
 
-			top = ((worldfrac + HEIGHTUNIT - 1) >> HEIGHTBITS) - 1;
+			top = (worldfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
 			if(top <= ceilingclip[start])
 				top = ceilingclip[start] + 1;
 
@@ -1005,7 +1005,7 @@ static void store_fake_range(int32_t start, int32_t stop)
 			int32_t top;
 			int32_t bot;
 
-			bot = (worldfrac >> HEIGHTBITS) + 1;
+			bot = worldfrac >> HEIGHTBITS;
 			top = e_ceilingclip[start] + 1;
 
 			if(bot >= floorclip[start])

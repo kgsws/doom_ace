@@ -142,6 +142,22 @@ skip_message_cancel:
 	jmp	*%eax
 
 //
+// I_FinishUpdate replacement
+.global I_FinishUpdate
+I_FinishUpdate:
+	push	%edi
+	push	%esi
+	push	%ecx
+	mov	$0x12345678,%esi	// this address will be overwritten
+	mov	$0xA0000,%edi
+	mov	$0x3E80,%ecx
+	rep	movsl %ds:(%esi),%es:(%edi)
+	pop	%ecx
+	pop	%esi
+	pop	%edi
+	ret
+
+//
 // P_DamageMobj hook
 .global hook_mobj_damage
 hook_mobj_damage:
@@ -326,12 +342,6 @@ I_Error:
 I_InitGraphics:
 	.byte	0xE9
 	.4byte	0x0001A010
-////////////////////////////////// I_FinishUpdate
-.section .text.I_FinishUpdate
-.global I_FinishUpdate
-I_FinishUpdate:
-	.byte	0xE9
-	.4byte	0x00019F60
 ////////////////////////////////// I_UpdateNoBlit
 .section .text.I_UpdateNoBlit
 .global I_UpdateNoBlit
@@ -976,19 +986,6 @@ __reloc_code_arg3_end:
 // Similar to 'arg3'.
 .section .text.__reloc_code_arg4
 __reloc_code_arg4:
-////////////////////////////////// V_DrawPatchDirect
-.section .text.V_DrawPatchDirect
-.global V_DrawPatchDirect
-V_DrawPatchDirect:
-	push	%ebx
-	push	%ecx
-	mov	12(%esp),%ebx
-	mov	16(%esp),%ecx
-	.byte	0xE8
-	.4byte	0x000392A0
-	pop	%ecx
-	pop	%ebx
-	ret
 ////////////////////////////////// V_DrawPatch
 .section .text.V_DrawPatch
 .global V_DrawPatch

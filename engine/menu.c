@@ -11,6 +11,7 @@
 #include "render.h"
 #include "map.h"
 #include "wadfile.h"
+#include "draw.h"
 #include "menu.h"
 
 #define CONTROL_Y_BASE	(40 + LINEHEIGHT_SMALL * 3)
@@ -310,7 +311,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void options_draw()
 {
 	// title
-	V_DrawPatchDirect(108, 15, 0, W_CacheLumpNum(title_options, PU_CACHE));
+	V_DrawPatchDirect(108, 15, W_CacheLumpNum(title_options, PU_CACHE));
 }
 
 //
@@ -396,7 +397,7 @@ void display_draw()
 	uint8_t text[16];
 
 	// title
-	V_DrawPatchDirect(117, 15, 0, W_CacheLumpNum(title_display, PU_CACHE));
+	V_DrawPatchDirect(117, 15, W_CacheLumpNum(title_display, PU_CACHE));
 
 	// messages
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[!!showMessages]);
@@ -480,10 +481,10 @@ void controls_draw()
 	}
 
 	// title
-	V_DrawPatchDirect(104, 15, 0, W_CacheLumpNum(title_controls, PU_CACHE));
+	V_DrawPatchDirect(104, 15, W_CacheLumpNum(title_controls, PU_CACHE));
 
 	// selector
-	V_DrawPatchDirect(CONTROL_X - 10, CONTROL_Y_BASE, 0, W_CacheLumpNum(small_selector, PU_STATIC));
+	V_DrawPatchDirect(CONTROL_X - 10, CONTROL_Y_BASE, W_CacheLumpNum(small_selector, PU_STATIC));
 
 	// extra offset
 	old = control_list[0].group;
@@ -560,7 +561,7 @@ void mouse_draw()
 	uint8_t text[16];
 
 	// title
-	V_DrawPatchDirect(123, 15, 0, W_CacheLumpNum(title_mouse, PU_CACHE));
+	V_DrawPatchDirect(123, 15, W_CacheLumpNum(title_mouse, PU_CACHE));
 
 	// sensitivity
 	doom_sprintf(text, "%u", mouseSensitivity);
@@ -632,7 +633,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void player_draw()
 {
 	// title
-	V_DrawPatchDirect(119, 15, 0, W_CacheLumpNum(title_player, PU_CACHE));
+	V_DrawPatchDirect(119, 15, W_CacheLumpNum(title_player, PU_CACHE));
 
 	// auto run
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[*auto_run == 1]);
@@ -671,8 +672,8 @@ void menu_items_draw(menu_t *menu)
 
 		patch = W_CacheLumpNum(small_selector, PU_STATIC);
 		if(menu->menuitems[menu_item_now].status == 2)
-			V_DrawPatchDirect(x + CURSORX_SMALL - 6, y + menu_item_now * LINEHEIGHT_SMALL, 0, patch);
-		V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * LINEHEIGHT_SMALL, 0, patch);
+			V_DrawPatchDirect(x + CURSORX_SMALL - 6, y + menu_item_now * LINEHEIGHT_SMALL, patch);
+		V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * LINEHEIGHT_SMALL, patch);
 
 		for(uint32_t i = 0; i < menu->numitems; i++)
 		{
@@ -689,13 +690,13 @@ void menu_items_draw(menu_t *menu)
 			if(menu->menuitems[i].name[0])
 			{
 				patch = W_CacheLumpName(menu->menuitems[i].name, PU_CACHE);
-				V_DrawPatchDirect(x, y, 0, patch);
+				V_DrawPatchDirect(x, y, patch);
 			}
 			y += LINEHEIGHT;
 		}
 
 		patch = W_CacheLumpName((uint8_t*)&dtxt_skull_name[!!(gametic & 8)], PU_CACHE);
-		V_DrawPatchDirect(x + SKULLXOFF, menu->y - 5 + menu_item_now * LINEHEIGHT, 0, patch);
+		V_DrawPatchDirect(x + SKULLXOFF, menu->y - 5 + menu_item_now * LINEHEIGHT, patch);
 	}
 }
 
@@ -769,15 +770,15 @@ void menu_draw_slot_bg(uint32_t x, uint32_t y, uint32_t width)
 
 	pc = W_CacheLumpName(dtxt_m_lscntr, PU_CACHE);
 
-	V_DrawPatchDirect(x, y, 0, W_CacheLumpName(dtxt_m_lsleft, PU_CACHE));
+	V_DrawPatchDirect(x, y, W_CacheLumpName(dtxt_m_lsleft, PU_CACHE));
 
 	for(uint32_t i = 0; i < count; i++)
 	{
 		x += 8;
-		V_DrawPatchDirect(x, y, 0, pc);
+		V_DrawPatchDirect(x, y, pc);
 	}
 
-	V_DrawPatchDirect(last, y, 0, W_CacheLumpName(dtxt_m_lsrght, PU_CACHE));
+	V_DrawPatchDirect(last, y, W_CacheLumpName(dtxt_m_lsrght, PU_CACHE));
 }
 
 void menu_setup_episodes()

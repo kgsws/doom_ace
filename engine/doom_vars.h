@@ -234,6 +234,8 @@ extern uint8_t **planezlight;
 extern uint8_t **walllights;
 extern uint8_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 extern uint8_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
+extern uint32_t fuzzpos;
+extern int32_t fuzzoffset[FUZZTABLE];
 
 // render, draw
 extern int32_t dc_x;
@@ -242,13 +244,22 @@ extern int32_t dc_yh;
 extern uint8_t *dc_source;
 extern fixed_t dc_texturemid;
 extern fixed_t dc_iscale;
-extern uint8_t *ds_source;
 extern uint8_t *dc_colormap;
+extern fixed_t ds_xfrac;
+extern fixed_t ds_yfrac;
+extern fixed_t ds_ystep;
+extern fixed_t ds_xstep;
+extern int32_t ds_x1;
+extern int32_t ds_x2;
+extern int32_t ds_y;
+extern uint8_t *ds_colormap;
+extern uint8_t *ds_source;
 extern fixed_t sprtopscreen;
 extern fixed_t spryscale;
 extern int16_t *mfloorclip;
 extern int16_t *mceilingclip;
-extern void (*colfunc)();
+extern void (*colfunc)() __attribute((regparm(2),no_caller_saved_registers));
+extern void (*spanfunc)() __attribute((regparm(2),no_caller_saved_registers));
 
 // controls
 extern int32_t mousey;

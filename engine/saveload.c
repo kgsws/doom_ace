@@ -20,6 +20,7 @@
 #include "menu.h"
 #include "demo.h"
 #include "render.h"
+#include "draw.h"
 #include "saveload.h"
 
 #define SAVE_SLOT_COUNT	6
@@ -523,7 +524,7 @@ static void draw_check_preview()
 		menu_draw_slot_bg(5, 52 + i * 14, 164);
 	menu_draw_slot_bg(5, 142, 164);
 
-	V_DrawPatchDirect(0, 0, 0, preview_patch);
+	V_DrawPatchDirect(0, 0, preview_patch);
 }
 
 //
@@ -532,14 +533,14 @@ static void draw_check_preview()
 static __attribute((regparm(2),no_caller_saved_registers))
 void draw_load_menu()
 {
-	V_DrawPatchDirect(97, 17, 0, W_CacheLumpName(dtxt_m_loadg, PU_CACHE));
+	V_DrawPatchDirect(97, 17, W_CacheLumpName(dtxt_m_loadg, PU_CACHE));
 	draw_check_preview();
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void draw_save_menu()
 {
-	V_DrawPatchDirect(97, 17, 0, W_CacheLumpName(dtxt_m_saveg, PU_CACHE));
+	V_DrawPatchDirect(97, 17, W_CacheLumpName(dtxt_m_saveg, PU_CACHE));
 	draw_check_preview();
 }
 

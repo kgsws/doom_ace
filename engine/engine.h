@@ -40,6 +40,7 @@ typedef uint32_t angle_t;
 #define LIGHTSCALESHIFT	12
 #define MAXLIGHTZ	128
 #define LIGHTZSHIFT	20
+#define FUZZTABLE	50
 
 //
 // tables
@@ -994,10 +995,18 @@ typedef struct
 } drawseg_t;
 
 typedef struct
-{
+{ // this structure has been changed
 	fixed_t height;
 	int32_t picnum;
-	int32_t lightlevel;
+	union
+	{
+		int32_t lightlevel;
+		struct
+		{
+			uint16_t light;
+			uint16_t alpha;
+		};
+	};
 	int32_t minx, maxx;
 	uint8_t pad0;
 	uint8_t top[SCREENWIDTH];
@@ -1189,6 +1198,9 @@ void hook_sound_adjust();
 void hook_masked_range_draw();
 void skip_message_cancel() __attribute((noreturn));
 
+// extra
+void I_FinishUpdate();
+
 // doom variables
 #include "doom_vars.h"
 
@@ -1216,7 +1228,6 @@ void G_CheckDemoStatus() __attribute((regparm(2),no_caller_saved_registers));
 
 // i_video
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));
-void I_FinishUpdate() __attribute((regparm(2),no_caller_saved_registers));
 void I_UpdateNoBlit() __attribute((regparm(2),no_caller_saved_registers));
 void I_SetPalette(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void I_ReadScreen(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
@@ -1350,7 +1361,6 @@ void S_StopMusic() __attribute((regparm(2),no_caller_saved_registers));
 void S_ChangeMusic(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // v_video
-void V_DrawPatchDirect(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));
 void V_DrawPatch(int32_t, int32_t, uint32_t, patch_t*) __attribute((regparm(2),no_caller_saved_registers));
 void V_MarkRect(int32_t,int32_t,int32_t,int32_t) __attribute((regparm(2),no_caller_saved_registers));
 void V_CopyRect(int32_t,int32_t,int32_t,int32_t,int32_t,int32_t,int32_t,int32_t); // this one is nasty

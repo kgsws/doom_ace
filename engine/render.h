@@ -19,6 +19,11 @@ extern uint8_t r_palette[768];
 // basic colors
 extern uint8_t r_color_black;
 
+// render style tables
+extern uint8_t *render_trn0;
+extern uint8_t *render_trn1;
+extern uint8_t *render_add;
+
 //
 
 void init_render();

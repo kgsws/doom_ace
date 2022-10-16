@@ -47,6 +47,8 @@ DOOM_VAR 0x00012D80, clipammo
 
 DOOM_VAR 0x00012D90, deh_weaponinfo
 
+DOOM_VAR 0x000134B4, fuzzoffset
+DOOM_VAR 0x0001357C, fuzzpos
 DOOM_VAR 0x00013580, validcount
 
 DOOM_VAR 0x00013C04, mapnames
@@ -312,14 +314,21 @@ DOOM_VAR 0x00030118, spriteoffset
 
 DOOM_VAR 0x00030124, textureheight
 
+DOOM_VAR 0x000322C4, ds_ystep
+DOOM_VAR 0x000322C8, ds_xstep
+DOOM_VAR 0x000322CC, ds_x1
+DOOM_VAR 0x000322D0, ds_x2
+DOOM_VAR 0x000322D4, ds_colormap
 DOOM_VAR 0x000322D8, dc_colormap
+DOOM_VAR 0x000322DC, ds_yfrac
+DOOM_VAR 0x000322E0, ds_xfrac
 DOOM_VAR 0x000322E4, ds_source
 DOOM_VAR 0x000322E8, dc_source
 DOOM_VAR 0x000322EC, dc_x
+DOOM_VAR 0x000322F0, ds_y
 DOOM_VAR 0x000322F4, dc_yh
 DOOM_VAR 0x000322F8, dc_yl
 DOOM_VAR 0x000322FC, dc_texturemid
-
 DOOM_VAR 0x00032300, dc_iscale
 DOOM_VAR 0x00032304, viewheight
 DOOM_VAR 0x0003230C, viewwidth
@@ -334,6 +343,7 @@ DOOM_VAR 0x00038FE0, r_setblocks
 
 DOOM_VAR 0x00038FFC, fixedcolormap
 
+DOOM_VAR 0x00039004, spanfunc
 DOOM_VAR 0x00039010, colfunc
 DOOM_VAR 0x00039014, extralight
 DOOM_VAR 0x0003901C, viewplayer

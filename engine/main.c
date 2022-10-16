@@ -8,6 +8,7 @@
 #include "decorate.h"
 #include "animate.h"
 #include "render.h"
+#include "draw.h"
 #include "sound.h"
 #include "map.h"
 #include "menu.h"
@@ -67,14 +68,6 @@ void *load_palette()
 	r_init_palette(dest);
 
 	return dest;
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void finish_loading()
-{
-	// restore 'I_FinishUpdate' modification
-	utils_install_hooks(restore_loader + 1, 1);
-	doom_printf("LOADING FINISHED\n");
 }
 
 //
@@ -151,7 +144,7 @@ void gfx_progress(int32_t step)
 
 	if(!step)
 	{
-		V_DrawPatchDirect(0, 0, 0, loading->gfx_loader_bg);
+		V_DrawPatchDirect(0, 0, loading->gfx_loader_bg);
 		I_FinishUpdate();
 		// reset
 		loading->gfx_current = 0;
@@ -176,12 +169,12 @@ void gfx_progress(int32_t step)
 
 	loading->gfx_loader_bar->width = width;
 
-	V_DrawPatchDirect(0, 0, 0, loading->gfx_loader_bar);
+	V_DrawPatchDirect(0, 0, loading->gfx_loader_bar);
 
 	I_FinishUpdate();
 }
 
-static void gfx_init()
+static void init_gfx()
 {
 	int32_t idx;
 
@@ -232,11 +225,14 @@ uint32_t ace_main()
 		wadfiles[1] = ace_wad_name;
 	}
 
+	// new video code
+	init_draw();
+
 	// load WAD files
 	wad_init();
 
 	// load graphics
-	gfx_init();
+	init_gfx();
 
 	// init graphics mode
 	I_InitGraphics();
@@ -354,8 +350,6 @@ static const hook_t restore_loader[] =
 {
 	// 'I_Error' patch
 	{0x0001AB1E, CODE_HOOK | HOOK_CALL_DOOM, 0x0001B830},
-	// 'I_FinishUpdate' patch
-	{0x00019FE7, CODE_HOOK | HOOK_UINT8, 0x40},
 };
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -368,8 +362,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00022B0A, DATA_HOOK | HOOK_UINT32, 0x6766},
 	// disable title text update
 	{0x0001D8D0, CODE_HOOK | HOOK_UINT8, 0xC3},
-	// relace call to 'I_InitGraphics' in 'D_DoomLoop'
-	{0x0001D56D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)finish_loading},
+	// disable call to 'I_InitGraphics' in 'D_DoomLoop'
+	{0x0001D56D, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace call to 'W_CacheLumpName' in 'I_InitGraphics'
 	{0x0001A0F5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)load_palette},
 	// disable call to 'I_InitDiskFlash' in 'I_InitGraphics'
@@ -380,8 +374,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 	// early 'I_Error' fix
 	{0x0001AB1E, CODE_HOOK | HOOK_SET_NOPS, 5},
-	// force single page in 'I_FinishUpdate'
-	{0x00019FE7, CODE_HOOK | HOOK_UINT8, 0x00},
 	// read stuff
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},

@@ -13,6 +13,7 @@
 #include "ldr_texture.h"
 #include "ldr_sprite.h"
 #include "extra3d.h"
+#include "draw.h"
 #include "render.h"
 
 #define HEIGHTBITS	12
@@ -41,6 +42,10 @@ static void *ptr_visplanes;
 static vissprite_t *ptr_vissprites;
 static drawseg_t *ptr_drawsegs;
 
+uint8_t *render_trn0;
+uint8_t *render_trn1;
+uint8_t *render_add;
+
 uint8_t r_palette[768];
 
 // mouselook scale
@@ -65,6 +70,39 @@ static hook_t hook_vissprite[];
 
 //
 // draw
+
+static void setup_colfunc_tint(uint8_t alpha)
+{
+	if(alpha == 255)
+	{
+		colfunc = R_DrawColumn;
+		return;
+	}
+
+	if(alpha > 178)
+	{
+		colfunc = R_DrawColumnTint0;
+		dr_tinttab = render_trn0;
+		return;
+	}
+
+	if(alpha > 127)
+	{
+		colfunc = R_DrawColumnTint0;
+		dr_tinttab = render_trn1;
+		return;
+	}
+
+	if(alpha > 76)
+	{
+		colfunc = R_DrawColumnTint1;
+		dr_tinttab = render_trn1;
+		return;
+	}
+
+	colfunc = R_DrawColumnTint1;
+	dr_tinttab = render_trn0;
+}
 
 void draw_solid_column(void *data, int32_t fc, int32_t cc, int32_t height)
 {
@@ -164,6 +202,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				texnum = texturetranslation[*pl->texture];
 				dc_texturemid = pl->source->ceilingheight - viewz;
 				height = -1;
+				setup_colfunc_tint(pl->alpha);
 				break;
 			}
 			pl = pl->next;
@@ -183,6 +222,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 					texnum = texturetranslation[*pl->texture];
 					dc_texturemid = pl->source->ceilingheight - viewz;
 					height = -1;
+					setup_colfunc_tint(pl->alpha);
 					break;
 				}
 				pl = pl->next;
@@ -207,10 +247,9 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			}
 			height = textureheight[texnum] >> FRACBITS;
 		}
+		// TODO: translucent line
+		colfunc = R_DrawColumn;
 	}
-
-	// TODO: render flags
-	colfunc = (void*)0x0001BD28 + doom_code_segment; // R_DrawColumn
 
 	dc_texturemid += seg->sidedef->rowoffset;
 
@@ -623,10 +662,10 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 	if(!vis->mo)
 	{
-		colfunc = (void*)0x0001BD28 + doom_code_segment; // R_DrawColumn
+		colfunc = R_DrawColumn;
 
 		if(viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8)
-			colfunc = (void*)0x00034A90 + doom_code_segment; // R_DrawFuzzColumn
+			colfunc = R_DrawFuzzColumn;
 		else
 		if(fixedcolormap)
 			dc_colormap = fixedcolormap;
@@ -660,10 +699,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 		}
 	} else
 	{
-		colfunc = (void*)0x0001BD28 + doom_code_segment; // R_DrawColumn
-
 		if(vis->mo->render_style == RS_FUZZ)
-			colfunc = (void*)0x00034A90 + doom_code_segment; // R_DrawFuzzColumn
+			colfunc = R_DrawFuzzColumn;
 		else
 		if(fixedcolormap)
 			dc_colormap = fixedcolormap;
@@ -700,6 +737,23 @@ void R_DrawVisSprite(vissprite_t *vis)
 				index = MAXLIGHTSCALE - 1;
 
 			dc_colormap = slight[index];
+		}
+
+		switch(vis->mo->render_style)
+		{
+			case RS_NORMAL:
+				colfunc = R_DrawColumn;
+			break;
+			case RS_SHADOW:
+				colfunc = R_DrawShadowColumn;
+			break;
+			case RS_TRANSLUCENT:
+				setup_colfunc_tint(vis->mo->render_alpha);
+			break;
+			case RS_ADDITIVE:
+				colfunc = R_DrawColumnTint0;
+				dr_tinttab = render_add;
+			break;
 		}
 
 		// TODO: dc_translation
@@ -858,7 +912,7 @@ void r_draw_plane(visplane_t *pl)
 
 	planeheight = abs(pl->height - viewz);
 
-	light = (pl->lightlevel >> LIGHTSEGSHIFT) + extralight;
+	light = (pl->light >> LIGHTSEGSHIFT) + extralight;
 
 	if(light >= LIGHTLEVELS)
 	    light = LIGHTLEVELS - 1;
@@ -1118,7 +1172,7 @@ void R_Subsector(uint32_t num)
 		}
 
 		fakesource = pl;
-		fakeplane_floor = e3d_find_plane(*pl->height, *pl->pic, light);
+		fakeplane_floor = e3d_find_plane(*pl->height, *pl->pic, light, pl->alpha);
 		if(fakeplane_floor)
 		{
 			count = sub->numlines;
@@ -1171,7 +1225,7 @@ void R_Subsector(uint32_t num)
 		}
 
 		fakesource = pl;
-		fakeplane_ceiling = e3d_find_plane(*pl->height, *pl->pic, light);
+		fakeplane_ceiling = e3d_find_plane(*pl->height, *pl->pic, light, pl->alpha);
 		if(fakeplane_ceiling)
 		{
 			count = sub->numlines;
@@ -1330,6 +1384,69 @@ uint32_t masked_side_check(side_t *side)
 }
 
 //
+// funcs
+
+static uint8_t channel_mix(uint8_t back, uint8_t front, uint16_t alpha)
+{
+	// close enough
+	return (((uint16_t)front * alpha) >> 8) + (((uint16_t)back * (256-alpha)) >> 8);
+}
+
+static void generate_translucent(uint8_t *dest, uint8_t alpha)
+{
+	uint8_t *pc0 = r_palette;
+	uint8_t *pc1;
+
+	for(uint32_t y = 0; y < 256; y++)
+	{
+		pc1 = r_palette;
+		for(uint32_t x = 0; x < 256; x++)
+		{
+			uint8_t r, g, b;
+
+			r = channel_mix(pc0[0], pc1[0], alpha);
+			g = channel_mix(pc0[1], pc1[1], alpha);
+			b = channel_mix(pc0[2], pc1[2], alpha);
+
+			*dest++ = r_find_color(r, g, b);
+
+			pc1 += 3;
+		}
+		pc0 += 3;
+	}
+}
+
+static void generate_additive(uint8_t *dest)
+{
+	uint8_t *pc0 = r_palette;
+	uint8_t *pc1;
+
+	for(uint32_t y = 0; y < 256; y++)
+	{
+		pc1 = r_palette;
+		for(uint32_t x = 0; x < 256; x++)
+		{
+			uint16_t r, g, b;
+
+			r = pc0[0] + pc1[0];
+			if(r > 255)
+				r = 255;
+			g = pc0[1] + pc1[1];
+			if(g > 255)
+				g = 255;
+			b = pc0[2] + pc1[2];
+			if(b > 255)
+				b = 255;
+
+			*dest++ = r_find_color(r, g, b);
+
+			pc1 += 3;
+		}
+		pc0 += 3;
+	}
+}
+
+//
 // API
 
 uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
@@ -1380,6 +1497,8 @@ void r_init_palette(uint8_t *palette)
 
 void init_render()
 {
+	uint8_t *ptr;
+
 	ldr_alloc_message = "Render";
 
 	// find some colors
@@ -1435,20 +1554,34 @@ void init_render()
 	if(mod_config.e3dplane_count < 16)
 		mod_config.e3dplane_count = 16;
 	e3d_init(mod_config.e3dplane_count);
+
+	// initialize render style tables
+	// There are two translucency tables, 20/80 + 40/60,
+	// and one additive table, 100%.
+	ptr = ldr_malloc(3 * 256 * 256 + 256);
+	ptr = (uint8_t*)(((uint32_t)ptr + 255) & ~255); // align for ASM optimisations (not yet implemented)
+	render_trn0 = ptr;
+	render_trn1 = ptr + 256 * 256;
+	render_add = ptr + 256 * 256 * 2;
+
+	generate_translucent(render_trn0, 60);
+	generate_translucent(render_trn1, 100);
+	generate_additive(render_add);
 }
 
 void render_player_view(player_t *pl)
 {
 	// cleanup new stuff
 	e3d_reset();
+	// solid drawing
+	colfunc = R_DrawColumn;
+	spanfunc = R_DrawSpan;
 	// 3D view
 	R_RenderPlayerView(pl);
 	// masked
 	draw_masked_range();
 	// weapon sprites
 	draw_player_sprites();
-	// restore solid wall drawing
-	colfunc = (void*)0x0001BD28 + doom_code_segment; // R_DrawColumn
 }
 
 //

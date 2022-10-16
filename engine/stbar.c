@@ -11,6 +11,7 @@
 #include "player.h"
 #include "map.h"
 #include "render.h"
+#include "draw.h"
 #include "stbar.h"
 
 #define STBAR_Y	(SCREENHEIGHT-2)
@@ -119,7 +120,7 @@ static void stbar_draw_number_r(int32_t x, int32_t y, int32_t value, int32_t dig
 	while(digits--)
 	{
 		x -= numfont[0]->width;
-		V_DrawPatchDirect(x, y, 0, numfont[value % 10]);
+		V_DrawPatchDirect(x, y, numfont[value % 10]);
 		value /= 10;
 		if(!value)
 			return;
@@ -138,7 +139,7 @@ static void stbar_draw_center(int32_t x, int32_t y, int32_t lump)
 	patch->x = patch->width / 2;
 	patch->y = patch->height / 2;
 
-	V_DrawPatchDirect(x, y, 0, patch);
+	V_DrawPatchDirect(x, y, patch);
 
 	patch->x = ox;
 	patch->y = oy;
@@ -219,9 +220,9 @@ static inline void draw_full_stbar(player_t *pl)
 		stbar_ar_x = stbar_t_ar_x;
 		numfont = tallnum;
 
-		V_DrawPatchDirect(stbar_hp_x, stbar_y, 0, tallpercent);
+		V_DrawPatchDirect(stbar_hp_x, stbar_y, tallpercent);
 		if(pl->armorpoints)
-			V_DrawPatchDirect(stbar_ar_x, stbar_y, 0, tallpercent);
+			V_DrawPatchDirect(stbar_ar_x, stbar_y, tallpercent);
 	}
 
 	// health
@@ -275,7 +276,7 @@ static inline void draw_keybar(player_t *pl, uint32_t skip)
 		patch->x = patch->width;
 		patch->y = 0;
 
-		V_DrawPatchDirect(tx, ty, 0, patch);
+		V_DrawPatchDirect(tx, ty, patch);
 
 		patch->x = ox;
 		patch->y = oy;
@@ -392,7 +393,7 @@ static inline void draw_crosshair(player_t *pl)
 			y = height - xhair->height + xhair->y;
 	}
 
-	V_DrawPatchDirect((SCREENWIDTH / 2), y, 0, xhair);
+	V_DrawPatchDirect((SCREENWIDTH / 2), y, xhair);
 }
 
 //

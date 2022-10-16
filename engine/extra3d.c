@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "map.h"
 #include "render.h"
+#include "draw.h"
 #include "extra3d.h"
 
 static visplane_t *e3dplanes;
@@ -101,13 +102,13 @@ void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_
 //
 // extra planes
 
-visplane_t *e3d_find_plane(fixed_t height, uint32_t picnum, uint32_t light)
+visplane_t *e3d_find_plane(fixed_t height, uint32_t picnum, uint16_t light, uint16_t alpha)
 {
 	visplane_t *check;
 
 	for(check = e3dplanes; check < cur_plane; check++)
 	{
-		if(height == check->height && picnum == check->picnum && light == check->lightlevel)
+		if(height == check->height && picnum == check->picnum && light == check->light && alpha == check->alpha)
 			break;
 	}
 
@@ -121,7 +122,8 @@ visplane_t *e3d_find_plane(fixed_t height, uint32_t picnum, uint32_t light)
 
 	check->height = height;
 	check->picnum = picnum;
-	check->lightlevel = light;
+	check->light = light;
+	check->alpha = alpha;
 	check->minx = SCREENWIDTH;
 	check->maxx = -1;
 
@@ -366,7 +368,39 @@ void e3d_draw_height(fixed_t height)
 	for(visplane_t *pl = e3dplanes; pl < cur_plane; pl++)
 	{
 		if(pl->height == height)
+		{
+			// setup alpha / style
+			if(pl->alpha > 255)
+			{
+				spanfunc = R_DrawSpanTint0;
+				dr_tinttab = render_add;
+			} else
+			if(pl->alpha == 255)
+			{
+				spanfunc = R_DrawSpan;
+			} else
+			if(pl->alpha > 178)
+			{
+				spanfunc = R_DrawSpanTint0;
+				dr_tinttab = render_trn0;
+			} else
+			if(pl->alpha > 127)
+			{
+				spanfunc = R_DrawSpanTint0;
+				dr_tinttab = render_trn1;
+			} else
+			if(pl->alpha > 76)
+			{
+				spanfunc = R_DrawSpanTint1;
+				dr_tinttab = render_trn1;
+			} else
+			{
+				spanfunc = R_DrawSpanTint1;
+				dr_tinttab = render_trn0;
+			}
+			// draw
 			r_draw_plane(pl);
+		}
 	}
 }
 
@@ -449,9 +483,8 @@ void e3d_create()
 				add_ceiling_plane(&sec->exceiling, src, ln, flags, ln->arg3);
 				if(ln->arg1 & 4)
 				{
-					flags = E3D_SWAP_PLANES;
-					add_floor_plane(&sec->exfloor, src, ln, flags, ln->arg3);
-					add_ceiling_plane(&sec->exceiling, src, ln, flags, ln->arg3);
+					add_floor_plane(&sec->exfloor, src, ln, E3D_SWAP_PLANES, ln->arg3);
+					add_ceiling_plane(&sec->exceiling, src, ln, E3D_SWAP_PLANES, ln->arg3);
 				}
 			}
 

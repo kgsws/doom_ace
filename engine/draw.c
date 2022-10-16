@@ -7,6 +7,9 @@
 #include "draw.h"
 
 uint8_t *dr_tinttab;
+uint8_t ds_maskcolor;
+
+static const uint8_t unknown_flat[4] = {96, 111, 111, 96};
 
 //
 // column drawers
@@ -162,6 +165,29 @@ void R_DrawSpan()
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
+void R_DrawUnknownSpan()
+{
+	uint32_t position, step;
+	uint8_t *dest;
+	uint32_t count;
+
+	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
+	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+
+	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	count = ds_x2 - ds_x1;
+
+	do
+	{
+		uint32_t xtemp, ytemp;
+		ytemp = (position >> 12) & 2;
+		xtemp = (position >> 29) & 1;
+		*dest++ = ds_colormap[unknown_flat[xtemp | ytemp]];
+		position += step;
+	} while(count--);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
 void R_DrawSpanTint0()
 {
 	uint32_t position, step;
@@ -208,6 +234,93 @@ void R_DrawSpanTint1()
 		xtemp = (position >> 26);
 		color = ds_colormap[ds_source[xtemp | ytemp]];
 		*dest = dr_tinttab[*dest * 256 + color];
+		dest++;
+		position += step;
+	} while(count--);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void R_DrawMaskedSpan()
+{
+	uint32_t position, step;
+	uint8_t *dest;
+	uint32_t count;
+
+	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
+	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+
+	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	count = ds_x2 - ds_x1;
+
+	do
+	{
+		uint32_t xtemp, ytemp;
+		uint8_t color;
+		ytemp = (position >> 4) & 0x0fc0;
+		xtemp = (position >> 26);
+		color = ds_source[xtemp | ytemp];
+		if(color != ds_maskcolor)
+			*dest = ds_colormap[color];
+		dest++;
+		position += step;
+	} while(count--);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void R_DrawMaskedSpanTint0()
+{
+	uint32_t position, step;
+	uint8_t *dest;
+	uint32_t count;
+
+	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
+	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+
+	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	count = ds_x2 - ds_x1;
+
+	do
+	{
+		uint32_t xtemp, ytemp;
+		uint8_t color;
+		ytemp = (position >> 4) & 0x0fc0;
+		xtemp = (position >> 26);
+		color = ds_source[xtemp | ytemp];
+		if(color != ds_maskcolor)
+		{
+			color = ds_colormap[color];
+			*dest = dr_tinttab[*dest + color * 256];
+		}
+		dest++;
+		position += step;
+	} while(count--);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void R_DrawMaskedSpanTint1()
+{
+	uint32_t position, step;
+	uint8_t *dest;
+	uint32_t count;
+
+	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
+	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+
+	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	count = ds_x2 - ds_x1;
+
+	do
+	{
+		uint32_t xtemp, ytemp;
+		uint8_t color;
+		ytemp = (position >> 4) & 0x0fc0;
+		xtemp = (position >> 26);
+		color = ds_source[xtemp | ytemp];
+		if(color != ds_maskcolor)
+		{
+			color = ds_colormap[color];
+			*dest = dr_tinttab[*dest * 256 + color];
+		}
 		dest++;
 		position += step;
 	} while(count--);

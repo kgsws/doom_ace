@@ -7,6 +7,7 @@
 #include "map.h"
 #include "render.h"
 #include "draw.h"
+#include "ldr_flat.h"
 #include "extra3d.h"
 
 static visplane_t *e3dplanes;
@@ -30,7 +31,7 @@ fixed_t tmextradrop;
 //
 // funcs
 
-void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t flags, uint8_t alpha)
+void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t flags, uint16_t alpha)
 {
 	extraplane_t *pl = *dest;
 	extraplane_t *new;
@@ -66,7 +67,7 @@ void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t 
 	}
 }
 
-void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t flags, uint8_t alpha)
+void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t flags, uint16_t alpha)
 {
 	extraplane_t *pl = *dest;
 	extraplane_t *new;
@@ -375,7 +376,7 @@ void e3d_draw_height(fixed_t height)
 				spanfunc = R_DrawSpanTint0;
 				dr_tinttab = render_add;
 			} else
-			if(pl->alpha == 255)
+			if(pl->alpha > 250)
 			{
 				spanfunc = R_DrawSpan;
 			} else
@@ -397,6 +398,18 @@ void e3d_draw_height(fixed_t height)
 			{
 				spanfunc = R_DrawSpanTint1;
 				dr_tinttab = render_trn0;
+			}
+			// masked?
+			if(pl->picnum > numflats)
+			{
+				ds_maskcolor = flattexture_mask[pl->picnum - numflats - 1];
+				if(spanfunc == R_DrawSpan)
+					spanfunc = R_DrawMaskedSpan;
+				else
+				if(spanfunc == R_DrawSpanTint0)
+					spanfunc = R_DrawMaskedSpanTint0;
+				else
+					spanfunc = R_DrawMaskedSpanTint1;
 			}
 			// draw
 			r_draw_plane(pl);
@@ -442,6 +455,7 @@ void e3d_create()
 		side_t *side;
 		uint32_t tag;
 		uint32_t flags;
+		uint16_t alpha;
 
 		if(ln->special != 160) // Sector_Set3dFloor
 			continue;
@@ -449,7 +463,7 @@ void e3d_create()
 		tag = ln->arg1 & ~(4 | 16 | 32);
 
 		if(	(tag != 1 && tag != 3) ||
-			ln->arg2
+			ln->arg2 & ~64
 		)
 			I_Error("[EX3D] Unsupported extra floor type!");
 
@@ -471,6 +485,11 @@ void e3d_create()
 		if(ln->arg1 & 32)
 			flags ^= E3D_BLOCK_HITSCAN;
 
+		if(ln->arg2 & 64)
+			alpha = 256; // additive
+		else
+			alpha = ln->arg3;
+
 		tag = ln->arg0 + ln->arg4 * 256;
 
 		for(uint32_t j = 0; j < numsectors; j++)
@@ -479,12 +498,12 @@ void e3d_create()
 
 			if(sec->tag == tag)
 			{
-				add_floor_plane(&sec->exfloor, src, ln, flags, ln->arg3);
-				add_ceiling_plane(&sec->exceiling, src, ln, flags, ln->arg3);
+				add_floor_plane(&sec->exfloor, src, ln, flags, alpha);
+				add_ceiling_plane(&sec->exceiling, src, ln, flags, alpha);
 				if(ln->arg1 & 4)
 				{
-					add_floor_plane(&sec->exfloor, src, ln, E3D_SWAP_PLANES, ln->arg3);
-					add_ceiling_plane(&sec->exceiling, src, ln, E3D_SWAP_PLANES, ln->arg3);
+					add_floor_plane(&sec->exfloor, src, ln, E3D_SWAP_PLANES, alpha);
+					add_ceiling_plane(&sec->exceiling, src, ln, E3D_SWAP_PLANES, alpha);
 				}
 			}
 		}

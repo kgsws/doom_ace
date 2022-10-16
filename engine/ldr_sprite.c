@@ -66,7 +66,7 @@ static void install_sprites(uint32_t sprite_count)
 			if(count)
 			{
 				uint32_t size = count * sizeof(spriteframe_t);
-				sprites[i].spriteframes = doom_malloc(size);
+				sprites[i].spriteframes = ldr_malloc(size);
 				memcpy(sprites[i].spriteframes, sprtemp, size);
 			}
 		}

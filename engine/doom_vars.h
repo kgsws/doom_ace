@@ -143,7 +143,7 @@ extern uint32_t *texturetranslation;
 
 // flat
 extern uint32_t numflats;
-extern uint32_t *flattranslation;
+extern uint16_t *flattranslation; // this was uint16_t
 
 // things
 extern thinker_t thinkercap;
@@ -180,6 +180,7 @@ extern uint32_t usegamma;
 extern uint32_t detaillevel;
 
 // render, status
+extern visplane_t *lastvisplane;
 extern sector_t *frontsector;
 extern sector_t *backsector;
 extern seg_t *curline;
@@ -256,6 +257,8 @@ extern uint8_t *ds_colormap;
 extern uint8_t *ds_source;
 extern fixed_t sprtopscreen;
 extern fixed_t spryscale;
+extern fixed_t pspriteiscale;
+extern fixed_t skytexturemid;
 extern int16_t *mfloorclip;
 extern int16_t *mceilingclip;
 extern void (*colfunc)() __attribute((regparm(2),no_caller_saved_registers));
@@ -355,6 +358,7 @@ extern deh_state_t deh_states[];
 extern weaponinfo_t deh_weaponinfo[];
 extern drawseg_t d_drawsegs[];
 extern vissprite_t d_vissprites[];
+extern visplane_t d_visplanes[];
 
 // strings
 extern uint64_t dtxt_skull_name[];

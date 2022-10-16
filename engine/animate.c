@@ -622,22 +622,9 @@ continue_keyword:
 				pic = anim_ptr;
 
 				for(uint32_t i = 0; i < num; i++)
-				{
-					uint32_t tmp = target + i;
-					if(get_pic == flat_num_check)
-						*pic++ = flatlump[tmp];
-					else
-						*pic++ = tmp;
-				}
-
+					*pic++ = target + i;
 				for(uint32_t i = 0; i < num - 1; i++)
-				{
-					uint32_t tmp = target + i;
-					if(get_pic == flat_num_check)
-						*pic++ = flatlump[tmp];
-					else
-						*pic++ = tmp;
-				}
+					*pic++ = target + i;
 
 				// store animation info
 				if(get_pic == flat_num_check)
@@ -686,10 +673,7 @@ continue_keyword:
 
 				if(animations)
 				{
-					if(get_pic == flat_num_check)
-						frame->pic = flatlump[num];
-					else
-						frame->pic = num;
+					frame->pic = num;
 					frame->tick = tick_total;
 				}
 

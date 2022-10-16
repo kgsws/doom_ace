@@ -357,10 +357,15 @@ DOOM_VAR 0x00039540, viewx
 DOOM_VAR 0x00039544, viewy
 DOOM_VAR 0x00039548, viewz
 
+DOOM_VAR 0x0003A1E0, d_visplanes
+
 DOOM_VAR 0x0004F420, ceilingclip
 DOOM_VAR 0x0004F6A0, floorclip
 
 DOOM_VAR 0x0004F920, yslope
+
+DOOM_VAR 0x0005A140, lastvisplane
+DOOM_VAR 0x0005A144, skytexturemid
 
 DOOM_VAR 0x0005A150, planeheight
 DOOM_VAR 0x0005A154, planezlight
@@ -409,6 +414,7 @@ DOOM_VAR 0x0005C888, sprtopscreen
 DOOM_VAR 0x0005C88C, mceilingclip
 DOOM_VAR 0x0005C890, mfloorclip
 DOOM_VAR 0x0005C894, vissprite_p
+DOOM_VAR 0x0005C898, pspriteiscale
 DOOM_VAR 0x0005C8A0, spryscale
 DOOM_VAR 0x0005C8A4, vsprsortedhead
 

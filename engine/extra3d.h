@@ -4,6 +4,7 @@
 #define E3D_SOLID	1
 #define E3D_BLOCK_HITSCAN	2
 #define E3D_BLOCK_SIGHT	4
+#define E3D_ADDITIVE	8
 
 #define E3D_SWAP_PLANES	0x10000
 
@@ -17,7 +18,7 @@ typedef struct extraplane_s
 	uint16_t *pic;
 	uint16_t *light;
 	uint16_t flags;
-	uint8_t alpha;
+	uint16_t alpha;
 } extraplane_t;
 
 typedef struct extra_height_s

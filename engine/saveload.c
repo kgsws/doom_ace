@@ -1891,14 +1891,17 @@ static inline uint32_t ld_get_things()
 				continue;
 
 			item = doom_malloc(sizeof(inventory_t));
-			item->prev = ilst;
-			item->next = NULL;
-			item->type = type;
-			item->count = count;
-			if(ilst)
-				ilst->next = item;
-			mo->inventory = item;
-			ilst = item;
+			if(item)
+			{
+				item->prev = ilst;
+				item->next = NULL;
+				item->type = type;
+				item->count = count;
+				if(ilst)
+					ilst->next = item;
+				mo->inventory = item;
+				ilst = item;
+			}
 		}
 	}
 

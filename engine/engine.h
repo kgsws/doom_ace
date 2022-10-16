@@ -48,6 +48,7 @@ typedef uint32_t angle_t;
 #define ANGLETOFINESHIFT	19
 #define FINEANGLES	8192
 #define FINEMASK	(FINEANGLES - 1)
+#define ANGLETOSKYSHIFT	22
 
 #define ANG45	0x20000000
 #define ANG90	0x40000000
@@ -863,7 +864,7 @@ typedef struct texpatch_s
 {
 	int32_t originx;
 	int32_t originy;
-	uint32_t patch;
+	int32_t patch;
 } __attribute__((packed)) texpatch_t;
 
 typedef struct texture_s
@@ -1213,6 +1214,7 @@ extern uint8_t *ldr_alloc_message;
 void gfx_progress(int32_t step);
 void *ldr_malloc(uint32_t size);
 void *ldr_realloc(void *ptr, uint32_t size);
+void ldr_dump_buffer(const uint8_t *path, void *buff, uint32_t size);
 void error_message(uint8_t*);
 
 // am_map
@@ -1379,6 +1381,7 @@ void WI_Start(wbstartstruct_t*) __attribute((regparm(2),no_caller_saved_register
 // z_zone
 void *Z_Malloc(uint32_t size, uint32_t tag, void *owner) __attribute((regparm(2),no_caller_saved_registers));
 void Z_Free(void *ptr) __attribute((regparm(2),no_caller_saved_registers));
+void Z_ChangeTag2(void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // extra inline
 

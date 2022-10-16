@@ -19,6 +19,8 @@
 #define HEIGHTBITS	12
 #define HEIGHTUNIT	(1 << HEIGHTBITS)
 
+#define RENDER_TABLE_SIZE	(3 * 256 * 256)
+
 //
 
 static visplane_t *fakeplane_ceiling;
@@ -38,10 +40,11 @@ static fixed_t cy_look;
 
 static fixed_t mlook_pitch;
 
-static void *ptr_visplanes;
+static visplane_t *ptr_visplanes;
 static vissprite_t *ptr_vissprites;
 static drawseg_t *ptr_drawsegs;
 
+int32_t render_tables = -1;
 uint8_t *render_trn0;
 uint8_t *render_trn1;
 uint8_t *render_add;
@@ -71,9 +74,16 @@ static hook_t hook_vissprite[];
 //
 // draw
 
-static void setup_colfunc_tint(uint8_t alpha)
+static void setup_colfunc_tint(uint16_t alpha)
 {
-	if(alpha == 255)
+	if(alpha > 255)
+	{
+		colfunc = R_DrawColumnTint0;
+		dr_tinttab = render_add;
+		return;
+	}
+
+	if(alpha > 250)
 	{
 		colfunc = R_DrawColumn;
 		return;
@@ -908,8 +918,20 @@ void r_draw_plane(visplane_t *pl)
 {
 	int32_t light;
 	int32_t stop;
+	void *oldfunc = NULL;
 
-	ds_source = W_CacheLumpNum(flattranslation[pl->picnum], PU_CACHE);
+	if(pl->minx > pl->maxx)
+		return;
+
+	if(pl->picnum == numflats)
+	{
+		oldfunc = spanfunc;
+		spanfunc = R_DrawUnknownSpan;
+	} else
+	if(pl->picnum > numflats)
+ 		ds_source = flat_generate_composite(pl->picnum - numflats - 1);
+	else
+		ds_source = W_CacheLumpNum(flatlump[flattranslation[pl->picnum]], PU_CACHE);
 
 	planeheight = abs(pl->height - viewz);
 
@@ -929,6 +951,37 @@ void r_draw_plane(visplane_t *pl)
 	stop = pl->maxx + 1;
 	for(int32_t x = pl->minx; x <= stop; x++)
 		R_MakeSpans(x, pl->top[x-1], pl->bottom[x-1], pl->top[x], pl->bottom[x]);
+
+	if(oldfunc)
+		spanfunc = oldfunc;
+}
+
+static void R_DrawPlanes()
+{
+	for(visplane_t *pl = ptr_visplanes; pl < lastvisplane; pl++)
+	{
+		if(pl->picnum == skyflatnum)
+		{
+			dc_iscale = pspriteiscale;
+			dc_colormap = colormaps;
+			dc_texturemid = skytexturemid;
+			for(uint32_t x = pl->minx; x <= pl->maxx; x++)
+			{
+				dc_yl = pl->top[x];
+				dc_yh = pl->bottom[x];
+				if(dc_yl <= dc_yh)
+				{
+					uint32_t angle = (viewangle + xtoviewangle[x]) >> ANGLETOSKYSHIFT;
+					dc_x = x;
+					dc_source = texture_get_column(texturetranslation[skytexture], angle);
+					colfunc();
+				}
+			}
+			continue;
+		}
+
+		r_draw_plane(pl);
+	}
 }
 
 //
@@ -1414,7 +1467,7 @@ static void generate_translucent(uint8_t *dest, uint8_t alpha)
 			pc1 += 3;
 		}
 		pc0 += 3;
-		if(y & 1)
+		if(render_tables < 1 && y & 1)
 			gfx_progress(1);
 	}
 }
@@ -1446,7 +1499,7 @@ static void generate_additive(uint8_t *dest)
 			pc1 += 3;
 		}
 		pc0 += 3;
-		if(y & 1)
+		if(render_tables < 1 && y & 1)
 			gfx_progress(1);
 	}
 }
@@ -1495,9 +1548,20 @@ uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
 	return ret;
 }
 
-void r_init_palette(uint8_t *palette)
+void render_preinit(uint8_t *palette)
 {
+	int32_t lump;
+
+	// save palette
 	memcpy(r_palette, palette, 768);
+
+	// check for pre-calculated render tables
+	lump = wad_check_lump("ACE_RNDR");
+	if(lump < 0)
+		return;
+
+	if(lumpinfo[lump].size == RENDER_TABLE_SIZE)
+		render_tables = lump;
 }
 
 void init_render()
@@ -1532,13 +1596,13 @@ void init_render()
 		ptr_visplanes = ldr_malloc(mod_config.visplane_count * sizeof(visplane_t));
 		memset(ptr_visplanes, 0, mod_config.visplane_count * sizeof(visplane_t));
 		// update values in hooks
-		for(int i = 0; i <= 4; i++)
+		for(int i = 0; i <= 2; i++)
 			hook_visplane[i].value = (uint32_t)ptr_visplanes;
-		for(int i = 5; i <= 6; i++)
-			hook_visplane[i].value = mod_config.visplane_count;
+		hook_visplane[3].value = mod_config.visplane_count;
 		// install hooks
-		utils_install_hooks(hook_visplane, 7);
-	}
+		utils_install_hooks(hook_visplane, 4);
+	} else
+		ptr_visplanes = d_visplanes;
 
 	// vissprite limit
 	if(mod_config.vissprite_count > 128)
@@ -1561,17 +1625,32 @@ void init_render()
 	e3d_init(mod_config.e3dplane_count);
 
 	// initialize render style tables
-	// There are two translucency tables, 20/80 + 40/60,
-	// and one additive table, 100%.
-	ptr = ldr_malloc(3 * 256 * 256 + 256);
-	ptr = (uint8_t*)(((uint32_t)ptr + 255) & ~255); // align for ASM optimisations (not yet implemented)
+	ptr = ldr_malloc(RENDER_TABLE_SIZE + 256);
+	ptr = (uint8_t*)(((uint32_t)ptr + 255) & ~255); // align for ASM optimisations (not required right now)
+
+	// there are two translucency tables, 20/80 and 40/60
 	render_trn0 = ptr;
 	render_trn1 = ptr + 256 * 256;
+	// and one additive table, 100%
 	render_add = ptr + 256 * 256 * 2;
 
-	generate_translucent(render_trn0, 60);
-	generate_translucent(render_trn1, 100);
-	generate_additive(render_add);
+	if(render_tables < 0)
+	{
+		// tables have to be generated
+		// this is very slow on old PCs
+		doom_printf("[RENDER] Generating tables ...\n");
+		generate_translucent(render_trn0, 60);
+		generate_translucent(render_trn1, 100);
+		generate_additive(render_add);
+	} else
+	{
+		// tables are provided in WAD file
+		// beware: tables are based on palette!
+		wad_read_lump(ptr, render_tables, RENDER_TABLE_SIZE);
+	}
+
+	if(M_CheckParm("-dumptables"))
+		ldr_dump_buffer("ace_rndr.bin", ptr, RENDER_TABLE_SIZE);
 }
 
 void render_player_view(player_t *pl)
@@ -1668,11 +1747,8 @@ static hook_t hook_visplane[] =
 	{0x000361f1, CODE_HOOK | HOOK_UINT32, 0}, // R_ClearPlanes
 	{0x0003628e, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
 	{0x000362bb, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
-	{0x000364fe, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
-	{0x00036545, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
 	// visplane max count at various locations
 	{0x000362d1, CODE_HOOK | HOOK_UINT32, 0}, // R_FindPlane
-	{0x0003650f, CODE_HOOK | HOOK_UINT32, 0}, // R_DrawPlanes
 };
 
 // expanded vissprite limit
@@ -1696,8 +1772,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001D361, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_RenderPlayerView},
 	// replace call to 'R_SetupFrame' in 'R_RenderPlayerView'
 	{0x00035FB0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)custom_SetupFrame},
-	// skip 'R_RenderPlayerView' in 'R_RenderPlayerView'
+	// skip 'R_DrawMasked' in 'R_RenderPlayerView'
 	{0x00035FE3, CODE_HOOK | HOOK_JMP_DOOM, 0x0001F170},
+	// skip call to 'R_DrawPlanes' in 'R_RenderPlayerView'
+	{0x00035FDE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawPlanes},
 	// replace 'R_DrawVisSprite'
 	{0x000381FE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawVisSprite},
 	{0x000385CE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawVisSprite},
@@ -1737,7 +1815,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000235F0, CODE_HOOK | HOOK_UINT8, 10},
 	// call 'R_RenderPlayerView' even in automap
 	{0x0001D32B, CODE_HOOK | HOOK_UINT16, 0x07EB},
-	// disable "drawseg overflow" error in 'R_DrawPlanes'
-	{0x000364C9, CODE_HOOK | HOOK_UINT16, 0x2BEB},
 };
 

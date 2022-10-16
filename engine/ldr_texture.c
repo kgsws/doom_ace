@@ -357,10 +357,10 @@ void init_textures(uint32_t count)
 	texturecolumnlump = ldr_malloc(count * sizeof(void*));
 	texturecolumnofs = ldr_malloc(count * sizeof(void*));
 	texturecomposite = ldr_malloc(count * sizeof(void*));
-	texturecompositesize = ldr_malloc(count * sizeof(void*));
-	texturewidthmask = ldr_malloc(count * sizeof(void*));
-	textureheight = ldr_malloc(count * sizeof(void*));
-	texturetranslation = ldr_malloc(count * sizeof(void*));
+	texturecompositesize = ldr_malloc(count * sizeof(uint32_t));
+	texturewidthmask = ldr_malloc(count * sizeof(uint32_t));
+	textureheight = ldr_malloc(count * sizeof(fixed_t));
+	texturetranslation = ldr_malloc(count * sizeof(uint32_t));
 
 	for(uint32_t i = 0; i < count; i++)
 		texturetranslation[i] = i;

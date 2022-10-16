@@ -65,7 +65,7 @@ void *load_palette()
 	idx = wad_get_lump("PLAYPAL");
 	wad_read_lump(dest, idx, 768);
 
-	r_init_palette(dest);
+	render_preinit(dest);
 
 	return dest;
 }
@@ -102,6 +102,18 @@ void *ldr_realloc(void *ptr, uint32_t size)
 		I_Error("%s memory allocation failed! (%uB)", ldr_alloc_message, size);
 
 	return ret;
+}
+
+void ldr_dump_buffer(const uint8_t *path, void *buff, uint32_t size)
+{
+	int32_t fd;
+
+	fd = doom_open_WR(path);
+	if(fd < 0)
+		return;
+
+	doom_write(fd, buff, size);
+	doom_close(fd);
 }
 
 static void count_textures()
@@ -265,8 +277,9 @@ uint32_t ace_main()
 		// GFX stuff count
 		loading->gfx_max = loading->count_texture + loading->count_sprite;
 
-		// render: 3x tint tables; it is slooow on old PCs
-		loading->gfx_max += 3 * 128;
+		// render tables; it is slooow on old PCs
+		if(render_tables < 0)
+			loading->gfx_max += RENDER_TABLE_PROGRESS;
 
 		// reserve 15% for engine stuff
 		new_max = (loading->gfx_max * 115) / 100;

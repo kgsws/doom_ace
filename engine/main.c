@@ -265,6 +265,9 @@ uint32_t ace_main()
 		// GFX stuff count
 		loading->gfx_max = loading->count_texture + loading->count_sprite;
 
+		// render: 3x tint tables; it is slooow on old PCs
+		loading->gfx_max += 3 * 128;
+
 		// reserve 15% for engine stuff
 		new_max = (loading->gfx_max * 115) / 100;
 		loading->gfx_ace = (new_max - loading->gfx_max) / LDR_ENGINE_COUNT;

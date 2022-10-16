@@ -1413,6 +1413,8 @@ static void generate_translucent(uint8_t *dest, uint8_t alpha)
 			pc1 += 3;
 		}
 		pc0 += 3;
+		if(y & 1)
+			gfx_progress(1);
 	}
 }
 
@@ -1443,6 +1445,8 @@ static void generate_additive(uint8_t *dest)
 			pc1 += 3;
 		}
 		pc0 += 3;
+		if(y & 1)
+			gfx_progress(1);
 	}
 }
 

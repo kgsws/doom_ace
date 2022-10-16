@@ -788,7 +788,7 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 		if(height > -0x7FFFFFFF)
 		{
-			fc = (centeryfrac - FixedMul(height - viewz, spryscale)) / FRACUNIT;
+			fc = (((centeryfrac >> 4) - FixedMul((height - viewz) >> 4, spryscale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
 			if(fc < 0)
 				return;
 		} else
@@ -798,7 +798,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 	if(clip_height_top < 0x7FFFFFFF)
 	{
-		cc = ((centeryfrac - FixedMul(clip_height_top - viewz, spryscale)) / FRACUNIT) - 1;
+		cc = (((centeryfrac >> 4) - FixedMul((clip_height_top - viewz) >> 4, spryscale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
+		cc--;
 		if(cc >= SCREENHEIGHT)
 			return;
 	} else

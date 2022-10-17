@@ -963,9 +963,9 @@ static void R_DrawPlanes()
 		if(pl->picnum == skyflatnum)
 		{
 			dc_iscale = pspriteiscale;
-			dc_colormap = colormaps;
+			dc_colormap = fixedcolormap ? fixedcolormap : colormaps;
 			dc_texturemid = skytexturemid;
-			for(uint32_t x = pl->minx; x <= pl->maxx; x++)
+			for(int32_t x = pl->minx; x <= pl->maxx; x++)
 			{
 				dc_yl = pl->top[x];
 				dc_yh = pl->bottom[x];

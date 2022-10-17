@@ -55,7 +55,6 @@ static mobjinfo_t *keyinv[MAX_KEY_ICONS];
 static patch_t *xhair;
 static patch_t *xhair_custom;
 
-uint8_t show_fps;
 static uint32_t fps_value;
 static uint32_t fps_diff;
 static uint32_t last_gt;
@@ -762,7 +761,7 @@ void stbar_draw(player_t *pl)
 		draw_invbar(pl);
 
 	// FPS counter
-	if(show_fps)
+	if(extra_config.show_fps)
 	{
 		uint32_t gettime = I_GetTime();
 		uint32_t gdiff = gettime - last_gt;

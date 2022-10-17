@@ -48,6 +48,12 @@ typedef union
 // asm.S
 void dos_exit(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
+// word copy
+static inline void dwcopy(void *dst, void *src, uint32_t count)
+{
+	asm volatile ("rep movsl" : "+S" (src), "+D" (dst), "+c" (count) : : "memory");
+}
+
 // Variadic functions require no attributes.
 void I_Error(uint8_t*, ...) __attribute((noreturn));
 int32_t doom_printf(const uint8_t*, ...);

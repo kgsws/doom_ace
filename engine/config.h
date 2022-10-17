@@ -9,6 +9,7 @@ typedef struct
 	uint16_t e3dplane_count;
 	uint8_t enable_decorate;
 	uint8_t enable_dehacked;
+	uint8_t wipe_type;
 } mod_config_t;
 
 typedef struct
@@ -19,6 +20,8 @@ typedef struct
 	uint8_t mouse_look;
 	uint8_t center_weapon;
 	// display
+	uint8_t show_fps;
+	uint8_t wipe_type;
 	uint8_t crosshair_type;
 	uint8_t crosshair_red;
 	uint8_t crosshair_green;

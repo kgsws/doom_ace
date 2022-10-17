@@ -8,6 +8,7 @@
 #include "player.h"
 #include "map.h"
 #include "stbar.h"
+#include "wipe.h"
 #include "textpars.h"
 #include "controls.h"
 #include "config.h"
@@ -42,6 +43,7 @@ extra_config_t extra_config =
 	.auto_switch = 0,
 	.auto_aim = 0,
 	.mouse_look = 1,
+	.wipe_type = WIPE_MELT,
 	.center_weapon = 1,
 	.crosshair_type = 1,
 	.crosshair_red = 255,
@@ -53,6 +55,7 @@ mod_config_t mod_config =
 {
 	.enable_decorate = 1,
 	.enable_dehacked = 1,
+	.wipe_type = 255, // = use user preference
 };
 
 //
@@ -104,7 +107,8 @@ static config_entry_t config_game[] =
 	{"display.messages", &showMessages, TYPE_S32},
 	{"display.size", &screenblocks, TYPE_S32},
 	{"display.gamma", &usegamma, TYPE_S32},
-	{"display.fps", &show_fps, TYPE_U8},
+	{"display.fps", &extra_config.show_fps, TYPE_U8},
+	{"display.wipe", &extra_config.wipe_type, TYPE_U8},
 	{"display.xhair.type", &extra_config.crosshair_type, TYPE_U8},
 	{"display.xhair.red", &extra_config.crosshair_red, TYPE_U8},
 	{"display.xhair.green", &extra_config.crosshair_green, TYPE_U8},
@@ -127,6 +131,7 @@ static config_entry_t config_mod[] =
 	{"render.e3dplane.count", &mod_config.e3dplane_count, TYPE_U16},
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
+	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
 	// terminator
 	{NULL}
 };
@@ -221,6 +226,12 @@ void init_config()
 
 	// check controls
 	control_setup();
+
+	// check stuff
+	if(usegamma > 4)
+		usegamma = 0;
+	if(extra_config.wipe_type >= NUM_WIPE_TYPES)
+		extra_config.wipe_type = 0;
 
 	// player setup
 	pli = player_info + consoleplayer;

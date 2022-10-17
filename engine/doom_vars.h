@@ -236,7 +236,6 @@ extern uint8_t **walllights;
 extern uint8_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 extern uint8_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
 extern uint32_t fuzzpos;
-extern int32_t fuzzoffset[FUZZTABLE];
 
 // render, draw
 extern int32_t dc_x;
@@ -335,6 +334,7 @@ extern uint32_t snd_MusicVolume;
 extern uint32_t snd_SfxVolume;
 
 // random
+extern uint8_t rndtable[256];
 extern uint32_t prndindex;
 
 // fi, wi

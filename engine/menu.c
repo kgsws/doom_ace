@@ -12,6 +12,7 @@
 #include "map.h"
 #include "wadfile.h"
 #include "draw.h"
+#include "wipe.h"
 #include "menu.h"
 
 #define CONTROL_Y_BASE	(40 + LINEHEIGHT_SMALL * 3)
@@ -85,6 +86,7 @@ static menu_t options_menu =
 
 // DISPLAY
 
+static void change_wipe(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static void change_fps(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static void xhair_type(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static void xhair_color(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -100,6 +102,12 @@ static menuitem_t display_items[] =
 		.text = "SCREEN SIZE",
 		.status = 2,
 		.key = 's'
+	},
+	{
+		.text = "WIPE STYLE",
+		.status = 2,
+		.func = change_wipe,
+		.key = 'w'
 	},
 	{
 		.text = "SHOW FPS",
@@ -318,9 +326,29 @@ void options_draw()
 // menu 'display'
 
 static __attribute((regparm(2),no_caller_saved_registers))
+void change_wipe(uint32_t dir)
+{
+	if(dir)
+	{
+		extra_config.wipe_type++;
+		if(extra_config.wipe_type >= NUM_WIPE_TYPES)
+			extra_config.wipe_type = 0;
+	} else
+	{
+		if(extra_config.wipe_type)
+			extra_config.wipe_type--;
+		else
+			extra_config.wipe_type = NUM_WIPE_TYPES - 1;
+	}
+
+	// disable wipe forced by mod
+	mod_config.wipe_type = 255;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 void change_fps(uint32_t dir)
 {
-	show_fps = !show_fps;
+	extra_config.show_fps = !extra_config.show_fps;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -340,13 +368,13 @@ void xhair_color(uint32_t dir)
 
 	switch(menu_item_now)
 	{
-		case 6:
+		case 8:
 			ptr = &extra_config.crosshair_red;
 		break;
-		case 7:
+		case 9:
 			ptr = &extra_config.crosshair_green;
 		break;
-		case 8:
+		case 10:
 			ptr = &extra_config.crosshair_blue;
 		break;
 		default:
@@ -406,24 +434,27 @@ void display_draw()
 	doom_sprintf(text, "%u", screenblocks);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, text);
 
+	// wipe
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, wipe_name[extra_config.wipe_type]);
+
 	// FPS
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, off_on[!!show_fps]);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, off_on[!!extra_config.show_fps]);
 
 	// gamma
 	doom_sprintf(text, "%u", usegamma);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, text);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 4, text);
 
 	// crosshair type
 	doom_sprintf(text, "%u", extra_config.crosshair_type);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 6, text);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 7, text);
 
 	// crosshair color
 	doom_sprintf(text, "%u", extra_config.crosshair_red);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 7, text);
-	doom_sprintf(text, "%u", extra_config.crosshair_green);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 8, text);
-	doom_sprintf(text, "%u", extra_config.crosshair_blue);
+	doom_sprintf(text, "%u", extra_config.crosshair_green);
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 9, text);
+	doom_sprintf(text, "%u", extra_config.crosshair_blue);
+	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 10, text);
 }
 
 //

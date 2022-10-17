@@ -36,6 +36,7 @@ DOOM_VAR 0x00012350, NewDef
 DOOM_VAR 0x000124A8, LoadMenu
 DOOM_VAR 0x00012510, LoadDef
 
+DOOM_VAR 0x0001261C, rndtable
 DOOM_VAR 0x00012720, prndindex
 
 DOOM_VAR 0x00012C50, am_cheating
@@ -47,7 +48,6 @@ DOOM_VAR 0x00012D80, clipammo
 
 DOOM_VAR 0x00012D90, deh_weaponinfo
 
-DOOM_VAR 0x000134B4, fuzzoffset
 DOOM_VAR 0x0001357C, fuzzpos
 DOOM_VAR 0x00013580, validcount
 

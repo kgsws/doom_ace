@@ -2439,7 +2439,7 @@ void init_decorate()
 
 		// modify render style
 		if(mobjinfo[i].flags & MF_SHADOW)
-			mobjinfo[i].render_style = RS_SHADOW;
+			mobjinfo[i].render_style = RS_FUZZ;
 	}
 
 	// copy internal stuff

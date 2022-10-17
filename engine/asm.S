@@ -324,6 +324,12 @@ doom_fclose:
 FixedDiv:
 	.byte	0xE9
 	.4byte	0x0001D180
+////////////////////////////////// I_WaitVBL
+.section .text.I_WaitVBL
+.global I_WaitVBL
+I_WaitVBL:
+	.byte	0xE9
+	.4byte	0x00019C60
 ////////////////////////////////// I_GetTime
 .section .text.I_GetTime
 .global I_GetTime

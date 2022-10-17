@@ -528,6 +528,7 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		sector_t *frontsector;
 		sector_t *backsector;
 		uint_fast8_t activate = map_format != MAP_FORMAT_DOOM;
+		uint_fast8_t in_sky = 0;
 
 		if(li->special && !activate)
 			P_ShootSpecialLine(shootthing, li);
@@ -606,51 +607,49 @@ hitline:
 		{
 			backsector = li->frontsector;
 			frontsector = li->backsector;
-			if(!frontsector)
-				// noclip?
-				return 1;
 		} else
 		{
 			frontsector = li->frontsector;
 			backsector = li->backsector;
 		}
 
+		if(!frontsector)
+			// noclip?
+			return 1;
+
 		frac = in->frac - FixedDiv(4 * FRACUNIT, attackrange);
 		dz = FixedMul(aimslope, FixedMul(frac, attackrange));
 		z = shootz + dz;
 
-		if(frontsector)
+		if(!(mobjinfo[mo_puff_type].flags1 & MF1_SKYEXPLODE))
 		{
-			if(aimslope < 0)
-			{
-				if(z < frontsector->floorheight)
-				{
-					frac = -FixedDiv(FixedMul(frac, shootz - frontsector->floorheight), dz);
-					z = frontsector->floorheight;
-					activate = 0;
-				}
-			} else
-			if(aimslope > 0)
+			// TODO: floor sky hack
+			if(frontsector->ceilingpic == skyflatnum)
 			{
 				if(z > frontsector->ceilingheight)
-				{
-					frac = FixedDiv(FixedMul(frac, frontsector->ceilingheight - shootz), dz);
-					z = frontsector->ceilingheight;
-					activate = 0;
-				}
+					in_sky = 1;
+				else
+				if(backsector && backsector->ceilingpic == skyflatnum && backsector->ceilingheight < z)
+					in_sky = 1;
 			}
+		}
 
-			if(!(mobjinfo[mo_puff_type].flags1 & MF1_SKYEXPLODE))
+		if(aimslope < 0)
+		{
+			if(z < frontsector->floorheight)
 			{
-				// TODO: floor sky hack
-				if(frontsector->ceilingpic == skyflatnum)
-				{
-					if(z > frontsector->ceilingheight)
-						return 0;
-
-					if(backsector && backsector->ceilingpic == skyflatnum && backsector->ceilingheight < z)
-						return 0;
-				}
+				frac = -FixedDiv(FixedMul(frac, shootz - frontsector->floorheight), dz);
+				z = frontsector->floorheight;
+				activate = 0;
+			}
+		} else
+		if(aimslope > 0)
+		{
+			if(z > frontsector->ceilingheight)
+			{
+				frac = FixedDiv(FixedMul(frac, frontsector->ceilingheight - shootz), dz);
+				z = frontsector->ceilingheight;
+				activate = 0;
 			}
 		}
 
@@ -664,6 +663,9 @@ hitline:
 				z = tz;
 			}
 		}
+
+		if(in_sky)
+			return 0;
 
 do_puff:
 		trace.x = trace.x + FixedMul(trace.dx, frac);

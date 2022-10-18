@@ -17,13 +17,13 @@ uint8_t *wipe_name[NUM_WIPE_TYPES] =
 {
 	[WIPE_NONE] = "none",
 	[WIPE_MELT] = "melt",
+	[WIPE_CROSSFADE] = "fade",
 	[WIPE_SCROLL_LEFT] = "left",
 	[WIPE_SCROLL_RIGHT] = "right",
 	[WIPE_SCROLL_UP] = "up",
 	[WIPE_SCROLL_DOWN] = "down",
 	[WIPE_SCROLL_HORIZONTAL] = "horiz",
 	[WIPE_SCROLL_VERTICAL] = "vert",
-	[WIPE_CROSSFADE] = "fade",
 };
 
 //
@@ -308,6 +308,9 @@ uint32_t wipe_draw()
 		case WIPE_MELT:
 			done = wipe_melt();
 		break;
+		case WIPE_CROSSFADE:
+			done = wipe_fade();
+		break;
 		case WIPE_SCROLL_LEFT:
 			done = wipe_left();
 		break;
@@ -325,9 +328,6 @@ uint32_t wipe_draw()
 		break;
 		case WIPE_SCROLL_VERTICAL:
 			done = wipe_vert();
-		break;
-		case WIPE_CROSSFADE:
-			done = wipe_fade();
 		break;
 		default:
 			done = 1;

@@ -19,7 +19,7 @@
 #define HEIGHTBITS	12
 #define HEIGHTUNIT	(1 << HEIGHTBITS)
 
-#define RENDER_TABLE_SIZE	(3 * 256 * 256)
+#define COLORMAP_SIZE	(256 * 33)
 
 //
 
@@ -44,12 +44,13 @@ static visplane_t *ptr_visplanes;
 static vissprite_t *ptr_vissprites;
 static drawseg_t *ptr_drawsegs;
 
-int32_t render_tables = -1;
+int32_t render_tables_lump = -1;
+render_tables_t *render_tables;
 uint8_t *render_trn0;
 uint8_t *render_trn1;
 uint8_t *render_add;
 
-uint8_t r_palette[768];
+pal_col_t r_palette[256];
 
 // mouselook scale
 static const uint16_t look_scale_table[] =
@@ -1448,8 +1449,8 @@ static uint8_t channel_mix(uint8_t back, uint8_t front, uint16_t alpha)
 
 static void generate_translucent(uint8_t *dest, uint8_t alpha)
 {
-	uint8_t *pc0 = r_palette;
-	uint8_t *pc1;
+	pal_col_t *pc0 = r_palette;
+	pal_col_t *pc1;
 
 	for(uint32_t y = 0; y < 256; y++)
 	{
@@ -1458,24 +1459,24 @@ static void generate_translucent(uint8_t *dest, uint8_t alpha)
 		{
 			uint8_t r, g, b;
 
-			r = channel_mix(pc0[0], pc1[0], alpha);
-			g = channel_mix(pc0[1], pc1[1], alpha);
-			b = channel_mix(pc0[2], pc1[2], alpha);
+			r = channel_mix(pc0->r, pc1->r, alpha);
+			g = channel_mix(pc0->g, pc1->g, alpha);
+			b = channel_mix(pc0->b, pc1->b, alpha);
 
 			*dest++ = r_find_color(r, g, b);
 
-			pc1 += 3;
+			pc1++;
 		}
-		pc0 += 3;
-		if(render_tables < 1 && y & 1)
+		pc0++;
+		if(render_tables_lump < 0 && y & 1)
 			gfx_progress(1);
 	}
 }
 
 static void generate_additive(uint8_t *dest)
 {
-	uint8_t *pc0 = r_palette;
-	uint8_t *pc1;
+	pal_col_t *pc0 = r_palette;
+	pal_col_t *pc1;
 
 	for(uint32_t y = 0; y < 256; y++)
 	{
@@ -1484,23 +1485,38 @@ static void generate_additive(uint8_t *dest)
 		{
 			uint16_t r, g, b;
 
-			r = pc0[0] + pc1[0];
+			r = pc0->r + pc1->r;
 			if(r > 255)
 				r = 255;
-			g = pc0[1] + pc1[1];
+			g = pc0->g + pc1->g;
 			if(g > 255)
 				g = 255;
-			b = pc0[2] + pc1[2];
+			b = pc0->b + pc1->b;
 			if(b > 255)
 				b = 255;
 
 			*dest++ = r_find_color(r, g, b);
 
-			pc1 += 3;
+			pc1++;
 		}
-		pc0 += 3;
-		if(render_tables < 1 && y & 1)
+		pc0++;
+		if(render_tables_lump < 0 && y & 1)
 			gfx_progress(1);
+	}
+}
+
+static void generate_color(uint8_t *dest, uint8_t r, uint8_t g, uint8_t b)
+{
+	pal_col_t *pal = r_palette;
+	for(uint32_t i = 0; i < 256; i++, pal++)
+	{
+		uint8_t rr, gg, bb;
+
+		rr = ((uint32_t)r * (uint32_t)pal->l) / 255;
+		gg = ((uint32_t)g * (uint32_t)pal->l) / 255;
+		bb = ((uint32_t)b * (uint32_t)pal->l) / 255;
+
+		*dest++ = r_find_color(rr, gg, bb);
 	}
 }
 
@@ -1511,32 +1527,30 @@ uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
 {
 	uint8_t ret = 0;
 	uint32_t best = 0xFFFFFFFF;
-	uint8_t *pal = r_palette;
+	pal_col_t *pal = r_palette;
 
-	for(uint32_t i = 0; i < 256; i++)
+	for(uint32_t i = 0; i < 256; i++, pal++)
 	{
 		int32_t tmp;
 		uint32_t value;
 
-		if(pal[0] == r && pal[1] == g && pal[2] == b)
+		if(pal->r == r && pal->g == g && pal->b == b)
 			return i;
 
-		tmp = pal[0];
+		tmp = pal->r;
 		tmp -= r;
 		tmp *= tmp;
 		value = tmp;
 
-		tmp = pal[1];
+		tmp = pal->g;
 		tmp -= g;
 		tmp *= tmp;
 		value += tmp;
 
-		tmp = pal[2];
+		tmp = pal->b;
 		tmp -= b;
 		tmp *= tmp;
 		value += tmp;
-
-		pal += 3;
 
 		if(value < best)
 		{
@@ -1551,22 +1565,34 @@ uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
 void render_preinit(uint8_t *palette)
 {
 	int32_t lump;
+	pal_col_t *pal = r_palette;
 
 	// save palette
-	memcpy(r_palette, palette, 768);
+	for(uint32_t i = 0; i < 256; i++, pal++)
+	{
+		pal->r = *palette++;
+		pal->g = *palette++;
+		pal->b = *palette++;
+
+		pal->l = pal->r;
+		if(pal->l < pal->g)
+			pal->l = pal->g;
+		if(pal->l < pal->b)
+			pal->l = pal->b;
+	}
 
 	// check for pre-calculated render tables
 	lump = wad_check_lump("ACE_RNDR");
 	if(lump < 0)
 		return;
 
-	if(lumpinfo[lump].size == RENDER_TABLE_SIZE)
-		render_tables = lump;
+	if(lumpinfo[lump].size == sizeof(render_tables_t))
+		render_tables_lump = lump;
 }
 
 void init_render()
 {
-	uint8_t *ptr;
+	void *ptr;
 
 	ldr_alloc_message = "Render";
 
@@ -1625,32 +1651,46 @@ void init_render()
 	e3d_init(mod_config.e3dplane_count);
 
 	// initialize render style tables
-	ptr = ldr_malloc(RENDER_TABLE_SIZE + 256);
-	ptr = (uint8_t*)(((uint32_t)ptr + 255) & ~255); // align for ASM optimisations (not required right now)
+	ptr = ldr_malloc(sizeof(render_tables_t) + COLORMAP_SIZE + 256);
+	ptr = (void*)(((uint32_t)ptr + 255) & ~255); // align for ASM optimisations
+
+	// load original colormap - only 33 levels
+	colormaps = ptr;
+	wad_read_lump(ptr, wad_get_lump(dtxt_colormap), COLORMAP_SIZE);
+
+	// new tables
+	render_tables = ptr + COLORMAP_SIZE;
 
 	// there are two translucency tables, 20/80 and 40/60
-	render_trn0 = ptr;
-	render_trn1 = ptr + 256 * 256;
+	render_trn0 = render_tables->trn0;
+	render_trn1 = render_tables->trn1;
 	// and one additive table, 100%
-	render_add = ptr + 256 * 256 * 2;
+	render_add = render_tables->addt;
 
-	if(render_tables < 0)
+	if(render_tables_lump < 0)
 	{
 		// tables have to be generated
 		// this is very slow on old PCs
 		doom_printf("[RENDER] Generating tables ...\n");
-		generate_translucent(render_trn0, 60);
-		generate_translucent(render_trn1, 100);
-		generate_additive(render_add);
+		generate_translucent(render_tables->trn0, 60);
+		generate_translucent(render_tables->trn1, 100);
+		generate_additive(render_tables->addt);
+		// these color translations are not perfect matches ...
+		generate_color(render_tables->cmap + 256 * 0, 255, 230, 0);
+		generate_color(render_tables->cmap + 256 * 1, 255, 0, 0);
+		generate_color(render_tables->cmap + 256 * 2, 200, 255, 180);
+		generate_color(render_tables->cmap + 256 * 3, 0, 0, 255);
+		generate_color(render_tables->cmap + 256 * 4, 255, 255, 255);
+		generate_color(render_tables->cmap + 256 * 5, 148, 148, 172);
 	} else
 	{
 		// tables are provided in WAD file
 		// beware: tables are based on palette!
-		wad_read_lump(ptr, render_tables, RENDER_TABLE_SIZE);
+		wad_read_lump(ptr, render_tables_lump, sizeof(render_tables_t));
 	}
 
 	if(M_CheckParm("-dumptables"))
-		ldr_dump_buffer("ace_rndr.bin", ptr, RENDER_TABLE_SIZE);
+		ldr_dump_buffer("ace_rndr.bin", ptr, sizeof(render_tables_t));
 }
 
 void render_player_view(player_t *pl)
@@ -1768,6 +1808,8 @@ static hook_t hook_vissprite[] =
 // hooks
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// disable 'R_InitColormaps' in 'R_InitData'
+	{0x00034646, CODE_HOOK | HOOK_UINT8, 0xC3},
 	// replace call to 'R_RenderPlayerView' in 'D_Display'
 	{0x0001D361, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_RenderPlayerView},
 	// replace call to 'R_SetupFrame' in 'R_RenderPlayerView'

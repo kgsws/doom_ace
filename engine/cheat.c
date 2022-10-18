@@ -16,6 +16,8 @@
 #include "textpars.h"
 #include "cheat.h"
 
+//#define DEBUG
+
 typedef struct
 {
 	const char *name;
@@ -42,6 +44,9 @@ static void cf_kill(player_t*,uint8_t*);
 static void cf_resurrect(player_t*,uint8_t*);
 static void cf_summon(player_t*,uint8_t*);
 static void cf_revenge(player_t*,uint8_t*);
+#ifdef DEBUG
+static void cf_colormap(player_t*,uint8_t*);
+#endif
 static const cheat_func_t cheat_func[] =
 {
 	// old
@@ -61,6 +66,9 @@ static const cheat_func_t cheat_func[] =
 	{"summon", cf_summon},
 	// kg
 	{"kgRevenge", cf_revenge},
+#ifdef DEBUG
+	{"cmap", cf_colormap},
+#endif
 	// terminator
 	{NULL}
 };
@@ -348,6 +356,18 @@ static void cf_revenge(player_t *pl, uint8_t *arg)
 	else
 		pl->message = "Revenge mode OFF";
 }
+
+#ifdef DEBUG
+static void cf_colormap(player_t *pl, uint8_t *arg)
+{
+	uint32_t idx;
+
+	if(doom_sscanf(arg, "%u", &idx) != 1)
+		return;
+
+	pl->fixedcolormap = idx;
+}
+#endif
 
 //
 // API

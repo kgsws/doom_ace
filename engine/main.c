@@ -278,7 +278,7 @@ uint32_t ace_main()
 		loading->gfx_max = loading->count_texture + loading->count_sprite;
 
 		// render tables; it is slooow on old PCs
-		if(render_tables < 0)
+		if(render_tables_lump < 0)
 			loading->gfx_max += RENDER_TABLE_PROGRESS;
 
 		// reserve 15% for engine stuff

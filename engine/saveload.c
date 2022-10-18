@@ -1175,15 +1175,13 @@ void do_save()
 	writer_add(&bmp_header, sizeof(bmp_header));
 
 	// palette
-	src = r_palette;
 	dst = writer_reserve(256 * sizeof(uint32_t));
 	for(uint32_t i = 0; i < 256; i++)
 	{
-		*dst++ = src[2];
-		*dst++ = src[1];
-		*dst++ = src[0];
+		*dst++ = r_palette[i].r;
+		*dst++ = r_palette[i].g;
+		*dst++ = r_palette[i].b;
 		*dst++ = 0;
-		src += 3;
 	}
 
 	// pixels

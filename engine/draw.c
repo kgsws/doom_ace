@@ -9,6 +9,8 @@
 uint8_t *dr_tinttab;
 uint8_t ds_maskcolor;
 
+uint8_t *draw_patch_color;
+
 static const uint8_t unknown_flat[4] = {96, 111, 111, 96};
 
 static int16_t fuzzoffset[FUZZTABLE] =
@@ -343,43 +345,275 @@ void R_DrawMaskedSpanTint1()
 __attribute((regparm(3),no_caller_saved_registers)) // three!
 void V_DrawPatchDirect(int32_t x, int32_t y, patch_t *patch)
 {
-	uint32_t col;
+	int32_t xstop;
 	column_t *column;
 	uint8_t *desttop;
-	uint32_t w;
+	uint32_t *coloffs;
 
 	x -= patch->x;
 	y -= patch->y;
 
-	if (x < 0 || x + patch->width > SCREENWIDTH || y < 0 || y + patch->height > SCREENHEIGHT)
+	if(x >= SCREENWIDTH)
 		return;
 
-	col = 0;
-	desttop = screen_buffer + y * SCREENWIDTH + x;
+	if(y >= SCREENHEIGHT)
+		return;
 
-	w = patch->width;
+	xstop = x + patch->width;
 
-	for( ; col < w ; x++, col++, desttop++)
+	if(xstop <= 0)
+		return;
+
+	if(xstop > SCREENWIDTH)
+		xstop = SCREENWIDTH;
+
+	coloffs = patch->offs - x;
+
+	if(x < 0)
+		x = 0;
+
+	desttop = screen_buffer + x;
+
+	for( ; x < xstop; x++, desttop++)
 	{
-		column = (column_t *)((uint8_t*)patch + patch->offs[col]);
+		column = (column_t *)((uint8_t*)patch + coloffs[x]);
 
 		while(column->topdelta != 0xFF)
 		{
-			uint32_t count;
 			uint8_t *source;
 			uint8_t *dest;
+			int32_t yy, ystop;
 
 			source = (uint8_t*)column + 3;
-			dest = desttop + column->topdelta * SCREENWIDTH;
-			count = column->length;
 
-			while(count--)
+			yy = y + column->topdelta;
+			ystop = yy + column->length;
+
+			column = (column_t *)((uint8_t*)column + column->length + 4);
+
+			if(yy < 0)
+			{
+				source -= yy;
+				yy = 0;
+			}
+
+			if(ystop > SCREENHEIGHT)
+				ystop = SCREENHEIGHT;
+
+			dest = desttop + yy * SCREENWIDTH;
+
+			for( ; yy < ystop; yy++)
 			{
 				*dest = *source++;
 				dest += SCREENWIDTH;
 			}
+		}
+	}
+}
+
+__attribute((regparm(3),no_caller_saved_registers)) // three!
+void V_DrawPatchTranslated(int32_t x, int32_t y, patch_t *patch)
+{
+	int32_t xstop;
+	column_t *column;
+	uint8_t *desttop;
+	uint32_t *coloffs;
+
+	x -= patch->x;
+	y -= patch->y;
+
+	if(x >= SCREENWIDTH)
+		return;
+
+	if(y >= SCREENHEIGHT)
+		return;
+
+	xstop = x + patch->width;
+
+	if(xstop <= 0)
+		return;
+
+	if(xstop > SCREENWIDTH)
+		xstop = SCREENWIDTH;
+
+	coloffs = patch->offs - x;
+
+	if(x < 0)
+		x = 0;
+
+	desttop = screen_buffer + x;
+
+	for( ; x < xstop; x++, desttop++)
+	{
+		column = (column_t *)((uint8_t*)patch + coloffs[x]);
+
+		while(column->topdelta != 0xFF)
+		{
+			uint8_t *source;
+			uint8_t *dest;
+			int32_t yy, ystop;
+
+			source = (uint8_t*)column + 3;
+
+			yy = y + column->topdelta;
+			ystop = yy + column->length;
 
 			column = (column_t *)((uint8_t*)column + column->length + 4);
+
+			if(yy < 0)
+			{
+				source -= yy;
+				yy = 0;
+			}
+
+			if(ystop > SCREENHEIGHT)
+				ystop = SCREENHEIGHT;
+
+			dest = desttop + yy * SCREENWIDTH;
+
+			for( ; yy < ystop; yy++)
+			{
+				*dest = dc_translation[*source++];
+				dest += SCREENWIDTH;
+			}
+		}
+	}
+}
+
+__attribute((regparm(3),no_caller_saved_registers)) // three!
+void V_DrawPatchTint0(int32_t x, int32_t y, patch_t *patch)
+{
+	int32_t xstop;
+	column_t *column;
+	uint8_t *desttop;
+	uint32_t *coloffs;
+
+	x -= patch->x;
+	y -= patch->y;
+
+	if(x >= SCREENWIDTH)
+		return;
+
+	if(y >= SCREENHEIGHT)
+		return;
+
+	xstop = x + patch->width;
+
+	if(xstop <= 0)
+		return;
+
+	if(xstop > SCREENWIDTH)
+		xstop = SCREENWIDTH;
+
+	coloffs = patch->offs - x;
+
+	if(x < 0)
+		x = 0;
+
+	desttop = screen_buffer + x;
+
+	for( ; x < xstop; x++, desttop++)
+	{
+		column = (column_t *)((uint8_t*)patch + coloffs[x]);
+
+		while(column->topdelta != 0xFF)
+		{
+			uint8_t *source;
+			uint8_t *dest;
+			int32_t yy, ystop;
+
+			source = (uint8_t*)column + 3;
+
+			yy = y + column->topdelta;
+			ystop = yy + column->length;
+
+			column = (column_t *)((uint8_t*)column + column->length + 4);
+
+			if(yy < 0)
+			{
+				source -= yy;
+				yy = 0;
+			}
+
+			if(ystop > SCREENHEIGHT)
+				ystop = SCREENHEIGHT;
+
+			dest = desttop + yy * SCREENWIDTH;
+
+			for( ; yy < ystop; yy++)
+			{
+				*dest = dr_tinttab[*dest + *source++ * 256];
+				dest += SCREENWIDTH;
+			}
+		}
+	}
+}
+
+__attribute((regparm(3),no_caller_saved_registers)) // three!
+void V_DrawPatchTint1(int32_t x, int32_t y, patch_t *patch)
+{
+	int32_t xstop;
+	column_t *column;
+	uint8_t *desttop;
+	uint32_t *coloffs;
+
+	x -= patch->x;
+	y -= patch->y;
+
+	if(x >= SCREENWIDTH)
+		return;
+
+	if(y >= SCREENHEIGHT)
+		return;
+
+	xstop = x + patch->width;
+
+	if(xstop <= 0)
+		return;
+
+	if(xstop > SCREENWIDTH)
+		xstop = SCREENWIDTH;
+
+	coloffs = patch->offs - x;
+
+	if(x < 0)
+		x = 0;
+
+	desttop = screen_buffer + x;
+
+	for( ; x < xstop; x++, desttop++)
+	{
+		column = (column_t *)((uint8_t*)patch + coloffs[x]);
+
+		while(column->topdelta != 0xFF)
+		{
+			uint8_t *source;
+			uint8_t *dest;
+			int32_t yy, ystop;
+
+			source = (uint8_t*)column + 3;
+
+			yy = y + column->topdelta;
+			ystop = yy + column->length;
+
+			column = (column_t *)((uint8_t*)column + column->length + 4);
+
+			if(yy < 0)
+			{
+				source -= yy;
+				yy = 0;
+			}
+
+			if(ystop > SCREENHEIGHT)
+				ystop = SCREENHEIGHT;
+
+			dest = desttop + yy * SCREENWIDTH;
+
+			for( ; yy < ystop; yy++)
+			{
+				*dest = dr_tinttab[*dest * 256 + *source++];
+				dest += SCREENWIDTH;
+			}
 		}
 	}
 }
@@ -391,6 +625,21 @@ void init_draw()
 {
 	// I_FinishUpdate always copies the entire screen[0]; TODO: optimize
 	*((uint8_t**)((void*)I_FinishUpdate + 4)) = screen_buffer;
+}
+
+//
+// hooks
+
+__attribute((regparm(3),no_caller_saved_registers)) // three!
+void hook_draw_patch_direct(int32_t x, int32_t y, patch_t *patch)
+{
+	if(draw_patch_color)
+	{
+		dc_translation = draw_patch_color;
+		V_DrawPatchTranslated(x, y, patch);
+		return;
+	}
+	V_DrawPatchDirect(x, y, patch);
 }
 
 //
@@ -408,7 +657,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace span drawers
 	{0x00035B58, CODE_HOOK | HOOK_UINT32, (uint32_t)R_DrawSpan},
 	// replace patch drawers
-	{0x000392A0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)V_DrawPatchDirect},
+	{0x000392A0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hook_draw_patch_direct},
 	// replace 'I_FinishUpdate'
 	{0x0001D4A6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)I_FinishUpdate},
 	{0x0001D4FC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)I_FinishUpdate},

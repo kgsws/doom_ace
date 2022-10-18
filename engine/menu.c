@@ -125,7 +125,6 @@ static menuitem_t display_items[] =
 		.status = -1
 	},
 	{
-		.text = "        CROSSHAIR",
 		.status = -1
 	},
 	{
@@ -427,6 +426,11 @@ void display_draw()
 	// title
 	V_DrawPatchDirect(117, 15, W_CacheLumpNum(title_display, PU_CACHE));
 
+	// 'crosshair' title
+	draw_patch_color = render_tables->cmap + 256 * FONT_COLOR_WHITE;
+	M_WriteText(options_menu.x + 20, -options_menu.y + LINEHEIGHT_SMALL * 6, "CROSSHAIR");
+	draw_patch_color = NULL;
+
 	// messages
 	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[!!showMessages]);
 
@@ -543,7 +547,11 @@ void controls_draw()
 				break;
 
 			if(yy >= 40)
+			{
+				draw_patch_color = render_tables->cmap + 256 * FONT_COLOR_WHITE;
 				M_WriteText(CONTROL_X + 40, yy, ctrl_group[old]);
+				draw_patch_color = NULL;
+			}
 
 			yy += LINEHEIGHT_SMALL;
 		}

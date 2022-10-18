@@ -3,6 +3,8 @@
 
 #define RENDER_TABLE_PROGRESS	(3 * 128)
 
+#define FONT_COLOR_WHITE	4
+
 enum
 {
 	RS_NORMAL, // must be zero
@@ -14,15 +16,29 @@ enum
 	NUM_RENDER_STYLES
 };
 
+typedef struct
+{
+	uint8_t r, g, b, l;
+} pal_col_t;
+
+typedef struct
+{
+	uint8_t cmap[256*6]; // gold, red, green, blue, white, ice; used for extra colormap, fonts and translation
+	uint8_t trn0[256*256];
+	uint8_t trn1[256*256];
+	uint8_t addt[256*256];
+} render_tables_t;
+
 //
 
-extern uint8_t r_palette[768];
+extern pal_col_t r_palette[256];
 
 // basic colors
 extern uint8_t r_color_black;
 
 // render tables
-extern int32_t render_tables;
+extern int32_t render_tables_lump;
+extern render_tables_t *render_tables;
 extern uint8_t *render_trn0;
 extern uint8_t *render_trn1;
 extern uint8_t *render_add;

@@ -245,6 +245,7 @@ extern uint8_t *dc_source;
 extern fixed_t dc_texturemid;
 extern fixed_t dc_iscale;
 extern uint8_t *dc_colormap;
+extern uint8_t *dc_translation;
 extern fixed_t ds_xfrac;
 extern fixed_t ds_yfrac;
 extern fixed_t ds_ystep;
@@ -361,6 +362,7 @@ extern vissprite_t d_vissprites[];
 extern visplane_t d_visplanes[];
 
 // strings
+extern uint8_t dtxt_colormap[];
 extern uint64_t dtxt_skull_name[];
 extern uint8_t dtxt_m_option[];
 extern uint8_t dtxt_m_lscntr[];
@@ -412,12 +414,4 @@ extern uint8_t dtxt_STSTR_NCON[];
 extern uint8_t dtxt_STSTR_NCOFF[];
 extern uint8_t dtxt_m_loadg[];
 extern uint8_t dtxt_m_saveg[];
-extern uint8_t dtxt_[];
-extern uint8_t dtxt_[];
-extern uint8_t dtxt_[];
-extern uint8_t dtxt_[];
-extern uint8_t dtxt_[];
-extern uint8_t dtxt_[];
-extern uint8_t dtxt_[];
-extern uint8_t dtxt_[];
 

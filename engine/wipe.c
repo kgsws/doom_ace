@@ -217,7 +217,7 @@ static uint32_t wipe_vert()
 
 	dwcopy(VIDEO_RAM + offs * SCREENWIDTH, screen_buffer + offs * SCREENWIDTH, (stop - offs) * (SCREENWIDTH / sizeof(uint32_t)));
 	dwcopy(VIDEO_RAM, screen_buffer + ((SCREENHEIGHT / 2) - 1 - offs) * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), offs * (SCREENWIDTH / sizeof(uint32_t)));
-	dwcopy(VIDEO_RAM + stop * SCREENWIDTH, screen_buffer + (SCREENHEIGHT / 2) * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), (SCREENHEIGHT - offs) * (SCREENWIDTH / sizeof(uint32_t)));
+	dwcopy(VIDEO_RAM + stop * SCREENWIDTH, screen_buffer + (SCREENHEIGHT / 2) * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), offs * (SCREENWIDTH / sizeof(uint32_t)));
 
 	return ++wipe_tick >= 28;
 }

@@ -47,6 +47,7 @@ typedef struct
 	const uint8_t *name;
 	void *func;
 	const dec_args_t *args;
+	void (*check)(const void*);
 } dec_action_t;
 
 //
@@ -189,6 +190,113 @@ static uint8_t *handle_angle(uint8_t *kw, const dec_arg_t *arg)
 		value = (11930464 * (int64_t)value) >> 16;
 		*((fixed_t*)(parse_action_arg + arg->offset)) = value;
 	}
+
+	return kw;
+}
+
+static uint8_t *handle_damage(uint8_t *kw, const dec_arg_t *arg)
+{
+	uint32_t lo, hi, mul, add;
+
+	lo = 0;
+	hi = 0;
+	mul = 0;
+	add = 0;
+
+	if(!strcmp(kw, "random"))
+	{
+		// function entry
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+		if(kw[0] != '(')
+			return NULL;
+
+		// low
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+
+		if(doom_sscanf(kw, "%u", &lo) != 1 || lo > 511)
+			return NULL;
+
+		// comma
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+		if(kw[0] != ',')
+			return NULL;
+
+		// high
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+
+		if(doom_sscanf(kw, "%u", &hi) != 1 || hi > 511)
+			return NULL;
+
+		// function end
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+		if(kw[0] != ')')
+			return NULL;
+
+		// check range
+		if(lo > hi)
+			return NULL;
+		if(hi - lo > 255)
+			return NULL;
+
+		// next
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+
+		if(kw[0] == '*')
+		{
+			// multiply
+			kw = tp_get_keyword();
+			if(!kw)
+				return NULL;
+
+			if(doom_sscanf(kw, "%u", &mul) != 1 || !mul || mul > 16)
+				return NULL;
+
+			mul--;
+
+			// next
+			kw = tp_get_keyword();
+			if(!kw)
+				return NULL;
+		}
+
+		if(kw[0] == '+')
+		{
+			// add
+			kw = tp_get_keyword();
+			if(!kw)
+				return NULL;
+
+			if(doom_sscanf(kw, "%u", &add) != 1 || add > 511)
+				return NULL;
+
+			// next
+			kw = tp_get_keyword();
+			if(!kw)
+				return NULL;
+		}
+
+		add = DAMAGE_CUSTOM(lo, hi, mul, add);
+	} else
+	{
+		// direct value
+		if(doom_sscanf(kw, "%u", &add) != 1 || add > 1000000)
+			I_Error("[DECORATE] Unable to parse integer '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+		kw = tp_get_keyword();
+	}
+
+	*((uint32_t*)(parse_action_arg + arg->offset)) = add;
 
 	return kw;
 }
@@ -1213,7 +1321,7 @@ static const dec_args_t args_FireBullets =
 		{"spread_horz", handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
 		{"spread_vert", handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
 		{"numbullets", handle_s8, offsetof(args_BulletAttack_t, blt_count)},
-		{"damage", handle_u16, offsetof(args_BulletAttack_t, damage)}, // TODO: damage equations
+		{"damage", handle_damage, offsetof(args_BulletAttack_t, damage)},
 		{"pufftype", handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
 		{"flags", handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_FireBullets},
 		{"range", handle_fixed, offsetof(args_BulletAttack_t, range), 1},
@@ -1222,12 +1330,19 @@ static const dec_args_t args_FireBullets =
 	}
 };
 
+void check_FireBullets(const void *ptr)
+{
+	const args_BulletAttack_t *arg = ptr;
+	if(arg->damage & DAMAGE_IS_CUSTOM && !(arg->flags & FBF_NORANDOM))
+		I_Error("[DECORATE] A_FireBullets: missing 'FBF_NORANDOM' in '%s'.", parse_actor_name);
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
 	const args_BulletAttack_t *arg = st->arg;
-	uint32_t damage, spread, count;
+	uint32_t spread, count;
 	angle_t angle;
 	fixed_t slope;
 
@@ -1262,17 +1377,15 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!(arg->flags & FBF_NOFLASH))
 		A_GunFlash(mo, NULL, NULL);
 
-	damage = arg->damage;
-
 	angle = mo->angle;
 	if(!player_aim(pl, &angle, &slope, 0))
 		slope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
 
 	for(uint32_t i = 0; i < count; i++)
 	{
-		uint32_t dmg = damage;
 		angle_t aaa;
 		fixed_t sss;
+		uint32_t damage = arg->damage;
 
 		if(!(arg->flags & FBF_NORANDOM))
 			damage *= (P_Random() % 3) + 1;
@@ -1416,6 +1529,9 @@ uint8_t *action_parser(uint8_t *name)
 args_end:
 					if(arg->name && !arg->optional)
 						I_Error("[DECORATE] Missing argument '%s' for action '%s' in '%s'!", arg->name, act->name, parse_actor_name);
+					// check validity
+					if(act->check)
+						act->check(parse_action_arg);
 					// return next keyword
 					return tp_get_keyword();
 				}
@@ -1470,7 +1586,7 @@ static const dec_action_t mobj_action[] =
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
-	{"a_firebullets", A_FireBullets, &args_FireBullets},
+	{"a_firebullets", A_FireBullets, &args_FireBullets, check_FireBullets},
 	// misc
 	{"a_setangle", A_SetAngle, &args_SetAngle},
 	// inventory

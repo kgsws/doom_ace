@@ -39,7 +39,7 @@ void R_DrawColumn()
 	if(count < 0)
 		return;
 
-	dest = screen_buffer + dc_yl * SCREENWIDTH + dc_x;
+	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 
 	do
@@ -62,7 +62,7 @@ void R_DrawColumnTint0()
 	if(count < 0)
 		return;
 
-	dest = screen_buffer + dc_yl * SCREENWIDTH + dc_x;
+	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 
 	do
@@ -86,7 +86,7 @@ void R_DrawColumnTint1()
 	if(count < 0)
 		return;
 
-	dest = screen_buffer + dc_yl * SCREENWIDTH + dc_x;
+	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 
 	do
@@ -110,7 +110,7 @@ void R_DrawShadowColumn()
 	if(count < 0)
 		return;
 
-	dest = screen_buffer + dc_yl * SCREENWIDTH + dc_x;
+	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 
 	do
@@ -138,7 +138,7 @@ void R_DrawFuzzColumn()
 	if(count < 0)
 		return;
 
-	dest = screen_buffer + dc_yl * SCREENWIDTH + dc_x;
+	dest = ylookup[dc_yl] + columnofs[dc_x];
 
 	do
 	{
@@ -164,7 +164,7 @@ void R_DrawSpan()
 	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
 	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
 
-	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
 	do
@@ -187,7 +187,7 @@ void R_DrawUnknownSpan()
 	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
 	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
 
-	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
 	do
@@ -210,7 +210,7 @@ void R_DrawSpanTint0()
 	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
 	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
 
-	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
 	do
@@ -236,7 +236,7 @@ void R_DrawSpanTint1()
 	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
 	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
 
-	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
 	do
@@ -262,7 +262,7 @@ void R_DrawMaskedSpan()
 	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
 	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
 
-	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
 	do
@@ -289,7 +289,7 @@ void R_DrawMaskedSpanTint0()
 	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
 	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
 
-	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
 	do
@@ -319,7 +319,7 @@ void R_DrawMaskedSpanTint1()
 	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
 	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
 
-	dest = screen_buffer + ds_y * SCREENWIDTH + ds_x1;
+	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
 	do

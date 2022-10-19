@@ -264,6 +264,10 @@ extern int16_t *mceilingclip;
 extern void (*colfunc)() __attribute((regparm(2),no_caller_saved_registers));
 extern void (*spanfunc)() __attribute((regparm(2),no_caller_saved_registers));
 
+// render, location
+extern uint32_t columnofs[SCREENWIDTH];
+extern uint8_t *ylookup[SCREENWIDTH];
+
 // controls
 extern int32_t mousey;
 

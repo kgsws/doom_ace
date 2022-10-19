@@ -316,6 +316,9 @@ DOOM_VAR 0x00030118, spriteoffset
 
 DOOM_VAR 0x00030124, textureheight
 
+DOOM_VAR 0x00030130, columnofs
+DOOM_VAR 0x000312B0, ylookup
+
 DOOM_VAR 0x000322B8, dc_translation
 DOOM_VAR 0x000322C4, ds_ystep
 DOOM_VAR 0x000322C8, ds_xstep

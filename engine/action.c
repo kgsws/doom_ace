@@ -374,7 +374,10 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 	else
 		speed = mo->info->speed;
 
-	S_StartSound(mo, mo->info->seesound);
+	if(source && mo->flags1 & MF1_SPAWNSOUNDSOURCE)
+		S_StartSound(SOUND_CHAN_WEAPON(source), mo->info->seesound);
+	else
+		S_StartSound(mo, mo->info->seesound);
 
 	mo->target = source;
 	if(mo->flags1 & MF1_SEEKERMISSILE)
@@ -516,7 +519,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		break;
 	}
 
-	S_StartSound(mo, sound);
+	S_StartSound(SOUND_CHAN_WEAPON(mo), sound);
 
 	// mobj to 'missile' animation
 	if(mo->animation != ANIM_MISSILE && mo->info->state_missile)
@@ -615,7 +618,7 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	pl->stbar_update |= STU_WEAPON_NOW;
 
-	S_StartSound(mo, pl->readyweapon->weapon.sound_up);
+	S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->weapon.sound_up);
 
 	stfunc(mo, pl->readyweapon->st_weapon.raise);
 }
@@ -737,7 +740,7 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(	pl->readyweapon->weapon.sound_ready &&
 		st == states + pl->readyweapon->st_weapon.ready
 	)
-		S_StartSound(mo, pl->readyweapon->weapon.sound_ready);
+		S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->weapon.sound_ready);
 
 	// new selection
 	if(pl->pendingweapon || !pl->health)
@@ -871,7 +874,6 @@ static const dec_arg_flag_t flags_StartSound[] =
 	MAKE_FLAG(CHAN_BODY), // default, 0
 	MAKE_FLAG(CHAN_WEAPON),
 	MAKE_FLAG(CHAN_VOICE),
-	MAKE_FLAG(CHAN_ITEM),
 	// terminator
 	{NULL}
 };
@@ -891,9 +893,23 @@ static const dec_args_t args_StartSound =
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_StartSound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	// NOTE: sound slots are not implemented, yet
 	const args_StartSound_t *arg = st->arg;
-	S_StartSound(mo, arg->sound);
+	void *origin;
+
+	switch(arg->slot)
+	{
+		case CHAN_WEAPON:
+			origin = SOUND_CHAN_WEAPON(mo);
+		break;
+		case CHAN_VOICE:
+			origin = mo;
+		break;
+		default:
+			origin = SOUND_CHAN_BODY(mo);
+		break;
+	}
+
+	S_StartSound(origin, arg->sound);
 }
 
 //

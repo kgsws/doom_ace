@@ -4,6 +4,10 @@
 #define PLAYER_SOUND_CLASS_LEN	64
 #define PLAYER_SOUND_SLOT_LEN	12
 
+// SOUND_CHAN_VOICE is the default
+#define SOUND_CHAN_BODY(mo)	((void*)(mo) + offsetof(mobj_t,sound_body) - sizeof(thinker_t))
+#define SOUND_CHAN_WEAPON(mo)	((void*)(mo) + offsetof(mobj_t,sound_weapon) - sizeof(thinker_t))
+
 //
 
 void init_sound();
@@ -16,4 +20,6 @@ uint64_t sfx_alias(uint8_t*);
 
 uint16_t sfx_by_alias(uint64_t);
 uint16_t sfx_by_name(uint8_t*);
+
+void S_StopSound(mobj_t*);
 

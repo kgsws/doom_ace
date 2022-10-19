@@ -510,7 +510,7 @@ static const dec_flag_t mobj_flags1[] =
 	{"nodamage", MF1_NODAMAGE},
 	{"reflective", MF1_REFLECTIVE},
 	{"boss", MF1_BOSS}, // TODO: implement in A_Look (see sound)
-//	{"noradiusdmg", MF1_NORADIUSDMG},
+	{"noradiusdmg", MF1_NORADIUSDMG},
 	{"extremedeath", MF1_EXTREMEDEATH},
 	{"noextremedeath", MF1_NOEXTREMEDEATH},
 	{"skyexplode", MF1_SKYEXPLODE},
@@ -522,10 +522,10 @@ static const dec_flag_t mobj_flags1[] =
 	{"spectral", MF1_SPECTRAL},
 	{"ghost", MF1_GHOST},
 	{"thrughost", MF1_THRUGHOST},
-//	{"icecorpse", MF1_ICECORPSE},
+	{"icecorpse", MF1_ICECORPSE},
 	{"dormant", MF1_DORMANT},
 	{"synchronized", MF1_SYNCHRONIZED},
-//	{"oldradiusdmg", MF1_OLDRADIUSDMG},
+	{"spawnsoundsource", MF1_SPAWNSOUNDSOURCE},
 	// terminator
 	{NULL}
 };

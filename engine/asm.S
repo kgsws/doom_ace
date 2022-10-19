@@ -558,10 +558,10 @@ WI_Start:
 S_StartSound:
 	.byte	0xE9
 	.4byte	0x0003F370
-////////////////////////////////// S_StopSound
-.section .text.S_StopSound
-.global S_StopSound
-S_StopSound:
+////////////////////////////////// doom_S_StopSound
+.section .text.doom_S_StopSound
+.global doom_S_StopSound
+doom_S_StopSound:
 	.byte	0xE9
 	.4byte	0x0003F010
 ////////////////////////////////// S_ResumeSound

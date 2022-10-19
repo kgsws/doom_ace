@@ -966,6 +966,9 @@ typedef struct mobj_s
 	uint32_t rip_tick;
 	// special
 	mobj_special_t special;
+	// new sound sources
+	vertex_t sound_body;
+	vertex_t sound_weapon;
 } __attribute__((packed)) mobj_t;
 
 //
@@ -1358,7 +1361,7 @@ void R_SortVisSprites() __attribute((regparm(2),no_caller_saved_registers));
 
 // s_sound.c
 void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
-void S_StopSound(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void doom_S_StopSound(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void S_ResumeSound() __attribute((regparm(2),no_caller_saved_registers));
 void S_StopMusic() __attribute((regparm(2),no_caller_saved_registers));
 void S_ChangeMusic(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));

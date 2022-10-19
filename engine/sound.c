@@ -98,6 +98,12 @@ uint32_t sound_start_check(void *mo, uint32_t idx)
 	return idx;
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void start_weapon_sound(mobj_t *mo, uint32_t idx)
+{
+	S_StartSound(SOUND_CHAN_WEAPON(mo), idx);
+}
+
 //
 // funcs
 
@@ -337,6 +343,16 @@ error_end:
 
 //
 // API
+
+void S_StopSound(mobj_t *mo)
+{
+	// CHAN_VOICE
+	doom_S_StopSound(mo);
+	// CHAN_BODY
+	doom_S_StopSound(SOUND_CHAN_BODY(mo));
+	// CHAN_WEAPON
+	doom_S_StopSound(SOUND_CHAN_WEAPON(mo));
+}
 
 void start_music(int32_t lump, uint32_t loop)
 {
@@ -579,5 +595,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// disable sfx->link
 	{0x0003F171, CODE_HOOK | HOOK_UINT8, 0xEB},
 	{0x0003F493, CODE_HOOK | HOOK_UINT8, 0xEB},
+	// A_Saw, CHAN_WEAPON
+	{0x0002D666, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)start_weapon_sound},
+	{0x0002D677, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)start_weapon_sound},
+	// A_Punch, CHAN_WEAPON
+	{0x0002D5C9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)start_weapon_sound},
 };
 

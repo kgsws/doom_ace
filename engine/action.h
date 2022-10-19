@@ -16,7 +16,6 @@ typedef struct
 #define CHAN_BODY	0
 #define CHAN_WEAPON	1
 #define CHAN_VOICE	2
-#define CHAN_ITEM	3
 
 typedef struct
 {

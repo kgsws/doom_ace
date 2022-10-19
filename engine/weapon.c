@@ -12,6 +12,7 @@
 #include "mobj.h"
 #include "action.h"
 #include "map.h"
+#include "sound.h"
 #include "demo.h"
 #include "player.h"
 
@@ -186,7 +187,7 @@ void weapon_setup(player_t *pl)
 	pl->readyweapon = pl->pendingweapon;
 	pl->pendingweapon = NULL;
 
-	S_StartSound(pl->mo, pl->readyweapon->weapon.sound_up);
+	S_StartSound(SOUND_CHAN_WEAPON(pl->mo), pl->readyweapon->weapon.sound_up);
 
 	if(map_level_info->flags & MAP_FLAG_SPAWN_WITH_WEAPON_RAISED)
 	{
@@ -359,7 +360,7 @@ void wpn_sound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	// code pointer hack for orignal weapon sounds
 	uint16_t snd = (uint32_t)st->arg;
-	S_StartSound(mo, snd);
+	S_StartSound(SOUND_CHAN_WEAPON(mo), snd);
 	if(snd == 6)
 		A_ReFire(mo, st, stfunc);
 }

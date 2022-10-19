@@ -16,6 +16,7 @@
 #include "special.h"
 #include "map.h"
 #include "stbar.h"
+#include "sound.h"
 #include "demo.h"
 #include "cheat.h"
 #include "extra3d.h"
@@ -1763,6 +1764,12 @@ static void mobj_xy_move(mobj_t *mo)
 		// use old movement code
 		P_XYMovement(mo);
 
+	// HACK - move other sound slots
+	mo->sound_body.x = mo->x;
+	mo->sound_body.y = mo->y;
+	mo->sound_weapon.x = mo->x;
+	mo->sound_weapon.y = mo->y;
+
 	if(mo->flags & (MF_MISSILE | MF_SKULLFLY))
 		// no friction for projectiles
 		return;
@@ -1844,7 +1851,7 @@ static void mobj_z_move(mobj_t *mo)
 				if(mo->health > 0)
 				{
 					mo->player->deltaviewheight = mo->momz >> 3;
-					S_StartSound(mo, mo->info->player.sound.land);
+					S_StartSound(SOUND_CHAN_BODY(mo), mo->info->player.sound.land);
 				}
 			}
 			if(mo->momz < -23 * FRACUNIT)

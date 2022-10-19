@@ -99,3 +99,13 @@ uint32_t spec_line_use(mobj_t *mo, line_t *ln)
 	return 0;
 }
 
+//
+// hooks
+
+static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
+{
+	// 'PTR_UseTraverse' checks for ln->special (8bit)
+	{0x0002BCA9, CODE_HOOK | HOOK_UINT32, 0x00127B80},
+	{0x0002BCAD, CODE_HOOK | HOOK_UINT8, 0x90},
+};
+

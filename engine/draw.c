@@ -26,6 +26,7 @@ static int16_t fuzzoffset[FUZZTABLE] =
 
 //
 // column drawers
+// - subtract 0x80 from dc_iscale as an atempt to fix "leaking pixels"
 
 __attribute((regparm(2),no_caller_saved_registers))
 void R_DrawColumn()
@@ -33,6 +34,7 @@ void R_DrawColumn()
 	int32_t count;
 	uint8_t *dest;
 	fixed_t frac;
+	fixed_t step;
 
 	count = dc_yh - dc_yl;
 
@@ -41,12 +43,13 @@ void R_DrawColumn()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
+	step = dc_iscale - 0x80;
 
 	do
 	{
 		*dest = dc_colormap[dc_source[(frac >> FRACBITS)&127]];
 		dest += SCREENWIDTH;
-		frac += dc_iscale;
+		frac += step;
 	} while(count--);
 }
 
@@ -56,6 +59,7 @@ void R_DrawColumnTint0()
 	int32_t count;
 	uint8_t *dest;
 	fixed_t frac;
+	fixed_t step;
 
 	count = dc_yh - dc_yl;
 
@@ -64,13 +68,14 @@ void R_DrawColumnTint0()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
+	step = dc_iscale - 0x80;
 
 	do
 	{
 		uint8_t color = dc_colormap[dc_source[(frac >> FRACBITS)&127]];;
 		*dest = dr_tinttab[*dest + color * 256];
 		dest += SCREENWIDTH;
-		frac += dc_iscale;
+		frac += step;
 	} while(count--);
 }
 
@@ -80,6 +85,7 @@ void R_DrawColumnTint1()
 	int32_t count;
 	uint8_t *dest;
 	fixed_t frac;
+	fixed_t step;
 
 	count = dc_yh - dc_yl;
 
@@ -88,13 +94,14 @@ void R_DrawColumnTint1()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
+	step = dc_iscale - 0x80;
 
 	do
 	{
 		uint8_t color = dc_colormap[dc_source[(frac >> FRACBITS)&127]];;
 		*dest = dr_tinttab[*dest * 256 + color];
 		dest += SCREENWIDTH;
-		frac += dc_iscale;
+		frac += step;
 	} while(count--);
 }
 
@@ -103,7 +110,6 @@ void R_DrawShadowColumn()
 {
 	int32_t count;
 	uint8_t *dest;
-	fixed_t frac;
 
 	count = dc_yh - dc_yl;
 
@@ -111,13 +117,11 @@ void R_DrawShadowColumn()
 		return;
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
-	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 
 	do
 	{
 		*dest = colormaps[15 * 256 + *dest];
 		dest += SCREENWIDTH;
-		frac += dc_iscale;
 	} while(count--);
 }
 

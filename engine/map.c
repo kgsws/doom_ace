@@ -2061,6 +2061,12 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003C360, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)draw_finished},
 	// replace 'WI_drawEL'
 	{0x0003C3F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)draw_entering},
+	// update INTERPIC for linear buffer
+	{0x0003CABC, CODE_HOOK | HOOK_ABSADDR_DATA, 0x00074FCC},
+	{0x0003CED0, CODE_HOOK | HOOK_ABSADDR_DATA, 0x00074FCC},
+	{0x0003D9D6, CODE_HOOK | HOOK_ABSADDR_DATA, 0x00074FCC},
+	{0x0003E6BA, CODE_HOOK | HOOK_ABSADDR_DATA, 0x00074FCC},
+	{0x0003DD00, CODE_HOOK | HOOK_UINT32, 2},
 	// replace 'commercial' check in intermission code
 	{0x0003C568, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	{0x0003C60E, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
@@ -2077,6 +2083,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001C51C, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	// replace 'commercial' check in 'A_BossDeath'
 	{0x000288FA, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x000289A1, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	// replace 'commercial' check in 'R_FillBackScreen'
 	{0x00034ED2, CODE_HOOK | HOOK_UINT32, (uint32_t)&demo_map_mode},
 	// replace EP1 end pic in 'F_Drawer'

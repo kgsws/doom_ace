@@ -675,38 +675,50 @@ void R_DrawVisSprite(vissprite_t *vis)
 	{
 		colfunc = R_DrawColumn;
 
-		if(viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8)
-			colfunc = R_DrawFuzzColumn;
-		else
-		if(fixedcolormap)
-			dc_colormap = fixedcolormap;
-		else
-		if(vis->psp->state->frame & FF_FULLBRIGHT)
-			dc_colormap = colormaps;
-		else
+		if(	(viewplayer->mo->render_style == RS_FUZZ || viewplayer->mo->render_style == RS_INVISIBLE) &&
+			(viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8))
 		{
-			sector_t *sec = viewplayer->mo->subsector->sector;
-			extraplane_t *pl = sec->exfloor;
-			int32_t light = sec->lightlevel;
-			uint8_t **slight;
-
-			while(pl)
+			if(viewplayer->mo->render_style = RS_INVISIBLE)
 			{
-				if(pl->light && viewz <= *pl->height)
-					light = *pl->light;
-				pl = pl->next;
+				colfunc = R_DrawShadowColumn;
+				dc_colormap = colormaps + 32 * 256;
+			} else
+				colfunc = R_DrawFuzzColumn;
+		} else
+		{
+			if(fixedcolormap)
+				dc_colormap = fixedcolormap;
+			else
+			if(vis->psp->state->frame & FF_FULLBRIGHT)
+				dc_colormap = colormaps;
+			else
+			{
+				sector_t *sec = viewplayer->mo->subsector->sector;
+				extraplane_t *pl = sec->exfloor;
+				int32_t light = sec->lightlevel;
+				uint8_t **slight;
+
+				while(pl)
+				{
+					if(pl->light && viewz <= *pl->height)
+						light = *pl->light;
+					pl = pl->next;
+				}
+
+				light = (light >> LIGHTSEGSHIFT) + extralight;
+				if(light < 0)		
+					slight = scalelight[0];
+				else
+				if(light >= LIGHTLEVELS)
+					slight = scalelight[LIGHTLEVELS-1];
+				else
+					slight = scalelight[light];
+
+				dc_colormap = slight[MAXLIGHTSCALE-1];
 			}
 
-			light = (light >> LIGHTSEGSHIFT) + extralight;
-			if(light < 0)		
-				slight = scalelight[0];
-			else
-			if(light >= LIGHTLEVELS)
-				slight = scalelight[LIGHTLEVELS-1];
-			else
-				slight = scalelight[light];
-
-			dc_colormap = slight[MAXLIGHTSCALE-1];
+			if(viewplayer->mo->render_style == RS_TRANSLUCENT && (viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8))
+				setup_colfunc_tint(viewplayer->mo->render_alpha);
 		}
 	} else
 	{
@@ -757,6 +769,7 @@ void R_DrawVisSprite(vissprite_t *vis)
 			break;
 			case RS_SHADOW:
 				colfunc = R_DrawShadowColumn;
+				dc_colormap = colormaps + 15 * 256;
 			break;
 			case RS_TRANSLUCENT:
 				setup_colfunc_tint(vis->mo->render_alpha);
@@ -959,6 +972,8 @@ void r_draw_plane(visplane_t *pl)
 
 static void R_DrawPlanes()
 {
+	colfunc = R_DrawSkyColumn; // for sky texture
+
 	for(visplane_t *pl = ptr_visplanes; pl < lastvisplane; pl++)
 	{
 		if(pl->picnum == skyflatnum)
@@ -1676,7 +1691,7 @@ void init_render()
 		generate_translucent(render_tables->trn1, 100);
 		generate_additive(render_tables->addt);
 		// these color translations are not perfect matches ...
-		generate_color(render_tables->cmap + 256 * 0, 255, 230, 0);
+		generate_color(render_tables->cmap + 256 * 0, 255, 200, 0);
 		generate_color(render_tables->cmap + 256 * 1, 255, 0, 0);
 		generate_color(render_tables->cmap + 256 * 2, 200, 255, 180);
 		generate_color(render_tables->cmap + 256 * 3, 0, 0, 255);

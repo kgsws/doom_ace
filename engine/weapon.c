@@ -85,6 +85,9 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 		psp->tics = st->tics;
 		state = st->nextstate;
 
+		if(pl->powers[pw_attack_speed] && psp->tics > 1)
+			psp->tics >>= 1;
+
 		if(st->misc1)
 		{
 			psp->sx = st->misc1 << FRACBITS;

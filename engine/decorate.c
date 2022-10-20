@@ -26,6 +26,7 @@
 
 enum
 {
+	DT_U8,
 	DT_U16,
 	DT_S32,
 	DT_FIXED,
@@ -37,6 +38,7 @@ enum
 	DT_RENDER_ALPHA,
 	DT_POWERUP_TYPE,
 	DT_POWERUP_MODE,
+	DT_POWERUP_COLOR,
 	DT_MONSTER,
 	DT_PROJECTILE,
 	DT_MOBJTYPE,
@@ -82,9 +84,16 @@ typedef struct
 	const uint8_t *name;
 	int32_t duration;
 	uint32_t flags;
-	uint16_t mode;
-	uint16_t strength;
+	uint8_t mode;
+	uint8_t strength;
+	uint8_t colorstuff;
 } dec_powerup_t;
+
+typedef struct
+{
+	const uint8_t *name;
+	uint8_t colorstuff;
+} dec_power_color_t;
 
 //
 
@@ -133,6 +142,7 @@ typedef struct
 {
 	uint8_t type;
 	uint8_t power;
+	uint8_t colorstuff;
 	uint8_t *message;
 } doom_powerup_t;
 
@@ -644,7 +654,8 @@ static const dec_attr_t attr_powerup[] =
 	{"powerup.duration", DT_S32, offsetof(mobjinfo_t, powerup.duration)},
 	{"powerup.type", DT_POWERUP_TYPE},
 	{"powerup.mode", DT_POWERUP_MODE},
-	{"powerup.strength", DT_U16, offsetof(mobjinfo_t, powerup.strength)},
+	{"powerup.color", DT_POWERUP_COLOR},
+	{"powerup.strength", DT_U8, offsetof(mobjinfo_t, powerup.strength)},
 	// terminator
 	{NULL}
 };
@@ -825,10 +836,31 @@ static const dec_powerup_t powerup_type[NUMPOWERS] =
 {
 	[pw_invulnerability] = {"invulnerable", -30},
 	[pw_strength] = {"strength", 1, MFE_INVENTORY_HUBPOWER},
-	[pw_invisibility] = {"invisibility", -60, 0, 0, 80},
+	[pw_invisibility] = {"invisibility", -60, 0, 0, 52},
 	[pw_ironfeet] = {"ironfeet", -60},
 	[pw_allmap] = {""}, // this is not a powerup
-	[pw_infrared] = {"lightamp", -120},
+	[pw_infrared] = {"lightamp", -120, 0, 0, 0, 0x01},
+	[pw_buddha] = {"buddha", -60},
+	[pw_attack_speed] = {"doublefiringspeed", -45},
+	[pw_flight] = {"flight", -20},
+	[pw_reserved0] = {""},
+	[pw_reserved1] = {""},
+	[pw_reserved2] = {""},
+};
+
+// powerup colors
+static const dec_power_color_t powerup_color[] =
+{
+	{"inversemap", 32},
+	{"goldmap", 33},
+	{"redmap", 34},
+	{"greenmap", 35},
+	{"bluemap", 36},
+	{"ff 00 00", 2 | 128},
+	{"00 ff 00", 13 | 128},
+	{"ff ff 00", 10 | 128},
+	// terminator
+	{NULL}
 };
 
 // render styles
@@ -907,10 +939,10 @@ static const doom_armor_t doom_armor[] =
 // doom powerups
 static const doom_powerup_t doom_powerup[] =
 {
-	{56, pw_invulnerability, (uint8_t*)0x00022EF0}, // InvulnerabilitySphere
-	{58, pw_invisibility, (uint8_t*)0x00022F10}, // BlurSphere
-	{59, pw_ironfeet, (uint8_t*)0x00022F28}, // RadSuit
-	{61, pw_infrared, (uint8_t*)0x00022F58}, // Infrared
+	{56, pw_invulnerability, 0x20, (uint8_t*)0x00022EF0}, // InvulnerabilitySphere
+	{58, pw_invisibility, 0x00, (uint8_t*)0x00022F10}, // BlurSphere
+	{59, pw_ironfeet, 0x8D, (uint8_t*)0x00022F28}, // RadSuit
+	{61, pw_infrared, 0x01, (uint8_t*)0x00022F58}, // Infrared
 };
 #define NUM_POWERUP_ITEMS	(sizeof(doom_powerup) / sizeof(doom_powerup_t))
 
@@ -1127,6 +1159,7 @@ static void make_doom_powerup(uint32_t idx)
 	info->powerup = default_powerup.powerup;
 	info->powerup.inventory.max_count = 0;
 	info->powerup.type = pw->power;
+	info->powerup.colorstuff = pw->colorstuff;
 	info->powerup.inventory.message = pw->message + doom_data_segment;
 }
 
@@ -1181,6 +1214,14 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 
 	switch(type)
 	{
+		case DT_U8:
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			if(doom_sscanf(kw, "%u", &num.u32) != 1 || num.u32 > 255)
+				return 1;
+			*((uint8_t*)dest) = num.u32;
+		break;
 		case DT_U16:
 			kw = tp_get_keyword();
 			if(!kw)
@@ -1293,14 +1334,68 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			parse_mobj_info->eflags |= powerup_type[num.u32].flags;
 			parse_mobj_info->powerup.mode = powerup_type[num.u32].mode;
 			parse_mobj_info->powerup.strength = powerup_type[num.u32].strength;
+			parse_mobj_info->powerup.colorstuff = powerup_type[num.u32].colorstuff;
 		break;
 		case DT_POWERUP_MODE:
-			if(parse_mobj_info->powerup.type >= NUMPOWERS)
-				I_Error("[DECORATE] Powerup mode specified before type in '%s'!", parse_actor_name);
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			// TODO
+			switch(parse_mobj_info->powerup.type)
+			{
+				case pw_invulnerability:
+					// 'None' is default so it's not listed
+					if(!strcmp("reflective", kw))
+						parse_mobj_info->powerup.mode = 1;
+					else
+						return 1;
+				break;
+				case pw_invisibility:
+					// 'Fuzzy' is default so it's not listed
+					if(!strcmp("translucent", kw))
+						parse_mobj_info->powerup.mode = 1;
+					else
+						return 1;
+				break;
+				default:
+					return 1;
+			}
+		break;
+		case DT_POWERUP_COLOR:
+		{
+			const dec_power_color_t *col = powerup_color;
+
+			if(parse_mobj_info->powerup.type >= NUMPOWERS)
+				return 1;
+
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+
+			while(col->name)
+			{
+				if(!strcmp(col->name, kw))
+					break;
+				col++;
+			}
+
+			if(!col)
+				return 1;
+
+			parse_mobj_info->powerup.colorstuff = col->colorstuff;
+
+			// optional part; for ZDoom compatibility
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			if(kw[0] == ',')
+			{
+				// dummy read (alpha value)
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+			} else
+				tp_push_keyword(kw);
+		}
 		break;
 		case DT_MONSTER:
 			((mobjinfo_t*)dest)->flags |= MF_SHOOTABLE | MF_COUNTKILL | MF_SOLID;

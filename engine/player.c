@@ -23,8 +23,6 @@ typedef struct
 	int32_t direction;
 	void (*start)(mobj_t*,mobjinfo_t*);
 	void (*stop)(mobj_t*);
-	void (*tick)(mobj_t*);
-	uint32_t colormap; // hmm
 } powerup_t;
 
 //
@@ -55,14 +53,22 @@ static void invul_start(mobj_t*,mobjinfo_t*);
 static void invul_stop(mobj_t*);
 static void invis_start(mobj_t*,mobjinfo_t*);
 static void invis_stop(mobj_t*);
+static void buddha_start(mobj_t*,mobjinfo_t*);
+static void buddha_stop(mobj_t*);
 static const powerup_t powerup[] =
 {
-	[pw_invulnerability] = {"invulnerable", -1, invul_start, invul_stop, NULL, 32},
+	[pw_invulnerability] = {"invulnerable", -1, invul_start, invul_stop},
 	[pw_strength] = {"strength", 1},
 	[pw_invisibility] = {"invisibility", -1, invis_start, invis_stop},
 	[pw_ironfeet] = {"ironfeet", -1},
 	[pw_allmap] = {NULL},
-	[pw_infrared] = {"lightamp", -1, NULL, NULL, NULL, 1},
+	[pw_infrared] = {"lightamp", -1},
+	[pw_buddha] = {"buddha", -1, buddha_start, buddha_stop},
+	[pw_attack_speed] = {"doublefiringspeed", -1},
+	[pw_flight] = {"flight", -1}, // TODO
+	[pw_reserved0] = {NULL},
+	[pw_reserved1] = {NULL},
+	[pw_reserved2] = {NULL},
 };
 
 //
@@ -71,12 +77,14 @@ static const powerup_t powerup[] =
 static void invul_start(mobj_t *mo, mobjinfo_t *info)
 {
 	mo->flags1 |= MF1_INVULNERABLE;
-	// TODO: reflective
+	if(info->powerup.mode)
+		mo->flags1 |= MF1_REFLECTIVE;
 }
 
 static void invul_stop(mobj_t *mo)
 {
 	mo->flags1 &= ~(MF1_INVULNERABLE | MF1_REFLECTIVE);
+	mo->flags1 |= mo->info->flags1 & (MF1_INVULNERABLE | MF1_REFLECTIVE);
 }
 
 //
@@ -85,15 +93,38 @@ static void invul_stop(mobj_t *mo)
 static void invis_start(mobj_t *mo, mobjinfo_t *info)
 {
 	mo->flags |= MF_SHADOW;
-	mo->render_style = RS_FUZZ;
+	mo->render_alpha = 255 - ((uint32_t)info->powerup.strength * 255) / 100;
+	if(!mo->render_alpha)
+		mo->render_style = RS_INVISIBLE;
+	else
+	if(info->powerup.mode)
+		mo->render_style = RS_TRANSLUCENT;
+	else
+		mo->render_style = RS_FUZZ;
 }
 
 static void invis_stop(mobj_t *mo)
 {
 	mo->flags &= ~MF_SHADOW;
+	mo->flags |= mo->info->flags & MF_SHADOW;
 	mo->render_style = mo->info->render_style;
 	mo->render_alpha = mo->info->render_alpha;
 }
+
+//
+// POWER: buddha
+
+static void buddha_start(mobj_t *mo, mobjinfo_t *info)
+{
+	mo->flags1 |= MF1_BUDDHA;
+}
+
+static void buddha_stop(mobj_t *mo)
+{
+	mo->flags1 &= ~MF1_BUDDHA;
+	mo->flags1 |= mo->info->flags1 & MF1_BUDDHA;
+}
+
 
 //
 // powerup giver
@@ -101,8 +132,12 @@ static void invis_stop(mobj_t *mo)
 void powerup_give(player_t *pl, mobjinfo_t *info)
 {
 	const powerup_t *pw = powerup + info->powerup.type;
+
+	pl->power_color[info->powerup.type] = info->powerup.colorstuff;
+
 	if(!pw->start)
 		return;
+
 	pw->start(pl->mo, info);
 }
 
@@ -391,6 +426,7 @@ void player_think(player_t *pl)
 
 	// powers
 	pl->fixedcolormap = 0;
+	pl->fixedpalette = 0;
 	for(uint32_t i = 0; i < NUMPOWERS; i++)
 	{
 		if(pl->powers[i])
@@ -407,12 +443,21 @@ void player_think(player_t *pl)
 				}
 			} else
 			{
-				if(pw->tick)
-					pw->tick(pl->mo);
-				// TODO: colormaps should not be hardcoded
+				uint8_t color = pl->power_color[i];
+
 				// TODO: MFE_INVENTORY_NOSCREENBLINK
-				if(!pl->fixedcolormap && (pl->powers[i] > 128 || pl->powers[i] & 8))
-					pl->fixedcolormap = pw->colormap;
+				if(color && (pl->powers[i] > 128 || pl->powers[i] & 8))
+				{
+					if(color & 0x80)
+					{
+						if(!pl->fixedpalette)
+							pl->fixedpalette = color & 63;
+					} else
+					{
+						if(!pl->fixedcolormap)
+							pl->fixedcolormap = color & 63;
+					}
+				}
 			}
 		}
 	}
@@ -648,5 +693,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001FD81, CODE_HOOK | HOOK_SET_NOPS, 8},
 	// change 'BT_SPECIAL' check in 'G_Ticker'
 	{0x0002079A, CODE_HOOK | HOOK_UINT8, BT_SPECIALMASK},
+	// use 'fixedpalette' in 'ST_doPaletteStuff'
+	{0x0003A475, CODE_HOOK | HOOK_UINT16, 0x9B8B},
+	{0x0003A477, CODE_HOOK | HOOK_UINT32, offsetof(player_t,fixedpalette)},
+	{0x0003A47B, CODE_HOOK | HOOK_UINT16, 0x10EB},
 };
 

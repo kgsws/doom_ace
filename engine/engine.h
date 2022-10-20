@@ -316,6 +316,12 @@ enum
 	pw_ironfeet,
 	pw_allmap,
 	pw_infrared,
+	pw_buddha,  // new
+	pw_attack_speed, // new
+	pw_flight, // new
+	pw_reserved0,
+	pw_reserved1,
+	pw_reserved2,
 	NUMPOWERS
 };
 
@@ -332,7 +338,6 @@ typedef struct player_s
 	int32_t armorpoints;
 	int32_t armortype;
 	int32_t powers[NUMPOWERS];
-	uint32_t cards[NUMCARDS];
 	uint32_t backpack;
 	int32_t frags[MAXPLAYERS];
 	struct mobjinfo_s *readyweapon;
@@ -342,7 +347,8 @@ typedef struct player_s
 	struct inventory_s *inv_sel; // current selection
 	uint32_t inv_tick; // inventory selection visible
 	uint32_t info_flags;
-	uint32_t __unused[4+4+4];
+	uint8_t power_color[NUMPOWERS];
+	uint32_t __unused[1+4+4];
 	uint16_t attackdown;
 	uint16_t weapon_ready;
 	int32_t usedown;
@@ -357,7 +363,7 @@ typedef struct player_s
 	struct mobj_s *attacker;
 	int32_t extralight;
 	int32_t fixedcolormap;
-	int32_t colormap;
+	int32_t fixedpalette;
 	pspdef_t psprites[NUMPSPRITES];
 	uint32_t didsecret;
 } player_t;
@@ -535,7 +541,8 @@ typedef struct
 	int32_t duration;
 	uint8_t type;
 	uint8_t mode;
-	uint16_t strength;
+	uint8_t strength;
+	uint8_t colorstuff;
 } ei_powerup_t;
 
 typedef struct mobjinfo_s

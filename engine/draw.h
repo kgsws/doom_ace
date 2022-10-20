@@ -14,6 +14,7 @@ void V_DrawPatchTint0(int32_t, int32_t, patch_t*) __attribute((regparm(3),no_cal
 void V_DrawPatchTint1(int32_t, int32_t, patch_t*) __attribute((regparm(3),no_caller_saved_registers)); // three!
 
 void R_DrawColumn() __attribute((regparm(2),no_caller_saved_registers));
+void R_DrawSkyColumn() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawFuzzColumn() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawShadowColumn() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawColumnTint0() __attribute((regparm(2),no_caller_saved_registers));

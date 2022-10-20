@@ -29,6 +29,32 @@ static int16_t fuzzoffset[FUZZTABLE] =
 // - subtract 0x80 from dc_iscale as an atempt to fix "leaking pixels"
 
 __attribute((regparm(2),no_caller_saved_registers))
+void R_DrawSkyColumn()
+{
+	// this one does not have subtraction hack
+	int32_t count;
+	uint8_t *dest;
+	fixed_t frac;
+	fixed_t step;
+
+	count = dc_yh - dc_yl;
+
+	if(count < 0)
+		return;
+
+	dest = ylookup[dc_yl] + columnofs[dc_x];
+	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
+	step = dc_iscale;
+
+	do
+	{
+		*dest = dc_colormap[dc_source[(frac >> FRACBITS)&127]];
+		dest += SCREENWIDTH;
+		frac += step;
+	} while(count--);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
 void R_DrawColumn()
 {
 	int32_t count;
@@ -120,7 +146,7 @@ void R_DrawShadowColumn()
 
 	do
 	{
-		*dest = colormaps[15 * 256 + *dest];
+		*dest = dc_colormap[*dest];
 		dest += SCREENWIDTH;
 	} while(count--);
 }

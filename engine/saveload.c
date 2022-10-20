@@ -1178,9 +1178,9 @@ void do_save()
 	dst = writer_reserve(256 * sizeof(uint32_t));
 	for(uint32_t i = 0; i < 256; i++)
 	{
-		*dst++ = r_palette[i].r;
-		*dst++ = r_palette[i].g;
 		*dst++ = r_palette[i].b;
+		*dst++ = r_palette[i].g;
+		*dst++ = r_palette[i].r;
 		*dst++ = 0;
 	}
 

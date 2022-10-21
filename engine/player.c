@@ -37,17 +37,6 @@ player_info_t player_info[MAXPLAYERS] =
 	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
 };
 
-// view height patches
-static const uint32_t view_height_ptr[] =
-{
-	0x00033088, // P_CalcHeight
-	0x000330EE, // P_CalcHeight
-	0x000330F7, // P_CalcHeight
-	0, // separator (half height)
-	0x00033101, // P_CalcHeight
-	0x0003310D, // P_CalcHeight
-};
-
 // powerups
 static void invul_start(mobj_t*,mobjinfo_t*);
 static void invul_stop(mobj_t*);
@@ -303,6 +292,64 @@ static inline void cheat_char(uint32_t pidx, uint8_t cc)
 // player think
 
 static __attribute((regparm(2),no_caller_saved_registers))
+void P_CalcHeight(player_t *player)
+{
+	uint32_t angle;
+	fixed_t bob;
+	fixed_t viewheight = player->mo->info->player.view_height;
+
+	player->bob = FixedMul(player->mo->momx, player->mo->momx) + FixedMul(player->mo->momy,player->mo->momy);
+	player->bob >>= 2;
+
+	if(player->bob > MAXBOB)
+		player->bob = MAXBOB;
+
+	if((player->cheats & CF_NOMOMENTUM) || !onground)
+	{
+		player->viewz = player->mo->z + viewheight;
+
+		if(player->viewz > player->mo->ceilingz - 4 * FRACUNIT)
+			player->viewz = player->mo->ceilingz - 4 * FRACUNIT;
+
+		player->viewz = player->mo->z + player->viewheight;
+		return;
+	}
+
+	angle = (FINEANGLES / 20 * leveltime) & FINEMASK;
+	bob = FixedMul(player->bob / 2, finesine[angle]);
+
+	if(player->playerstate == PST_LIVE)
+	{
+		player->viewheight += player->deltaviewheight;
+
+		if(player->viewheight > viewheight)
+		{
+			player->viewheight = viewheight;
+			player->deltaviewheight = 0;
+		}
+
+		if(player->viewheight < viewheight / 2)
+		{
+			player->viewheight = viewheight / 2;
+			if(player->deltaviewheight <= 0)
+				player->deltaviewheight = 1;
+		}
+
+		if(player->deltaviewheight)
+		{
+			player->deltaviewheight += FRACUNIT / 4;
+			if(!player->deltaviewheight)
+				player->deltaviewheight = 1;
+		}
+	}
+
+	player->viewz = player->mo->z + player->viewheight + bob;
+
+	if(player->viewz > player->mo->ceilingz - 4 * FRACUNIT)
+		player->viewz = player->mo->ceilingz - 4 * FRACUNIT;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 void player_think(player_t *pl)
 {
 	uint32_t idx = pl - players;
@@ -363,7 +410,53 @@ void player_think(player_t *pl)
 
 	if(!pl->mo->reactiontime)
 	{
-		P_MovePlayer(pl);
+		ticcmd_t *cmd = &pl->cmd;
+		angle_t angle;
+
+		pl->mo->angle += (cmd->angleturn << 16);
+
+		angle = pl->mo->angle >> ANGLETOFINESHIFT;
+
+		onground = (pl->mo->z <= pl->mo->floorz);
+
+		if(demoplayback == DEMO_OLD)
+		{
+			if(cmd->forwardmove && onground)
+			{
+				fixed_t power = cmd->forwardmove * 2048;
+				pl->mo->momx += FixedMul(power, finecosine[angle]);
+				pl->mo->momy += FixedMul(power, finesine[angle]);
+			}
+
+			if(cmd->sidemove && onground)
+			{
+				fixed_t power = cmd->sidemove * 2048;
+				angle = pl->mo->angle - ANG90;
+				pl->mo->momx += FixedMul(power, finecosine[angle]);
+				pl->mo->momy += FixedMul(power, finesine[angle]);
+			}
+		} else
+		{
+			int32_t scale = onground ? 2048 : 8;
+
+			if(cmd->forwardmove)
+			{
+				fixed_t power = cmd->forwardmove * scale;
+				pl->mo->momx += FixedMul(power, finecosine[angle]);
+				pl->mo->momy += FixedMul(power, finesine[angle]);
+			}
+
+			if(cmd->sidemove)
+			{
+				fixed_t power = cmd->sidemove * scale;
+				pl->mo->momx += FixedMul(power, finesine[angle]);
+				pl->mo->momy -= FixedMul(power, finecosine[angle]);
+			}
+		}
+
+		if((cmd->forwardmove || cmd->sidemove) && pl->mo->animation == ANIM_SPAWN)
+			mobj_set_animation(pl->mo, ANIM_SEE);
+
 		if(pl->info_flags & PLF_MOUSE_LOOK && !(map_level_info->flags & MAP_FLAG_NO_FREELOOK))
 		{
 			if(cmd->pitchturn)
@@ -617,24 +710,6 @@ void player_finish(player_t *pl)
 }
 
 //
-// API
-
-void player_viewheight(fixed_t wh)
-{
-	// TODO: do this in 'coop spy' too
-	for(uint32_t i = 0; i < sizeof(view_height_ptr) / sizeof(uint32_t); i++)
-	{
-		if(!view_height_ptr[i])
-		{
-			wh /= 2;
-			continue;
-		}
-
-		*((fixed_t*)(view_height_ptr[i] + doom_code_segment)) = wh;
-	}
-}
-
-//
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -677,6 +752,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},
 	// replace call to 'P_PlayerThink' in 'P_Ticker'
 	{0x00032FBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_think},
+	// replace call to 'P_CalcHeight' in 'P_DeathThink'
+	{0x000332BF, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CalcHeight},
 	// replace netgame check in 'G_DoReborn'
 	{0x00020C57, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)respawn_check},
 	{0x00020C5C, CODE_HOOK | HOOK_UINT16, 0xC085},

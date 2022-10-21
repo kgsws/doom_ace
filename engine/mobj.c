@@ -697,7 +697,6 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	{
 		stbar_start(pl);
 		HU_Start();
-		player_viewheight(pl->viewheight);
 	}
 
 	return mo;
@@ -2064,12 +2063,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000278A0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
 	{0x000278DD, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_MISSILE << 8)}, // A_Chase
 	{0x000278E0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
-	// replace 'P_SetMobjState' with new animation system (P_MovePlayer)
-	{0x0003324B, CODE_HOOK | HOOK_UINT16, 0xB880},
-	{0x0003324D, CODE_HOOK | HOOK_UINT32, offsetof(mobj_t, animation)},
-	{0x00033251, CODE_HOOK | HOOK_UINT8, ANIM_SPAWN}, // check for
-	{0x00033255, CODE_HOOK | HOOK_UINT32, ANIM_SEE}, // replace with
-	{0x00033259, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation},
 	// skip some stuff in 'P_XYMovement'
 	{0x00030F6B, CODE_HOOK | HOOK_UINT16, 0x3BEB}, // disable 'MF_SKULLFLY'
 	{0x000310B7, CODE_HOOK | HOOK_UINT16, 0x14EB}, // after-move checks

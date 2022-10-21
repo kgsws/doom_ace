@@ -119,6 +119,7 @@ extern uint32_t playeringame[];
 extern player_t players[];
 extern uint32_t consoleplayer;
 extern uint32_t displayplayer;
+extern uint32_t onground;
 
 // sprite
 extern fixed_t *spritewidth;

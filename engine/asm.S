@@ -642,12 +642,6 @@ P_SlideMove:
 P_KillMobj:
 	.byte	0xE9
 	.4byte	0x0002A2B0
-////////////////////////////////// P_CalcHeight
-.section .text.P_CalcHeight
-.global P_CalcHeight
-P_CalcHeight:
-	.byte	0xE9
-	.4byte	0x00033030
 ////////////////////////////////// P_PlayerInSpecialSector
 .section .text.P_PlayerInSpecialSector
 .global P_PlayerInSpecialSector
@@ -660,12 +654,6 @@ P_PlayerInSpecialSector:
 P_ShootSpecialLine:
 	.byte	0xE9
 	.4byte	0x0002FA70
-////////////////////////////////// P_MovePlayer
-.section .text.P_MovePlayer
-.global P_MovePlayer
-P_MovePlayer:
-	.byte	0xE9
-	.4byte	0x00033160
 ////////////////////////////////// P_UseLines
 .section .text.P_UseLines
 .global P_UseLines

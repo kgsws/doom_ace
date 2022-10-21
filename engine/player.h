@@ -33,7 +33,5 @@ extern uint_fast8_t player_flags_changed;
 
 void powerup_give(player_t *pl, mobjinfo_t *info);
 
-void player_viewheight(fixed_t wh);
-
 void player_finish(player_t *pl);
 

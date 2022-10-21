@@ -41,6 +41,7 @@ typedef uint32_t angle_t;
 #define MAXLIGHTZ	128
 #define LIGHTZSHIFT	20
 #define FUZZTABLE	50
+#define MAXBOB	(16 * FRACUNIT)
 
 //
 // tables
@@ -1332,8 +1333,6 @@ void P_AddThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers)
 void P_RemoveThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_user
-void P_CalcHeight(player_t*) __attribute((regparm(2),no_caller_saved_registers));
-void P_MovePlayer(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_DeathThink(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // r_bsp

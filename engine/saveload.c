@@ -2105,7 +2105,6 @@ void do_load()
 
 	stbar_start(pl);
 	HU_Start();
-	player_viewheight(pl->mo->info->player.view_height);
 
 	// DONE
 	prndindex = info.rng;

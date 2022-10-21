@@ -286,6 +286,7 @@ DOOM_VAR 0x0002C154, deathmatchstarts
 
 DOOM_VAR 0x0002CF74, thinkercap
 DOOM_VAR 0x0002CF80, leveltime
+DOOM_VAR 0x0002CF90, onground
 DOOM_VAR 0x0002CFA0, solidsegs
 
 DOOM_VAR 0x0002D0A0, d_drawsegs

@@ -99,7 +99,7 @@ fixed_t intercept_vector(divline_t *v2, divline_t *v1)
 	fixed_t v2dy = v2->dy >> 8;
 
 	den = ((int64_t)v1dy * (int64_t)v2dx - (int64_t)v1dx * (int64_t)v2dy) >> 16;
-	if(den == 0)
+	if(den >= -1 && den <= 1)
 		return FRACUNIT;
 
 	num.w = (int64_t)v1m2x * (int64_t)v1dy + (int64_t)v2m1y * (int64_t)v1dx;

@@ -30,9 +30,8 @@ static extraplane_t *fakesource;
 static int16_t *e_floorclip;
 static int16_t *e_ceilingclip;
 
-static int32_t clip_height_bot;
-static int32_t clip_height_top;
-static int32_t clip_height_bot_last;
+static fixed_t clip_height_bot;
+static fixed_t clip_height_top;
 static uint16_t masked_col_step;
 
 static fixed_t cy_weapon;
@@ -195,8 +194,8 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	sector_t *backsector = seg->backsector;
 
 	// texture - extra floors
-	if(	clip_height_top < 0x7FFFFFFF &&
-		clip_height_bot > -0x7FFFFFFF &&
+	if(	clip_height_top < ONCEILINGZ &&
+		clip_height_bot > ONFLOORZ &&
 		frontsector->tag != backsector->tag
 	){
 		extraplane_t *pl;
@@ -304,7 +303,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 
 	// clip
 
-	if(clip_height_bot > -0x7FFFFFFF)
+	if(clip_height_bot > ONFLOORZ)
 	{
 		int temp = (clip_height_bot - viewz) >> 4;
 		botfrac = (centeryfrac >> 4) - FixedMul(temp, ds->scale1);
@@ -312,7 +311,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 		botfrac += botstep * (x1 - ds->x1);
 	}
 
-	if(clip_height_top < 0x7FFFFFFF)
+	if(clip_height_top < ONCEILINGZ)
 	{
 		int32_t temp = (clip_height_top - viewz) >> 4;
 		topfrac = (centeryfrac >> 4) - FixedMul(temp, ds->scale1);
@@ -343,14 +342,14 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			mfc = mfloorclip[dc_x];
 			mcc = mceilingclip[dc_x];
 
-			if(clip_height_bot > -0x7FFFFFFF)
+			if(clip_height_bot > ONFLOORZ)
 			{
 				int32_t tmp = (botfrac >> HEIGHTBITS) + 1;
 				if(tmp < mfc)
 					mfc = tmp;
 			}
 
-			if(clip_height_top < 0x7FFFFFFF)
+			if(clip_height_top < ONCEILINGZ)
 			{
 				int32_t tmp = ((topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS) - 1;
 				if(tmp > mcc)
@@ -366,9 +365,9 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			tcol[dc_x] ^= 0x8000;
 		}
 
-		if(clip_height_bot > -0x7FFFFFFF)
+		if(clip_height_bot > ONFLOORZ)
 			botfrac += botstep;
-		if(clip_height_top < 0x7FFFFFFF)
+		if(clip_height_top < ONCEILINGZ)
 			topfrac += topstep;
 		spryscale += scalestep;
 	}
@@ -789,38 +788,24 @@ void R_DrawVisSprite(vissprite_t *vis)
 	spryscale = vis->scale;
 	sprtopscreen = centeryfrac - FixedMul(dc_texturemid, spryscale);
 
-	if(clip_height_bot > -0x7FFFFFFF)
+	fc = clip_height_bot;
+	if(vis->mo && vis->mo->e3d_floorz > ONFLOORZ && vis->mo->e3d_floorz < viewz)
 	{
-		fixed_t height = clip_height_bot;
-
-		if(height < viewz)
-		{
-			// this allows things "overdraw" into the floor
-			extraplane_t *pl = vis->mo->subsector->sector->exfloor;
-			while(pl)
-			{
-				if(*pl->height <= vis->mo->z)
-					break;
-				pl = pl->next;
-			}
-			if(pl && pl->alpha == 255 && pl->flags & E3D_SOLID && *pl->height == clip_height_bot)
-				height = clip_height_bot_last;
-		}
-
-		if(height > dc_texturemid + viewz)
+		if(vis->mo->e3d_floorz >= clip_height_top)
 			return;
+		if(vis->mo->e3d_floorz == fc)
+			fc = ONFLOORZ;
+	}
 
-		if(height > -0x7FFFFFFF)
-		{
-			fc = (((centeryfrac >> 4) - FixedMul((height - viewz) >> 4, spryscale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
-			if(fc < 0)
-				return;
-		} else
-			fc = 0x10000;
+	if(fc > ONFLOORZ)
+	{
+		fc = (((centeryfrac >> 4) - FixedMul((fc - viewz) >> 4, spryscale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
+		if(fc < 0)
+			return;
 	} else
 		fc = 0x10000;
 
-	if(clip_height_top < 0x7FFFFFFF)
+	if(clip_height_top < ONCEILINGZ)
 	{
 		cc = (((centeryfrac >> 4) - FixedMul((clip_height_top - viewz) >> 4, spryscale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
 		cc--;
@@ -852,8 +837,8 @@ static inline void draw_player_sprites()
 	centery = cy_weapon;
 	centeryfrac = cy_weapon << FRACBITS;
 
-	clip_height_top = 0x7FFFFFFF;
-	clip_height_bot = -0x7FFFFFFF;
+	clip_height_top = ONCEILINGZ;
+	clip_height_bot = ONFLOORZ;
 
 	R_DrawPlayerSprites();
 
@@ -891,7 +876,7 @@ static inline void draw_masked_range()
 	masked_col_step = 0;
 
 	// from top to middle
-	clip_height_top = 0x7FFFFFFF;
+	clip_height_top = ONCEILINGZ;
 	hh = e3d_up_height;
 	while(hh)
 	{
@@ -907,15 +892,13 @@ static inline void draw_masked_range()
 	ht = clip_height_top;
 
 	// from bottom to middle
-	clip_height_bot = -0x7FFFFFFF;
-	clip_height_bot_last = -0x7FFFFFFF;
+	clip_height_bot = ONFLOORZ;
 	hh = e3d_dn_height;
 	while(hh)
 	{
 		// sprites and lines
 		clip_height_top = hh->height;
 		draw_masked();
-		clip_height_bot_last = clip_height_bot;
 		clip_height_bot = clip_height_top;
 		// planes
 		e3d_draw_height(hh->height);
@@ -1366,10 +1349,26 @@ void R_Subsector(uint32_t num)
 		frontsector->validcount = validcount;
 		for(mobj_t *mo = frontsector->thinglist; mo; mo = mo->snext)
 		{
-			if(	mo->render_style < RS_INVISIBLE &&
+			if(	mo->player != viewplayer &&
+				mo->render_style < RS_INVISIBLE &&
 				(mo->render_alpha || (mo->render_style != RS_TRANSLUCENT && mo->render_style != RS_ADDITIVE))
-			)
+			){
+				// check for floor "overdraw"
+				extraplane_t *pl = frontsector->exfloor;
+				mo->e3d_floorz = ONFLOORZ;
+				while(pl)
+				{
+					if(pl->alpha == 255 && pl->flags & E3D_SOLID && *pl->height <= mo->z)
+					{
+						mo->e3d_floorz = *pl->height;
+						break;
+					}
+					pl = pl->next;
+				}
+
+				// add
 				R_ProjectSprite(mo);
+			}
 		}
 	}
 

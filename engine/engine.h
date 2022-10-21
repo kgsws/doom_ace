@@ -42,6 +42,8 @@ typedef uint32_t angle_t;
 #define LIGHTZSHIFT	20
 #define FUZZTABLE	50
 #define MAXBOB	(16 * FRACUNIT)
+#define ONFLOORZ	-2147483648
+#define ONCEILINGZ	2147483647
 
 //
 // tables
@@ -955,6 +957,7 @@ typedef struct mobj_s
 	// render
 	uint8_t render_style;
 	uint8_t render_alpha;
+	fixed_t e3d_floorz;
 	// animation system
 	uint8_t animation;
 	// path traverse

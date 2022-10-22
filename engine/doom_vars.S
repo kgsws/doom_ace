@@ -268,9 +268,14 @@ DOOM_VAR 0x0002C0C0, bulletslope
 
 DOOM_VAR 0x0002C0D0, playerstarts
 
+DOOM_VAR 0x0002C0FC, bmapwidth
+DOOM_VAR 0x0002C100, blockmap
 DOOM_VAR 0x0002C104, bmaporgx
 DOOM_VAR 0x0002C108, bmaporgy
+DOOM_VAR 0x0002C10C, blockmaplump
+DOOM_VAR 0x0002C110, bmapheight
 
+DOOM_VAR 0x0002C114, rejectmatrix
 DOOM_VAR 0x0002C118, sides
 DOOM_VAR 0x0002C11C, numsides
 DOOM_VAR 0x0002C120, lines

@@ -15,9 +15,11 @@
 #include "demo.h"
 #include "sound.h"
 #include "special.h"
+#include "sight.h"
 #include "map.h"
 #include "menu.h"
 #include "stbar.h"
+#include "render.h"
 #include "extra3d.h"
 #include "ldr_flat.h"
 #include "ldr_texture.h"
@@ -384,17 +386,20 @@ uint32_t map_load_setup()
 	else
 		utils_install_hooks(patch_hexen, 0);
 
-	if(W_LumpLength(map_lump_idx + ML_REJECT))
-		utils_install_hooks(hook_reject_en, 1);
-	else
-		utils_install_hooks(hook_reject_di, 1);
-
 	// clear player mobjs
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 		players[i].mo = NULL;
 
 	// load the level
 	P_SetupLevel();
+
+	// empty reject?
+	if(!W_LumpLength(map_lump_idx + ML_REJECT))
+	{
+		rejectmatrix = NULL;
+		utils_install_hooks(hook_reject_di, 1);
+	} else
+		utils_install_hooks(hook_reject_en, 1);
 
 	// reset some stuff
 	for(uint32_t i = 0; i < MAXPLATS; i++)
@@ -574,6 +579,12 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	{
 		mo->flags1 |= MF1_DORMANT;
 		mo->tics = -1;
+	}
+
+	if(mt->flags & MTF_SHADOW)
+	{
+		mo->render_style = RS_TRANSLUCENT;
+		mo->render_alpha = 50;
 	}
 
 	if(!(mo->flags1 & MF1_SYNCHRONIZED) && mo->tics > 0)
@@ -1945,8 +1956,17 @@ static const hook_t patch_new[] =
 {
 	// fix 'A_Tracer' - make it leveltime based
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80},
-	// fix typo in 'P_DivlineSide'
-	{0x0002EA00, CODE_HOOK | HOOK_UINT16, 0xCA39},
+	// replace 'P_CheckSight' on multiple places
+	{0x0002708A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x000270AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x000275D8, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x000276F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x00027907, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x00027B82, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x00027BC2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x000282B6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x0002838C, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x0002BDC6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
 	// replace 'P_PathTraverse' on multiple places
 	{0x0002B5F6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
 	{0x0002B616, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
@@ -1972,8 +1992,17 @@ static const hook_t patch_old[] =
 {
 	// restore 'A_Tracer'
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B3BC},
-	// restore typo in 'P_DivlineSide'
-	{0x0002EA00, CODE_HOOK | HOOK_UINT16, 0xC839},
+	// replace 'P_CheckSight' on multiple places
+	{0x0002708A, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x000270AA, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x000275D8, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x000276F0, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x00027907, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x00027B82, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x00027BC2, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x000282B6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x0002838C, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
+	{0x0002BDC6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
 	// restore 'P_PathTraverse' on multiple places
 	{0x0002B5F6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
 	{0x0002B616, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove

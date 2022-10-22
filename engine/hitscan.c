@@ -18,6 +18,7 @@
 static uint32_t thing_slide_slope;
 
 static fixed_t hitscanz;
+static sector_t *hitscansector;
 
 //
 // functions
@@ -78,7 +79,7 @@ uint32_t check_trace_line(vertex_t *v1, vertex_t *v2)
 	return 0;
 }
 
-fixed_t intercept_vector(divline_t *v2, divline_t *v1)
+fixed_t hs_intercept_vector(divline_t *v2, divline_t *v1)
 {
 	// this version should have less issues with overflow
 	union
@@ -134,7 +135,7 @@ static uint32_t add_line_intercepts(line_t *li)
 	dl.dx = li->dx;
 	dl.dy = li->dy;
 
-	frac = intercept_vector(&trace, &dl);
+	frac = hs_intercept_vector(&trace, &dl);
 
 	if(frac < 0)
 		return 1;
@@ -226,7 +227,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 		dl.dx = v2.x - v1.x;
 		dl.dy = v2.y - v1.y;
 
-		tmpf = intercept_vector(&trace, &dl);
+		tmpf = hs_intercept_vector(&trace, &dl);
 		if(tmpf >= 0)
 		{
 			frac = tmpf;
@@ -241,7 +242,7 @@ static uint32_t add_thing_intercepts(mobj_t *mo)
 		dl.dx = v3.x - v2.x;
 		dl.dy = v3.y - v2.y;
 
-		tmpf = intercept_vector(&trace, &dl);
+		tmpf = hs_intercept_vector(&trace, &dl);
 		if(tmpf >= 0 && tmpf < frac)
 		{
 			frac = tmpf;
@@ -278,7 +279,12 @@ uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t 
 	int32_t dx, dy;
 	int32_t ia, ib, ic;
 
-	hitscanz = shootz; // hack for hitscan
+	if(shootthing && shootthing->subsector)
+	{
+		// hack for hitscan; this should be in P_LineAttack
+		hitscanz = shootz;
+		hitscansector = shootthing->subsector->sector;
+	}
 
 	validcount++;
 	intercept_p = intercepts;
@@ -351,7 +357,11 @@ uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t 
 		}
 	}
 
-	return P_TraverseIntercepts(trav, FRACUNIT);
+	dx = P_TraverseIntercepts(trav, FRACUNIT);
+
+	shootthing = NULL; // again, a hack
+
+	return dx;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -560,9 +570,6 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		)
 			spec_activate(li, shootthing, SPEC_ACT_SHOOT);
 
-		if(!li->frontsector->exfloor && !li->backsector->exfloor)
-			return 1;
-
 		if(P_PointOnLineSide(trace.x, trace.y, li))
 		{
 			backsector = li->frontsector;
@@ -572,6 +579,11 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 			frontsector = li->frontsector;
 			backsector = li->backsector;
 		}
+
+		hitscansector = backsector;
+
+		if(!li->frontsector->exfloor && !li->backsector->exfloor)
+			return 1;
 
 		if(frontsector->exfloor)
 		{
@@ -695,6 +707,20 @@ do_puff:
 
 		if(th->flags1 & MF1_GHOST && mobjinfo[mo_puff_type].flags1 & MF1_THRUGHOST)
 			return 1;
+
+		if(hitscansector)
+		{
+			fixed_t z, frac;
+			frac = check_e3d_hit(hitscansector, in->frac, &z);
+			if(frac >= 0)
+			{
+				trace.x = trace.x + FixedMul(trace.dx, frac);
+				trace.y = trace.y + FixedMul(trace.dy, frac);
+				trace.dx = z;
+				mobj_spawn_puff(&trace, NULL);
+				return 0;
+			}
+		}
 
 		dist = FixedMul(attackrange, in->frac);
 		thingtopslope = FixedDiv(th->z + th->height - shootz, dist);

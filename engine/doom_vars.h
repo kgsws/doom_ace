@@ -75,6 +75,7 @@ extern uint32_t respawnmonsters;
 extern uint32_t numsides;
 extern uint32_t numlines;
 extern uint32_t numsectors;
+extern uint8_t *rejectmatrix;
 extern line_t *lines;
 extern vertex_t *vertexes;
 extern side_t *sides;
@@ -83,6 +84,10 @@ extern subsector_t *subsectors;
 extern seg_t *segs;
 extern fixed_t bmaporgx;
 extern fixed_t bmaporgy;
+extern int32_t bmapwidth;
+extern int32_t bmapheight;
+extern uint16_t *blockmaplump;
+extern uint16_t *blockmap;
 
 // map & maputl
 extern mobj_t *tmthing;

@@ -1161,6 +1161,7 @@ void do_save()
 	old_size = r_setblocks;
 	r_setblocks = 20; // fullscreen with no status bar
 	R_ExecuteSetViewSize();
+	memset(screen_buffer, r_color_black, SCREENWIDTH * SCREENHEIGHT);
 	render_player_view(players + consoleplayer);
 	r_rdptr = r_fbptr; // fullscreen hack
 	r_setblocks = old_size;

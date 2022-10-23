@@ -17,6 +17,7 @@
 #include "map.h"
 #include "stbar.h"
 #include "sound.h"
+#include "render.h"
 #include "demo.h"
 #include "cheat.h"
 #include "extra3d.h"
@@ -37,24 +38,19 @@ uint32_t mo_puff_flags;
 
 uint32_t mobj_netid;
 
-static uint_fast8_t kill_xdeath;
+static uint_fast8_t kill_death_type;
 
 //
 
 // this only exists because original animations are all over the place in 'mobjinfo_t'
-const uint16_t base_anim_offs[NUM_MOBJ_ANIMS] =
+const uint16_t base_anim_offs[LAST_MOBJ_STATE_HACK] =
 {
 	[ANIM_SPAWN] = offsetof(mobjinfo_t, state_spawn),
 	[ANIM_SEE] = offsetof(mobjinfo_t, state_see),
-	[ANIM_PAIN] = offsetof(mobjinfo_t, state_pain),
 	[ANIM_MELEE] = offsetof(mobjinfo_t, state_melee),
 	[ANIM_MISSILE] = offsetof(mobjinfo_t, state_missile),
-	[ANIM_DEATH] = offsetof(mobjinfo_t, state_death),
 	[ANIM_XDEATH] = offsetof(mobjinfo_t, state_xdeath),
 	[ANIM_RAISE] = offsetof(mobjinfo_t, state_raise),
-	[ANIM_HEAL] = offsetof(mobjinfo_t, state_heal),
-	[ANIM_CRUSH] = offsetof(mobjinfo_t, state_crush),
-	[ANIM_CRASH] = offsetof(mobjinfo_t, state_crash),
 };
 
 static const hook_t hook_fast_missile[];
@@ -79,8 +75,11 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 			offset = state & 0xFFFF;
 			mo->animation = (state >> 16) & 0xFF;
 
-			if(mo->animation < NUM_MOBJ_ANIMS)
+			if(mo->animation < LAST_MOBJ_STATE_HACK)
 				state = *((uint16_t*)((void*)mo->info + base_anim_offs[mo->animation]));
+			else
+			if(mo->animation < NUM_MOBJ_ANIMS)
+				state = mo->info->new_states[mo->animation - LAST_MOBJ_STATE_HACK];
 			else
 				state = mo->info->extra_states[mo->animation - NUM_MOBJ_ANIMS];
 
@@ -99,8 +98,11 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 
 		st = states + state;
 		mo->state = st;
-		mo->sprite = st->sprite;
-		mo->frame = st->frame;
+		if(st->sprite != 0xFFFF)
+		{
+			mo->sprite = st->sprite;
+			mo->frame = st->frame;
+		}
 
 		if(st->tics > 1 && (fastparm || gameskill == sk_nightmare) && st->frame & FF_FAST)
 			mo->tics = st->tics / 2;
@@ -769,6 +771,12 @@ uint32_t finish_mobj(mobj_t *mo)
 		mo->ceilingz = tmextraceiling;
 	}
 
+	// HACK - other sound slots
+	mo->sound_body.x = mo->x;
+	mo->sound_body.y = mo->y;
+	mo->sound_weapon.x = mo->x;
+	mo->sound_weapon.y = mo->y;
+
 	// ZDoom compatibility
 	// teleport fog starts teleport sound
 	if(mo->type == 39)
@@ -778,16 +786,28 @@ uint32_t finish_mobj(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 static void kill_animation(mobj_t *mo)
 {
-	// custom death animations can be added
+	uint32_t animation = ANIM_DEATH;
 
-	if(	mo->info->state_xdeath &&
-		(	kill_xdeath == 1 ||
-			(!kill_xdeath && mo->health < -mo->info->spawnhealth)
-		)
-	)
-		set_mobj_animation(mo, ANIM_XDEATH);
-	else
-		set_mobj_animation(mo, ANIM_DEATH);
+	if(mo->player)
+		mo->player->extralight = 0;
+
+	if(kill_death_type == DAMAGE_ICE)
+		return;
+
+	if(kill_death_type == 255)
+	{
+		if(mo->info->state_xdeath)
+			animation = ANIM_XDEATH;
+	} else
+	if(!kill_death_type)
+	{
+		if(mo->info->state_xdeath && mo->health < -mo->info->spawnhealth)
+			animation = ANIM_XDEATH;
+	} else
+	if(kill_death_type < NUM_DAMAGE_TYPES)
+		animation += kill_death_type;
+
+	mobj_set_animation(mo, animation);
 
 	if(mo->tics > 0)
 	{
@@ -795,9 +815,6 @@ static void kill_animation(mobj_t *mo)
 		if(mo->tics <= 0)
 			mo->tics = 1;
 	}
-
-	if(mo->player)
-		mo->player->extralight = 0;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -1380,7 +1397,7 @@ void explode_missile(mobj_t *mo)
 	mo->momy = 0;
 	mo->momz = 0;
 
-	set_mobj_animation(mo, ANIM_DEATH);
+	mobj_set_animation(mo, ANIM_DEATH);
 
 	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
 	{
@@ -1403,6 +1420,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	int32_t kickback;
 	uint32_t if_flags1;
 	uint_fast8_t forced;
+	uint_fast8_t damage_type;
 
 	if(!(target->flags & MF_SHOOTABLE))
 		return;
@@ -1410,8 +1428,8 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	if(target->flags1 & MF1_DORMANT)
 		return;
 
-	if(target->health <= 0)
-		return;
+	if(target->health <= 0 && !(target->iflags & MFI_ICECORPSE))
+			return;
 
 	if(target->flags & MF_SKULLFLY)
 	{
@@ -1421,15 +1439,32 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	}
 
 	if(pufftype)
+	{
 		if_flags1 = pufftype->flags1;
-	else
+		damage_type = pufftype->damage_type;
+	} else
 	if(inflictor)
+	{
 		if_flags1 = inflictor->flags1;
-	else
+		damage_type = inflictor->info->damage_type;
+	} else
+	{
 		if_flags1 = 0;
+		damage_type = DAMAGE_NORMAL;
+	}
 
-	if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL))
+	if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL) && damage < 1000000)
 		return;
+
+	if(target->iflags & MFI_ICECORPSE)
+	{
+		if(damage_type != DAMAGE_ICE)
+		{
+			target->tics = 1;
+			target->iflags |= MFI_ICE_SHATTER;
+		}
+		return;
+	}
 
 	if(damage & DAMAGE_IS_CUSTOM)
 	{
@@ -1567,23 +1602,35 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 					player->health = 1;
 			} else
 			{
-				kill_xdeath = 0;
-				if(if_flags1 & MF1_NOEXTREMEDEATH)
-					kill_xdeath = -1;
-				else
-				if(if_flags1 & MF1_EXTREMEDEATH)
-					kill_xdeath = 1;
+				if(!damage_type)
+				{
+					kill_death_type = 0;
+					if(if_flags1 & MF1_NOEXTREMEDEATH)
+						kill_death_type = 254;
+					else
+					if(if_flags1 & MF1_EXTREMEDEATH)
+						kill_death_type = 255;
+				} else
+					kill_death_type = damage_type;
+
 				P_KillMobj(source, target);
+
+				if(damage_type == DAMAGE_ICE)
+				{
+					mobj_set_animation(target, ANIM_DEATH + DAMAGE_ICE);
+					return;
+				}
+
 				return;
 			}
 		}
 	}
 
-	if(	P_Random() < target->info->painchance &&
+	if(	P_Random() < target->info->painchance[damage_type] &&
 		!(target->flags & MF_SKULLFLY)
 	) {
 		target->flags |= MF_JUSTHIT;
-		mobj_set_state(target, STATE_SET_ANIMATION(ANIM_PAIN, 0));
+		mobj_set_state(target, STATE_SET_ANIMATION(ANIM_PAIN + damage_type, 0));
 	}
 
 	target->reactiontime = 0;
@@ -1787,7 +1834,7 @@ static void mobj_xy_move(mobj_t *mo)
 		mo->momx < STOPSPEED &&
 		mo->momy > -STOPSPEED &&
 		mo->momy < STOPSPEED &&
-		(!pl || (pl->cmd.forwardmove== 0 && pl->cmd.sidemove == 0))
+		(!pl || (pl->cmd.forwardmove == 0 && pl->cmd.sidemove == 0))
 	) {
 		if(pl && mo->animation == ANIM_SEE)
 			mobj_set_animation(mo, ANIM_SPAWN);
@@ -1838,12 +1885,18 @@ static void mobj_z_move(mobj_t *mo)
 		// hit the floor
 		if(mo->momz < 0)
 		{
-			if(mo->player && mo->momz < GRAVITY * -8)
+			if(mo->momz < GRAVITY * -8)
 			{
-				if(mo->health > 0)
+				if(mo->player && mo->health > 0)
 				{
 					mo->player->deltaviewheight = mo->momz >> 3;
 					S_StartSound(SOUND_CHAN_BODY(mo), mo->info->player.sound.land);
+				}
+
+				if(mo->iflags & MFI_ICECORPSE)
+				{
+					mo->tics = 1;
+					mo->iflags |= MFI_ICE_SHATTER;
 				}
 			}
 			if(mo->momz < -23 * FRACUNIT)
@@ -2059,7 +2112,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// skip some stuff in 'P_XYMovement'
 	{0x00030F6B, CODE_HOOK | HOOK_UINT16, 0x3BEB}, // disable 'MF_SKULLFLY'
 	{0x000310B7, CODE_HOOK | HOOK_UINT16, 0x14EB}, // after-move checks
-	// replace call to 'P_XYMovement' in 'P_MobjThinker'
+	// replace call to 'P_XYMovement' in 'P_MobjThinker'; call always
+	{0x00031496, CODE_HOOK | HOOK_UINT16, 0x12EB},
 	{0x000314AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_xy_move},
 	// replace call to 'P_ZMovement' in 'P_MobjThinker'
 	{0x000314C9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_z_move},

@@ -556,7 +556,7 @@ static uint32_t sv_convert_state(state_t *st, mobjinfo_t *info)
 
 	state = st - states;
 
-	if(state < NUMSTATES)
+	if(state < NEW_NUMSTATES)
 		return state | 0x80000000;
 	else
 	if(state >= info->state_idx_first && state < info->state_idx_limit)
@@ -1263,7 +1263,7 @@ static state_t *ld_convert_state(uint32_t state, mobjinfo_t *info, uint32_t allo
 	if(state & 0x80000000)
 	{
 		state &= 0x7FFFFFFF;
-		if(state >= NUMSTATES)
+		if(state >= NEW_NUMSTATES)
 			state = 0;
 	} else
 	{

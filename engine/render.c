@@ -779,7 +779,18 @@ void R_DrawVisSprite(vissprite_t *vis)
 			break;
 		}
 
-		// TODO: dc_translation
+		if(vis->mo->translation)
+		{
+			dc_translation = vis->mo->translation;
+			if(colfunc == R_DrawColumn)
+				colfunc = R_DrawTranslatedColumn;
+			else
+			if(colfunc == R_DrawColumnTint0)
+				colfunc = R_DrawTranslatedColumnTint0;
+			else
+			if(colfunc == R_DrawColumnTint1)
+				colfunc = R_DrawTranslatedColumnTint1;
+		}
 	}
 
 	dc_iscale = abs(vis->xiscale);

@@ -4,6 +4,7 @@
 #define RENDER_TABLE_PROGRESS	(3 * 128)
 
 #define FONT_COLOR_WHITE	4
+#define ICE_CMAP_IDX	5
 
 enum
 {

@@ -15,6 +15,7 @@
 #include "stbar.h"
 #include "map.h"
 #include "demo.h"
+#include "render.h"
 #include "config.h"
 #include "textpars.h"
 
@@ -1447,16 +1448,51 @@ void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
-// DEBUG
+// freeze death
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_FreezeDeath(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	mo->height <<= 2;
+	mo->flags |= MF_NOBLOOD | MF_SHOOTABLE | MF_SOLID | MF_SLIDE;
+	mo->flags1 |= MF1_PUSHABLE | MF1_TELESTOMP;
+	mo->iflags |= MFI_ICECORPSE;
+	mo->tics = 75 + P_Random() + P_Random();
+
+	// TODO: freeze sound
+
+	if(mo->player)
+	{
+		mo->player->bonuscount = 0;
+		mo->player->damagecount = 0;
+	}
+}
 
 __attribute((regparm(2),no_caller_saved_registers))
-void debug_codeptr(mobj_t *mo, state_t *st, stfunc_t stfunc)
+void A_GenericFreezeDeath(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	doom_printf("debug_codeptr:\n");
-	doom_printf(" mobj 0x%08X\n", mo);
-	doom_printf(" arg 0x%08X\n", st->arg);
-	doom_printf(" target 0x%08X\n", mo->target);
-	doom_printf(" tracer 0x%08X\n", mo->tracer);
+	A_FreezeDeath(mo, st, stfunc);
+	mo->frame &= ~FF_FULLBRIGHT;
+	mo->translation = render_tables->cmap + ICE_CMAP_IDX * 256;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(!(mo->iflags & MFI_ICE_SHATTER) && (mo->momx || mo->momy || mo->momz))
+	{
+		mo->tics = 105;
+		return;
+	}
+
+	// TODO: shatter sound
+	// TODO: shatter mobjs
+
+	// drop items
+	A_NoBlocking(mo, st, stfunc);
+
+	// remove
+	mobj_remove(mo);
 }
 
 //
@@ -1572,6 +1608,10 @@ static const dec_action_t mobj_action[] =
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	{"a_firebullets", A_FireBullets, &args_FireBullets, check_FireBullets},
+	// freeze death
+	{"a_freezedeath", A_FreezeDeath},
+	{"a_genericfreezedeath", A_GenericFreezeDeath},
+	{"a_freezedeathchunks", A_FreezeDeathChunks},
 	// misc
 	{"a_setangle", A_SetAngle, &args_SetAngle},
 	// inventory

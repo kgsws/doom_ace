@@ -8,9 +8,24 @@
 #define EXTRA_STORAGE_SIZE	12288
 #define EXTRA_STORAGE_END	(EXTRA_STORAGE_PTR + EXTRA_STORAGE_SIZE)
 
-#define MOBJ_IDX_UNKNOWN	(NUMMOBJTYPES + 0)
-#define MOBJ_IDX_FIST	(NUMMOBJTYPES + 1)
-#define MOBJ_IDX_PISTOL	(NUMMOBJTYPES + 2)
+enum
+{
+	MOBJ_IDX_UNKNOWN = NUMMOBJTYPES,
+	MOBJ_IDX_FIST,
+	MOBJ_IDX_PISTOL,
+	//
+	NEW_NUMMOBJTYPES
+};
+
+enum
+{
+	STATE_UNKNOWN_ITEM = NUMSTATES,
+	STATE_PISTOL,
+	STATE_ICE_DEATH_0,
+	STATE_ICE_DEATH_1,
+	//
+	NEW_NUMSTATES
+};
 
 //
 
@@ -27,6 +42,10 @@ extern uint32_t num_player_classes;
 extern uint16_t player_class[MAX_PLAYER_CLASSES];
 
 extern uint8_t *parse_actor_name;
+
+extern uint8_t *damage_type_name[NUM_DAMAGE_TYPES];
+extern uint8_t damage_pain_custom[NUM_DAMAGE_TYPES - DAMAGE_CUSTOM_0][24];
+extern uint8_t damage_death_custom[NUM_DAMAGE_TYPES - DAMAGE_CUSTOM_0][24];
 
 extern void *dec_es_ptr;
 

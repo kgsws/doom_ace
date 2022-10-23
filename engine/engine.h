@@ -559,14 +559,15 @@ typedef struct mobjinfo_s
 	uint16_t __free_18;
 	int32_t reactiontime;
 	uint16_t attacksound;
-	uint16_t __free_24;
-	uint32_t state_pain;
-	int32_t painchance;
-	uint16_t painsound;
+	uint16_t __free_26;
+	uint32_t __free_32;
+	uint16_t damage_type;
 	uint16_t __free_34;
+	uint16_t painsound;
+	uint16_t __free_38;
 	uint32_t state_melee;
 	uint32_t state_missile;
-	uint32_t state_death;
+	uint32_t __free_48;
 	uint32_t state_xdeath;
 	uint16_t deathsound;
 	uint8_t render_style;
@@ -592,6 +593,22 @@ typedef struct mobjinfo_s
 	fixed_t vspeed;
 	fixed_t step_height;
 	fixed_t dropoff;
+	// pain chance for each damate type
+	uint16_t painchance[NUM_DAMAGE_TYPES];
+	union
+	{
+		struct
+		{
+			// new states
+			uint16_t state_heal;
+			uint16_t state_crush;
+			uint16_t state_crash;
+			// states for custom damate types
+			uint16_t state_pain[NUM_DAMAGE_TYPES];
+			uint16_t state_death[NUM_DAMAGE_TYPES];
+		};
+		uint16_t new_states[4];
+	};
 	// extra stuff list
 	union
 	{
@@ -607,10 +624,6 @@ typedef struct mobjinfo_s
 			plrp_start_item_t *end;
 		} start_item;
 	};
-	// new states
-	uint16_t state_heal;
-	uint16_t state_crush;
-	uint16_t state_crash;
 	// shared states
 	union
 	{
@@ -954,9 +967,12 @@ typedef struct mobj_s
 	struct mobj_s *tracer;
 	// new pointer
 	struct mobj_s *master;
+	// more flags
+	uint32_t iflags;
 	// render
 	uint8_t render_style;
 	uint8_t render_alpha;
+	uint8_t *translation;
 	fixed_t e3d_floorz;
 	// animation system
 	uint8_t animation;
@@ -975,6 +991,8 @@ typedef struct mobj_s
 	// to avaid mutiple rip damage per tick
 	struct mobj_s *rip_thing;
 	uint32_t rip_tick;
+	// frozen corpse
+	uint32_t freeze_tick;
 	// special
 	mobj_special_t special;
 	// new sound sources

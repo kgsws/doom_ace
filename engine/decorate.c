@@ -20,7 +20,8 @@
 
 #include "decodoom.h"
 
-#define NUM_NEW_TYPES	3
+#define NUM_NEW_TYPES	(NEW_NUMMOBJTYPES - NUMMOBJTYPES)
+#define NUM_NEW_STATES	(NEW_NUMSTATES - NUMSTATES)
 
 #define NUM_STATE_HOOKS	1
 
@@ -34,6 +35,8 @@ enum
 	DT_STRING,
 	DT_ICON,
 	DT_SKIP1,
+	DT_PAINCHANCE,
+	DT_DAMAGE_TYPE,
 	DT_RENDER_STYLE,
 	DT_RENDER_ALPHA,
 	DT_POWERUP_TYPE,
@@ -165,10 +168,10 @@ typedef struct
 
 uint32_t sprite_table[MAX_SPRITE_NAMES];
 
-uint32_t num_mobj_types = NUMMOBJTYPES + NUM_NEW_TYPES;
+uint32_t num_mobj_types = NEW_NUMMOBJTYPES;
 mobjinfo_t *mobjinfo;
 
-uint32_t num_states = NUMSTATES;
+uint32_t num_states = NEW_NUMSTATES;
 state_t *states;
 
 uint32_t num_player_classes = 1;
@@ -187,6 +190,10 @@ static uint32_t parse_last_anim;
 static void *extra_stuff_cur;
 static void *extra_stuff_next;
 
+uint8_t damage_pain_custom[NUM_DAMAGE_TYPES - DAMAGE_CUSTOM_0][24];
+uint8_t damage_death_custom[NUM_DAMAGE_TYPES - DAMAGE_CUSTOM_0][24];
+
+//
 static uint32_t parse_damage();
 static uint32_t parse_player_sounds();
 static uint32_t parse_dropitem();
@@ -233,7 +240,7 @@ static const mobjinfo_t default_player =
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
 	.render_alpha = 255,
-	.painchance = 255,
+	.painchance[DAMAGE_NORMAL] = 255,
 	.speed = 1 << FRACBITS,
 	.flags = MF_SOLID | MF_SHOOTABLE | MF_DROPOFF | MF_PICKUP | MF_NOTDMATCH | MF_SLIDE,
 	.flags1 = MF1_TELESTOMP,
@@ -396,15 +403,47 @@ static const dec_anim_t mobj_anim[] =
 {
 	{"spawn", ANIM_SPAWN, ETYPE_NONE, offsetof(mobjinfo_t, state_spawn)},
 	{"see", ANIM_SEE, ETYPE_NONE, offsetof(mobjinfo_t, state_see)},
-	{"pain", ANIM_PAIN, ETYPE_NONE, offsetof(mobjinfo_t, state_pain)},
 	{"melee", ANIM_MELEE, ETYPE_NONE, offsetof(mobjinfo_t, state_melee)},
 	{"missile", ANIM_MISSILE, ETYPE_NONE, offsetof(mobjinfo_t, state_missile)},
-	{"death", ANIM_DEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_death)},
 	{"xdeath", ANIM_XDEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_xdeath)},
 	{"raise", ANIM_RAISE, ETYPE_NONE, offsetof(mobjinfo_t, state_raise)},
 	{"heal", ANIM_HEAL, ETYPE_NONE, offsetof(mobjinfo_t, state_heal)},
 	{"crush", ANIM_CRUSH, ETYPE_NONE, offsetof(mobjinfo_t, state_crush)},
 	{"crash", ANIM_CRASH, ETYPE_NONE, offsetof(mobjinfo_t, state_crash)},
+	// pain
+	{"pain", ANIM_PAIN + DAMAGE_NORMAL, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_NORMAL])},
+	{"pain.ice", ANIM_PAIN + DAMAGE_ICE, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_ICE])},
+	{"pain.fire", ANIM_PAIN + DAMAGE_FIRE, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_FIRE])},
+	{"pain.disintegrate", ANIM_PAIN + DAMAGE_DISINTEGRATE, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_DISINTEGRATE])},
+	{"pain.electric", ANIM_PAIN + DAMAGE_ELECTRIC, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_ELECTRIC])},
+	{damage_pain_custom[0], ANIM_PAIN + DAMAGE_CUSTOM_0, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_0])},
+	{damage_pain_custom[1], ANIM_PAIN + DAMAGE_CUSTOM_1, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_1])},
+	{damage_pain_custom[2], ANIM_PAIN + DAMAGE_CUSTOM_2, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_2])},
+	{damage_pain_custom[3], ANIM_PAIN + DAMAGE_CUSTOM_3, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_3])},
+	{damage_pain_custom[4], ANIM_PAIN + DAMAGE_CUSTOM_4, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_4])},
+	{damage_pain_custom[5], ANIM_PAIN + DAMAGE_CUSTOM_5, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_5])},
+	{damage_pain_custom[6], ANIM_PAIN + DAMAGE_CUSTOM_6, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_6])},
+	{damage_pain_custom[7], ANIM_PAIN + DAMAGE_CUSTOM_7, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_7])},
+	{damage_pain_custom[8], ANIM_PAIN + DAMAGE_CUSTOM_8, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_8])},
+	{damage_pain_custom[9], ANIM_PAIN + DAMAGE_CUSTOM_9, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_9])},
+	{damage_pain_custom[10], ANIM_PAIN + DAMAGE_CUSTOM_10, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_10])},
+	// death
+	{"death", ANIM_DEATH + DAMAGE_NORMAL, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_NORMAL])},
+	{"death.ice", ANIM_DEATH + DAMAGE_ICE, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_ICE])},
+	{"death.fire", ANIM_DEATH + DAMAGE_FIRE, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_FIRE])},
+	{"death.disintegrate", ANIM_DEATH + DAMAGE_DISINTEGRATE, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_DISINTEGRATE])},
+	{"death.electric", ANIM_DEATH + DAMAGE_ELECTRIC, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_ELECTRIC])},
+	{damage_death_custom[0], ANIM_DEATH + DAMAGE_CUSTOM_0, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_0])},
+	{damage_death_custom[1], ANIM_DEATH + DAMAGE_CUSTOM_1, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_1])},
+	{damage_death_custom[2], ANIM_DEATH + DAMAGE_CUSTOM_2, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_2])},
+	{damage_death_custom[3], ANIM_DEATH + DAMAGE_CUSTOM_3, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_3])},
+	{damage_death_custom[4], ANIM_DEATH + DAMAGE_CUSTOM_4, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_4])},
+	{damage_death_custom[5], ANIM_DEATH + DAMAGE_CUSTOM_5, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_5])},
+	{damage_death_custom[6], ANIM_DEATH + DAMAGE_CUSTOM_6, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_6])},
+	{damage_death_custom[7], ANIM_DEATH + DAMAGE_CUSTOM_7, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_7])},
+	{damage_death_custom[8], ANIM_DEATH + DAMAGE_CUSTOM_8, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_8])},
+	{damage_death_custom[9], ANIM_DEATH + DAMAGE_CUSTOM_9, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_9])},
+	{damage_death_custom[10], ANIM_DEATH + DAMAGE_CUSTOM_10, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_10])},
 	// weapon
 	{"ready", ANIM_W_READY, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.ready)},
 	{"deselect", ANIM_W_LOWER, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.lower)},
@@ -430,8 +469,9 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"health", DT_S32, offsetof(mobjinfo_t, spawnhealth)},
 	{"reactiontime", DT_S32, offsetof(mobjinfo_t, reactiontime)},
-	{"painchance", DT_S32, offsetof(mobjinfo_t, painchance)},
+	{"painchance", DT_PAINCHANCE},
 	{"damage", DT_DAMAGE, offsetof(mobjinfo_t, damage)},
+	{"damagetype", DT_DAMAGE_TYPE},
 	{"speed", DT_FIXED, offsetof(mobjinfo_t, speed)},
 	//
 	{"radius", DT_FIXED, offsetof(mobjinfo_t, radius)},
@@ -532,7 +572,6 @@ static const dec_flag_t mobj_flags1[] =
 	{"spectral", MF1_SPECTRAL},
 	{"ghost", MF1_GHOST},
 	{"thrughost", MF1_THRUGHOST},
-	{"icecorpse", MF1_ICECORPSE},
 	{"dormant", MF1_DORMANT},
 	{"synchronized", MF1_SYNCHRONIZED},
 	{"spawnsoundsource", MF1_SPAWNSOUNDSOURCE},
@@ -675,6 +714,16 @@ static const uint8_t *player_sound_slot[NUM_PLAYER_SOUNDS] =
 	[PLR_SND_JUMP] = "*jump",
 };
 
+// damage types
+uint8_t *damage_type_name[NUM_DAMAGE_TYPES] =
+{
+	[DAMAGE_NORMAL] = "normal",
+	[DAMAGE_ICE] = "ice",
+	[DAMAGE_FIRE] = "fire",
+	[DAMAGE_DISINTEGRATE] = "disintegrate",
+	[DAMAGE_ELECTRIC] = "electric",
+};
+
 // actor inheritance
 const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 {
@@ -781,6 +830,41 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 	},
 };
 
+// internal states
+static const state_t internal_states[] =
+{
+	[STATE_UNKNOWN_ITEM - NUMSTATES] =
+	{
+		.sprite = 0, // TODO: custom sprite
+		.frame = 0,
+		.tics = -1,
+		.nextstate = 0,
+	},
+	[STATE_PISTOL - NUMSTATES] =
+	{
+		.sprite = 0, // TODO: custom sprite
+		.frame = 0,
+		.tics = -1,
+		.nextstate = 0,
+	},
+	[STATE_ICE_DEATH_0 - NUMSTATES] =
+	{
+		.sprite = 0xFFFF,
+		.frame = 0,
+		.tics = -1,
+		.nextstate = STATE_ICE_DEATH_1,
+		.acp = A_GenericFreezeDeath,
+	},
+	[STATE_ICE_DEATH_1 - NUMSTATES] =
+	{
+		.sprite = 0xFFFF,
+		.frame = 0,
+		.tics = -1,
+		.nextstate = STATE_ICE_DEATH_1,
+		.acp = A_FreezeDeathChunks,
+	},
+};
+
 // internal types
 static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 {
@@ -789,8 +873,8 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.spawnhealth = 1000,
 		.mass = 100,
 		.flags = MF_NOGRAVITY,
-		.state_spawn = 149, // TODO: custom sprite
-		.state_idx_limit = NUMSTATES,
+		.state_spawn = STATE_UNKNOWN_ITEM,
+		.state_idx_limit = NEW_NUMSTATES,
 		.alias = 0xFFFFFFFFFFFFFFFF, // for save game
 	},
 	[MOBJ_IDX_FIST - NUMMOBJTYPES] =
@@ -803,7 +887,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.height = 16 << FRACBITS,
 		.mass = 100,
 		.flags = MF_SPECIAL,
-		.state_idx_limit = NUMSTATES,
+		.state_idx_limit = NEW_NUMSTATES,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
 		.weapon.inventory.max_count = 1,
@@ -821,7 +905,8 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.height = 16 << FRACBITS,
 		.mass = 100,
 		.flags = MF_SPECIAL,
-		.state_idx_limit = NUMSTATES,
+		.state_spawn = STATE_PISTOL,
+		.state_idx_limit = NEW_NUMSTATES,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
 		.weapon.inventory.max_count = 1,
@@ -1207,6 +1292,17 @@ static uint32_t spr_add_name(uint32_t name)
 	return i;
 }
 
+static uint32_t get_custom_damage(const uint8_t *name)
+{
+	for(uint32_t i = 0; i < NUM_DAMAGE_TYPES; i++)
+	{
+		if(damage_type_name[i] && !strcmp(damage_type_name[i], name))
+			return i;
+	}
+
+	I_Error("[DECORATE] Unknown damage type '%s' in '%s'!", name, parse_actor_name);
+}
+
 static uint32_t parse_attr(uint32_t type, void *dest)
 {
 	num32_t num;
@@ -1288,6 +1384,44 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword();
 			if(!kw)
 				return 1;
+		break;
+		case DT_PAINCHANCE:
+		{
+			uint8_t *wk;
+			uint32_t idx;
+
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+
+			wk = tp_get_keyword();
+			if(!wk)
+				return 1;
+
+			if(wk[0] == ',')
+			{
+				idx = get_custom_damage(kw);
+				wk = tp_get_keyword();
+				if(!wk)
+					return 1;
+			} else
+			{
+				idx = 0;
+				tp_push_keyword(wk);
+				wk = kw;
+			}
+
+			if(doom_sscanf(wk, "%u", &num.u32) != 1 || num.u32 > 256)
+				return 1;
+
+			parse_mobj_info->painchance[idx] = num.u32 | 0x8000;
+		}
+		break;
+		case DT_DAMAGE_TYPE:
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			parse_mobj_info->damage_type = get_custom_damage(kw);
 		break;
 		case DT_RENDER_STYLE:
 			kw = tp_get_keyword_lc();
@@ -2509,12 +2643,35 @@ void init_decorate()
 	for(uint32_t i = 0; i < NUMMOBJTYPES; i++)
 	{
 		memset(mobjinfo + i, 0, sizeof(mobjinfo_t));
-		memcpy(mobjinfo + i, deh_mobjinfo + i, sizeof(deh_mobjinfo_t));
+
+		mobjinfo[i].doomednum = deh_mobjinfo[i].doomednum;
+		mobjinfo[i].state_spawn = deh_mobjinfo[i].spawnstate;
+		mobjinfo[i].spawnhealth = deh_mobjinfo[i].spawnhealth;
+		mobjinfo[i].state_see = deh_mobjinfo[i].seestate;
+		mobjinfo[i].seesound = deh_mobjinfo[i].seesound;
+		mobjinfo[i].reactiontime = deh_mobjinfo[i].reactiontime;
+		mobjinfo[i].attacksound = deh_mobjinfo[i].attacksound;
+		mobjinfo[i].state_pain[DAMAGE_NORMAL] = deh_mobjinfo[i].painstate;
+		mobjinfo[i].painsound = deh_mobjinfo[i].painsound;
+		mobjinfo[i].state_missile = deh_mobjinfo[i].missilestate;
+		mobjinfo[i].state_death[DAMAGE_NORMAL] = deh_mobjinfo[i].deathstate;
+		mobjinfo[i].state_xdeath = deh_mobjinfo[i].xdeathstate;
+		mobjinfo[i].deathsound = deh_mobjinfo[i].deathsound;
+		mobjinfo[i].speed = deh_mobjinfo[i].speed;
+		mobjinfo[i].radius = deh_mobjinfo[i].radius;
+		mobjinfo[i].height = deh_mobjinfo[i].height;
+		mobjinfo[i].mass = deh_mobjinfo[i].mass;
+		mobjinfo[i].damage = deh_mobjinfo[i].damage;
+		mobjinfo[i].activesound = deh_mobjinfo[i].activesound;
+		mobjinfo[i].flags = deh_mobjinfo[i].flags;
+		mobjinfo[i].state_raise = deh_mobjinfo[i].raisestate;
+		mobjinfo[i].painchance[DAMAGE_NORMAL] = deh_mobjinfo[i].painchance;
+
 		mobjinfo[i].alias = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
 		mobjinfo[i].step_height = 24 * FRACUNIT;
 		mobjinfo[i].dropoff = 24 * FRACUNIT;
-		mobjinfo[i].state_idx_limit = NUMSTATES;
+		mobjinfo[i].state_idx_limit = NEW_NUMSTATES;
 
 		// check for original random sounds
 		sfx_rng_fix(&mobjinfo[i].seesound, 98);
@@ -2618,7 +2775,10 @@ void init_decorate()
 	// PASS 2
 
 	// states
-	states = ldr_malloc(NUMSTATES * sizeof(state_t));
+	states = ldr_malloc(NEW_NUMSTATES * sizeof(state_t));
+
+	// copy internal stuff
+	memcpy(states + NUMSTATES, internal_states, sizeof(internal_states));
 
 	// copy original stuff
 	for(uint32_t i = 0; i < NUMSTATES; i++)
@@ -2751,24 +2911,44 @@ void init_decorate()
 					info->powerup.duration = powerup_type[info->powerup.type].duration;
 			break;
 		}
-	}
 
-	// resolve replacements
-	for(uint32_t idx = 0; idx < num_mobj_types; idx++)
-	{
-		uint32_t tmp = 64;
-		uint32_t type = idx;
-
-		while(mobjinfo[type].replacement)
+		// update damage type stuff
+		info->painchance[DAMAGE_NORMAL] &= 0x01FF;
+		for(uint32_t i = 1; i < NUM_DAMAGE_TYPES; i++)
 		{
-			if(!tmp)
-				I_Error("[DECORATE] Too many replacements!");
-			type = mobjinfo[type].replacement;
-			tmp--;
+			if(info->painchance[i] & 0x8000)
+				info->painchance[i] &= 0x01FF;
+			else
+				info->painchance[i] = info->painchance[DAMAGE_NORMAL];
+
+			if(!info->state_pain[i])
+				info->state_pain[i] = info->state_pain[DAMAGE_NORMAL];
+
+			if(!info->state_death[i])
+			{
+				if(i == DAMAGE_ICE && info->flags1 & MF1_ISMONSTER)
+					info->state_death[i] = STATE_ICE_DEATH_0;
+				else
+					info->state_death[i] = info->state_death[DAMAGE_NORMAL];
+			}
 		}
 
-		if(idx != type)
-			mobjinfo[idx].replacement = type;
+		// resolve replacements
+		{
+			uint32_t tmp = 64;
+			uint32_t type = idx;
+
+			while(mobjinfo[type].replacement)
+			{
+				if(!tmp)
+					I_Error("[DECORATE] Too many replacements!");
+				type = mobjinfo[type].replacement;
+				tmp--;
+			}
+
+			if(idx != type)
+				mobjinfo[idx].replacement = type;
+		}
 	}
 
 	//

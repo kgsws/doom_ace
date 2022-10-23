@@ -98,7 +98,7 @@ void R_DrawColumnTint0()
 
 	do
 	{
-		uint8_t color = dc_colormap[dc_source[(frac >> FRACBITS)&127]];;
+		uint8_t color = dc_colormap[dc_source[(frac >> FRACBITS)&127]];
 		*dest = dr_tinttab[*dest + color * 256];
 		dest += SCREENWIDTH;
 		frac += step;
@@ -124,7 +124,7 @@ void R_DrawColumnTint1()
 
 	do
 	{
-		uint8_t color = dc_colormap[dc_source[(frac >> FRACBITS)&127]];;
+		uint8_t color = dc_colormap[dc_source[(frac >> FRACBITS)&127]];
 		*dest = dr_tinttab[*dest * 256 + color];
 		dest += SCREENWIDTH;
 		frac += step;
@@ -178,6 +178,83 @@ void R_DrawFuzzColumn()
 			fuzzpos = 0;
 
 		dest += SCREENWIDTH;
+	} while(count--);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void R_DrawTranslatedColumn()
+{
+	int32_t count;
+	uint8_t *dest;
+	fixed_t frac;
+	fixed_t step;
+
+	count = dc_yh - dc_yl;
+
+	if(count < 0)
+		return;
+
+	dest = ylookup[dc_yl] + columnofs[dc_x];
+	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
+	step = dc_iscale - 0x80;
+
+	do
+	{
+		*dest = dc_colormap[dc_translation[dc_source[(frac >> FRACBITS)&127]]];
+		dest += SCREENWIDTH;
+		frac += step;
+	} while(count--);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void R_DrawTranslatedColumnTint0()
+{
+	int32_t count;
+	uint8_t *dest;
+	fixed_t frac;
+	fixed_t step;
+
+	count = dc_yh - dc_yl;
+
+	if(count < 0)
+		return;
+
+	dest = ylookup[dc_yl] + columnofs[dc_x];
+	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
+	step = dc_iscale - 0x80;
+
+	do
+	{
+		uint8_t color = dc_colormap[dc_translation[dc_source[(frac >> FRACBITS)&127]]];
+		*dest = dr_tinttab[*dest + color * 256];
+		dest += SCREENWIDTH;
+		frac += step;
+	} while(count--);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void R_DrawTranslatedColumnTint1()
+{
+	int32_t count;
+	uint8_t *dest;
+	fixed_t frac;
+	fixed_t step;
+
+	count = dc_yh - dc_yl;
+
+	if(count < 0)
+		return;
+
+	dest = ylookup[dc_yl] + columnofs[dc_x];
+	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
+	step = dc_iscale - 0x80;
+
+	do
+	{
+		uint8_t color = dc_colormap[dc_translation[dc_source[(frac >> FRACBITS)&127]]];
+		*dest = dr_tinttab[*dest * 256 + color];
+		dest += SCREENWIDTH;
+		frac += step;
 	} while(count--);
 }
 

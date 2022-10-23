@@ -19,6 +19,9 @@ void R_DrawFuzzColumn() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawShadowColumn() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawColumnTint0() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawColumnTint1() __attribute((regparm(2),no_caller_saved_registers));
+void R_DrawTranslatedColumn() __attribute((regparm(2),no_caller_saved_registers));
+void R_DrawTranslatedColumnTint0() __attribute((regparm(2),no_caller_saved_registers));
+void R_DrawTranslatedColumnTint1() __attribute((regparm(2),no_caller_saved_registers));
 
 void R_DrawSpan() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawUnknownSpan() __attribute((regparm(2),no_caller_saved_registers));

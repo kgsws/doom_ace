@@ -453,24 +453,6 @@ static uint32_t remove_ammo(mobj_t *mo)
 }
 
 //
-// extra functions
-
-static uint32_t find_puff(uint32_t type)
-{
-	// find correct replacement for this puff type
-	// this has to be done to correctly check flags1 in hitscan attack
-	mobjinfo_t *info = mobjinfo + type;
-	for(uint32_t i = 0; i < 8; i++)
-	{
-		if(!info->replacement)
-			return type;
-		type = info->replacement;
-		info = mobjinfo + type;
-	}
-	return type;
-}
-
-//
 // projectile spawn
 
 void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, angle_t pitch, fixed_t slope)
@@ -1355,7 +1337,10 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	)
 		return;
 
-	mo_puff_type = find_puff(arg->pufftype);
+	if(mobjinfo[arg->pufftype].replacement)
+		mo_puff_type = mobjinfo[arg->pufftype].replacement;
+	else
+		mo_puff_type = arg->pufftype;
 	mo_puff_flags = arg->flags;
 
 	if(arg->blt_count < 0)

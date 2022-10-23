@@ -714,17 +714,10 @@ uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
 static __attribute((regparm(2),no_caller_saved_registers))
 mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 {
-	uint32_t tmp = 8;
 	mobjinfo_t *info;
 
-	// find replacement
-	while(mobjinfo[type].replacement)
-	{
-		if(!tmp)
-			I_Error("[DECORATE] Too many replacements!");
+	if(mobjinfo[type].replacement)
 		type = mobjinfo[type].replacement;
-		tmp--;
-	}
 
 	info = mobjinfo + type;
 

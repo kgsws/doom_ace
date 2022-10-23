@@ -2753,6 +2753,24 @@ void init_decorate()
 		}
 	}
 
+	// resolve replacements
+	for(uint32_t idx = 0; idx < num_mobj_types; idx++)
+	{
+		uint32_t tmp = 64;
+		uint32_t type = idx;
+
+		while(mobjinfo[type].replacement)
+		{
+			if(!tmp)
+				I_Error("[DECORATE] Too many replacements!");
+			type = mobjinfo[type].replacement;
+			tmp--;
+		}
+
+		if(idx != type)
+			mobjinfo[idx].replacement = type;
+	}
+
 	//
 	// DONE
 

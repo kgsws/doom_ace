@@ -38,6 +38,8 @@ uint32_t mo_puff_flags;
 
 uint32_t mobj_netid;
 
+static fixed_t oldfloorz;
+
 static uint_fast8_t kill_death_type;
 
 //
@@ -1681,6 +1683,8 @@ static void mobj_xy_move(mobj_t *mo)
 {
 	player_t *pl = mo->player;
 
+	oldfloorz = mo->floorz;
+
 	if(!mo->momx && !mo->momy)
 	{
 		if(mo->flags & MF_SKULLFLY)
@@ -1885,7 +1889,7 @@ static void mobj_z_move(mobj_t *mo)
 		// hit the floor
 		if(mo->momz < 0)
 		{
-			if(mo->momz < GRAVITY * -8)
+			if(mo->momz < mo->info->gravity * -8)
 			{
 				if(mo->player && mo->health > 0)
 				{
@@ -1934,10 +1938,15 @@ static void mobj_z_move(mobj_t *mo)
 	} else
 	if(!(mo->flags & MF_NOGRAVITY))
 	{
-		if(mo->momz == 0)
-			mo->momz = GRAVITY * -2;
+		if(	mo->momz == 0 &&
+			(
+				(oldfloorz > mo->floorz && mo->z == oldfloorz) ||
+				demoplayback == DEMO_OLD
+			)
+		)
+			mo->momz = mo->info->gravity * -2;
 		else
-			mo->momz -= GRAVITY;
+			mo->momz -= mo->info->gravity;
 	}
 
 	if(mo->z + mo->height > mo->ceilingz)

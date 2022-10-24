@@ -517,6 +517,40 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 }
 
 //
+// shatter / burst
+
+static void shatter_spawn(mobj_t *mo, uint32_t type)
+{
+	uint32_t count, i;
+
+	count = FixedMul(mo->info->height, mo->radius) >> (FRACBITS + 5);
+	if(count < 4)
+		count = 4;
+
+	count += (P_Random() % (count / 4));
+	if(count < 8)
+		count = 8;
+
+	do
+	{
+		mobj_t *th;
+		fixed_t x, y, z;
+
+		x = -mo->radius + ((mo->radius >> 7) * P_Random());
+		x += mo->x;
+		y = -mo->radius + ((mo->radius >> 7) * P_Random());
+		y += mo->y;
+		z = (mo->info->height >> 8) * P_Random();
+		z += mo->z;
+
+		th = P_SpawnMobj(x, y, z, type);
+		th->momx = -FRACUNIT + (P_Random() << 9);
+		th->momy = -FRACUNIT + (P_Random() << 9);
+		th->momz = 4 * FixedDiv(th->z - mo->z, mo->info->height);
+	} while(--count);
+}
+
+//
 // original weapon attacks
 // these are not available for DECORATE
 // and so are only used in primary fire
@@ -1425,6 +1459,19 @@ void A_GiveInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_CheckPlayerDone
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_CheckPlayerDone(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(mo->player)
+		return;
+
+	mo->tics = 1;
+	mobj_remove(mo);
+}
+
+//
 // A_SetAngle
 
 static const dec_args_t args_SetAngle =
@@ -1486,13 +1533,21 @@ void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	}
 
 	// TODO: shatter sound
-	// TODO: shatter mobjs
 
 	// drop items
 	A_NoBlocking(mo, st, stfunc);
 
+	shatter_spawn(mo, MOBJ_IDX_ICE_CHUNK);
+	// TODO: player chunk
+
 	// remove
 	mobj_remove(mo);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_IceSetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	mo->tics = 70 + (P_Random() & 63);
 }
 
 //
@@ -1613,6 +1668,7 @@ static const dec_action_t mobj_action[] =
 	{"a_genericfreezedeath", A_GenericFreezeDeath},
 	{"a_freezedeathchunks", A_FreezeDeathChunks},
 	// misc
+	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_setangle", A_SetAngle, &args_SetAngle},
 	// inventory
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},

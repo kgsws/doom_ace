@@ -31,7 +31,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA5	// increment with updates
+#define SAVE_VERSION	0xE58BAFA6	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -188,14 +188,16 @@ typedef struct
 	//
 	uint32_t flags;
 	uint32_t flags1;
+	uint32_t iflags;
 	//
 	uint32_t target;
 	uint32_t tracer;
 	uint32_t master;
 	//
 	uint8_t animation;
-	uint8_t __unused;
-	uint16_t player;
+	uint8_t render_style;
+	uint8_t render_alpha;
+	uint8_t player;
 } save_thing_t;
 
 typedef struct
@@ -1031,13 +1033,17 @@ static uint32_t svcb_thing(mobj_t *mo)
 
 	thing.flags = mo->flags;
 	thing.flags1 = mo->flags1;
+	thing.iflags = mo->iflags;
+
+	thing.render_style = mo->render_style;
+	thing.render_alpha = mo->render_alpha;
 
 	thing.target = mo->target ? mo->target->netid : 0;
 	thing.tracer = mo->tracer ? mo->tracer->netid : 0;
 	thing.master = mo->master ? mo->master->netid : 0;
 
 	thing.animation = mo->animation;
-	thing.__unused = 0;
+
 	if(mo->player)
 		thing.player = 1 + (mo->player - players);
 	else
@@ -1839,8 +1845,8 @@ static inline uint32_t ld_get_things()
 
 		mo->state = ld_convert_state(thing.state, mo->info, 0);
 		mo->tics = thing.tics;
-		mo->sprite = mo->state->sprite;
-		mo->frame = mo->state->frame;
+		mo->sprite = mo->state->sprite; // TODO: fix this
+		mo->frame = mo->state->frame; // TODO: fix this
 
 		mo->special = thing.special;
 
@@ -1852,6 +1858,10 @@ static inline uint32_t ld_get_things()
 
 		mo->flags = thing.flags;
 		mo->flags1 = thing.flags1;
+		mo->iflags = thing.iflags;
+
+		mo->render_style = thing.render_style;
+		mo->render_alpha = thing.render_alpha;
 
 		mo->target = (mobj_t*)thing.target;
 		mo->tracer = (mobj_t*)thing.tracer;

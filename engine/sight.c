@@ -214,7 +214,7 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 {
 	fixed_t xt1, yt1, xt2, yt2;
 	fixed_t xstep, ystep;
-	fixed_t partial;
+	fixed_t partialx, partialy;
 	fixed_t xintercept, yintercept;
 	int32_t mapx, mapy, mapxstep, mapystep;
 	int32_t count;
@@ -248,43 +248,71 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 	if(xt2 > xt1)
 	{
 		mapxstep = 1;
-		partial = FRACUNIT - ((x1 >> MAPBTOFRAC) & (FRACUNIT - 1));
+		partialx = FRACUNIT - ((x1 >> MAPBTOFRAC) & (FRACUNIT - 1));
 		ystep = FixedDiv(y2 - y1, abs(x2 - x1));
 	} else
 	if(xt2 < xt1)
 	{
 		mapxstep = -1;
-		partial = (x1 >> MAPBTOFRAC) & (FRACUNIT - 1);
+		partialx = (x1 >> MAPBTOFRAC) & (FRACUNIT - 1);
 		ystep = FixedDiv(y2 - y1, abs(x2 - x1));
 	} else
 	{
 		mapxstep = 0;
-		partial = FRACUNIT;
+		partialx = FRACUNIT;
 		ystep = 256 * FRACUNIT;
 	}
-	yintercept = (y1 >> MAPBTOFRAC) + FixedMul(partial, ystep);
+	yintercept = (y1 >> MAPBTOFRAC) + FixedMul(partialx, ystep);
 
 	if(yt2 > yt1)
 	{
 		mapystep = 1;
-		partial = FRACUNIT - ((y1 >> MAPBTOFRAC) & (FRACUNIT - 1));
+		partialy = FRACUNIT - ((y1 >> MAPBTOFRAC) & (FRACUNIT - 1));
 		xstep = FixedDiv(x2 - x1, abs(y2 - y1));
 	} else
 	if(yt2 < yt1)
 	{
 		mapystep = -1;
-		partial = (y1 >> MAPBTOFRAC) & (FRACUNIT - 1);
+		partialy = (y1 >> MAPBTOFRAC) & (FRACUNIT - 1);
 		xstep = FixedDiv(x2 - x1, abs(y2 - y1));
 	} else
 	{
 		mapystep = 0;
-		partial = FRACUNIT;
+		partialy = FRACUNIT;
 		xstep = 256 * FRACUNIT;
 	}
-	xintercept = (x1 >> MAPBTOFRAC) + FixedMul(partial, xstep);
+	xintercept = (x1 >> MAPBTOFRAC) + FixedMul(partialy, xstep);
 
 	mapx = xt1;
 	mapy = yt1;
+
+	if(abs(xstep) == FRACUNIT && abs(ystep) == FRACUNIT)
+	{
+		if(ystep < 0)
+			partialx = FRACUNIT - partialx;
+		if(xstep < 0)
+			partialy = FRACUNIT - partialy;
+		if(partialx == partialy)
+		{
+			while(1)
+			{
+				if(!P_SightBlockLinesIterator(mapx, mapy))
+					return 0;
+
+				if(mapx == xt2 && mapy == yt2)
+					break;
+
+				if(	!P_SightBlockLinesIterator(mapx + mapxstep, mapy) ||
+					!P_SightBlockLinesIterator(mapx, mapy + mapystep)
+				)
+					return 0;
+
+				mapx += mapxstep;
+				mapy += mapystep;
+			}
+			goto traverse;
+		}
+	}
 
 	for(count = 0; count < 64; count++)
 	{
@@ -303,9 +331,14 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 		{
 			xintercept += xstep;
 			mapy += mapystep;
-		}
+		} else
+			count = 64;
 	}
 
+	if(count >= 64)
+		// TODO: better solution
+		return 0;
+traverse:
 	return P_SightTraverseIntercepts();
 }
 

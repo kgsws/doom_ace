@@ -227,6 +227,7 @@ static const mobjinfo_t default_mobj =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 };
 
@@ -239,6 +240,7 @@ static const mobjinfo_t default_player =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.painchance[DAMAGE_NORMAL] = 255,
 	.speed = 1 << FRACBITS,
@@ -259,6 +261,7 @@ static const mobjinfo_t default_health =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.inventory.count = 1,
@@ -276,6 +279,7 @@ static mobjinfo_t default_inventory =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.inventory.count = 1,
@@ -294,6 +298,7 @@ static const mobjinfo_t default_weapon =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.weapon.inventory.count = 1,
@@ -313,6 +318,7 @@ static mobjinfo_t default_ammo =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.ammo.inventory.count = 1,
@@ -331,6 +337,7 @@ static const mobjinfo_t default_key =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL | MF_NOTDMATCH,
 	.flags1 = MF1_DONTGIB,
@@ -349,6 +356,7 @@ static mobjinfo_t default_armor =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_AUTOACTIVATE,
@@ -368,6 +376,7 @@ static mobjinfo_t default_armor_bonus =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_AUTOACTIVATE | MFE_INVENTORY_ALWAYSPICKUP,
@@ -388,6 +397,7 @@ static mobjinfo_t default_powerup =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
 	.eflags = MFE_INVENTORY_ALWAYSPICKUP,
@@ -477,6 +487,7 @@ static const dec_attr_t attr_mobj[] =
 	{"radius", DT_FIXED, offsetof(mobjinfo_t, radius)},
 	{"height", DT_FIXED, offsetof(mobjinfo_t, height)},
 	{"mass", DT_S32, offsetof(mobjinfo_t, mass)},
+	{"gravity", DT_FIXED, offsetof(mobjinfo_t, gravity)},
 	//
 	{"fastspeed", DT_FIXED, offsetof(mobjinfo_t, fast_speed)},
 	{"vspeed", DT_FIXED, offsetof(mobjinfo_t, vspeed)},
@@ -835,14 +846,14 @@ static const state_t internal_states[] =
 {
 	[STATE_UNKNOWN_ITEM - NUMSTATES] =
 	{
-		.sprite = 0, // TODO: custom sprite
+		.sprite = 28, // TODO: custom sprite
 		.frame = 0,
 		.tics = -1,
 		.nextstate = 0,
 	},
 	[STATE_PISTOL - NUMSTATES] =
 	{
-		.sprite = 0, // TODO: custom sprite
+		.sprite = SPR_PIST,
 		.frame = 0,
 		.tics = -1,
 		.nextstate = 0,
@@ -863,6 +874,53 @@ static const state_t internal_states[] =
 		.nextstate = STATE_ICE_DEATH_1,
 		.acp = A_FreezeDeathChunks,
 	},
+	[STATE_ICE_CHUNK_0 - NUMSTATES] =
+	{
+		.sprite = SPR_ICEC,
+		.frame = 0,
+		.tics = 1,
+		.nextstate = STATE_ICE_CHUNK_1,
+	},
+	[STATE_ICE_CHUNK_1 - NUMSTATES] =
+	{
+		.sprite = SPR_ICEC,
+		.frame = 0,
+		.tics = 1,
+		.nextstate = STATE_ICE_CHUNK_2,
+		.acp = A_IceSetTics,
+	},
+	[STATE_ICE_CHUNK_2 - NUMSTATES] =
+	{
+		.sprite = SPR_ICEC,
+		.frame = 1,
+		.tics = 1,
+		.nextstate = STATE_ICE_CHUNK_3,
+		.acp = A_IceSetTics,
+	},
+	[STATE_ICE_CHUNK_3 - NUMSTATES] =
+	{
+		.sprite = SPR_ICEC,
+		.frame = 2,
+		.tics = 1,
+		.nextstate = STATE_ICE_CHUNK_4,
+		.acp = A_IceSetTics,
+	},
+	[STATE_ICE_CHUNK_4 - NUMSTATES] =
+	{
+		.sprite = SPR_ICEC,
+		.frame = 3,
+		.tics = 1,
+		.nextstate = 0,
+		.acp = A_IceSetTics,
+	},
+	[STATE_ICE_CHUNK_PLR - NUMSTATES] =
+	{
+		.sprite = SPR_ICEC,
+		.frame = 0,
+		.tics = 10,
+		.nextstate = STATE_ICE_CHUNK_PLR,
+		.acp = A_CheckPlayerDone,
+	},
 };
 
 // internal types
@@ -870,12 +928,13 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 {
 	[MOBJ_IDX_UNKNOWN - NUMMOBJTYPES] =
 	{
+		.alias = 0xFFFFFFFFFFFFFFFF, // for save game
 		.spawnhealth = 1000,
 		.mass = 100,
+		.gravity = FRACUNIT,
 		.flags = MF_NOGRAVITY,
 		.state_spawn = STATE_UNKNOWN_ITEM,
 		.state_idx_limit = NEW_NUMSTATES,
-		.alias = 0xFFFFFFFFFFFFFFFF, // for save game
 	},
 	[MOBJ_IDX_FIST - NUMMOBJTYPES] =
 	{
@@ -886,6 +945,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.radius = 20 << FRACBITS,
 		.height = 16 << FRACBITS,
 		.mass = 100,
+		.gravity = FRACUNIT,
 		.flags = MF_SPECIAL,
 		.state_idx_limit = NEW_NUMSTATES,
 		.extra_type = ETYPE_WEAPON,
@@ -904,6 +964,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.radius = 20 << FRACBITS,
 		.height = 16 << FRACBITS,
 		.mass = 100,
+		.gravity = FRACUNIT,
 		.flags = MF_SPECIAL,
 		.state_spawn = STATE_PISTOL,
 		.state_idx_limit = NEW_NUMSTATES,
@@ -913,7 +974,36 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.weapon.inventory.hub_count = 1,
 		.weapon.inventory.sound_pickup = 33,
 		.weapon.kickback = 100,
-	}
+	},
+	[MOBJ_IDX_ICE_CHUNK - NUMMOBJTYPES] =
+	{
+		.alias = 0x0000AEED680E58C9,
+		.spawnhealth = 1000,
+		.radius = 3 << FRACBITS,
+		.height = 4 << FRACBITS,
+		.mass = 5,
+		.gravity = (FRACUNIT * 128) / 1000,
+		.flags = MF_DROPOFF, // NOBLOCKMAP should be set, but we don't have MOVEWITHSECTOR
+		.flags1 = MF1_NOTELEPORT | MF1_CANNOTPUSH,
+		.state_spawn = STATE_ICE_CHUNK_0,
+		.state_idx_limit = NEW_NUMSTATES,
+	},
+	[MOBJ_IDX_ICE_CHUNK_HEAD - NUMMOBJTYPES] =
+	{
+		.alias = 0x1948AEED680E585B,
+		.spawnhealth = 1000,
+		.radius = 3 << FRACBITS,
+		.height = 4 << FRACBITS,
+		.mass = 5,
+		.gravity = (FRACUNIT * 128) / 1000,
+		.flags = MF_DROPOFF,
+		.flags1 = MF1_CANNOTPUSH,
+		.state_spawn = STATE_ICE_CHUNK_PLR,
+		.state_idx_limit = NEW_NUMSTATES,
+		.extra_type = ETYPE_PLAYERPAWN,
+		.player.view_height = 2 << FRACBITS,
+		.player.attack_offs = 2 << FRACBITS,
+	},
 };
 
 // powerup types
@@ -2635,6 +2725,9 @@ void init_decorate()
 	numsprites = NUMSPRITES;
 	for(uint32_t i = 0; i < NUMSPRITES; i++)
 		sprite_table[i] = *spr_names[i];
+	spr_add_name(0x31544E54); // 'TNT1'
+	spr_add_name(0x54534950); // 'PIST'
+	spr_add_name(0x43454349); // 'ICEC'
 
 	// mobjinfo
 	mobjinfo = ldr_malloc((NUMMOBJTYPES + NUM_NEW_TYPES) * sizeof(mobjinfo_t));
@@ -2667,6 +2760,7 @@ void init_decorate()
 		mobjinfo[i].state_raise = deh_mobjinfo[i].raisestate;
 		mobjinfo[i].painchance[DAMAGE_NORMAL] = deh_mobjinfo[i].painchance;
 
+		mobjinfo[i].gravity = FRACUNIT;
 		mobjinfo[i].alias = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
 		mobjinfo[i].step_height = 24 * FRACUNIT;

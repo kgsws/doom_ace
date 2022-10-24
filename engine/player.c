@@ -640,7 +640,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 	cmd->buttons &= BT_ATTACK | BT_USE | BT_ALTACK;
 
 	// clear mouse use
-	if(!gamekeydown[key_inv_use] || !mousebuttons[mouseb_inv_use])
+	if(!gamekeydown[key_inv_use] && !mousebuttons[mouseb_inv_use])
 		mouse_inv_use = 0;
 
 	// action keys can not be combined

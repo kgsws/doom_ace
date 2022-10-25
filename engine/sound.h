@@ -8,6 +8,15 @@
 #define SOUND_CHAN_BODY(mo)	((void*)(mo) + offsetof(mobj_t,sound_body) - sizeof(thinker_t))
 #define SOUND_CHAN_WEAPON(mo)	((void*)(mo) + offsetof(mobj_t,sound_weapon) - sizeof(thinker_t))
 
+enum
+{
+	SFX_QUAKE = NUMSFX,
+	SFX_FREEZE,
+	SFX_ICEBREAK,
+	//
+	NEW_NUMSFX
+};
+
 //
 
 void init_sound();

@@ -9,7 +9,6 @@
 #include "map.h"
 #include "sound.h"
 
-#define NUMSFX	109
 #define NUMSFX_RNG	4
 #define NUM_SFX_HOOKS	8
 #define SFX_PRIORITY	666
@@ -20,12 +19,37 @@
 #define	S_CLOSE_DIST	(200 * FRACUNIT)
 #define S_ATTENUATOR	((S_CLIPPING_DIST - S_CLOSE_DIST) >> FRACBITS)
 
+typedef struct
+{
+	uint64_t alias;
+	const uint8_t *lump;
+} new_sfx_t;
+
 //
 
-static uint32_t numsfx = NUMSFX + NUMSFX_RNG;
+static uint32_t numsfx = NEW_NUMSFX + NUMSFX_RNG;
 static sfxinfo_t *sfxinfo;
 
 static hook_t sfx_hooks[NUM_SFX_HOOKS];
+
+static const new_sfx_t new_sfx[NEW_NUMSFX - NUMSFX] =
+{
+	[SFX_QUAKE - NUMSFX] =
+	{
+		.alias = 0x5AE1D71BE4B32BF5,
+		.lump = "dsquake",
+	},
+	[SFX_FREEZE - NUMSFX] =
+	{
+		.alias = 0x5EA59729AF8F3A6F,
+		.lump = "icedth1",
+	},
+	[SFX_ICEBREAK - NUMSFX] =
+	{
+		.alias = 0x5CA2963A6F8F11EB,
+		.lump = "icebrk1a",
+	},
+};
 
 static const sfxinfo_t sfx_rng[NUMSFX_RNG] =
 {
@@ -403,7 +427,7 @@ void sfx_rng_fix(uint16_t *idx, uint32_t pmatch)
 		{
 			if(sr->rng_id[j] == *idx)
 			{
-				*idx = NUMSFX + i;
+				*idx = NEW_NUMSFX + i;
 				return;
 			}
 		}
@@ -420,9 +444,9 @@ void init_sound()
 	ldr_alloc_message = "Sound info";
 
 	// allocate memory for internal sounds
-	sfxinfo = ldr_malloc((NUMSFX + NUMSFX_RNG) * sizeof(sfxinfo_t));
+	sfxinfo = ldr_malloc((NEW_NUMSFX + NUMSFX_RNG) * sizeof(sfxinfo_t));
 
-	// process internal sounds
+	// process original sounds
 	for(uint32_t i = 1; i < NUMSFX; i++)
 	{
 		uint8_t *name;
@@ -451,15 +475,24 @@ void init_sound()
 		sfxinfo[i].lumpnum = wad_check_lump(temp);
 	}
 
+	// add new sounds
+	for(uint32_t i = NUMSFX; i < NEW_NUMSFX; i++)
+	{
+		sfxinfo[i].alias = new_sfx[i - NUMSFX].alias;
+		sfxinfo[i].lumpnum = wad_check_lump(new_sfx[i - NUMSFX].lump);
+		sfxinfo[i].usefulness = -1;
+		sfxinfo[i].rng_count = 0;
+	}
+
 	// add extra RNG sounds
-	memcpy(sfxinfo + NUMSFX, sfx_rng, sizeof(sfx_rng));
+	memcpy(sfxinfo + NEW_NUMSFX, sfx_rng, sizeof(sfx_rng));
 
 	// process SNDINFO
 	wad_handle_lump("SNDINFO", cb_sndinfo);
 
 	// link sounds - make sure each lump is referenced only ONCE
 	// orignal Doom sound cache would break otherwise
-	for(uint32_t i = NUMSFX + NUMSFX_RNG; i < numsfx; i++)
+	for(uint32_t i = NEW_NUMSFX + NUMSFX_RNG; i < numsfx; i++)
 	{
 		sfxinfo_t *sfx = sfxinfo + i;
 

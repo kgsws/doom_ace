@@ -523,6 +523,10 @@ static void shatter_spawn(mobj_t *mo, uint32_t type)
 {
 	uint32_t count, i;
 
+	mo->momx = 0;
+	mo->momy = 0;
+	mo->momz = 0;
+
 	count = FixedMul(mo->info->height, mo->radius) >> (FRACBITS + 5);
 	if(count < 4)
 		count = 4;
@@ -1503,10 +1507,13 @@ void A_FreezeDeath(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mo->height <<= 2;
 	mo->flags |= MF_NOBLOOD | MF_SHOOTABLE | MF_SOLID | MF_SLIDE;
 	mo->flags1 |= MF1_PUSHABLE | MF1_TELESTOMP;
-	mo->iflags |= MFI_ICECORPSE;
+	mo->flags2 |= MF2_ICECORPSE;
 	mo->tics = 75 + P_Random() + P_Random();
 
-	// TODO: freeze sound
+	if(!(mo->flags1 & MF1_DONTFALL))
+		mo->flags &= ~MF_NOGRAVITY;
+
+	S_StartSound(mo, SFX_FREEZE);
 
 	if(mo->player)
 	{
@@ -1532,7 +1539,7 @@ void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 	}
 
-	// TODO: shatter sound
+	S_StartSound(mo, SFX_ICEBREAK);
 
 	// drop items
 	A_NoBlocking(mo, st, stfunc);
@@ -1540,8 +1547,15 @@ void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	shatter_spawn(mo, MOBJ_IDX_ICE_CHUNK);
 	// TODO: player chunk
 
-	// remove
-	mobj_remove(mo);
+	// hide, remove later - keep sound playing
+	mo->render_style = RS_INVISIBLE;
+	mo->state = states + STATE_UNKNOWN_ITEM;
+	mo->tics = 35 * 3;
+
+	P_UnsetThingPosition(mo);
+
+	mo->flags &= ~(MF_SOLID | MF_SHOOTABLE);
+	mo->flags |= MF_NOBLOCKMAP | MF_NOSECTOR;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))

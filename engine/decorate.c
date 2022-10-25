@@ -586,10 +586,17 @@ static const dec_flag_t mobj_flags1[] =
 	{"dormant", MF1_DORMANT},
 	{"synchronized", MF1_SYNCHRONIZED},
 	{"spawnsoundsource", MF1_SPAWNSOUNDSOURCE},
+	{"dontfall", MF1_DONTFALL},
 	// terminator
 	{NULL}
 };
-static const dec_flag_t inventory_flags[] =
+static const dec_flag_t mobj_flags2[] =
+{
+	{"noicedeath", MF2_NOICEDEATH},
+	{"icecorpse", MF2_ICECORPSE},
+	// terminator
+	{NULL}
+};static const dec_flag_t inventory_flags[] =
 {
 	{"inventory.quiet", MFE_INVENTORY_QUIET},
 	{"inventory.ignoreskill", MFE_INVENTORY_IGNORESKILL},
@@ -849,7 +856,7 @@ static const state_t internal_states[] =
 		.sprite = 28, // TODO: custom sprite
 		.frame = 0,
 		.tics = -1,
-		.nextstate = 0,
+		.nextstate = 0, // this state is used for delayed deletion so 'next' has to be zero
 	},
 	[STATE_PISTOL - NUMSTATES] =
 	{
@@ -2574,6 +2581,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 				if(
 					change_flag(kw, mobj_flags0, offsetof(mobjinfo_t, flags)) &&
 					change_flag(kw, mobj_flags1, offsetof(mobjinfo_t, flags1)) &&
+					change_flag(kw, mobj_flags2, offsetof(mobjinfo_t, flags2)) &&
 					(!inheritance[etp].flag[0] || change_flag(kw, inheritance[etp].flag[0], offsetof(mobjinfo_t, eflags)) ) &&
 					(!inheritance[etp].flag[1] || change_flag(kw, inheritance[etp].flag[1], offsetof(mobjinfo_t, eflags)) )
 				)
@@ -2801,8 +2809,9 @@ void init_decorate()
 	mobjinfo[0].start_item.start = (void*)doom_start_items;
 	mobjinfo[0].start_item.end = (void*)doom_start_items + sizeof(doom_start_items);
 
-	// lost souls are enemy too
-	mobjinfo[18].flags1 |= MF1_ISMONSTER;
+	// lost soul stuff
+	mobjinfo[18].flags1 |= MF1_ISMONSTER | MF1_DONTFALL;
+	mobjinfo[18].flags2 |= MF2_NOICEDEATH;
 
 	// archvile stuff
 	mobjinfo[3].flags1 |= MF1_NOTARGET | MF1_QUICKTORETALIATE;

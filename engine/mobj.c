@@ -734,6 +734,7 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	mo->render_style = info->render_style;
 	mo->render_alpha = info->render_alpha;
 	mo->flags1 = info->flags1;
+	mo->flags2 = info->flags2;
 	mo->netid = mobj_netid;
 
 	// vertical speed
@@ -793,8 +794,11 @@ static void kill_animation(mobj_t *mo)
 	if(mo->player)
 		mo->player->extralight = 0;
 
-	if(kill_death_type == DAMAGE_ICE)
-		return;
+	if(	kill_death_type == DAMAGE_ICE &&
+		mo->flags2 & MF2_NOICEDEATH &&
+		mo->info->state_death[DAMAGE_ICE] == STATE_ICE_DEATH_0
+	)
+		kill_death_type = 0;
 
 	if(kill_death_type == 255)
 	{
@@ -1430,7 +1434,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	if(target->flags1 & MF1_DORMANT)
 		return;
 
-	if(target->health <= 0 && !(target->iflags & MFI_ICECORPSE))
+	if(target->health <= 0 && !(target->flags2 & MF2_ICECORPSE))
 			return;
 
 	if(target->flags & MF_SKULLFLY)
@@ -1458,7 +1462,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL) && damage < 1000000)
 		return;
 
-	if(target->iflags & MFI_ICECORPSE)
+	if(target->flags2 & MF2_ICECORPSE)
 	{
 		if(damage_type != DAMAGE_ICE)
 		{
@@ -1615,13 +1619,10 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 				} else
 					kill_death_type = damage_type;
 
-				P_KillMobj(source, target);
+				if(!(target->flags1 & MF1_DONTFALL))
+					target->flags &= ~MF_NOGRAVITY;
 
-				if(damage_type == DAMAGE_ICE)
-				{
-					mobj_set_animation(target, ANIM_DEATH + DAMAGE_ICE);
-					return;
-				}
+				P_KillMobj(source, target);
 
 				return;
 			}
@@ -1897,7 +1898,7 @@ static void mobj_z_move(mobj_t *mo)
 					S_StartSound(SOUND_CHAN_BODY(mo), mo->info->player.sound.land);
 				}
 
-				if(mo->iflags & MFI_ICECORPSE)
+				if(mo->flags2 & MF2_ICECORPSE)
 				{
 					mo->tics = 1;
 					mo->iflags |= MFI_ICE_SHATTER;
@@ -2081,6 +2082,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031660, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_remove},
 	// replace 'P_DamageMobj' - use trampoline
 	{0x0002A460, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hook_mobj_damage},
+	// disable 'set gravity' in 'P_KillMobj'
+	{0x0002A2C8, CODE_HOOK | HOOK_UINT16, 0x07EB},
 	// extra stuff in 'P_KillMobj' - replaces animation change
 	{0x0002A3C8, CODE_HOOK | HOOK_UINT16, 0xD889},
 	{0x0002A3CA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)kill_animation},

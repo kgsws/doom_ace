@@ -31,7 +31,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA6	// increment with updates
+#define SAVE_VERSION	0xE58BAFA7	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -175,6 +175,8 @@ typedef struct
 	//
 	uint32_t state;
 	int32_t tics;
+	uint32_t sprite;
+	uint16_t frame;
 	//
 	mobj_special_t special;
 	//
@@ -188,6 +190,7 @@ typedef struct
 	//
 	uint32_t flags;
 	uint32_t flags1;
+	uint32_t flags2;
 	uint32_t iflags;
 	//
 	uint32_t target;
@@ -1023,6 +1026,8 @@ static uint32_t svcb_thing(mobj_t *mo)
 
 	thing.state = sv_convert_state(mo->state, mo->info);
 	thing.tics = mo->tics;
+	thing.sprite = sprite_table[mo->sprite];
+	thing.frame = mo->frame;
 
 	thing.special = mo->special;
 
@@ -1033,6 +1038,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 
 	thing.flags = mo->flags;
 	thing.flags1 = mo->flags1;
+	thing.flags2 = mo->flags2;
 	thing.iflags = mo->iflags;
 
 	thing.render_style = mo->render_style;
@@ -1801,7 +1807,7 @@ static inline uint32_t ld_get_things()
 {
 	save_thing_t thing;
 	uint64_t alias;
-	int32_t type;
+	int32_t type, sprite;
 	uint32_t maxnetid = 0;
 	mobj_t *mo;
 	inventory_t *item, *ilst;
@@ -1818,6 +1824,16 @@ static inline uint32_t ld_get_things()
 			return 1;
 
 		reader_get(&thing, sizeof(thing));
+
+		for(sprite = 0; sprite < numsprites; sprite++)
+			if(sprite_table[sprite] == thing.sprite)
+				break;
+
+		if(sprite >= numsprites)
+			return 1;
+
+		if((thing.frame & 0x1F) >= sprites[sprite].numframes)
+			return 1;
 
 		if(thing.netid > maxnetid)
 			maxnetid = thing.netid;
@@ -1845,8 +1861,8 @@ static inline uint32_t ld_get_things()
 
 		mo->state = ld_convert_state(thing.state, mo->info, 0);
 		mo->tics = thing.tics;
-		mo->sprite = mo->state->sprite; // TODO: fix this
-		mo->frame = mo->state->frame; // TODO: fix this
+		mo->sprite = sprite;
+		mo->frame = thing.frame;
 
 		mo->special = thing.special;
 
@@ -1858,6 +1874,7 @@ static inline uint32_t ld_get_things()
 
 		mo->flags = thing.flags;
 		mo->flags1 = thing.flags1;
+		mo->flags2 = thing.flags2;
 		mo->iflags = thing.iflags;
 
 		mo->render_style = thing.render_style;

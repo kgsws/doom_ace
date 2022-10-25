@@ -30,6 +30,7 @@ typedef uint32_t angle_t;
 #define NUMMOBJTYPES	137
 #define NUMSTATES	967
 #define NUMSPRITES	138
+#define NUMSFX	109
 #define MAXEVENTS	64
 #define MAXINTERCEPTS	128
 #define MAXSPECIALCROSS	8
@@ -589,6 +590,7 @@ typedef struct mobjinfo_s
 	uint16_t replacement;
 	uint16_t species;
 	uint32_t flags1;
+	uint32_t flags2;
 	uint32_t eflags;
 	fixed_t vspeed;
 	fixed_t step_height;
@@ -969,6 +971,7 @@ typedef struct mobj_s
 	// new pointer
 	struct mobj_s *master;
 	// more flags
+	uint32_t flags2;
 	uint32_t iflags;
 	// render
 	uint8_t render_style;

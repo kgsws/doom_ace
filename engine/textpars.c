@@ -64,7 +64,7 @@ static uint32_t is_script_char(uint8_t in)
 //
 // API - extra
 
-uint64_t tp_hash64(uint8_t *name)
+uint64_t tp_hash64(const uint8_t *name)
 {
 	// Converts string name into 64bit alias (pseudo-hash).
 	// CRC64 could work too, but this does not require big table.

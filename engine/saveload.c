@@ -177,6 +177,7 @@ typedef struct
 	int32_t tics;
 	uint32_t sprite;
 	uint16_t frame;
+	uint16_t translation;
 	//
 	mobj_special_t special;
 	//
@@ -1043,6 +1044,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 
 	thing.render_style = mo->render_style;
 	thing.render_alpha = mo->render_alpha;
+	thing.translation = mo->translation ? ((mo->translation - render_translation) / 256) + 1 : 0;
 
 	thing.target = mo->target ? mo->target->netid : 0;
 	thing.tracer = mo->tracer ? mo->tracer->netid : 0;
@@ -1835,6 +1837,9 @@ static inline uint32_t ld_get_things()
 		if((thing.frame & 0x1F) >= sprites[sprite].numframes)
 			return 1;
 
+		if(thing.translation > translation_count) // off by one!
+			return 1;
+
 		if(thing.netid > maxnetid)
 			maxnetid = thing.netid;
 
@@ -1879,6 +1884,10 @@ static inline uint32_t ld_get_things()
 
 		mo->render_style = thing.render_style;
 		mo->render_alpha = thing.render_alpha;
+		if(thing.translation)
+			mo->translation = render_translation + thing.translation * 256 - 256;
+		else
+			mo->translation = NULL;
 
 		mo->target = (mobj_t*)thing.target;
 		mo->tracer = (mobj_t*)thing.tracer;

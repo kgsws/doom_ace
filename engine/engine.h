@@ -596,6 +596,7 @@ typedef struct mobjinfo_s
 	fixed_t step_height;
 	fixed_t dropoff;
 	fixed_t gravity;
+	uint8_t *translation;
 	// pain chance for each damate type
 	uint16_t painchance[NUM_DAMAGE_TYPES];
 	union

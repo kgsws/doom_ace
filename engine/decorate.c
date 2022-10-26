@@ -39,6 +39,7 @@ enum
 	DT_DAMAGE_TYPE,
 	DT_RENDER_STYLE,
 	DT_RENDER_ALPHA,
+	DT_TRANSLATION,
 	DT_POWERUP_TYPE,
 	DT_POWERUP_MODE,
 	DT_POWERUP_COLOR,
@@ -507,6 +508,7 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"renderstyle", DT_RENDER_STYLE},
 	{"alpha", DT_RENDER_ALPHA},
+	{"translation", DT_TRANSLATION},
 	//
 	{"monster", DT_MONSTER},
 	{"projectile", DT_PROJECTILE},
@@ -594,9 +596,12 @@ static const dec_flag_t mobj_flags2[] =
 {
 	{"noicedeath", MF2_NOICEDEATH},
 	{"icecorpse", MF2_ICECORPSE},
+	{"iceshatter", MF2_ICESHATTER},
+	{"donttranslate", MF2_DONTTRANSLATE},
 	// terminator
 	{NULL}
-};static const dec_flag_t inventory_flags[] =
+};
+static const dec_flag_t inventory_flags[] =
 {
 	{"inventory.quiet", MFE_INVENTORY_QUIET},
 	{"inventory.ignoreskill", MFE_INVENTORY_IGNORESKILL},
@@ -1545,6 +1550,12 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			if(num.s32 > 255)
 				num.s32 = 255;
 			parse_mobj_info->render_alpha = num.s32;
+		break;
+		case DT_TRANSLATION:
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			parse_mobj_info->translation = r_translation_by_name(kw);
 		break;
 		case DT_POWERUP_TYPE:
 			if(parse_mobj_info->powerup.type < NUMPOWERS)
@@ -2743,7 +2754,7 @@ void init_decorate()
 	// copy original stuff
 	for(uint32_t i = 0; i < NUMMOBJTYPES; i++)
 	{
-		memset(mobjinfo + i, 0, sizeof(mobjinfo_t));
+		mobjinfo[i] = default_mobj;
 
 		mobjinfo[i].doomednum = deh_mobjinfo[i].doomednum;
 		mobjinfo[i].state_spawn = deh_mobjinfo[i].spawnstate;
@@ -2768,11 +2779,8 @@ void init_decorate()
 		mobjinfo[i].state_raise = deh_mobjinfo[i].raisestate;
 		mobjinfo[i].painchance[DAMAGE_NORMAL] = deh_mobjinfo[i].painchance;
 
-		mobjinfo[i].gravity = FRACUNIT;
 		mobjinfo[i].alias = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
-		mobjinfo[i].step_height = 24 * FRACUNIT;
-		mobjinfo[i].dropoff = 24 * FRACUNIT;
 		mobjinfo[i].state_idx_limit = NEW_NUMSTATES;
 
 		// check for original random sounds
@@ -2794,6 +2802,10 @@ void init_decorate()
 		// modify render style
 		if(mobjinfo[i].flags & MF_SHADOW)
 			mobjinfo[i].render_style = RS_FUZZ;
+
+		// set translation
+		if(mobjinfo[i].flags & MF_TRANSLATION)
+			mobjinfo[i].translation = render_translation + ((mobjinfo[i].flags & MF_TRANSLATION) >> (MF_TRANSSHIFT - 8)) - 256;
 	}
 
 	// copy internal stuff
@@ -3029,7 +3041,7 @@ void init_decorate()
 
 			if(!info->state_death[i])
 			{
-				if(i == DAMAGE_ICE && info->flags1 & MF1_ISMONSTER)
+				if(i == DAMAGE_ICE && (info->flags1 & MF1_ISMONSTER || info->extra_type == ETYPE_PLAYERPAWN))
 					info->state_death[i] = STATE_ICE_DEATH_0;
 				else
 					info->state_death[i] = info->state_death[DAMAGE_NORMAL];

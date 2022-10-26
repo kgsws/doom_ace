@@ -27,6 +27,6 @@ uint32_t tp_skip_code_block(uint32_t depth);
 
 //
 
-uint64_t tp_hash64(uint8_t *name);
+uint64_t tp_hash64(const uint8_t *name);
 uint32_t tp_parse_fixed(uint8_t *text, fixed_t *value);
 

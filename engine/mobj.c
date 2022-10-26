@@ -735,6 +735,7 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	mo->render_alpha = info->render_alpha;
 	mo->flags1 = info->flags1;
 	mo->flags2 = info->flags2;
+	mo->translation = info->translation;
 	mo->netid = mobj_netid;
 
 	// vertical speed
@@ -1464,10 +1465,10 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 	if(target->flags2 & MF2_ICECORPSE)
 	{
-		if(damage_type != DAMAGE_ICE)
+		if(damage_type != DAMAGE_ICE || if_flags1 & MF2_ICESHATTER)
 		{
 			target->tics = 1;
-			target->iflags |= MFI_ICE_SHATTER;
+			target->iflags |= MFI_SHATTERING;
 		}
 		return;
 	}
@@ -1901,7 +1902,7 @@ static void mobj_z_move(mobj_t *mo)
 				if(mo->flags2 & MF2_ICECORPSE)
 				{
 					mo->tics = 1;
-					mo->iflags |= MFI_ICE_SHATTER;
+					mo->iflags |= MFI_SHATTERING;
 				}
 			}
 			if(mo->momz < -23 * FRACUNIT)

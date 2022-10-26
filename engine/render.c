@@ -14,6 +14,7 @@
 #include "ldr_sprite.h"
 #include "extra3d.h"
 #include "draw.h"
+#include "textpars.h"
 #include "render.h"
 
 #define HEIGHTBITS	12
@@ -48,6 +49,10 @@ render_tables_t *render_tables;
 uint8_t *render_trn0;
 uint8_t *render_trn1;
 uint8_t *render_add;
+uint8_t *render_translation;
+
+uint64_t *translation_alias;
+uint32_t translation_count = NUM_EXTRA_TRANSLATIONS;
 
 pal_col_t r_palette[256];
 
@@ -1545,6 +1550,132 @@ static void generate_color(uint8_t *dest, uint8_t r, uint8_t g, uint8_t b)
 	}
 }
 
+static void generate_empty_range(uint8_t *dest)
+{
+	for(uint32_t i = 0; i < 256; i++)
+		dest[i] = i;
+}
+
+static void generate_translation(uint8_t *dest, uint8_t first, uint8_t last, uint8_t r0, uint8_t r1)
+{
+	int32_t step;
+	uint32_t now = r0 << 16;
+
+	if(last < first)
+	{
+		step = last;
+		last = first;
+		first = step;
+		step = r1;
+		r1 = r0;
+		r0 = step;
+	}
+
+	step = ((int32_t)r1 + 1) - (int32_t)r0;
+	step <<= 16;
+	step /= ((int32_t)last + 1) - (int32_t)first;
+
+	for(uint32_t i = first; i <= last; i++)
+	{
+		dest[i] = now >> 16;
+		now += step;
+	}
+}
+
+//
+// callbacks
+
+static void cb_count_translations(lumpinfo_t *li)
+{
+	uint32_t i;
+	uint8_t *kw;
+
+	tp_load_lump(li);
+
+	// get first name
+	kw = tp_get_keyword();
+	if(!kw)
+		return;
+
+	while(1)
+	{
+		i = translation_count++;
+		translation_alias = ldr_realloc(translation_alias, translation_count * sizeof(uint64_t));
+		translation_alias[i] = tp_hash64(kw);
+
+		kw = tp_get_keyword();
+		if(!kw)
+			return;
+		if(kw[0] != '=')
+			return;
+
+		while(1)
+		{
+			// skip range
+			kw = tp_get_keyword();
+			if(!kw)
+				return;
+
+			// check for end
+			kw = tp_get_keyword();
+			if(!kw)
+				return;
+
+			if(kw[0] != ',')
+				break;
+		}
+	}
+}
+
+static void cb_parse_translations(lumpinfo_t *li)
+{
+	uint32_t i;
+	uint8_t *kw;
+
+	tp_load_lump(li);
+
+	// get first name
+	kw = tp_get_keyword();
+	if(!kw)
+		return;
+
+	while(1)
+	{
+		i = translation_count++;
+
+		kw = tp_get_keyword();
+		if(!kw)
+			return;
+		if(kw[0] != '=')
+			return;
+
+		generate_empty_range(render_translation + i * 256);
+
+		while(1)
+		{
+			uint32_t t0, t1, t2, t3;
+
+			// parse range
+			kw = tp_get_keyword();
+			if(!kw)
+				return;
+
+			if(doom_sscanf(kw, "%u:%u=%u:%u", &t0, &t1, &t2, &t3) != 4 || (t0|t1|t2|t3) > 255)
+				I_Error("[TRNSLATE] Unsupported translation '%s'!\n", kw);
+
+			generate_translation(render_translation + i * 256, t0, t1, t2, t3);
+
+			// check for end
+			kw = tp_get_keyword();
+			if(!kw)
+				return;
+
+			if(kw[0] != ',')
+				break;
+		}
+	}
+}
+
 //
 // API
 
@@ -1585,6 +1716,19 @@ uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
 	}
 
 	return ret;
+}
+
+uint8_t *r_translation_by_name(const uint8_t *name)
+{
+	uint64_t alias = tp_hash64(name);
+
+	for(uint32_t i = 0; i < translation_count; i++)
+	{
+		if(alias == translation_alias[i])
+			return render_translation + 256 * i;
+	}
+
+	return NULL;
 }
 
 void render_preinit(uint8_t *palette)
@@ -1675,9 +1819,35 @@ void init_render()
 		mod_config.e3dplane_count = 16;
 	e3d_init(mod_config.e3dplane_count);
 
-	// initialize render style tables
-	ptr = ldr_malloc(sizeof(render_tables_t) + COLORMAP_SIZE + 256);
+	//
+	// PASS 1
+
+	translation_alias = ldr_malloc(sizeof(uint64_t));
+	wad_handle_lump("TRNSLATE", cb_count_translations);
+
+	//
+	// PASS 2
+
+	// initialize render style AND translation tables
+	ptr = ldr_malloc(sizeof(render_tables_t) + COLORMAP_SIZE + translation_count * 256 + 256);
 	ptr = (void*)(((uint32_t)ptr + 255) & ~255); // align for ASM optimisations
+
+	render_translation = ptr + COLORMAP_SIZE + sizeof(render_tables_t);
+
+	// extra translations
+	generate_empty_range(render_translation + TRANSLATION_PLAYER2 * 256);
+	generate_translation(render_translation + TRANSLATION_PLAYER2 * 256, 112, 127, 96, 111);
+	generate_empty_range(render_translation + TRANSLATION_PLAYER3 * 256);
+	generate_translation(render_translation + TRANSLATION_PLAYER3 * 256, 112, 127, 64, 79);
+	generate_empty_range(render_translation + TRANSLATION_PLAYER4 * 256);
+	generate_translation(render_translation + TRANSLATION_PLAYER4 * 256, 112, 127, 32, 47);
+	generate_color(render_translation + TRANSLATION_ICE * 256, 148, 148, 172);
+
+	translation_count = NUM_EXTRA_TRANSLATIONS;
+	wad_handle_lump("TRNSLATE", cb_parse_translations);
+
+	//
+	// PASS 3
 
 	// load original colormap - only 33 levels
 	colormaps = ptr;
@@ -1706,7 +1876,6 @@ void init_render()
 		generate_color(render_tables->cmap + 256 * 2, 200, 255, 180);
 		generate_color(render_tables->cmap + 256 * 3, 0, 0, 255);
 		generate_color(render_tables->cmap + 256 * 4, 255, 255, 255);
-		generate_color(render_tables->cmap + 256 * 5, 148, 148, 172);
 	} else
 	{
 		// tables are provided in WAD file
@@ -1835,6 +2004,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// disable 'R_InitColormaps' in 'R_InitData'
 	{0x00034646, CODE_HOOK | HOOK_UINT8, 0xC3},
+	// disable 'R_InitTranslationTables' in 'R_Init'
+	{0x00035E08, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace call to 'R_RenderPlayerView' in 'D_Display'
 	{0x0001D361, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_RenderPlayerView},
 	// replace call to 'R_SetupFrame' in 'R_RenderPlayerView'

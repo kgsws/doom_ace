@@ -8,6 +8,16 @@
 
 enum
 {
+	TRANSLATION_PLAYER2,
+	TRANSLATION_PLAYER3,
+	TRANSLATION_PLAYER4,
+	TRANSLATION_ICE,
+	//
+	NUM_EXTRA_TRANSLATIONS
+};
+
+enum
+{
 	RS_NORMAL, // must be zero
 	RS_FUZZ,
 	RS_SHADOW,
@@ -24,7 +34,7 @@ typedef struct
 
 typedef struct
 {
-	uint8_t cmap[256*6]; // gold, red, green, blue, white, ice; used for extra colormap, fonts and translation
+	uint8_t cmap[256*5]; // gold, red, green, blue, white; used for extra colormap, fonts and translation
 	uint8_t trn0[256*256];
 	uint8_t trn1[256*256];
 	uint8_t addt[256*256];
@@ -43,6 +53,10 @@ extern render_tables_t *render_tables;
 extern uint8_t *render_trn0;
 extern uint8_t *render_trn1;
 extern uint8_t *render_add;
+extern uint8_t *render_translation;
+
+extern uint64_t *translation_alias;
+extern uint32_t translation_count;
 
 //
 
@@ -52,6 +66,8 @@ void render_preinit(uint8_t*);
 uint8_t r_find_color(uint8_t, uint8_t, uint8_t);
 
 void r_draw_plane(visplane_t *pl);
+
+uint8_t *r_translation_by_name(const uint8_t *name);
 
 void render_player_view(player_t *pl);
 

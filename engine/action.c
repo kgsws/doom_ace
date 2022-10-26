@@ -1311,6 +1311,9 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
 	if(th->flags & MF_MISSILE)
 		missile_stuff(th, mo, linetarget, angle, pitch, slope);
+
+	if(arg->flags & FPF_TRANSFERTRANSLATION)
+		th->translation = mo->translation;
 }
 
 //
@@ -1527,13 +1530,13 @@ void A_GenericFreezeDeath(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	A_FreezeDeath(mo, st, stfunc);
 	mo->frame &= ~FF_FULLBRIGHT;
-	mo->translation = render_tables->cmap + ICE_CMAP_IDX * 256;
+	mo->translation = render_translation + TRANSLATION_ICE * 256;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	if(!(mo->iflags & MFI_ICE_SHATTER) && (mo->momx || mo->momy || mo->momz))
+	if(!(mo->iflags & MFI_SHATTERING) && (mo->momx || mo->momy || mo->momz))
 	{
 		mo->tics = 105;
 		return;
@@ -1556,6 +1559,7 @@ void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	mo->flags &= ~(MF_SOLID | MF_SHOOTABLE);
 	mo->flags |= MF_NOBLOCKMAP | MF_NOSECTOR;
+	mo->special.tid = 0;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))

@@ -1460,9 +1460,6 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		damage_type = DAMAGE_NORMAL;
 	}
 
-	if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL) && damage < 1000000)
-		return;
-
 	if(target->flags2 & MF2_ICECORPSE)
 	{
 		if(damage_type != DAMAGE_ICE || if_flags1 & MF2_ICESHATTER)
@@ -1495,6 +1492,17 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			damage = ((P_Random() & 3) + 2) * (damage & 0x00FFFFFF);
 		break;
 	}
+
+	if(damage < 1000000)
+	{
+		if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL))
+			return;
+		if(target->info->damage_factor[damage_type] != 4)
+			damage = (damage * target->info->damage_factor[damage_type]) / 4;
+	}
+
+	if(!damage)
+		return;
 
 	forced = damage >= 1000000;
 	if(damage > 1000000)

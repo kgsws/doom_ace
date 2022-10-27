@@ -37,6 +37,7 @@ enum
 	DT_SKIP1,
 	DT_PAINCHANCE,
 	DT_DAMAGE_TYPE,
+	DT_DAMAGE_FACTOR,
 	DT_RENDER_STYLE,
 	DT_RENDER_ALPHA,
 	DT_TRANSLATION,
@@ -483,6 +484,7 @@ static const dec_attr_t attr_mobj[] =
 	{"painchance", DT_PAINCHANCE},
 	{"damage", DT_DAMAGE, offsetof(mobjinfo_t, damage)},
 	{"damagetype", DT_DAMAGE_TYPE},
+	{"damagefactor", DT_DAMAGE_FACTOR},
 	{"speed", DT_FIXED, offsetof(mobjinfo_t, speed)},
 	//
 	{"radius", DT_FIXED, offsetof(mobjinfo_t, radius)},
@@ -1525,6 +1527,31 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 				return 1;
 			parse_mobj_info->damage_type = get_custom_damage(kw);
 		break;
+		case DT_DAMAGE_FACTOR:
+		{
+			uint32_t type;
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			type = get_custom_damage(kw);
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			if(kw[0] != ',')
+				return 1;
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			if(tp_parse_fixed(kw, &num.s32))
+				return 1;
+			if(num.s32 < 0)
+				num.s32 = FRACUNIT;
+			else
+			if(num.s32 >= 64 * FRACUNIT)
+				return 1;
+			parse_mobj_info->damage_factor[type] = num.s32 >> 14;
+		}
+		break;
 		case DT_RENDER_STYLE:
 			kw = tp_get_keyword_lc();
 			if(!kw)
@@ -1552,7 +1579,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			parse_mobj_info->render_alpha = num.s32;
 		break;
 		case DT_TRANSLATION:
-			kw = tp_get_keyword();
+			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
 			parse_mobj_info->translation = r_translation_by_name(kw);
@@ -2566,6 +2593,9 @@ static void cb_parse_actors(lumpinfo_t *li)
 		info->alias = alias;
 		info->extra_type = etp;
 
+		// default damage factors
+		memset(info->damage_factor, 0xFF, NUM_DAMAGE_TYPES);
+
 		// reset stuff
 		extra_stuff_cur = NULL;
 		extra_stuff_next = NULL;
@@ -2803,6 +2833,9 @@ void init_decorate()
 		if(mobjinfo[i].flags & MF_SHADOW)
 			mobjinfo[i].render_style = RS_FUZZ;
 
+		// default damage factors
+		memset(mobjinfo[i].damage_factor, 0xFF, NUM_DAMAGE_TYPES);
+
 		// set translation
 		if(mobjinfo[i].flags & MF_TRANSLATION)
 			mobjinfo[i].translation = render_translation + ((mobjinfo[i].flags & MF_TRANSLATION) >> (MF_TRANSSHIFT - 8)) - 256;
@@ -3028,6 +3061,8 @@ void init_decorate()
 		}
 
 		// update damage type stuff
+		if(info->damage_factor[DAMAGE_NORMAL] == 0xFF)
+			info->damage_factor[DAMAGE_NORMAL] = 4;
 		info->painchance[DAMAGE_NORMAL] &= 0x01FF;
 		for(uint32_t i = 1; i < NUM_DAMAGE_TYPES; i++)
 		{
@@ -3046,6 +3081,9 @@ void init_decorate()
 				else
 					info->state_death[i] = info->state_death[DAMAGE_NORMAL];
 			}
+
+			if(info->damage_factor[i] == 0xFF)
+				info->damage_factor[i] = info->damage_factor[DAMAGE_NORMAL];
 		}
 
 		// resolve replacements

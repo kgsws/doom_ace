@@ -1593,7 +1593,7 @@ static void cb_count_translations(lumpinfo_t *li)
 	tp_load_lump(li);
 
 	// get first name
-	kw = tp_get_keyword();
+	kw = tp_get_keyword_lc();
 	if(!kw)
 		return;
 
@@ -1617,7 +1617,7 @@ static void cb_count_translations(lumpinfo_t *li)
 				return;
 
 			// check for end
-			kw = tp_get_keyword();
+			kw = tp_get_keyword_lc();
 			if(!kw)
 				return;
 
@@ -1634,7 +1634,7 @@ static void cb_parse_translations(lumpinfo_t *li)
 
 	tp_load_lump(li);
 
-	// get first name
+	// skip first name
 	kw = tp_get_keyword();
 	if(!kw)
 		return;

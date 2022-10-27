@@ -599,6 +599,9 @@ typedef struct mobjinfo_s
 	uint8_t *translation;
 	// pain chance for each damate type
 	uint16_t painchance[NUM_DAMAGE_TYPES];
+	// damage type factors
+	uint8_t damage_factor[NUM_DAMAGE_TYPES];
+	// new states
 	union
 	{
 		struct
@@ -613,22 +616,7 @@ typedef struct mobjinfo_s
 		};
 		uint16_t new_states[4];
 	};
-	// extra stuff list
-	union
-	{
-		void *extra_stuff[2];
-		struct
-		{
-			mobj_dropitem_t *start;
-			mobj_dropitem_t *end;
-		} dropitem;
-		struct
-		{
-			plrp_start_item_t *start;
-			plrp_start_item_t *end;
-		} start_item;
-	};
-	// shared states
+	// type-based states
 	union
 	{
 		uint16_t extra_states[4];
@@ -650,6 +638,21 @@ typedef struct mobjinfo_s
 			uint16_t pickup;
 			uint16_t use;
 		} st_custinv;
+	};
+	// extra stuff list
+	union
+	{
+		void *extra_stuff[2];
+		struct
+		{
+			mobj_dropitem_t *start;
+			mobj_dropitem_t *end;
+		} dropitem;
+		struct
+		{
+			plrp_start_item_t *start;
+			plrp_start_item_t *end;
+		} start_item;
 	};
 	// type based stuff
 	uint32_t extra_type;
@@ -993,7 +996,7 @@ typedef struct mobj_s
 	mobjinfo_t *custom_inventory;
 	// custom inventory state jumps
 	uint32_t custom_state;
-	// to avaid mutiple rip damage per tick
+	// to avoid mutiple rip damage per tick
 	struct mobj_s *rip_thing;
 	uint32_t rip_tick;
 	// frozen corpse

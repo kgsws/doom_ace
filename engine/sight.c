@@ -157,6 +157,9 @@ static uint32_t P_SightBlockLinesIterator(uint32_t x, uint32_t y)
 		if(!ld->backsector)
 			return 0;
 
+		if(ld->flags & ML_BLOCK_ALL)
+			return 0;
+
 		if(ld->frontsector->exfloor || ld->backsector->exfloor)
 			P_LineOpening(ld);
 

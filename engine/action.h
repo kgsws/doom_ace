@@ -11,6 +11,11 @@ typedef struct
 	fixed_t value;
 } args_singleFixed_t;
 
+typedef struct
+{
+	void *value;
+} args_singlePointer_t;
+
 //
 
 #define CHAN_BODY	0

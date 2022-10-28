@@ -149,7 +149,7 @@ extern uint32_t *texturetranslation;
 
 // flat
 extern uint32_t numflats;
-extern uint16_t *flattranslation; // this was uint16_t
+extern uint16_t *flattranslation; // this was uint32_t
 
 // things
 extern thinker_t thinkercap;

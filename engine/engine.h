@@ -478,6 +478,16 @@ typedef struct
 
 typedef struct
 {
+	uint16_t type;
+	uint16_t death;
+	uint16_t xdeath;
+	uint16_t crash;
+	uint16_t xcrash;
+	uint16_t pain;
+} custom_damage_state_t;
+
+typedef struct
+{
 	uint16_t *wpn_slot[NUM_WPN_SLOTS];
 	fixed_t view_height;
 	fixed_t attack_offs;
@@ -561,14 +571,14 @@ typedef struct mobjinfo_s
 	int32_t reactiontime;
 	uint16_t attacksound;
 	uint16_t __free_26;
-	uint32_t __free_32;
+	uint32_t state_pain;
 	uint16_t damage_type;
 	uint16_t __free_34;
 	uint16_t painsound;
 	uint16_t __free_38;
 	uint32_t state_melee;
 	uint32_t state_missile;
-	uint32_t __free_48;
+	uint32_t state_death;
 	uint32_t state_xdeath;
 	uint16_t deathsound;
 	uint8_t render_style;
@@ -597,10 +607,10 @@ typedef struct mobjinfo_s
 	fixed_t dropoff;
 	fixed_t gravity;
 	uint8_t *translation;
-	// pain chance for each damate type
+	// damage type stuff
 	uint16_t painchance[NUM_DAMAGE_TYPES];
-	// damage type factors
 	uint8_t damage_factor[NUM_DAMAGE_TYPES];
+	custom_damage_state_t *damage_states;
 	// new states
 	union
 	{
@@ -610,9 +620,7 @@ typedef struct mobjinfo_s
 			uint16_t state_heal;
 			uint16_t state_crush;
 			uint16_t state_crash;
-			// states for custom damate types
-			uint16_t state_pain[NUM_DAMAGE_TYPES];
-			uint16_t state_death[NUM_DAMAGE_TYPES];
+			uint16_t state_xcrash;
 		};
 		uint16_t new_states[4];
 	};
@@ -986,6 +994,8 @@ typedef struct mobj_s
 	uint8_t animation;
 	// path traverse
 	uint8_t intercept_side;
+	// death damage
+	uint8_t death_damage_type;
 	// unique identification
 	uint32_t netid;
 	// new orientation

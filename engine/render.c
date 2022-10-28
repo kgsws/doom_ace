@@ -1550,6 +1550,36 @@ static void generate_color(uint8_t *dest, uint8_t r, uint8_t g, uint8_t b)
 	}
 }
 
+static void generate_color2(uint8_t *dest, uint8_t r, uint8_t g, uint8_t b)
+{
+	// this is used only once
+	pal_col_t *pal = r_palette;
+	for(uint32_t i = 0; i < 256; i++, pal++)
+	{
+		uint8_t rr, gg, bb, ll;
+
+		rr = pal->r;
+		if(rr > pal->g)
+			rr = pal->g;
+		if(rr > pal->b)
+			rr = pal->b;
+
+		gg = pal->r;
+		if(gg < pal->g)
+			gg = pal->g;
+		if(gg < pal->b)
+			gg = pal->b;
+
+		ll = (((uint32_t)rr + (uint32_t)gg) * 255) / 510;
+
+		rr = ((uint32_t)r * (uint32_t)ll) / 255;
+		gg = ((uint32_t)g * (uint32_t)ll) / 255;
+		bb = ((uint32_t)b * (uint32_t)ll) / 255;
+
+		*dest++ = r_find_color(rr, gg, bb);
+	}
+}
+
 static void generate_empty_range(uint8_t *dest)
 {
 	for(uint32_t i = 0; i < 256; i++)
@@ -1841,7 +1871,9 @@ void init_render()
 	generate_translation(render_translation + TRANSLATION_PLAYER3 * 256, 112, 127, 64, 79);
 	generate_empty_range(render_translation + TRANSLATION_PLAYER4 * 256);
 	generate_translation(render_translation + TRANSLATION_PLAYER4 * 256, 112, 127, 32, 47);
-	generate_color(render_translation + TRANSLATION_ICE * 256, 148, 148, 172);
+	generate_color2(render_translation + TRANSLATION_ICE * 256, 148, 148, 172);
+
+	translation_alias[TRANSLATION_ICE] = 0x00000000000258E9;
 
 	translation_count = NUM_EXTRA_TRANSLATIONS;
 	wad_handle_lump("TRNSLATE", cb_parse_translations);

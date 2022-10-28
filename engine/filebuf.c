@@ -7,7 +7,7 @@
 #include "wadfile.h"
 #include "filebuf.h"
 
-#define BUFFER_SIZE	(4*1024)
+#define BUFFER_SIZE	(8*1024)
 
 static uint8_t buffer[BUFFER_SIZE];
 static uint8_t *bptr;

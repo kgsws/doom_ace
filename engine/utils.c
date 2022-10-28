@@ -312,3 +312,27 @@ char *strstr(const char *str1, const char *str2)
 	return NULL;
 }
 
+char *strlwr(char *str)
+{
+	uint8_t *ret = str;
+	while(*str)
+	{
+		if(*str >= 'A' && *str <= 'Z')
+			*str |= 0x20;
+		str++;
+	}
+	return ret;
+}
+
+char *strupr(char *str)
+{
+	uint8_t *ret = str;
+	while(*str)
+	{
+		if(*str >= 'a' && *str <= 'z')
+			*str &= 0xDF;
+		str++;
+	}
+	return ret;
+}
+

@@ -40,7 +40,7 @@ uint32_t mobj_netid;
 
 static fixed_t oldfloorz;
 
-static uint_fast8_t kill_death_type;
+static mobj_t *hit_thing;
 
 //
 
@@ -49,8 +49,10 @@ const uint16_t base_anim_offs[LAST_MOBJ_STATE_HACK] =
 {
 	[ANIM_SPAWN] = offsetof(mobjinfo_t, state_spawn),
 	[ANIM_SEE] = offsetof(mobjinfo_t, state_see),
+	[ANIM_PAIN] = offsetof(mobjinfo_t, state_pain),
 	[ANIM_MELEE] = offsetof(mobjinfo_t, state_melee),
 	[ANIM_MISSILE] = offsetof(mobjinfo_t, state_missile),
+	[ANIM_DEATH] = offsetof(mobjinfo_t, state_death),
 	[ANIM_XDEATH] = offsetof(mobjinfo_t, state_xdeath),
 	[ANIM_RAISE] = offsetof(mobjinfo_t, state_raise),
 };
@@ -790,31 +792,43 @@ uint32_t finish_mobj(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 static void kill_animation(mobj_t *mo)
 {
-	uint32_t animation = ANIM_DEATH;
+	custom_damage_state_t *cst;
+	uint32_t state = 0;
+	uint32_t ice_death = mo->death_damage_type == DAMAGE_ICE && (mo->flags1 & MF1_ISMONSTER || mo->player) && !(mo->flags2 & MF2_NOICEDEATH);
 
-	if(mo->player)
-		mo->player->extralight = 0;
+	if(mo->death_damage_type != DAMAGE_NORMAL && mo->info->damage_states)
+		cst = dec_get_damage_animation(mo->info->damage_states, mo->death_damage_type);
+	else
+		cst = NULL;
 
-	if(	kill_death_type == DAMAGE_ICE &&
-		mo->flags2 & MF2_NOICEDEATH &&
-		mo->info->state_death[DAMAGE_ICE] == STATE_ICE_DEATH_0
-	)
-		kill_death_type = 0;
-
-	if(kill_death_type == 255)
+	if(mo->health < -mo->info->spawnhealth)
 	{
-		if(mo->info->state_xdeath)
-			animation = ANIM_XDEATH;
-	} else
-	if(!kill_death_type)
-	{
-		if(mo->info->state_xdeath && mo->health < -mo->info->spawnhealth)
-			animation = ANIM_XDEATH;
-	} else
-	if(kill_death_type < NUM_DAMAGE_TYPES)
-		animation += kill_death_type;
+		// find extreme death state
+		if(cst && cst->xdeath)
+		{
+			state = cst->xdeath;
+			ice_death = 0;
+		} else
+			state = mo->info->state_xdeath;
+	}
 
-	mobj_set_animation(mo, animation);
+	if(!state)
+	{
+		// find normal death state
+		if(cst && cst->death)
+		{
+			state = cst->death;
+			ice_death = 0;
+		} else
+			state = mo->info->state_death;
+		mo->animation = ANIM_DEATH;
+	} else
+		mo->animation = ANIM_XDEATH;
+
+	if(ice_death)
+		state = STATE_ICE_DEATH_0;
+
+	mobj_set_state(mo, state);
 
 	if(mo->tics > 0)
 	{
@@ -822,6 +836,9 @@ static void kill_animation(mobj_t *mo)
 		if(mo->tics <= 0)
 			mo->tics = 1;
 	}
+
+	if(mo->player)
+		mo->player->extralight = 0;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -866,6 +883,8 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 		return 0;
 	}
+
+	hit_thing = thing->flags & MF_SHOOTABLE ? thing : NULL;
 
 	if(tmthing->flags & MF_MISSILE)
 	{
@@ -1009,6 +1028,8 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 {
 	uint32_t is_safe = 0;
 	fixed_t z;
+
+	hit_thing = NULL; // ideally, this would be outside
 
 	if(!ld->backsector)
 		goto blocked;
@@ -1400,11 +1421,26 @@ void mobj_remove(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 void explode_missile(mobj_t *mo)
 {
+	uint32_t animation = ANIM_DEATH;
+
 	mo->momx = 0;
 	mo->momy = 0;
 	mo->momz = 0;
 
-	mobj_set_animation(mo, ANIM_DEATH);
+	if(hit_thing)
+	{
+		if(hit_thing->flags & MF_NOBLOOD)
+		{
+			if(mo->info->state_crash)
+				animation = ANIM_CRASH;
+		} else
+		{
+			if(mo->info->state_xdeath)
+				animation = ANIM_XDEATH;
+		}
+	}
+
+	mobj_set_animation(mo, animation);
 
 	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
 	{
@@ -1617,21 +1653,27 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 					player->health = 1;
 			} else
 			{
-				if(!damage_type)
+				if(if_flags1 & MF1_NOEXTREMEDEATH)
 				{
-					kill_death_type = 0;
-					if(if_flags1 & MF1_NOEXTREMEDEATH)
-						kill_death_type = 254;
-					else
-					if(if_flags1 & MF1_EXTREMEDEATH)
-						kill_death_type = 255;
+					if(target->health < -target->info->spawnhealth)
+						target->health = -target->info->spawnhealth;
 				} else
-					kill_death_type = damage_type;
+				if(if_flags1 & MF1_EXTREMEDEATH)
+				{
+					if(target->health >= -target->info->spawnhealth)
+						target->health = -target->info->spawnhealth - 1;
+				}
+
+				target->death_damage_type = damage_type;
 
 				if(!(target->flags1 & MF1_DONTFALL))
 					target->flags &= ~MF_NOGRAVITY;
 
 				P_KillMobj(source, target);
+
+				if(!target->momz)
+					// fake some Z movement for crash states
+					target->momz = -1;
 
 				return;
 			}
@@ -1641,8 +1683,20 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	if(	P_Random() < target->info->painchance[damage_type] &&
 		!(target->flags & MF_SKULLFLY)
 	) {
+		uint32_t state = target->info->state_pain;
+
 		target->flags |= MF_JUSTHIT;
-		mobj_set_state(target, STATE_SET_ANIMATION(ANIM_PAIN + damage_type, 0));
+
+		if(damage_type != DAMAGE_NORMAL && target->info->damage_states)
+		{
+			custom_damage_state_t *cst;
+			cst = dec_get_damage_animation(target->info->damage_states, damage_type);
+			if(cst && cst->pain)
+				state = cst->pain;
+		}
+
+		target->animation = ANIM_PAIN;
+		mobj_set_state(target, state);
 	}
 
 	target->reactiontime = 0;
@@ -1939,11 +1993,51 @@ static void mobj_z_move(mobj_t *mo)
 				!mo->subsector->sector ||
 				mo->subsector->sector->floorheight < mo->z ||
 				mo->subsector->sector->floorpic != skyflatnum
-			)
+			){
+				hit_thing = NULL;
 				explode_missile(mo);
-			else
+			} else
 				mobj_remove(mo);
 			return;
+		}
+		if(mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
+		{
+			uint32_t state = 0;
+			uint32_t animation;
+			custom_damage_state_t *cst;
+
+			mo->iflags |= MFI_CRASHED;
+
+			if(mo->death_damage_type != DAMAGE_NORMAL && mo->info->damage_states)
+				cst = dec_get_damage_animation(mo->info->damage_states, mo->death_damage_type);
+			else
+				cst = NULL;
+
+			if(mo->health < -mo->info->spawnhealth)
+			{
+				// find extreme crash state
+				if(cst && cst->xcrash)
+					state = cst->xcrash;
+				else
+					state = mo->info->state_xcrash;
+			}
+
+			if(!state)
+			{
+				// find normal crash state
+				if(cst && cst->crash)
+					state = cst->crash;
+				else
+					state = mo->info->state_crash;
+				animation = ANIM_CRASH;
+			} else
+				animation = ANIM_XCRASH;
+
+			if(state)
+			{
+				mo->animation = animation;
+				mobj_set_state(mo, state);
+			}
 		}
 	} else
 	if(!(mo->flags & MF_NOGRAVITY))
@@ -1975,9 +2069,10 @@ static void mobj_z_move(mobj_t *mo)
 				!mo->subsector->sector ||
 				mo->subsector->sector->ceilingheight > mo->z + mo->height ||
 				mo->subsector->sector->ceilingpic != skyflatnum
-			)
+			){
+				hit_thing = NULL;
 				explode_missile(mo);
-			else
+			} else
 				mobj_remove(mo);
 			return;
 		}
@@ -1987,6 +2082,7 @@ static void mobj_z_move(mobj_t *mo)
 void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 {
 	mobj_t *mo;
+	uint32_t state = 0;
 
 	if(	target &&
 		!(target->flags & MF_NOBLOOD) &&
@@ -2006,11 +2102,21 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 			mo->z = mo->floorz;
 	}
 
-	if(!target && mo->info->state_crash)
-		mobj_set_state(mo, mo->info->state_crash);
-	else
-	if(attackrange <= 64 * FRACUNIT && mo->info->state_melee)
-		mobj_set_state(mo, mo->info->state_melee);
+	if(target)
+	{
+		if(!(target->flags & MF_NOBLOOD) && mo->info->state_xdeath)
+			state = mo->info->state_xdeath;
+	} else
+	{
+		if(mo->info->state_crash)
+			state = mo->info->state_crash;
+		else
+		if(attackrange <= 64 * FRACUNIT && mo->info->state_melee)
+			state = mo->info->state_melee;
+	}
+
+	if(state)
+		mobj_set_state(mo, state);
 
 	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
 	{

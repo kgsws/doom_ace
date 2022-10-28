@@ -25,6 +25,9 @@
 
 #define NUM_STATE_HOOKS	1
 
+#define CUSTOM_STATE_STORAGE	((custom_state_t*)((void*)d_visplanes))
+#define MAX_CUSTOM_STATES	2048
+
 enum
 {
 	DT_U8,
@@ -54,6 +57,12 @@ enum
 	DT_PP_INV_SLOT,
 	DT_STATES,
 };
+
+typedef struct
+{
+	uint8_t name[24];
+	uint32_t state;
+} custom_state_t;
 
 typedef struct
 {
@@ -182,6 +191,7 @@ uint16_t player_class[MAX_PLAYER_CLASSES];
 static hook_t hook_states[NUM_STATE_HOOKS];
 
 void *dec_es_ptr;
+static uint32_t num_custom_states;
 
 uint8_t *parse_actor_name;
 
@@ -191,9 +201,6 @@ static uint32_t parse_last_anim;
 
 static void *extra_stuff_cur;
 static void *extra_stuff_next;
-
-uint8_t damage_pain_custom[NUM_DAMAGE_TYPES - DAMAGE_CUSTOM_0][24];
-uint8_t damage_death_custom[NUM_DAMAGE_TYPES - DAMAGE_CUSTOM_0][24];
 
 //
 static uint32_t parse_damage();
@@ -415,47 +422,16 @@ static const dec_anim_t mobj_anim[] =
 {
 	{"spawn", ANIM_SPAWN, ETYPE_NONE, offsetof(mobjinfo_t, state_spawn)},
 	{"see", ANIM_SEE, ETYPE_NONE, offsetof(mobjinfo_t, state_see)},
+	{"pain", ANIM_PAIN + DAMAGE_NORMAL, ETYPE_NONE, offsetof(mobjinfo_t, state_pain)},
 	{"melee", ANIM_MELEE, ETYPE_NONE, offsetof(mobjinfo_t, state_melee)},
 	{"missile", ANIM_MISSILE, ETYPE_NONE, offsetof(mobjinfo_t, state_missile)},
+	{"death", ANIM_DEATH + DAMAGE_NORMAL, ETYPE_NONE, offsetof(mobjinfo_t, state_death)},
 	{"xdeath", ANIM_XDEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_xdeath)},
 	{"raise", ANIM_RAISE, ETYPE_NONE, offsetof(mobjinfo_t, state_raise)},
 	{"heal", ANIM_HEAL, ETYPE_NONE, offsetof(mobjinfo_t, state_heal)},
 	{"crush", ANIM_CRUSH, ETYPE_NONE, offsetof(mobjinfo_t, state_crush)},
 	{"crash", ANIM_CRASH, ETYPE_NONE, offsetof(mobjinfo_t, state_crash)},
-	// pain
-	{"pain", ANIM_PAIN + DAMAGE_NORMAL, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_NORMAL])},
-	{"pain.ice", ANIM_PAIN + DAMAGE_ICE, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_ICE])},
-	{"pain.fire", ANIM_PAIN + DAMAGE_FIRE, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_FIRE])},
-	{"pain.disintegrate", ANIM_PAIN + DAMAGE_DISINTEGRATE, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_DISINTEGRATE])},
-	{"pain.electric", ANIM_PAIN + DAMAGE_ELECTRIC, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_ELECTRIC])},
-	{damage_pain_custom[0], ANIM_PAIN + DAMAGE_CUSTOM_0, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_0])},
-	{damage_pain_custom[1], ANIM_PAIN + DAMAGE_CUSTOM_1, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_1])},
-	{damage_pain_custom[2], ANIM_PAIN + DAMAGE_CUSTOM_2, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_2])},
-	{damage_pain_custom[3], ANIM_PAIN + DAMAGE_CUSTOM_3, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_3])},
-	{damage_pain_custom[4], ANIM_PAIN + DAMAGE_CUSTOM_4, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_4])},
-	{damage_pain_custom[5], ANIM_PAIN + DAMAGE_CUSTOM_5, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_5])},
-	{damage_pain_custom[6], ANIM_PAIN + DAMAGE_CUSTOM_6, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_6])},
-	{damage_pain_custom[7], ANIM_PAIN + DAMAGE_CUSTOM_7, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_7])},
-	{damage_pain_custom[8], ANIM_PAIN + DAMAGE_CUSTOM_8, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_8])},
-	{damage_pain_custom[9], ANIM_PAIN + DAMAGE_CUSTOM_9, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_9])},
-	{damage_pain_custom[10], ANIM_PAIN + DAMAGE_CUSTOM_10, ETYPE_NONE, offsetof(mobjinfo_t, state_pain[DAMAGE_CUSTOM_10])},
-	// death
-	{"death", ANIM_DEATH + DAMAGE_NORMAL, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_NORMAL])},
-	{"death.ice", ANIM_DEATH + DAMAGE_ICE, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_ICE])},
-	{"death.fire", ANIM_DEATH + DAMAGE_FIRE, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_FIRE])},
-	{"death.disintegrate", ANIM_DEATH + DAMAGE_DISINTEGRATE, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_DISINTEGRATE])},
-	{"death.electric", ANIM_DEATH + DAMAGE_ELECTRIC, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_ELECTRIC])},
-	{damage_death_custom[0], ANIM_DEATH + DAMAGE_CUSTOM_0, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_0])},
-	{damage_death_custom[1], ANIM_DEATH + DAMAGE_CUSTOM_1, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_1])},
-	{damage_death_custom[2], ANIM_DEATH + DAMAGE_CUSTOM_2, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_2])},
-	{damage_death_custom[3], ANIM_DEATH + DAMAGE_CUSTOM_3, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_3])},
-	{damage_death_custom[4], ANIM_DEATH + DAMAGE_CUSTOM_4, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_4])},
-	{damage_death_custom[5], ANIM_DEATH + DAMAGE_CUSTOM_5, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_5])},
-	{damage_death_custom[6], ANIM_DEATH + DAMAGE_CUSTOM_6, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_6])},
-	{damage_death_custom[7], ANIM_DEATH + DAMAGE_CUSTOM_7, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_7])},
-	{damage_death_custom[8], ANIM_DEATH + DAMAGE_CUSTOM_8, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_8])},
-	{damage_death_custom[9], ANIM_DEATH + DAMAGE_CUSTOM_9, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_9])},
-	{damage_death_custom[10], ANIM_DEATH + DAMAGE_CUSTOM_10, ETYPE_NONE, offsetof(mobjinfo_t, state_death[DAMAGE_CUSTOM_10])},
+	{"crash.extreme", ANIM_XCRASH, ETYPE_NONE, offsetof(mobjinfo_t, state_xcrash)},
 	// weapon
 	{"ready", ANIM_W_READY, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.ready)},
 	{"deselect", ANIM_W_LOWER, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.lower)},
@@ -1216,6 +1192,67 @@ void *dec_es_alloc(uint32_t size)
 		I_Error("[MEMORY] Extra storage allocation failed!");
 
 	return ptr;
+}
+
+//
+// custom states
+
+custom_damage_state_t *dec_get_damage_animation(custom_damage_state_t *cst, uint32_t type)
+{
+	while(cst->type)
+	{
+		if(cst->type == type)
+			return cst;
+		cst++;
+	}
+	return NULL;
+}
+
+uint32_t dec_get_custom_state(const uint8_t *name, int32_t idx)
+{
+	idx &= 0x00FFFFFF;
+	for(uint32_t i = 0; i < num_custom_states; i++)
+	{
+		if(!strcmp(name, CUSTOM_STATE_STORAGE[i].name))
+		{
+			if(!(idx & 0x00800000))
+				CUSTOM_STATE_STORAGE[i].state = idx;
+			return i;
+		}
+	}
+
+	if(num_custom_states == MAX_CUSTOM_STATES)
+		I_Error("[DECORATE] Too many custom states!");
+
+	strncpy(CUSTOM_STATE_STORAGE[num_custom_states].name, name, 24);
+	CUSTOM_STATE_STORAGE[num_custom_states].state = idx;
+
+	return num_custom_states++;
+}
+
+static uint32_t find_custom_state(const uint8_t *name)
+{
+	for(uint32_t i = 0; i < num_custom_states; i++)
+	{
+		if(!strcmp(name, CUSTOM_STATE_STORAGE[i].name))
+			return CUSTOM_STATE_STORAGE[i].state;
+	}
+	return 0;
+}
+
+static void update_custom_state(uint32_t *ptr, uint32_t limit)
+{
+	uint32_t idx = (*ptr >> 16) & 0x3FFF;
+	uint32_t offs = *ptr & 0xFFFF;
+
+	if(CUSTOM_STATE_STORAGE[idx].state & 0x00800000)
+		I_Error("[DECORATE] Custom state '%s' never defined in '%s'!", CUSTOM_STATE_STORAGE[idx].name, parse_actor_name);
+
+	idx = CUSTOM_STATE_STORAGE[idx].state + offs;
+	if(idx >= limit)
+		I_Error("[DECORATE] Invalid custom jump '%s' + %u in '%s'!", CUSTOM_STATE_STORAGE[idx].name, offs, parse_actor_name);
+
+	*ptr = idx;
 }
 
 //
@@ -2148,6 +2185,7 @@ static uint32_t parse_states()
 	parse_last_anim = 0;
 	parse_next_state = NULL;
 	unfinished = 0;
+	num_custom_states = 0;
 
 	while(1)
 	{
@@ -2192,7 +2230,7 @@ have_keyword:
 		} else
 		if(!strcmp(kw, "goto"))
 		{
-			uint32_t i;
+			uint32_t aidx;
 			const dec_anim_t *anim;
 
 			if(!parse_next_state)
@@ -2228,8 +2266,9 @@ have_keyword:
 						return 1;
 					goto skip_math;
 				}
-				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
-			}
+				aidx = dec_get_custom_state(kw, -1) | 0x80000000;
+			} else
+				aidx = anim->idx;
 
 			// check for '+'
 			kw = tp_get_keyword_lc();
@@ -2252,8 +2291,12 @@ have_keyword:
 			} else
 				tics = 0;
 
-			// use animation 'system'
-			*parse_next_state = STATE_SET_ANIMATION(anim->idx, tics);
+			if(aidx & 0x80000000)
+				// temporary custom state
+				*parse_next_state = STATE_TEMPORARY_CUSTOM(aidx, tics);
+			else
+				// use animation 'system'
+				*parse_next_state = STATE_SET_ANIMATION(aidx, tics);
 skip_math:
 			// disable math
 			tp_enable_math = 0;
@@ -2285,12 +2328,14 @@ skip_math:
 				anim++;
 			}
 			if(!anim->name)
-				I_Error("[DECORATE] Unknown animation '%s' in '%s'!", kw, parse_actor_name);
+				// custom state
+				dec_get_custom_state(kw, num_states);
+			else
+				*((uint16_t*)((void*)parse_mobj_info + anim->offset)) = num_states;
 
 			parse_last_anim = num_states;
-			*((uint16_t*)((void*)parse_mobj_info + anim->offset)) = num_states;
-
 			unfinished = 1;
+
 			continue;
 		}
 
@@ -2358,6 +2403,10 @@ skip_math:
 	// sanity check
 	if(unfinished)
 		I_Error("[DECORATE] Unfinised animation in '%s'!", parse_actor_name);
+
+	// state limit check
+	if(num_states >= 0x10000)
+		I_Error("[DECORATE] So. Many. States.");
 
 	// create a loopback
 	// this is how ZDoom behaves
@@ -2676,6 +2725,61 @@ static void cb_parse_actors(lumpinfo_t *li)
 		info->extra_stuff[0] = extra_stuff_cur;
 		info->extra_stuff[1] = extra_stuff_next;
 
+		// resolve custom states
+		for(uint32_t i = parse_mobj_info->state_idx_first; i < parse_mobj_info->state_idx_limit; i++)
+		{
+			state_t *st = states + i;
+			if(st->nextstate & 0x40000000)
+				update_custom_state(&st->nextstate, num_states);
+		}
+
+		// find damage type animations
+		{
+			custom_damage_state_t *cst = NULL;
+			uint8_t name[64];
+
+			info->damage_states = (void*)dec_es_ptr;
+
+			for(uint32_t i = 1; i < NUM_DAMAGE_TYPES; i++) // 'normal' does not count
+			{
+				uint16_t death;
+				uint16_t xdeath;
+				uint16_t crash;
+				uint16_t xcrash;
+				uint16_t pain;
+
+				doom_sprintf(name, "death.%s", damage_type_name[i]);
+				death = find_custom_state(name);
+				doom_sprintf(name, "xdeath.%s", damage_type_name[i]);
+				xdeath = find_custom_state(name);
+				doom_sprintf(name, "crash.%s", damage_type_name[i]);
+				crash = find_custom_state(name);
+				doom_sprintf(name, "crash.extreme.%s", damage_type_name[i]);
+				xcrash = find_custom_state(name);
+				doom_sprintf(name, "pain.%s", damage_type_name[i]);
+				pain = find_custom_state(name);
+
+				if(death | xdeath | crash | xcrash | pain)
+				{
+					cst = dec_es_alloc(sizeof(custom_damage_state_t));
+					cst->type = i;
+					cst->death = death;
+					cst->xdeath = xdeath;
+					cst->crash = crash;
+					cst->xcrash = xcrash;
+					cst->pain = pain;
+				}
+			}
+
+			if(cst)
+			{
+				// terminator
+				cst = dec_es_alloc(sizeof(uint16_t));
+				cst->type = 0;
+			} else
+				info->damage_states = NULL;
+		}
+
 		// process extra storage
 		if(dec_es_ptr != EXTRA_STORAGE_PTR)
 		{
@@ -2689,6 +2793,10 @@ static void cb_parse_actors(lumpinfo_t *li)
 
 			num_states += size;
 			states = ldr_realloc(states, num_states * sizeof(state_t));
+
+			// state limit check
+			if(num_states >= 0x10000)
+				I_Error("[DECORATE] So. Many. States.");
 
 			// copy all the stuff
 			memcpy(states + idx, EXTRA_STORAGE_PTR, dec_es_ptr - EXTRA_STORAGE_PTR);
@@ -2793,10 +2901,10 @@ void init_decorate()
 		mobjinfo[i].seesound = deh_mobjinfo[i].seesound;
 		mobjinfo[i].reactiontime = deh_mobjinfo[i].reactiontime;
 		mobjinfo[i].attacksound = deh_mobjinfo[i].attacksound;
-		mobjinfo[i].state_pain[DAMAGE_NORMAL] = deh_mobjinfo[i].painstate;
+		mobjinfo[i].state_pain = deh_mobjinfo[i].painstate;
 		mobjinfo[i].painsound = deh_mobjinfo[i].painsound;
 		mobjinfo[i].state_missile = deh_mobjinfo[i].missilestate;
-		mobjinfo[i].state_death[DAMAGE_NORMAL] = deh_mobjinfo[i].deathstate;
+		mobjinfo[i].state_death = deh_mobjinfo[i].deathstate;
 		mobjinfo[i].state_xdeath = deh_mobjinfo[i].xdeathstate;
 		mobjinfo[i].deathsound = deh_mobjinfo[i].deathsound;
 		mobjinfo[i].speed = deh_mobjinfo[i].speed;
@@ -2980,6 +3088,10 @@ void init_decorate()
 			info->extra_stuff[1] = dec_reloc_es(target, info->extra_stuff[1]);
 		}
 
+		// custom damage animations
+		if(info->damage_states)
+			info->damage_states = dec_reloc_es(target, info->damage_states);
+
 		// PlayerPawn
 		if(info->extra_type == ETYPE_PLAYERPAWN)
 		{
@@ -3071,17 +3183,6 @@ void init_decorate()
 			else
 				info->painchance[i] = info->painchance[DAMAGE_NORMAL];
 
-			if(!info->state_pain[i])
-				info->state_pain[i] = info->state_pain[DAMAGE_NORMAL];
-
-			if(!info->state_death[i])
-			{
-				if(i == DAMAGE_ICE && (info->flags1 & MF1_ISMONSTER || info->extra_type == ETYPE_PLAYERPAWN))
-					info->state_death[i] = STATE_ICE_DEATH_0;
-				else
-					info->state_death[i] = info->state_death[DAMAGE_NORMAL];
-			}
-
 			if(info->damage_factor[i] == 0xFF)
 				info->damage_factor[i] = info->damage_factor[DAMAGE_NORMAL];
 		}
@@ -3120,6 +3221,9 @@ void init_decorate()
 
 	if(!num_player_classes)
 		I_Error("No player classes defined!");
+
+	// custom states are stored in visplanes; this memory has to be cleared
+	memset(CUSTOM_STATE_STORAGE, 0, sizeof(custom_state_t) * MAX_CUSTOM_STATES);
 }
 
 //

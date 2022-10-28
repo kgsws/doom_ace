@@ -195,6 +195,13 @@ static uint8_t *handle_angle(uint8_t *kw, const dec_arg_t *arg)
 	return kw;
 }
 
+static uint8_t *handle_translation(uint8_t *kw, const dec_arg_t *arg)
+{
+	void *ptr = r_translation_by_name(strlwr(kw));
+	*((void**)(parse_action_arg + arg->offset)) = ptr;
+	return tp_get_keyword();
+}
+
 static uint8_t *handle_damage(uint8_t *kw, const dec_arg_t *arg)
 {
 	uint32_t lo, hi, mul, add;
@@ -535,8 +542,9 @@ static void shatter_spawn(mobj_t *mo, uint32_t type)
 	if(count < 8)
 		count = 8;
 
+	// limit the amount for low-end PCs
+	count -= count >> 2;
 	if(count > 100)
-		// limit the amount for low-end PCs
 		count = 100;
 
 	do
@@ -1470,6 +1478,27 @@ void A_GiveInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_SetTranslation
+
+static const dec_args_t args_SetTranslation =
+{
+	.size = sizeof(args_singlePointer_t),
+	.arg =
+	{
+		{"translation", handle_translation, offsetof(args_singlePointer_t, value)},
+		// terminator
+		{NULL}
+	}
+};
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_SetTranslation(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singlePointer_t *arg = st->arg;
+	mo->translation = arg->value;
+}
+
+//
 // A_CheckPlayerDone
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1515,7 +1544,9 @@ void A_FreezeDeath(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mo->flags |= MF_NOBLOOD | MF_SHOOTABLE | MF_SOLID | MF_SLIDE;
 	mo->flags1 |= MF1_PUSHABLE | MF1_TELESTOMP;
 	mo->flags2 |= MF2_ICECORPSE;
+	mo->iflags |= MFI_CRASHED;
 	mo->tics = 75 + P_Random() + P_Random();
+	mo->render_style = RS_NORMAL;
 
 	if(!(mo->flags1 & MF1_DONTFALL))
 		mo->flags &= ~MF_NOGRAVITY;
@@ -1689,6 +1720,8 @@ static const dec_action_t mobj_action[] =
 	{"a_freezedeath", A_FreezeDeath},
 	{"a_genericfreezedeath", A_GenericFreezeDeath},
 	{"a_freezedeathchunks", A_FreezeDeathChunks},
+	// render
+	{"a_settranslation", A_SetTranslation, &args_SetTranslation},
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_setangle", A_SetAngle, &args_SetAngle},

@@ -49,3 +49,6 @@ extern uint32_t doom_data_segment;
 void utils_init();
 void utils_install_hooks(const hook_t *table, uint32_t count);
 
+char *strlwr(char *str);
+char *strupr(char *str);
+

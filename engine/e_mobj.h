@@ -1,5 +1,6 @@
 // ANIMATIONS
 #define STATE_SET_ANIMATION(anim,offset)	(0x80000000 | ((anim) << 16) | (offset))
+#define STATE_TEMPORARY_CUSTOM(idx,offset)	(0x40000000 | ((idx) << 16) | (offset))
 
 // damage types
 enum
@@ -29,8 +30,10 @@ enum
 {
 	ANIM_SPAWN, // must be zero
 	ANIM_SEE,
+	ANIM_PAIN,
 	ANIM_MELEE,
 	ANIM_MISSILE,
+	ANIM_DEATH,
 	ANIM_XDEATH,
 	ANIM_RAISE,
 	//
@@ -39,12 +42,7 @@ enum
 	ANIM_HEAL = LAST_MOBJ_STATE_HACK,
 	ANIM_CRUSH,
 	ANIM_CRASH,
-	// pain
-	ANIM_PAIN,
-	ANIM_PAIN_LAST = ANIM_PAIN + NUM_DAMAGE_TYPES - 1,
-	// death
-	ANIM_DEATH,
-	ANIM_DEATH_LAST = ANIM_DEATH + NUM_DAMAGE_TYPES - 1,
+	ANIM_XCRASH,
 	//
 	NUM_MOBJ_ANIMS
 };
@@ -149,6 +147,7 @@ enum
 
 // internal FLAGS
 #define MFI_SHATTERING	0x00000001
+#define MFI_CRASHED	0x00000002
 
 // FLAGS extra (inventory) [shared]
 #define MFE_INVENTORY_QUIET	0x00000001

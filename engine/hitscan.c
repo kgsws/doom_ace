@@ -105,7 +105,7 @@ fixed_t hs_intercept_vector(divline_t *v2, divline_t *v1)
 
 	num.w = (int64_t)v1m2x * (int64_t)v1dy + (int64_t)v2m1y * (int64_t)v1dx;
 
-	if((num.w < -2147483647 || num.w > 2147483647) && den >= -2 && den <= 2)
+	if(abs(den) <= abs(num.w >> 31))
 		return FRACUNIT;
 
 //	return num.w / den; // this should work, but GCC wants to use '__divdi3'

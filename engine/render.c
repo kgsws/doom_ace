@@ -17,6 +17,8 @@
 #include "textpars.h"
 #include "render.h"
 
+//#define RENDER_DEMO
+
 #define HEIGHTBITS	12
 #define HEIGHTUNIT	(1 << HEIGHTBITS)
 
@@ -56,6 +58,10 @@ uint32_t translation_count = NUM_EXTRA_TRANSLATIONS;
 
 pal_col_t r_palette[256];
 
+#ifdef RENDER_DEMO
+static uint_fast8_t render_demo;
+#endif
+
 // mouselook scale
 static const uint16_t look_scale_table[] =
 {
@@ -70,11 +76,76 @@ static const uint16_t look_scale_table[] =
 
 // basic colors
 uint8_t r_color_black;
+#ifdef RENDER_DEMO
+static uint8_t r_color_demo_real;
+static uint8_t r_color_demo_fakf;
+static uint8_t r_color_demo_fakc;
+#endif
 
 // hooks
 static hook_t hook_drawseg[];
 static hook_t hook_visplane[];
 static hook_t hook_vissprite[];
+
+//
+// demo mode
+
+#ifdef RENDER_DEMO
+static void R_DrawPlanes();
+
+static void render_demo_line()
+{
+	if(render_demo != 1)
+		return;
+	I_FinishUpdate();
+	I_WaitVBL(1);
+}
+
+static void render_demo_full()
+{
+	if(render_demo != 2)
+		return;
+	I_FinishUpdate();
+	I_WaitVBL(16);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void demo_span_func()
+{
+	spanfunc();
+	render_demo_line();
+}
+
+static void render_demo_pixels(uint32_t x, int32_t y0, int32_t y1, uint8_t color)
+{
+	uint8_t *dst;
+
+	if(render_demo != 2)
+		return;
+
+	if(y0 < 0)
+		y0 = 0;
+	if(y1 < 0)
+		y1 = 0;
+	if(y0 >= SCREENHEIGHT)
+		y0 = SCREENHEIGHT-1;
+	if(y1 >= SCREENHEIGHT)
+		y1 = SCREENHEIGHT-1;
+
+	dst = screen_buffer + x + y0 * SCREENWIDTH;
+	*dst = color;
+
+	if(y0 != y1)
+	{
+		dst += (y1 - y0) * SCREENWIDTH;
+		*dst = color + 6;
+	}
+
+	I_FinishUpdate();
+	I_WaitVBL(1);
+}
+
+#endif
 
 //
 // draw
@@ -146,6 +217,9 @@ void draw_solid_column(void *data, int32_t fc, int32_t cc, int32_t height)
 		dc_yh = bot;
 		dc_source = data;
 		colfunc();
+#ifdef RENDER_DEMO
+		render_demo_line();
+#endif
 	}
 }
 
@@ -176,6 +250,9 @@ void draw_masked_column(column_t *column, int32_t fc, int32_t cc)
 			dc_source = (uint8_t*)column + 3;
 			dc_texturemid = basetexturemid - (column->topdelta << FRACBITS);
 			colfunc();
+#ifdef RENDER_DEMO
+			render_demo_line();
+#endif
 		}
 		column = (column_t*)((uint8_t*)column + column->length + 4);
 	}
@@ -230,6 +307,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			while(pl)
 			{
 				if(	pl->alpha &&
+					pl->flags & E3D_DRAW_INISIDE &&
 					*pl->texture &&
 					clip_height_top <= pl->source->ceilingheight &&
 					clip_height_top > pl->source->floorheight
@@ -376,6 +454,9 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			topfrac += topstep;
 		spryscale += scalestep;
 	}
+#ifdef RENDER_DEMO
+	render_demo_full();
+#endif
 }
 
 static void R_RenderSegStripe(uint32_t texture, fixed_t top, fixed_t bot, int32_t light)
@@ -438,7 +519,9 @@ static void R_RenderSegStripe(uint32_t texture, fixed_t top, fixed_t bot, int32_
 
 		dc_source = texture_get_column(texture, texturecolumn);
 		colfunc();
-
+#ifdef RENDER_DEMO
+		render_demo_line();
+#endif
 		scalefrac += rw_scalestep;
 		tfrac += tstep;
 		bfrac += bstep;
@@ -470,6 +553,8 @@ static void render_striped_seg(uint32_t texture, fixed_t ht, fixed_t hb)
 			} else
 			if(h1 < h0 && light != *pl->light)
 			{
+				if(h1 < hb)
+					h1 = hb;
 				R_RenderSegStripe(texture, h0, h1, light);
 				h0 = h1;
 				light = *pl->light;
@@ -478,12 +563,74 @@ static void render_striped_seg(uint32_t texture, fixed_t ht, fixed_t hb)
 		pl = pl->next;
 	}
 	if(h0 > hb)
-		R_RenderSegStripe(texture, h0, hb, light);
+	{
+		if(h0 > ht)
+			h0 = ht;
+		if(h0 > hb)
+			R_RenderSegStripe(texture, h0, hb, light);
+	}
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 static void R_RenderSegLoop()
 {
+#ifdef RENDER_DEMO
+	if(render_demo > 1)
+	{
+		fixed_t tfrac = topfrac;
+		fixed_t bfrac = bottomfrac;
+		fixed_t lfrac = pixlow;
+		fixed_t hfrac = pixhigh;
+
+		for(uint32_t x = rw_x; x < rw_stopx; x++)
+		{
+			int32_t yl, yh;
+			uint8_t *dst = screen_buffer + x;
+
+			yl = (tfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+			if(yl < ceilingclip[x] + 1)
+				yl = ceilingclip[x] + 1;
+
+			yh = bfrac >> HEIGHTBITS;
+			if(yh >= floorclip[x])
+				yh = floorclip[x] - 1;
+
+			dst[yl * SCREENWIDTH] = r_color_demo_real;
+			dst[yh * SCREENWIDTH] = r_color_demo_real;
+
+			if(toptexture)
+			{
+				int32_t mid = hfrac >> HEIGHTBITS;
+				hfrac += pixhighstep;
+
+				if(mid >= floorclip[x])
+					mid = floorclip[x] - 1;
+
+				if(mid >= yl)
+					dst[mid * SCREENWIDTH] = r_color_demo_real;
+			}
+
+			if(bottomtexture)
+			{
+				int32_t mid = (lfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+				lfrac += pixlowstep;
+
+				if(mid <= ceilingclip[x])
+					mid = ceilingclip[x] + 1;
+
+				if(mid <= yh)
+					dst[mid * SCREENWIDTH] = r_color_demo_real;
+			}
+
+			I_FinishUpdate();
+			I_WaitVBL(1);
+
+			tfrac += topstep;
+			bfrac += bottomstep;
+		}
+	}
+#endif
+
 	if(!fixedcolormap && segtextured && frontsector->exfloor)
 	{
 		if(midtexture)
@@ -528,8 +675,7 @@ static void R_RenderSegLoop()
 	{
 		int32_t top;
 		int32_t bottom;
-		int32_t yl;
-		int32_t yh;
+		int32_t yl, yh;
 		fixed_t texturecolumn;
 
 		yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
@@ -595,6 +741,9 @@ static void R_RenderSegLoop()
 				dc_texturemid = rw_midtexturemid;
 				dc_source = texture_get_column(midtexture, texturecolumn);
 				colfunc();
+#ifdef RENDER_DEMO
+				render_demo_line();
+#endif
 			}
 			ceilingclip[x] = viewheight;
 			floorclip[x] = -1;
@@ -617,6 +766,9 @@ static void R_RenderSegLoop()
 						dc_texturemid = rw_toptexturemid;
 						dc_source = texture_get_column(toptexture, texturecolumn);
 						colfunc();
+#ifdef RENDER_DEMO
+						render_demo_line();
+#endif
 					}
 					ceilingclip[x] = mid;
 				} else
@@ -644,6 +796,9 @@ static void R_RenderSegLoop()
 						dc_texturemid = rw_bottomtexturemid;
 						dc_source = texture_get_column(bottomtexture, texturecolumn);
 						colfunc();
+#ifdef RENDER_DEMO
+						render_demo_line();
+#endif
 					}
 					floorclip[x] = mid;
 				} else
@@ -662,6 +817,19 @@ static void R_RenderSegLoop()
 		topfrac += topstep;
 		bottomfrac += bottomstep;
 	}
+#ifdef RENDER_DEMO
+	render_demo_full();
+#endif
+#ifdef RENDER_DEMO
+	if(render_demo)
+	{
+		if(floorplane)
+			r_draw_plane(floorplane);
+		if(ceilingplane)
+			r_draw_plane(ceilingplane);
+		lastvisplane = ptr_visplanes;
+	}
+#endif
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -883,6 +1051,7 @@ static void draw_masked()
 
 static inline void draw_masked_range()
 {
+#if 1
 	fixed_t ht;
 	extra_height_t *hh;
 
@@ -925,6 +1094,14 @@ static inline void draw_masked_range()
 	// middle - sprites and lines
 	clip_height_top = ht;
 	draw_masked();
+#else
+	// UNSORTED!
+	clip_height_top = ONCEILINGZ;
+	clip_height_bot = ONFLOORZ;
+	R_SortVisSprites();
+	e3d_draw_planes();
+	draw_masked();
+#endif
 }
 
 void r_draw_plane(visplane_t *pl)
@@ -967,6 +1144,10 @@ void r_draw_plane(visplane_t *pl)
 
 	if(oldfunc)
 		spanfunc = oldfunc;
+
+#ifdef RENDER_DEMO
+	render_demo_full();
+#endif
 }
 
 static void R_DrawPlanes()
@@ -990,8 +1171,14 @@ static void R_DrawPlanes()
 					dc_x = x;
 					dc_source = texture_get_column(texturetranslation[skytexture], angle);
 					colfunc();
+#ifdef RENDER_DEMO
+					render_demo_line();
+#endif
 				}
 			}
+#ifdef RENDER_DEMO
+			render_demo_full();
+#endif
 			continue;
 		}
 
@@ -1013,6 +1200,12 @@ static void store_fake_range(int32_t start, int32_t stop)
 	int32_t world;
 	int32_t worldstep;
 	int32_t worldfrac;
+#ifdef RENDER_DEMO
+	uint32_t show_plane = 0;
+
+	if(render_demo == 2)
+		memcpy(screen_buffer + SCREENWIDTH * SCREENHEIGHT, screen_buffer, SCREENWIDTH * SCREENHEIGHT);
+#endif
 
 	rw_normalangle = seg->angle + ANG90;
 	offsetangle = abs(rw_normalangle - rw_angle1);
@@ -1038,6 +1231,13 @@ static void store_fake_range(int32_t start, int32_t stop)
 
 	if(fakeplane_floor)
 	{
+#ifdef RENDER_DEMO
+		if(render_demo == 2)
+		{
+			fakeplane_floor->minx = start;
+			fakeplane_floor->maxx = stop;
+		} else
+#endif
 		fakeplane_floor = e3d_check_plane(fakeplane_floor, start, stop);
 		if(!fakeplane_floor)
 			return;
@@ -1057,6 +1257,10 @@ static void store_fake_range(int32_t start, int32_t stop)
 			{
 				fakeplane_floor->top[start] = top;
 				fakeplane_floor->bottom[start] = bot;
+#ifdef RENDER_DEMO
+				show_plane |= 2;
+				render_demo_pixels(start, top, bot, r_color_demo_fakf);
+#endif
 			}
 
 			worldfrac += worldstep;
@@ -1065,6 +1269,13 @@ static void store_fake_range(int32_t start, int32_t stop)
 	} else
 	if(fakeplane_ceiling)
 	{
+#ifdef RENDER_DEMO
+		if(render_demo == 2)
+		{
+			fakeplane_ceiling->minx = start;
+			fakeplane_ceiling->maxx = stop;
+		} else
+#endif
 		fakeplane_ceiling = e3d_check_plane(fakeplane_ceiling, start, stop);
 		if(!fakeplane_ceiling)
 			return;
@@ -1084,6 +1295,10 @@ static void store_fake_range(int32_t start, int32_t stop)
 			{
 				fakeplane_ceiling->top[start] = top;
 				fakeplane_ceiling->bottom[start] = bot;
+#ifdef RENDER_DEMO
+				show_plane |= 1;
+				render_demo_pixels(start, top, bot, r_color_demo_fakc);
+#endif
 			}
 
 			worldfrac += worldstep;
@@ -1102,7 +1317,12 @@ static void store_fake_range(int32_t start, int32_t stop)
 				y = floorclip[start];
 
 			e_floorclip[start] = y;
-
+#ifdef RENDER_DEMO
+			y--;
+			if(y > floorclip[start])
+				y = floorclip[start];
+			render_demo_pixels(start, y, y, r_color_demo_fakf);
+#endif
 			worldfrac += worldstep;
 			start++;
 		}
@@ -1119,11 +1339,45 @@ static void store_fake_range(int32_t start, int32_t stop)
 				y = ceilingclip[start];
 
 			e_ceilingclip[start] = y;
-
+#ifdef RENDER_DEMO
+			if(y < ceilingclip[start])
+				y = ceilingclip[start];
+			render_demo_pixels(start, y, y, r_color_demo_fakc);
+#endif
 			worldfrac += worldstep;
 			start++;
 		}
 	}
+
+#ifdef RENDER_DEMO
+	if(render_demo != 2)
+		return;
+
+	for(uint32_t i = 0; i < 3; i++)
+	{
+		uint32_t light;
+
+		if(show_plane & 2)
+		{
+			light = fakeplane_floor->lightlevel;
+			fakeplane_floor->lightlevel = 255;
+			r_draw_plane(fakeplane_floor);
+			fakeplane_floor->lightlevel = light;
+		}
+		if(show_plane & 1)
+		{
+			light = fakeplane_ceiling->lightlevel;
+			fakeplane_ceiling->lightlevel = 255;
+			r_draw_plane(fakeplane_ceiling);
+			fakeplane_ceiling->lightlevel = light;
+		}
+
+		memcpy(screen_buffer, screen_buffer + SCREENWIDTH * SCREENHEIGHT, SCREENWIDTH * SCREENHEIGHT);
+
+		I_FinishUpdate();
+		I_WaitVBL(16);
+	}
+#endif
 }
 
 static inline void clip_fake_segment(int32_t first, int32_t last)
@@ -1241,7 +1495,17 @@ void R_Subsector(uint32_t num)
 		}
 
 		fakesource = pl;
+#ifdef RENDER_DEMO
+		if(render_demo == 2)
+		{
+			fakeplane_floor = e3d_find_plane(*pl->height, 0xFFFF, light, pl->alpha);
+			if(fakeplane_floor)
+				fakeplane_floor->picnum = *pl->pic;
+		} else
+			fakeplane_floor = e3d_find_plane(*pl->height, *pl->pic, light, pl->alpha);
+#else
 		fakeplane_floor = e3d_find_plane(*pl->height, *pl->pic, light, pl->alpha);
+#endif
 		if(fakeplane_floor)
 		{
 			count = sub->numlines;
@@ -1294,7 +1558,17 @@ void R_Subsector(uint32_t num)
 		}
 
 		fakesource = pl;
+#ifdef RENDER_DEMO
+		if(render_demo == 2)
+		{
+			fakeplane_ceiling = e3d_find_plane(*pl->height, 0xFFFF, light, pl->alpha);
+			if(fakeplane_ceiling)
+				fakeplane_ceiling->picnum = *pl->pic;
+		} else
+			fakeplane_ceiling = e3d_find_plane(*pl->height, *pl->pic, light, pl->alpha);
+#else
 		fakeplane_ceiling = e3d_find_plane(*pl->height, *pl->pic, light, pl->alpha);
+#endif
 		if(fakeplane_ceiling)
 		{
 			count = sub->numlines;
@@ -1797,6 +2071,11 @@ void init_render()
 
 	// find some colors
 	r_color_black = r_find_color(0, 0, 0);
+#ifdef RENDER_DEMO
+	r_color_demo_real = r_find_color(255, 255, 255);
+	r_color_demo_fakf = r_find_color(255, 255, 0);
+	r_color_demo_fakc = r_find_color(0, 255, 255);
+#endif
 
 	// drawseg limit
 	if(mod_config.drawseg_count > 256)
@@ -1921,6 +2200,17 @@ void init_render()
 
 void render_player_view(player_t *pl)
 {
+#ifdef RENDER_DEMO
+	if(gamekeydown['r'])
+	{
+		gamekeydown['r'] = 0;
+		render_demo = gamekeydown[182] ? 2 : 1;
+		doom_printf("[RENDER] Demo mode %u\n", render_demo);
+		memset(screen_buffer, 0, SCREENWIDTH * SCREENHEIGHT);
+		I_FinishUpdate();
+		I_WaitVBL(2);
+	}
+#endif
 	// cleanup new stuff
 	e3d_reset();
 	// solid drawing
@@ -1932,6 +2222,14 @@ void render_player_view(player_t *pl)
 	draw_masked_range();
 	// weapon sprites
 	draw_player_sprites();
+#ifdef RENDER_DEMO
+	if(render_demo)
+	{
+		render_demo = 0;
+		I_FinishUpdate();
+		I_WaitVBL(16);
+	}
+#endif
 }
 
 //
@@ -2044,7 +2342,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00035FB0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)custom_SetupFrame},
 	// skip 'R_DrawMasked' in 'R_RenderPlayerView'
 	{0x00035FE3, CODE_HOOK | HOOK_JMP_DOOM, 0x0001F170},
-	// skip call to 'R_DrawPlanes' in 'R_RenderPlayerView'
+	// replace to 'R_DrawPlanes' in 'R_RenderPlayerView'
 	{0x00035FDE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawPlanes},
 	// replace 'R_DrawVisSprite'
 	{0x000381FE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawVisSprite},
@@ -2085,5 +2383,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000235F0, CODE_HOOK | HOOK_UINT8, 10},
 	// call 'R_RenderPlayerView' even in automap
 	{0x0001D32B, CODE_HOOK | HOOK_UINT16, 0x07EB},
+#ifdef RENDER_DEMO
+	// change 'spanfunc' in 'R_MapPlane'
+	{0x000361A3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)demo_span_func},
+	{0x000361A8, CODE_HOOK | HOOK_UINT8, 0x90},
+#endif
 };
 

@@ -5,6 +5,7 @@
 #define E3D_BLOCK_HITSCAN	2
 #define E3D_BLOCK_SIGHT	4
 #define E3D_ADDITIVE	8
+#define E3D_DRAW_INISIDE	16
 
 #define E3D_SWAP_PLANES	0x10000
 
@@ -45,6 +46,7 @@ void e3d_init(uint32_t count);
 void e3d_create();
 void e3d_reset();
 void e3d_draw_height(fixed_t);
+void e3d_draw_planes();
 
 //
 

@@ -417,6 +417,13 @@ void e3d_draw_height(fixed_t height)
 	}
 }
 
+void e3d_draw_planes()
+{
+	// not really used
+	for(visplane_t *pl = e3dplanes; pl < cur_plane; pl++)
+		r_draw_plane(pl);
+}
+
 void e3d_reset()
 {
 	// planes
@@ -478,6 +485,9 @@ void e3d_create()
 			flags = E3D_SOLID | E3D_BLOCK_HITSCAN | E3D_BLOCK_SIGHT;
 		else
 			flags = 0;
+
+		if(ln->arg1 & 4)
+			flags |= E3D_DRAW_INISIDE;
 
 		if(ln->arg1 & 16)
 			flags ^= E3D_BLOCK_SIGHT;

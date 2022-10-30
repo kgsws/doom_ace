@@ -6,6 +6,8 @@
 #include "utils.h"
 #include "draw.h"
 
+#define DC_ISCALE_HACK	0x80
+
 uint8_t *dr_tinttab;
 uint8_t ds_maskcolor;
 
@@ -26,7 +28,7 @@ static int16_t fuzzoffset[FUZZTABLE] =
 
 //
 // column drawers
-// - subtract 0x80 from dc_iscale as an atempt to fix "leaking pixels"
+// - subtract DC_ISCALE_HACK from dc_iscale as an atempt to fix "leaking pixels"
 
 __attribute((regparm(2),no_caller_saved_registers))
 void R_DrawSkyColumn()
@@ -69,7 +71,7 @@ void R_DrawColumn()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale - 0x80;
+	step = dc_iscale - DC_ISCALE_HACK;
 
 	do
 	{
@@ -94,7 +96,7 @@ void R_DrawColumnTint0()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale - 0x80;
+	step = dc_iscale - DC_ISCALE_HACK;
 
 	do
 	{
@@ -120,7 +122,7 @@ void R_DrawColumnTint1()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale - 0x80;
+	step = dc_iscale - DC_ISCALE_HACK;
 
 	do
 	{
@@ -196,7 +198,7 @@ void R_DrawTranslatedColumn()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale - 0x80;
+	step = dc_iscale - DC_ISCALE_HACK;
 
 	do
 	{
@@ -221,7 +223,7 @@ void R_DrawTranslatedColumnTint0()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale - 0x80;
+	step = dc_iscale - DC_ISCALE_HACK;
 
 	do
 	{
@@ -247,7 +249,7 @@ void R_DrawTranslatedColumnTint1()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale - 0x80;
+	step = dc_iscale - DC_ISCALE_HACK;
 
 	do
 	{

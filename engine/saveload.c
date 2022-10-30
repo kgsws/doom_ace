@@ -31,7 +31,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA7	// increment with updates
+#define SAVE_VERSION	0xE58BAFA8	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -704,7 +704,7 @@ static inline void sv_put_linedefs_doom(int32_t lump)
 		line_t *line = lines + i;
 		uint32_t flags = 0;
 
-		flags |= (line->flags != ml[i].flags) << SF_LINE_FLAGS;
+		flags |= ((line->flags & ~ML_MAPPED) != (ml[i].flags & ~ML_MAPPED)) << SF_LINE_FLAGS;
 		flags |= (line->special != ml[i].special) << SF_LINE_SPECIAL;
 		flags |= (line->tag != ml[i].tag) << SF_LINE_TAG;
 
@@ -739,7 +739,7 @@ static inline void sv_put_linedefs_hexen(int32_t lump)
 		line_t *line = lines + i;
 		uint32_t flags = 0;
 
-		flags |= (line->flags != ml[i].flags) << SF_LINE_FLAGS;
+		flags |= ((line->flags & ~ML_MAPPED) != (ml[i].flags & ~ML_MAPPED)) << SF_LINE_FLAGS;
 		flags |= (line->special != ml[i].special) << SF_LINE_SPECIAL; // this also stores hexflags
 		flags |= (!!line->id) << SF_LINE_TAG;
 		flags |= (line->arg0 != ml->arg0) << SF_LINE_TAG;
@@ -1163,6 +1163,25 @@ static inline void sv_put_players()
 	writer_add_u16(0);
 }
 
+static inline void sv_put_mapped_lines()
+{
+	uint32_t flags;
+
+	for(uint32_t i = 0; i < numlines; i++)
+	{
+		uint32_t bit = 1 << (i & 31);
+
+		if(bit == 1)
+			flags = 0;
+
+		if(lines[i].flags & ML_MAPPED)
+			flags |= bit;
+
+		if(bit == 0x80000000 || i == numlines - 1)
+			writer_add_u32(flags);
+	}
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void do_save()
 {
@@ -1267,6 +1286,10 @@ void do_save()
 
 	// players
 	sv_put_players();
+	writer_add_u32(SAVE_VERSION);
+
+	// mapped lines list
+	sv_put_mapped_lines();
 	writer_add_u32(SAVE_VERSION);
 
 	// DONE
@@ -2055,6 +2078,27 @@ static inline uint32_t ld_get_players()
 	return reader_get_u32(&version) || version != SAVE_VERSION;
 }
 
+static inline uint32_t ld_get_mapped_lines()
+{
+	uint32_t flags;
+
+	for(uint32_t i = 0; i < numlines; i++)
+	{
+		uint32_t bit = 1 << (i & 31);
+
+		if(bit == 1)
+		{
+			if(reader_get_u32(&flags))
+				return 1;
+		}
+
+		if(flags & bit)
+			lines[i].flags |= ML_MAPPED;
+	}
+
+	return reader_get_u32(&flags) || flags != SAVE_VERSION;
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void do_load()
 {
@@ -2141,6 +2185,9 @@ void do_load()
 
 	// players
 	if(ld_get_players())
+		goto error_fail;
+
+	if(ld_get_mapped_lines())
 		goto error_fail;
 
 	if(!playeringame[consoleplayer])

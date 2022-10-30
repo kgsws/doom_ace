@@ -573,7 +573,7 @@ typedef struct mobjinfo_s
 	uint16_t __free_26;
 	uint32_t state_pain;
 	uint16_t damage_type;
-	uint16_t __free_34;
+	uint16_t blood_type;
 	uint16_t painsound;
 	uint16_t __free_38;
 	uint32_t state_melee;
@@ -607,6 +607,7 @@ typedef struct mobjinfo_s
 	fixed_t dropoff;
 	fixed_t gravity;
 	uint8_t *translation;
+	uint8_t *blood_trns;
 	// damage type stuff
 	uint16_t painchance[NUM_DAMAGE_TYPES];
 	uint8_t damage_factor[NUM_DAMAGE_TYPES];

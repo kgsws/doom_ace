@@ -25,7 +25,7 @@
 
 #define NUM_STATE_HOOKS	1
 
-#define CUSTOM_STATE_STORAGE	((custom_state_t*)((void*)d_visplanes))
+#define CUSTOM_STATE_STORAGE	((custom_state_t*)d_visplanes)
 #define MAX_CUSTOM_STATES	2048
 
 enum
@@ -44,6 +44,7 @@ enum
 	DT_RENDER_STYLE,
 	DT_RENDER_ALPHA,
 	DT_TRANSLATION,
+	DT_BLOODLATION,
 	DT_POWERUP_TYPE,
 	DT_POWERUP_MODE,
 	DT_POWERUP_COLOR,
@@ -236,6 +237,7 @@ static const mobjinfo_t default_mobj =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 };
@@ -249,6 +251,7 @@ static const mobjinfo_t default_player =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.painchance[DAMAGE_NORMAL] = 255,
@@ -270,6 +273,7 @@ static const mobjinfo_t default_health =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
@@ -288,6 +292,7 @@ static mobjinfo_t default_inventory =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
@@ -307,6 +312,7 @@ static const mobjinfo_t default_weapon =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
@@ -327,6 +333,7 @@ static mobjinfo_t default_ammo =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
@@ -346,6 +353,7 @@ static const mobjinfo_t default_key =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL | MF_NOTDMATCH,
@@ -365,6 +373,7 @@ static mobjinfo_t default_armor =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
@@ -385,6 +394,7 @@ static mobjinfo_t default_armor_bonus =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
@@ -406,6 +416,7 @@ static mobjinfo_t default_powerup =
 	.step_height = 24 * FRACUNIT,
 	.dropoff = 24 * FRACUNIT,
 	.mass = 100,
+	.blood_type = 38,
 	.gravity = FRACUNIT,
 	.render_alpha = 255,
 	.flags = MF_SPECIAL,
@@ -473,6 +484,9 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"species", DT_MOBJTYPE, offsetof(mobjinfo_t, species)},
 	//
+	{"bloodtype", DT_MOBJTYPE, offsetof(mobjinfo_t, blood_type)},
+	{"bloodcolor", DT_BLOODLATION},
+	//
 	{"dropitem", DT_DROPITEM},
 	//
 	{"activesound", DT_SOUND, offsetof(mobjinfo_t, activesound)},
@@ -494,6 +508,7 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"obituary", DT_SKIP1},
 	{"hitobituary", DT_SKIP1},
+	{"decal", DT_SKIP1},
 	// terminator
 	{NULL}
 };
@@ -921,6 +936,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.alias = 0xFFFFFFFFFFFFFFFF, // for save game
 		.spawnhealth = 1000,
 		.mass = 100,
+		.blood_type = 38,
 		.gravity = FRACUNIT,
 		.flags = MF_NOGRAVITY,
 		.state_spawn = STATE_UNKNOWN_ITEM,
@@ -935,6 +951,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.radius = 20 << FRACBITS,
 		.height = 16 << FRACBITS,
 		.mass = 100,
+		.blood_type = 38,
 		.gravity = FRACUNIT,
 		.flags = MF_SPECIAL,
 		.state_idx_limit = NEW_NUMSTATES,
@@ -954,6 +971,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.radius = 20 << FRACBITS,
 		.height = 16 << FRACBITS,
 		.mass = 100,
+		.blood_type = 38,
 		.gravity = FRACUNIT,
 		.flags = MF_SPECIAL,
 		.state_spawn = STATE_PISTOL,
@@ -972,6 +990,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.radius = 3 << FRACBITS,
 		.height = 4 << FRACBITS,
 		.mass = 5,
+		.blood_type = 38,
 		.gravity = (FRACUNIT * 128) / 1000,
 		.flags = MF_DROPOFF, // NOBLOCKMAP should be set, but we don't have MOVEWITHSECTOR
 		.flags1 = MF1_NOTELEPORT | MF1_CANNOTPUSH,
@@ -985,6 +1004,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.radius = 3 << FRACBITS,
 		.height = 4 << FRACBITS,
 		.mass = 5,
+		.blood_type = 38,
 		.gravity = (FRACUNIT * 128) / 1000,
 		.flags = MF_DROPOFF,
 		.flags1 = MF1_CANNOTPUSH,
@@ -1620,6 +1640,17 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			if(!kw)
 				return 1;
 			parse_mobj_info->translation = r_translation_by_name(kw);
+		break;
+		case DT_BLOODLATION:
+		{
+			uint32_t r, g, b;
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			if(doom_sscanf(kw, "%x %x %x", &r, &g, &b) != 3 || (r|g|b) > 255)
+				return 1;
+			*((uintptr_t*)&parse_mobj_info->blood_trns) = r_add_blood_color(r | (g << 8) | (b << 16));
+		}
 		break;
 		case DT_POWERUP_TYPE:
 			if(parse_mobj_info->powerup.type < NUMPOWERS)
@@ -2925,6 +2956,9 @@ void init_decorate()
 		sfx_rng_fix(&mobjinfo[i].seesound, 98);
 		sfx_rng_fix(&mobjinfo[i].deathsound, 70);
 
+		// basically everything has vile heal state
+		mobjinfo[i].state_heal = 266;
+
 		// basically everything is randomized
 		// basically everything can be seeker missile
 		mobjinfo[i].flags1 = MF1_RANDOMIZE | MF1_SEEKERMISSILE;
@@ -3071,6 +3105,9 @@ void init_decorate()
 	//
 	// PASS 3
 
+	// post-init render
+	render_generate_blood();
+
 	// relocate extra storage
 	for(uint32_t idx = NUMMOBJTYPES + NUM_NEW_TYPES; idx < num_mobj_types; idx++)
 	{
@@ -3105,7 +3142,7 @@ void init_decorate()
 			info->inventory.message = dec_reloc_es(target, info->inventory.message);
 	}
 
-	// extra inventory stuff
+	// extra stuff
 	for(uint32_t idx = 0; idx < num_mobj_types; idx++)
 	{
 		mobjinfo_t *info = mobjinfo + idx;
@@ -3203,6 +3240,10 @@ void init_decorate()
 			if(idx != type)
 				mobjinfo[idx].replacement = type;
 		}
+
+		// blood translations
+		if(info->blood_trns)
+			info->blood_trns = r_get_blood_color((uintptr_t)info->blood_trns);
 	}
 
 	//

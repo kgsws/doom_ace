@@ -54,20 +54,25 @@ extern uint8_t *render_trn0;
 extern uint8_t *render_trn1;
 extern uint8_t *render_add;
 extern uint8_t *render_translation;
+extern uint8_t *blood_translation;
 
 extern uint64_t *translation_alias;
 extern uint32_t translation_count;
+extern uint32_t blood_color_count;
 
 //
 
 void init_render();
 void render_preinit(uint8_t*);
+void render_generate_blood();
 
 uint8_t r_find_color(uint8_t, uint8_t, uint8_t);
 
 void r_draw_plane(visplane_t *pl);
 
 uint8_t *r_translation_by_name(const uint8_t *name);
+uint32_t r_add_blood_color(uint32_t color);
+uint8_t *r_get_blood_color(uint32_t idx);
 
 void render_player_view(player_t *pl);
 

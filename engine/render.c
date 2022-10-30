@@ -22,6 +22,9 @@
 #define HEIGHTBITS	12
 #define HEIGHTUNIT	(1 << HEIGHTBITS)
 
+#define BLOOD_COLOR_STORAGE	((uint32_t*)d_vissprites)
+#define MAX_BLOOD_COLORS	256
+
 #define COLORMAP_SIZE	(256 * 33)
 
 //
@@ -55,6 +58,9 @@ uint8_t *render_translation;
 
 uint64_t *translation_alias;
 uint32_t translation_count = NUM_EXTRA_TRANSLATIONS;
+
+uint8_t *blood_translation;
+uint32_t blood_color_count;
 
 pal_col_t r_palette[256];
 
@@ -2035,6 +2041,33 @@ uint8_t *r_translation_by_name(const uint8_t *name)
 	return NULL;
 }
 
+uint32_t r_add_blood_color(uint32_t color)
+{
+	uint32_t ret;
+
+	if(blood_color_count >= MAX_BLOOD_COLORS)
+		I_Error("[DECORATE] Too many blood colors!");
+
+	for(uint32_t i = 0; i < blood_color_count; i++)
+	{
+		if(BLOOD_COLOR_STORAGE[i] == color)
+			return i | 0xFF000000;
+	}
+
+	BLOOD_COLOR_STORAGE[blood_color_count] = color;
+
+	ret = blood_color_count | 0xFF000000;
+	blood_color_count++;
+
+	return ret;
+}
+
+uint8_t *r_get_blood_color(uint32_t idx)
+{
+	idx &= 0xFFFF;
+	return blood_translation + idx * 256;
+}
+
 void render_preinit(uint8_t *palette)
 {
 	int32_t lump;
@@ -2196,6 +2229,23 @@ void init_render()
 
 	if(M_CheckParm("-dumptables"))
 		ldr_dump_buffer("ace_rndr.bin", ptr, sizeof(render_tables_t));
+}
+
+void render_generate_blood()
+{
+	uint8_t *ptr;
+
+	if(!blood_color_count)
+		return;
+
+	ptr = ldr_malloc(blood_color_count * 256 + 256);
+	blood_translation = (void*)(((uint32_t)ptr + 255) & ~255); // align for ASM optimisations
+
+	for(uint32_t i = 0; i < blood_color_count; i++)
+	{
+		uint32_t color = BLOOD_COLOR_STORAGE[i];
+		generate_color(blood_translation + i * 256, color, color >> 8, color >> 16);
+	}
 }
 
 void render_player_view(player_t *pl)

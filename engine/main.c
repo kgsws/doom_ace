@@ -386,8 +386,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001A0FF, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// disable disk flash; 'grmode = 1' in 'I_InitGraphics'
 	{0x0001A041, CODE_HOOK | HOOK_SET_NOPS, 6},
-	// place 'loading' structure into 'vissprites'
-	{0x0005A210, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
+	// place 'loading' structure into 'vissprites' + 1024
+	{0x0005A610, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 	// early 'I_Error' fix
 	{0x0001AB1E, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// read stuff

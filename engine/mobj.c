@@ -712,8 +712,18 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t set_mobj_animation(mobj_t *mo, uint8_t anim)
+void set_mobj_animation(mobj_t *mo, uint8_t anim)
 {
+	if(anim == ANIM_HEAL)
+	{
+		if(!mo->info->state_heal)
+			return;
+	}
+	if(anim == ANIM_RAISE)
+	{
+		if(mo->state - states == 895)
+			mo->translation = mo->info->translation;
+	}
 	mobj_set_state(mo, STATE_SET_ANIMATION(anim, 0));
 }
 
@@ -1135,6 +1145,13 @@ uint32_t pit_change_sector(mobj_t *thing)
 {
 	if(!(thing->flags1 & MF1_DONTGIB))
 	{
+		if(thing->flags2 & MF2_ICECORPSE)
+		{
+			thing->tics = 1;
+			thing->iflags |= MFI_SHATTERING;
+			return 1;
+		}
+
 		if(thing->health <= 0)
 		{
 			thing->flags1 |= MF1_DONTGIB;
@@ -1144,13 +1161,18 @@ uint32_t pit_change_sector(mobj_t *thing)
 				uint32_t state;
 
 				if(!thing->info->state_crush)
+				{
 					state = 895;
-				else
+					thing->translation = thing->info->blood_trns;
+				} else
 					state = thing->info->state_crush;
 
 				thing->flags &= ~MF_SOLID;
-				thing->radius = 0;
-				thing->height = 0;
+				if(map_format == MAP_FORMAT_DOOM)
+				{
+					thing->radius = 0;
+					thing->height = 0;
+				}
 
 				mobj_set_state(thing, state);
 			}
@@ -1178,9 +1200,10 @@ uint32_t pit_change_sector(mobj_t *thing)
 		{
 			mobj_t *mo;
 
-			mo = P_SpawnMobj(thing->x, thing->y, thing->z + thing->height / 2, 38);
+			mo = P_SpawnMobj(thing->x, thing->y, thing->z + thing->height / 2, thing->info->blood_type);
 			mo->momx = (P_Random() - P_Random()) << 12;
 			mo->momy = (P_Random() - P_Random()) << 12;
+			mo->translation = thing->info->blood_trns;
 		}
 	}
 
@@ -2139,8 +2162,9 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
 	if(target->flags1 & MF1_DORMANT)
 		return;
 
-	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, 38);
+	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, target->info->blood_type);
 	mo->momz = FRACUNIT * 2;
+	mo->translation = target->info->blood_trns;
 
 	state = mo->info->state_spawn;
 
@@ -2228,14 +2252,18 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B0D7, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_position_extra},
 	{0x0002B0DC, CODE_HOOK | HOOK_UINT32, 0x16EBC085},
 	// replace 'P_SetMobjState' with new animation system
-	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SEE << 8)}, // A_Look
+	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000B2 | (ANIM_SEE << 8)}, // A_Look
 	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Look
-	{0x0002782A, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_SPAWN << 8)}, // A_Chase
+	{0x0002782A, CODE_HOOK | HOOK_UINT32, 0x909000B2 | (ANIM_SPAWN << 8)}, // A_Chase
 	{0x0002782D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
-	{0x0002789D, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_MELEE << 8)}, // A_Chase
+	{0x0002789D, CODE_HOOK | HOOK_UINT32, 0x909000B2 | (ANIM_MELEE << 8)}, // A_Chase
 	{0x000278A0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
-	{0x000278DD, CODE_HOOK | HOOK_UINT32, 0x909000b2 | (ANIM_MISSILE << 8)}, // A_Chase
+	{0x000278DD, CODE_HOOK | HOOK_UINT32, 0x909000B2 | (ANIM_MISSILE << 8)}, // A_Chase
 	{0x000278E0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Chase
+	{0x000281DF, CODE_HOOK | HOOK_UINT32, ANIM_HEAL}, // A_VileChase
+	{0x000281E3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_VileChase
+	{0x000281FF, CODE_HOOK | HOOK_UINT32, 0x909000B2 | (ANIM_RAISE << 8)}, // A_VileChase
+	{0x00028202, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_VileChase
 	// skip some stuff in 'P_XYMovement'
 	{0x00030F6B, CODE_HOOK | HOOK_UINT16, 0x3BEB}, // disable 'MF_SKULLFLY'
 	{0x000310B7, CODE_HOOK | HOOK_UINT16, 0x14EB}, // after-move checks

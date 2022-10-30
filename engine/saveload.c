@@ -1044,7 +1044,14 @@ static uint32_t svcb_thing(mobj_t *mo)
 
 	thing.render_style = mo->render_style;
 	thing.render_alpha = mo->render_alpha;
-	thing.translation = mo->translation ? ((mo->translation - render_translation) / 256) + 1 : 0;
+	if(mo->translation)
+	{
+		if(mo->translation >= blood_translation && mo->translation < blood_translation + blood_color_count * 256)
+			thing.translation = 0x4000 | ((mo->translation - blood_translation) / 256);
+		else
+			thing.translation = 0x8000 | ((mo->translation - render_translation) / 256);
+	} else
+		thing.translation = 0;
 
 	thing.target = mo->target ? mo->target->netid : 0;
 	thing.tracer = mo->tracer ? mo->tracer->netid : 0;
@@ -1812,6 +1819,7 @@ static inline uint32_t ld_get_things()
 	int32_t type, sprite;
 	uint32_t maxnetid = 0;
 	mobj_t *mo;
+	uint8_t *translation;
 	inventory_t *item, *ilst;
 
 	while(1)
@@ -1837,8 +1845,21 @@ static inline uint32_t ld_get_things()
 		if((thing.frame & 0x1F) >= sprites[sprite].numframes)
 			return 1;
 
-		if(thing.translation > translation_count) // off by one!
-			return 1;
+		if(thing.translation & 0x8000)
+		{
+			uint16_t tmp = thing.translation & 0x7FFF;
+			if(tmp >= translation_count)
+				return 1;
+			translation = render_translation + tmp * 256;
+		} else
+		if(thing.translation & 0x4000)
+		{
+			uint16_t tmp = thing.translation & 0x3FFF;
+			if(tmp >= blood_color_count)
+				return 1;
+			translation = blood_translation + tmp * 256;
+		} else
+			translation = NULL;
 
 		if(thing.netid > maxnetid)
 			maxnetid = thing.netid;
@@ -1884,10 +1905,7 @@ static inline uint32_t ld_get_things()
 
 		mo->render_style = thing.render_style;
 		mo->render_alpha = thing.render_alpha;
-		if(thing.translation)
-			mo->translation = render_translation + thing.translation * 256 - 256;
-		else
-			mo->translation = NULL;
+		mo->translation = translation;
 
 		mo->target = (mobj_t*)thing.target;
 		mo->tracer = (mobj_t*)thing.tracer;

@@ -16,6 +16,11 @@ typedef struct
 	void *value;
 } args_singlePointer_t;
 
+typedef struct
+{
+	uint16_t type;
+} args_singleType_t;
+
 //
 
 #define CHAN_BODY	0

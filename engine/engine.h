@@ -352,15 +352,16 @@ typedef struct player_s
 	uint32_t inv_tick; // inventory selection visible
 	uint32_t info_flags;
 	uint8_t power_color[NUMPOWERS];
-	uint32_t __unused[1+4+4];
+	uint32_t flags;
+	uint32_t __unused[4+4];
 	uint16_t attackdown;
 	uint16_t weapon_ready;
 	int32_t usedown;
 	uint32_t cheats;
 	uint32_t refire;
-	int32_t killcount;
-	int32_t itemcount;
-	int32_t secretcount;
+	uint32_t killcount;
+	uint32_t itemcount;
+	uint32_t secretcount;
 	char *message;
 	int32_t damagecount;
 	int32_t bonuscount;

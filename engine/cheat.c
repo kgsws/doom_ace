@@ -290,6 +290,12 @@ static void cf_resurrect(player_t *pl, uint8_t *arg)
 	if(pl->playerstate != PST_DEAD && pl->health > 0)
 		return;
 
+	if(pl->flags & PF_NO_BODY)
+	{
+		pl->message = "Original body was lost!";
+		return;
+	}
+
 	pl->health = info->spawnhealth;
 	pl->playerstate = PST_LIVE;
 

@@ -580,7 +580,7 @@ static const dec_flag_t mobj_flags1[] =
 	{"thrughost", MF1_THRUGHOST},
 	{"dormant", MF1_DORMANT},
 	{"synchronized", MF1_SYNCHRONIZED},
-	{"spawnsoundsource", MF1_SPAWNSOUNDSOURCE},
+	{"iceshatter", MF1_ICESHATTER},
 	{"dontfall", MF1_DONTFALL},
 	// terminator
 	{NULL}
@@ -589,7 +589,7 @@ static const dec_flag_t mobj_flags2[] =
 {
 	{"noicedeath", MF2_NOICEDEATH},
 	{"icecorpse", MF2_ICECORPSE},
-	{"iceshatter", MF2_ICESHATTER},
+	{"spawnsoundsource", MF2_SPAWNSOUNDSOURCE},
 	{"donttranslate", MF2_DONTTRANSLATE},
 	// terminator
 	{NULL}
@@ -1044,6 +1044,10 @@ static const dec_power_color_t powerup_color[] =
 	{"ff 00 00", 2 | 128},
 	{"00 ff 00", 13 | 128},
 	{"ff ff 00", 10 | 128},
+	{"00 00 ff", 1 | 128}, // this assumes that PLAYPAL has been changed; this is also used for ice death
+	{"ff 00 ff", 9 | 128}, // this assumes that PLAYPAL has been changed; only one choice is valid
+	{"00 ff ff", 9 | 128}, // this assumes that PLAYPAL has been changed; only one choice is valid
+	{"ff ff ff", 9 | 128}, // this assumes that PLAYPAL has been changed; only one choice is valid
 	// terminator
 	{NULL}
 };

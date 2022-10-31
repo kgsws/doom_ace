@@ -384,8 +384,10 @@ void player_think(player_t *pl)
 
 	if(pl->playerstate == PST_DEAD)
 	{
-		if(pl->info_flags & PLF_MOUSE_LOOK && !(map_level_info->flags & MAP_FLAG_NO_FREELOOK))
-		{
+		if(	pl->info_flags & PLF_MOUSE_LOOK &&
+			!(map_level_info->flags & MAP_FLAG_NO_FREELOOK) &&
+			!(pl->flags & PF_IS_FROZEN)
+		){
 			int32_t pitch = pl->mo->pitch;
 			if(pitch > PLAYER_LOOK_DEAD)
 			{
@@ -404,7 +406,15 @@ void player_think(player_t *pl)
 			pl->mo->pitch = 0;
 		pl->weapon_ready = 0;
 		pl->inv_tick = 0;
+
 		P_DeathThink(pl);
+
+		if(pl->flags & PF_IS_FROZEN)
+		{
+			pl->viewz = pl->mo->z + pl->mo->info->player.view_height;
+			pl->fixedpalette = 1; // you can freely recolor this one
+		}
+
 		return;
 	}
 

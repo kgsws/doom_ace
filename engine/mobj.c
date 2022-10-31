@@ -1203,7 +1203,8 @@ uint32_t pit_change_sector(mobj_t *thing)
 			mo = P_SpawnMobj(thing->x, thing->y, thing->z + thing->height / 2, thing->info->blood_type);
 			mo->momx = (P_Random() - P_Random()) << 12;
 			mo->momy = (P_Random() - P_Random()) << 12;
-			mo->translation = thing->info->blood_trns;
+			if(!(mo->flags2 & MF2_DONTTRANSLATE))
+				mo->translation = thing->info->blood_trns;
 		}
 	}
 
@@ -1521,7 +1522,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 	if(target->flags2 & MF2_ICECORPSE)
 	{
-		if(damage_type != DAMAGE_ICE || if_flags1 & MF2_ICESHATTER)
+		if(damage_type != DAMAGE_ICE || if_flags1 & MF1_ICESHATTER)
 		{
 			target->tics = 1;
 			target->iflags |= MFI_SHATTERING;
@@ -2164,7 +2165,8 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
 
 	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, target->info->blood_type);
 	mo->momz = FRACUNIT * 2;
-	mo->translation = target->info->blood_trns;
+	if(!(mo->flags2 & MF2_DONTTRANSLATE))
+		mo->translation = target->info->blood_trns;
 
 	state = mo->info->state_spawn;
 

@@ -472,7 +472,7 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 	else
 		speed = mo->info->speed;
 
-	if(source && mo->flags1 & MF1_SPAWNSOUNDSOURCE)
+	if(source && mo->flags2 & MF2_SPAWNSOUNDSOURCE)
 		S_StartSound(SOUND_CHAN_WEAPON(source), mo->info->seesound);
 	else
 		S_StartSound(mo, mo->info->seesound);
@@ -565,6 +565,20 @@ static void shatter_spawn(mobj_t *mo, uint32_t type)
 		th->momz = 4 * FixedDiv(th->z - mo->z, mo->info->height);
 	} while(--count);
 }
+
+//
+// common args
+
+static const dec_args_t args_SingleMobjtype =
+{
+	.size = sizeof(args_singleType_t),
+	.arg =
+	{
+		{"type", handle_mobjtype, offsetof(args_singleType_t, type)},
+		// terminator
+		{NULL}
+	}
+};
 
 //
 // original weapon attacks
@@ -1535,6 +1549,54 @@ void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// chunks
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_Burst(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleType_t *arg = st->arg;
+
+	if(mo->player)
+		I_Error("[DECORATE] A_Burst with player connected!");
+
+	shatter_spawn(mo, arg->type);
+
+	// hide, remove later - keep sound playing
+	mo->render_style = RS_INVISIBLE;
+	mo->state = states + STATE_UNKNOWN_ITEM;
+	mo->tics = 35 * 4;
+
+	P_UnsetThingPosition(mo);
+
+	mo->flags &= ~(MF_SOLID | MF_SHOOTABLE);
+	mo->flags |= MF_NOBLOCKMAP | MF_NOSECTOR;
+	mo->special.tid = 0;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SkullPop(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleType_t *arg = st->arg;
+	mobj_t *th;
+
+	if(!mo->player)
+		return;
+
+	mo->player->flags |= PF_NO_BODY;
+
+	th = P_SpawnMobj(mo->x, mo->y, mo->z + mo->info->player.view_height, arg->type);
+	th->momx = (P_Random() - P_Random()) << 9;
+	th->momy = (P_Random() - P_Random()) << 9;
+	th->momz = FRACUNIT*2 + (P_Random() << 6);
+	th->angle = mo->angle;
+	th->player = mo->player;
+	th->player->mo = th;
+	th->inventory = mo->inventory;
+	mo->player = NULL;
+	mo->inventory = NULL;
+}
+
+//
 // freeze death
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -1557,6 +1619,7 @@ void A_FreezeDeath(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	{
 		mo->player->bonuscount = 0;
 		mo->player->damagecount = 0;
+		mo->player->flags |= PF_IS_FROZEN;
 	}
 }
 
@@ -1571,6 +1634,8 @@ void A_GenericFreezeDeath(mobj_t *mo, state_t *st, stfunc_t stfunc)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	mobj_t *th;
+
 	if(!(mo->iflags & MFI_SHATTERING) && (mo->momx || mo->momy || mo->momz))
 	{
 		mo->tics = 105;
@@ -1582,13 +1647,27 @@ void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	// drop items
 	A_NoBlocking(mo, st, stfunc);
 
+	if(mo->player)
+	{
+		mo->player->flags |= PF_NO_BODY;
+		th = P_SpawnMobj(mo->x, mo->y, mo->z + mo->info->player.view_height, MOBJ_IDX_ICE_CHUNK_HEAD);
+		th->momx = (P_Random() - P_Random()) << 9;
+		th->momy = (P_Random() - P_Random()) << 9;
+		th->momz = FRACUNIT*2 + (P_Random() << 6);
+		th->angle = mo->angle;
+		th->player = mo->player;
+		th->player->mo = th;
+		th->inventory = mo->inventory;
+		mo->player = NULL;
+		mo->inventory = NULL;
+	}
+
 	shatter_spawn(mo, MOBJ_IDX_ICE_CHUNK);
-	// TODO: player chunk
 
 	// hide, remove later - keep sound playing
 	mo->render_style = RS_INVISIBLE;
 	mo->state = states + STATE_UNKNOWN_ITEM;
-	mo->tics = 35 * 3;
+	mo->tics = 35 * 4;
 
 	P_UnsetThingPosition(mo);
 
@@ -1716,6 +1795,9 @@ static const dec_action_t mobj_action[] =
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	{"a_firebullets", A_FireBullets, &args_FireBullets, check_FireBullets},
+	// chunks
+	{"a_burst", A_Burst, &args_SingleMobjtype},
+	{"a_skullpop", A_SkullPop, &args_SingleMobjtype},
 	// freeze death
 	{"a_freezedeath", A_FreezeDeath},
 	{"a_genericfreezedeath", A_GenericFreezeDeath},

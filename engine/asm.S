@@ -786,6 +786,12 @@ doom_A_BrainAwake:
 doom_V_CopyRect:
 	.byte	0xE9
 	.4byte	0x00038F10
+////////////////////////////////// P_FindLowestCeilingSurrounding
+.section .text.P_FindLowestCeilingSurrounding
+.global P_FindLowestCeilingSurrounding
+P_FindLowestCeilingSurrounding:
+	.byte	0xE9
+	.4byte	0x0002F170
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:

@@ -8,13 +8,113 @@
 #include "player.h"
 #include "mobj.h"
 #include "map.h"
+#include "animate.h"
+#include "generic.h"
 #include "special.h"
+
+line_t spec_magic_line;
+
+//
+// Doors
+
+static uint32_t act_Door_Close(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+
+	if(sec->ceilingheight == sec->floorheight)
+		return 1;
+
+	if(sec->ceilingheight < sec->floorheight)
+	{
+		sec->ceilingheight = sec->floorheight;
+		// TODO: update things
+		return 1;
+	}
+
+	gm = generic_ceiling(sec);
+	if(!gm)
+		return 0;
+
+	gm->top_height = sec->ceilingheight;
+	gm->bot_height = sec->floorheight;
+	gm->dir_height = (fixed_t)ln->arg1 * -(FRACUNIT/8);
+
+	// todo 'lighttag' arg2
+
+	return 1;
+}
+
+static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+	fixed_t height;
+
+	height = P_FindLowestCeilingSurrounding(sec) - 4 * FRACUNIT;
+
+	if(sec->ceilingheight == height)
+		return 1;
+
+	if(sec->ceilingheight > height)
+	{
+		sec->ceilingheight = height;
+		// TODO: update things
+		return 1;
+	}
+
+	// TODO: find existing door, reverse direction
+
+	gm = generic_ceiling(sec);
+	if(!gm)
+		return 0;
+
+	gm->top_height = height;
+	gm->bot_height = sec->floorheight;
+	gm->dir_height = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->delay = ln->arg2;
+	gm->flags = MVF_TOP_REVERSE;
+
+	// todo 'lighttag' arg3
+
+	return 1;
+}
+
+//
+// tag handler
+
+static uint32_t handle_tag(line_t *ln, uint32_t tag, uint32_t (*cb)(sector_t*,line_t*))
+{
+	uint32_t success = 0;
+
+	if(!tag)
+	{
+		if(ln->backsector)
+			return cb(ln->backsector, ln);
+		return 0;
+	}
+
+	for(uint32_t i = 0; i < numsectors; i++)
+	{
+		sector_t *sec = sectors + i;
+		if(sec->tag == tag)
+			success |= cb(sec, ln);
+	}
+
+	return success;
+}
 
 //
 // API
 
 void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 {
+	uint32_t success = 0;
+
+	if(!ln)
+	{
+		ln = &spec_magic_line;
+		if(ln->tag == 0)
+			return;
+	} else
 	switch(ln->flags & ML_ACT_MASK)
 	{
 		case MLA_PLR_CROSS:
@@ -73,7 +173,21 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			return;
 	}
 
-	doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", ln->special, !!(type & SPEC_ACT_BACK_SIDE), mo, mo->player);
+	switch(ln->special)
+	{
+		case 10: // Door_Close
+			success = handle_tag(ln, ln->arg0, act_Door_Close);
+		break;
+		case 12: // Door_Raise
+			success = handle_tag(ln, ln->arg0, act_Door_Raise);
+		break;
+		default:
+			doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", ln->special, !!(type & SPEC_ACT_BACK_SIDE), mo, mo->player);
+		break;
+	}
+
+	if(success && ln != &spec_magic_line)
+		do_line_switch(ln, ln->flags & ML_REPEATABLE);
 }
 
 //

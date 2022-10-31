@@ -748,7 +748,7 @@ error_anim_count:
 //
 // hooks
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void do_line_switch(line_t *ln, uint32_t repeat)
 {
 	void *ptr = switch_ptr;

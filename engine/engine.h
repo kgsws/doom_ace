@@ -789,7 +789,11 @@ typedef struct
 	};
 	uint32_t validcount;
 	struct mobj_s *thinglist;
-	void *specialdata;
+	union
+	{
+		void *specialdata; // used in MAP_FORMAT_DOOM
+		uint32_t specialactive; // used in MAP_FORMAT_HEXEN
+	};
 	uint32_t linecount;
 	struct line_s **lines;
 } __attribute__((packed)) sector_t;
@@ -1366,6 +1370,7 @@ void P_SetupLevel() __attribute((regparm(2),no_caller_saved_registers));
 void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_SpawnSpecials() __attribute((regparm(2),no_caller_saved_registers));
 void P_ShootSpecialLine(mobj_t*,line_t*) __attribute((regparm(2),no_caller_saved_registers));
+fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_tick
 void P_RunThinkers() __attribute((regparm(2),no_caller_saved_registers));

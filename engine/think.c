@@ -1,7 +1,7 @@
 // kgsws' ACE Engine
 ////
-// New thinker system, run before 'mobj' thinkers. The original is still active.
-// This is (or will be) better for level geometry.
+// New thinker system, runs before 'mobj' thinkers. The original is still active.
+// This is better for level geometry.
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"

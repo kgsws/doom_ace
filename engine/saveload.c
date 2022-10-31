@@ -1603,6 +1603,9 @@ static inline uint32_t ld_get_specials()
 				save_ceiling_t sav;
 				ceiling_t *now;
 
+				if(map_format != MAP_FORMAT_DOOM)
+					return 1;
+
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
@@ -1636,6 +1639,9 @@ static inline uint32_t ld_get_specials()
 				save_door_t sav;
 				vldoor_t *now;
 
+				if(map_format != MAP_FORMAT_DOOM)
+					return 1;
+
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
 
@@ -1662,6 +1668,9 @@ static inline uint32_t ld_get_specials()
 			{
 				save_floor_t sav;
 				floormove_t *now;
+
+				if(map_format != MAP_FORMAT_DOOM)
+					return 1;
 
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;
@@ -1690,6 +1699,9 @@ static inline uint32_t ld_get_specials()
 			{
 				save_plat_t sav;
 				plat_t *now;
+
+				if(map_format != MAP_FORMAT_DOOM)
+					return 1;
 
 				if(reader_get(&sav, sizeof(sav)))
 					return 1;

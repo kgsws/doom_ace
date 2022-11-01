@@ -24,16 +24,15 @@ void think_ceiling(generic_mover_t *gm)
 
 	sec = gm->sector;
 
-	sec->ceilingheight += gm->dir_height;
-
-	if(gm->dir_height < 0)
+	if(gm->direction == DIR_UP)
 	{
-		if(sec->ceilingheight <= gm->bot_height)
+		sec->ceilingheight += gm->speed;
+		if(sec->ceilingheight >= gm->top_height)
 		{
-			sec->ceilingheight = gm->bot_height;
-			if(gm->flags & MVF_BOT_REVERSE)
+			sec->ceilingheight = gm->top_height;
+			if(gm->flags & MVF_TOP_REVERSE)
 			{
-				gm->dir_height = -gm->dir_height;
+				gm->direction = !gm->direction;
 				gm->wait = gm->delay;
 				return;
 			}
@@ -41,12 +40,13 @@ void think_ceiling(generic_mover_t *gm)
 		}
 	} else
 	{
-		if(sec->ceilingheight >= gm->top_height)
+		sec->ceilingheight -= gm->speed;
+		if(sec->ceilingheight <= gm->bot_height)
 		{
-			sec->ceilingheight = gm->top_height;
-			if(gm->flags & MVF_TOP_REVERSE)
+			sec->ceilingheight = gm->bot_height;
+			if(gm->flags & MVF_BOT_REVERSE)
 			{
-				gm->dir_height = -gm->dir_height;
+				gm->direction = !gm->direction;
 				gm->wait = gm->delay;
 				return;
 			}
@@ -79,5 +79,22 @@ generic_mover_t *generic_ceiling(sector_t *sec)
 	think_add(&gm->thinker);
 
 	return gm;
+}
+
+generic_mover_t *generic_ceiling_by_sector(sector_t *sec)
+{
+	for(thinker_t *th = thcap.next; th != &thcap; th = th->next)
+	{
+		generic_mover_t *gm;
+
+		if(th->function != think_ceiling)
+			continue;
+
+		gm = (generic_mover_t*)th;
+		if(gm->sector == sec)
+			return gm;
+	}
+
+	return NULL;
 }
 

@@ -373,7 +373,9 @@ uint32_t map_load_setup()
 	// reset netID
 	mobj_netid = 0;
 
-	think_clear();
+	// think_clear
+	thcap.prev = &thcap;
+	thcap.next = &thcap;
 
 	// apply game patches
 	if(demoplayback == DEMO_OLD)
@@ -1477,6 +1479,12 @@ void init_map()
 
 	doom_printf("[ACE] init MAPs\n");
 	ldr_alloc_message = "Map and game info";
+
+	// think_clear
+	thcap.prev = &thcap;
+	thcap.next = &thcap;
+	thinkercap.prev = &thinkercap;
+	thinkercap.next = &thinkercap;
 
 	//
 	// PASS 1

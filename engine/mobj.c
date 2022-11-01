@@ -1391,10 +1391,6 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 
 uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*))
 {
-	if(!thinkercap.next)
-		// this happens only before any level was loaded
-		return 0;
-
 	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
 	{
 		uint32_t ret;

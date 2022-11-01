@@ -12,6 +12,15 @@
 #include "generic.h"
 #include "special.h"
 
+enum
+{
+	MVT_GENERIC,
+	MVT_DOOR,
+	MVT_PLAT,
+};
+
+//
+
 line_t spec_magic_line;
 
 //
@@ -37,7 +46,8 @@ static uint32_t act_Door_Close(sector_t *sec, line_t *ln)
 
 	gm->top_height = sec->ceilingheight;
 	gm->bot_height = sec->floorheight;
-	gm->dir_height = (fixed_t)ln->arg1 * -(FRACUNIT/8);
+	gm->speed = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->direction = DIR_DOWN;
 
 	// todo 'lighttag' arg2
 
@@ -52,7 +62,13 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 	height = P_FindLowestCeilingSurrounding(sec) - 4 * FRACUNIT;
 
 	if(sec->ceilingheight == height)
+	{
+		// find existing door
+		gm = generic_ceiling_by_sector(sec);
+		if(gm && gm->type == MVT_DOOR && gm->wait)
+			gm->wait = 0;
 		return 1;
+	}
 
 	if(sec->ceilingheight > height)
 	{
@@ -61,15 +77,31 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 		return 1;
 	}
 
-	// TODO: find existing door, reverse direction
-
 	gm = generic_ceiling(sec);
 	if(!gm)
-		return 0;
+	{
+		// find existing door, reverse direction
+		gm = generic_ceiling_by_sector(sec);
+
+		if(!gm)
+			return 0;
+
+		if(gm->type != MVT_DOOR)
+			return 0;
+
+		if(gm->wait)
+			gm->wait = 0;
+		else
+			gm->direction = !gm->direction;
+
+		return 1;
+	}
 
 	gm->top_height = height;
 	gm->bot_height = sec->floorheight;
-	gm->dir_height = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->type = MVT_DOOR;
+	gm->direction = DIR_UP;
 	gm->delay = ln->arg2;
 	gm->flags = MVF_TOP_REVERSE;
 

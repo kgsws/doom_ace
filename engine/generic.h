@@ -10,9 +10,8 @@
 
 enum
 {
-	MVT_GENERIC,
-	MVT_DOOR,
-	MVT_PLAT,
+	DIR_UP,
+	DIR_DOWN,
 };
 
 //
@@ -23,9 +22,10 @@ typedef struct
 	sector_t *sector;
 	fixed_t top_height;
 	fixed_t bot_height;
-	fixed_t dir_height;
+	fixed_t speed;
 	uint16_t flags;
-	uint16_t type;
+	uint8_t type;
+	uint8_t direction;
 	uint16_t delay;
 	uint16_t wait;
 } generic_mover_t;
@@ -33,4 +33,5 @@ typedef struct
 //
 
 generic_mover_t *generic_ceiling();
+generic_mover_t *generic_ceiling_by_sector(sector_t *sec);
 

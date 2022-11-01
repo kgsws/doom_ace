@@ -1158,8 +1158,6 @@ void r_draw_plane(visplane_t *pl)
 
 static void R_DrawPlanes()
 {
-	colfunc = R_DrawSkyColumn; // for sky texture
-
 	for(visplane_t *pl = ptr_visplanes; pl < lastvisplane; pl++)
 	{
 		if(pl->picnum == skyflatnum)

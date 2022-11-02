@@ -30,6 +30,9 @@ typedef struct
 static uint32_t numsfx = NEW_NUMSFX + NUMSFX_RNG;
 static sfxinfo_t *sfxinfo;
 
+static sound_seq_t *sndseq;
+static uint32_t numsndseq = NUMSNDSEQ;
+
 static hook_t sfx_hooks[NUM_SFX_HOOKS];
 
 static const new_sfx_t new_sfx[NEW_NUMSFX - NUMSFX] =
@@ -80,6 +83,39 @@ static const sfxinfo_t sfx_rng[NUMSFX_RNG] =
 		.rng_count = 2,
 		.rng_id = {62, 63},
 		.lumpnum = -1
+	},
+};
+
+static const sound_seq_t def_sndseq[NUMSNDSEQ] =
+{
+	[SNDSEQ_DOOR] =
+	{
+		.norm_open.start = 20,
+		.norm_close.start = 21,
+		.fast_open.start = 88,
+		.fast_close.start = 89,
+	},
+	[SNDSEQ_PLAT] =
+	{
+		.norm_open.start = 18,
+		.norm_open.stop = 19,
+		.norm_close.start = 18,
+		.norm_close.stop = 19,
+		.fast_open.start = 18,
+		.fast_open.stop = 19,
+		.fast_close.start = 18,
+		.fast_close.stop = 19,
+	},
+	[SNDSEQ_STNMOV] =
+	{
+		.norm_open.move = 22,
+		.norm_open.repeat = 8,
+		.norm_close.move = 22,
+		.norm_close.repeat = 8,
+		.fast_open.move = 22,
+		.fast_open.repeat = 8,
+		.fast_close.move = 22,
+		.fast_close.repeat = 8,
 	},
 };
 
@@ -365,6 +401,105 @@ error_end:
 	I_Error("[SNDINFO] Incomplete definition!");
 }
 
+static void cb_sndseq(lumpinfo_t *li)
+{
+	uint8_t *kw, *wk, *name;
+	sound_seq_t *seq;
+	uint32_t value;
+
+	tp_load_lump(li);
+
+	while(1)
+	{
+		kw = tp_get_keyword();
+		if(!kw)
+			return;
+
+		if(kw[0] != ':')
+			I_Error("[SNDSEQ] Unexpected '%s'!\n", kw);
+
+		name = tp_get_keyword();
+		if(!name)
+			goto error_end;
+
+		numsndseq++;
+		sndseq = ldr_realloc(sndseq, numsndseq * sizeof(sound_seq_t));
+		seq = sndseq + numsndseq - 1;
+		memset(seq, 0, sizeof(sound_seq_t));
+		seq->alias = tp_hash64(name);
+		seq->number = 255;
+
+		while(1)
+		{
+			wk = tp_get_keyword();
+			if(!wk)
+				goto error_end;
+
+			if(!strcmp(wk, "end"))
+			{
+				if(seq->number == 255)
+					I_Error("[SNDSEQ] Sequence '%s' has no ID!", name);
+				seq->norm_close = seq->norm_open;
+				seq->fast_open = seq->norm_open;
+				seq->fast_close = seq->norm_open;
+				break;
+			}
+
+			kw = tp_get_keyword();
+			if(!kw)
+				goto error_end;
+
+			if(!strcmp(wk, "door"))
+			{
+				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value >= 255)
+					goto error_value;
+				seq->number = value | 0x8000;
+			} else
+			if(!strcmp(wk, "platform"))
+			{
+				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value >= 255)
+					goto error_value;
+				seq->number = value;
+			} else
+			if(!strcmp(wk, "play"))
+			{
+				seq->norm_open.start = sfx_by_alias(tp_hash64(kw));
+				seq->norm_open.delay = 0;
+			} else
+			if(!strcmp(wk, "playtime"))
+			{
+				seq->norm_open.start = sfx_by_alias(tp_hash64(kw));
+				kw = tp_get_keyword();
+				if(!kw)
+					goto error_end;
+				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value > 0xFFFF)
+					goto error_value;
+				seq->norm_open.delay = value;
+			} else
+			if(!strcmp(wk, "playloop"))
+			{
+				seq->norm_open.move = sfx_by_alias(tp_hash64(kw));
+				kw = tp_get_keyword();
+				if(!kw)
+					goto error_end;
+				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value > 0xFFFF)
+					goto error_value;
+				seq->norm_open.repeat = value;
+			} else
+			if(!strcmp(wk, "stopsound"))
+			{
+				seq->norm_open.stop = sfx_by_alias(tp_hash64(kw));
+			} else
+				I_Error("[SNDSEQ] Unknown keyword '%s' in '%s'!", wk, name);
+		}
+	}
+
+error_value:
+	I_Error("[SNDSEQ] Invalid value '%s' in '%s'!", kw, name);
+error_end:
+	I_Error("[SNDSEQ] Incomplete definition!");
+}
+
 //
 // API
 
@@ -432,6 +567,26 @@ void sfx_rng_fix(uint16_t *idx, uint32_t pmatch)
 			}
 		}
 	}
+}
+
+sound_seq_t *snd_seq_by_sector(sector_t *sec, uint32_t def_type)
+{
+	uint16_t magic;
+
+	if(sec->sndseq == 0xFF)
+		return sndseq + def_type;
+
+	magic = sec->sndseq;
+	if(def_type == SNDSEQ_DOOR)
+		magic |= 0x8000;
+
+	for(uint32_t i = numsndseq - 1; i >= NUMSNDSEQ; i++)
+	{
+		if(sndseq[i].number == magic)
+			return sndseq + i;
+	}
+
+	return NULL;
 }
 
 void init_sound()
@@ -512,6 +667,13 @@ void init_sound()
 			}
 		}
 	}
+
+	// allocate memory for internal sounds
+	sndseq = ldr_malloc(NUMSNDSEQ * sizeof(sound_seq_t));
+	memcpy(sndseq, def_sndseq, sizeof(def_sndseq));
+
+	// process SNDSEQ
+	wad_handle_lump("SNDSEQ", cb_sndseq);
 
 	// patch CODE
 	for(uint32_t i = 0; i < NUM_SFX_HOOKS; i++)

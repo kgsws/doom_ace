@@ -781,10 +781,13 @@ typedef struct
 	union
 	{
 		struct
-		{
+		{ // this overlaps unused space in sound source
 			sector_extra_t *extra;
 			struct extraplane_s *exfloor;
 			struct extraplane_s *exceiling;
+			fixed_t x, y; // SOUND
+			uint8_t sndseq;
+			uint8_t __free[3];
 		};
 		degenmobj_t soundorg;
 	};
@@ -900,6 +903,25 @@ typedef struct
 	void *data;
 	int32_t handle;
 } musicinfo_t;
+
+typedef struct
+{
+	uint16_t start;
+	uint16_t stop;
+	uint16_t move;
+	uint16_t delay;
+	uint16_t repeat;
+} seq_sounds_t;
+
+typedef struct
+{
+	uint64_t alias;
+	uint16_t number;
+	seq_sounds_t norm_open;
+	seq_sounds_t norm_close;
+	seq_sounds_t fast_open;
+	seq_sounds_t fast_close;
+} sound_seq_t;
 
 //
 // data

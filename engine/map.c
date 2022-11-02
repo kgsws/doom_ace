@@ -284,6 +284,7 @@ static inline void parse_sectors()
 		sec->extra = se;
 		sec->exfloor = NULL;
 		sec->exceiling = NULL;
+		sec->sndseq = 255;
 
 		// this should be done in 'P_GroupLines'
 		M_ClearBox(se->bbox);
@@ -531,6 +532,15 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	// check skill level
 	if(!(mt->flags & skillbits[gameskill]))
 		return;
+
+	// sound sequence
+	if(mt && mt->type == 1411)
+	{
+		subsector_t *ss;
+		ss = R_PointInSubsector((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS);
+		ss->sector->sndseq = mt->arg[0];
+		return;
+	}
 
 	// backward search for type
 	idx = num_mobj_types;

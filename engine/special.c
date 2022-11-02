@@ -8,6 +8,7 @@
 #include "player.h"
 #include "mobj.h"
 #include "map.h"
+#include "sound.h"
 #include "animate.h"
 #include "generic.h"
 #include "special.h"
@@ -40,14 +41,13 @@ static uint32_t act_Door_Close(sector_t *sec, line_t *ln)
 		return 1;
 	}
 
-	gm = generic_ceiling(sec);
+	gm = generic_ceiling(sec, DIR_DOWN, SNDSEQ_DOOR, ln->arg1 >= 64);
 	if(!gm)
 		return 0;
 
 	gm->top_height = sec->ceilingheight;
 	gm->bot_height = sec->floorheight;
 	gm->speed = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->direction = DIR_DOWN;
 
 	// todo 'lighttag' arg2
 
@@ -77,7 +77,7 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 		return 1;
 	}
 
-	gm = generic_ceiling(sec);
+	gm = generic_ceiling(sec, DIR_UP, SNDSEQ_DOOR, ln->arg1 >= 64);
 	if(!gm)
 	{
 		// find existing door, reverse direction
@@ -101,7 +101,6 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 	gm->bot_height = sec->floorheight;
 	gm->speed = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->type = MVT_DOOR;
-	gm->direction = DIR_UP;
 	gm->delay = ln->arg2;
 	gm->flags = MVF_TOP_REVERSE;
 

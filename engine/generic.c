@@ -5,6 +5,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "sound.h"
 #include "think.h"
 #include "generic.h"
 
@@ -16,10 +17,24 @@ void think_ceiling(generic_mover_t *gm)
 {
 	sector_t *sec;
 
+	if(gm->sndwait)
+		gm->sndwait--;
+
 	if(gm->wait)
 	{
 		gm->wait--;
-		return;
+		if(!gm->wait)
+		{
+			seq_sounds_t *seq;
+			seq = gm->direction == DIR_UP ? gm->up_seq : gm->dn_seq;
+			if(seq)
+			{
+				if(seq->start)
+					S_StartSound((mobj_t*)&gm->sector->soundorg, seq->start);
+				gm->sndwait = seq->delay;
+			}
+		} else
+			return;
 	}
 
 	sec = gm->sector;
@@ -30,6 +45,12 @@ void think_ceiling(generic_mover_t *gm)
 		if(sec->ceilingheight >= gm->top_height)
 		{
 			sec->ceilingheight = gm->top_height;
+			if(gm->up_seq)
+			{
+				if(gm->up_seq->stop)
+					S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
+				gm->sndwait = gm->up_seq->delay;
+			}
 			if(gm->flags & MVF_TOP_REVERSE)
 			{
 				gm->direction = !gm->direction;
@@ -37,6 +58,11 @@ void think_ceiling(generic_mover_t *gm)
 				return;
 			}
 			goto finish_move;
+		} else
+		if(!gm->sndwait && gm->up_seq && gm->up_seq->move)
+		{
+			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->move);
+			gm->sndwait = gm->up_seq->repeat;
 		}
 	} else
 	{
@@ -44,6 +70,12 @@ void think_ceiling(generic_mover_t *gm)
 		if(sec->ceilingheight <= gm->bot_height)
 		{
 			sec->ceilingheight = gm->bot_height;
+			if(gm->dn_seq)
+			{
+				if(gm->dn_seq->stop)
+					S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
+				gm->sndwait = gm->dn_seq->delay;
+			}
 			if(gm->flags & MVF_BOT_REVERSE)
 			{
 				gm->direction = !gm->direction;
@@ -51,6 +83,11 @@ void think_ceiling(generic_mover_t *gm)
 				return;
 			}
 			goto finish_move;
+		} else
+		if(!gm->sndwait && gm->dn_seq && gm->dn_seq->move)
+		{
+			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->move);
+			gm->sndwait = gm->dn_seq->repeat;
 		}
 	}
 
@@ -64,9 +101,10 @@ finish_move:
 //
 // API
 
-generic_mover_t *generic_ceiling(sector_t *sec)
+generic_mover_t *generic_ceiling(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast)
 {
 	generic_mover_t *gm;
+	sound_seq_t *seq;
 
 	if(sec->specialactive & ACT_CEILING)
 		return NULL;
@@ -76,7 +114,27 @@ generic_mover_t *generic_ceiling(sector_t *sec)
 	memset(gm, 0, sizeof(generic_mover_t));
 	gm->thinker.function = think_ceiling;
 	gm->sector = sec;
+	gm->direction = dir;
 	think_add(&gm->thinker);
+
+	seq = snd_seq_by_sector(sec, def_seq);
+	if(seq)
+	{
+		seq_sounds_t *snd;
+		if(is_fast)
+		{
+			gm->up_seq = &seq->fast_open;
+			gm->dn_seq = &seq->fast_close;
+		} else
+		{
+			gm->up_seq = &seq->norm_open;
+			gm->dn_seq = &seq->norm_close;
+		}
+		snd = dir == DIR_UP ? gm->up_seq : gm->dn_seq;
+		if(snd->start)
+			S_StartSound((mobj_t*)&gm->sector->soundorg, snd->start);
+		gm->sndwait = snd->delay;
+	}
 
 	return gm;
 }

@@ -68,6 +68,36 @@ pal_col_t r_palette[256];
 static uint_fast8_t render_demo;
 #endif
 
+// light scale shade
+static uint8_t shade_table[MAXLIGHTSCALE] =
+{
+	// TODO: calculate; depends on viewwidth
+	0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0E, 0x10, 0x12, 0x14, 0x16, 0x18, 0x1A, 0x1C, 0x1E,
+	0x20, 0x22, 0x24, 0x26, 0x28, 0x2A, 0x2C, 0x2E, 0x30, 0x32, 0x34, 0x36, 0x38, 0x3A, 0x3C, 0x3E,
+	0x40, 0x42, 0x44, 0x46, 0x48, 0x4A, 0x4C, 0x4E, 0x50, 0x52, 0x54, 0x56, 0x58, 0x5A, 0x5C, 0x5E,
+};
+
+// light start table
+static const uint8_t light_start[256] =
+{
+	0xF3, 0xF2, 0xF1, 0xF0, 0xEF, 0xEE, 0xED, 0xEC, 0xEB, 0xEA, 0xE9, 0xE8, 0xE7, 0xE6, 0xE5, 0xE4,
+	0xE3, 0xE2, 0xE1, 0xE0, 0xDF, 0xDE, 0xDD, 0xDC, 0xDB, 0xDA, 0xD9, 0xD8, 0xD7, 0xD6, 0xD5, 0xD4,
+	0xD3, 0xD2, 0xD1, 0xD0, 0xCF, 0xCE, 0xCD, 0xCC, 0xCB, 0xCA, 0xC9, 0xC8, 0xC7, 0xC6, 0xC5, 0xC4,
+	0xC3, 0xC2, 0xC1, 0xC0, 0xBF, 0xBE, 0xBD, 0xBC, 0xBB, 0xBA, 0xB9, 0xB8, 0xB7, 0xB6, 0xB5, 0xB4,
+	0xB3, 0xB2, 0xB1, 0xB0, 0xAF, 0xAE, 0xAD, 0xAC, 0xAB, 0xAA, 0xA9, 0xA8, 0xA7, 0xA6, 0xA5, 0xA4,
+	0xA3, 0xA2, 0xA1, 0xA0, 0x9F, 0x9E, 0x9D, 0x9C, 0x9B, 0x9A, 0x99, 0x98, 0x97, 0x96, 0x95, 0x94,
+	0x93, 0x92, 0x91, 0x90, 0x8F, 0x8E, 0x8D, 0x8C, 0x8B, 0x8A, 0x89, 0x88, 0x87, 0x86, 0x85, 0x84,
+	0x83, 0x82, 0x81, 0x80, 0x7F, 0x7E, 0x7D, 0x7C, 0x7B, 0x7A, 0x79, 0x78, 0x77, 0x76, 0x75, 0x74,
+	0x73, 0x72, 0x71, 0x70, 0x6F, 0x6E, 0x6D, 0x6C, 0x6B, 0x6A, 0x69, 0x68, 0x67, 0x66, 0x65, 0x64,
+	0x63, 0x62, 0x61, 0x60, 0x5F, 0x5E, 0x5D, 0x5C, 0x5B, 0x5A, 0x59, 0x58, 0x57, 0x56, 0x55, 0x54,
+	0x53, 0x52, 0x51, 0x50, 0x4F, 0x4E, 0x4D, 0x4C, 0x4B, 0x4A, 0x49, 0x48, 0x47, 0x46, 0x45, 0x44,
+	0x43, 0x42, 0x41, 0x40, 0x3F, 0x3E, 0x3D, 0x3C, 0x3B, 0x3A, 0x39, 0x38, 0x37, 0x36, 0x35, 0x34,
+	0x33, 0x32, 0x31, 0x30, 0x2F, 0x2E, 0x2D, 0x2C, 0x2B, 0x2A, 0x29, 0x28, 0x27, 0x26, 0x25, 0x24,
+	0x23, 0x22, 0x21, 0x20, 0x1F, 0x1E, 0x1D, 0x1C, 0x1B, 0x1A, 0x19, 0x18, 0x17, 0x16, 0x15, 0x14,
+	0x13, 0x12, 0x11, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04,
+	0x03, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 // mouselook scale
 static const uint16_t look_scale_table[] =
 {
@@ -152,6 +182,50 @@ static void render_demo_pixels(uint32_t x, int32_t y0, int32_t y1, uint8_t color
 }
 
 #endif
+
+//
+// light shading
+
+static inline int32_t calculate_lightnum(int32_t lightlevel, seg_t *seg)
+{
+	lightlevel += extralight << LIGHTSEGSHIFT;
+
+	if(seg)
+	{
+		if(seg->v1->y == seg->v2->y)
+			lightlevel -= 1 << LIGHTSEGSHIFT;
+		else
+		if(seg->v1->x == seg->v2->x)
+			lightlevel += 1 << LIGHTSEGSHIFT;
+	}
+
+	if(lightlevel < 0)
+		return light_start[0];
+
+	if(lightlevel > 255)
+		return light_start[255];
+
+	return light_start[lightlevel];
+}
+
+static inline void calculate_shade(int32_t lightnum, fixed_t scale)
+{
+	int32_t shade;
+
+	shade = scale >> LIGHTSCALESHIFT;
+	if(shade >= MAXLIGHTSCALE)
+		shade = MAXLIGHTSCALE - 1;
+
+	shade = lightnum - shade_table[shade];
+	shade >>= 2;
+	if(shade <= 0)
+		dc_colormap = colormaps;
+	else
+	if(shade >= 31)
+		dc_colormap = colormaps + 31 * 256;
+	else
+		dc_colormap = colormaps + shade * 256;
+}
 
 //
 // draw
@@ -274,7 +348,6 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	int32_t height;
 	int32_t topfrac, topstep;
 	int32_t botfrac, botstep;
-	uint8_t **wlight;
 	int32_t texnum = 0;
 	uint16_t *tcol = (uint16_t*)ds->maskedtexturecol;
 	seg_t *seg = ds->curline;
@@ -363,22 +436,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	}
 
 	// light
-
-	lightnum = (frontsector->lightlevel >> LIGHTSEGSHIFT) + extralight;
-
-	if(seg->v1->y == seg->v2->y)
-		lightnum--;
-	else
-	if(seg->v1->x == seg->v2->x)
-		lightnum++;
-
-	if(lightnum < 0)
-		wlight = scalelight[0];
-	else
-	if(lightnum >= LIGHTLEVELS)
-		wlight = scalelight[LIGHTLEVELS-1];
-	else
-		wlight = scalelight[lightnum];
+	lightnum = calculate_lightnum(frontsector->lightlevel, seg);
 
 	// scale
 
@@ -418,12 +476,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			uint8_t *data;
 
 			if(!fixedcolormap)
-			{
-				uint32_t index = spryscale >> LIGHTSCALESHIFT;
-				if(index >= MAXLIGHTSCALE)
-					index = MAXLIGHTSCALE - 1;
-				dc_colormap = wlight[index];
-			}
+				calculate_shade(lightnum, spryscale);
 
 			sprtopscreen = centeryfrac - FixedMul(dc_texturemid, spryscale);
 			dc_iscale = 0xFFFFFFFF / (uint32_t)spryscale;
@@ -473,20 +526,7 @@ static void R_RenderSegStripe(uint32_t texture, fixed_t top, fixed_t bot, int32_
 	fixed_t bstep;
 	fixed_t scalefrac = rw_scale;
 
-	light = (light >> LIGHTSEGSHIFT) + extralight;
-
-	if(curline->v1->y == curline->v2->y)
-		light--;
-	else
-	if(curline->v1->x == curline->v2->x)
-		light++;
-
-	if(light < 0)
-		walllights = scalelight[0];
-	else if (light >= LIGHTLEVELS)
-		walllights = scalelight[LIGHTLEVELS-1];
-	else
-		walllights = scalelight[light];
+	light = calculate_lightnum(light, curline);
 
 	top -= viewz >> 4;
 	bot -= viewz >> 4;
@@ -501,7 +541,6 @@ static void R_RenderSegStripe(uint32_t texture, fixed_t top, fixed_t bot, int32_
 	{
 		angle_t angle;
 		fixed_t texturecolumn;
-		uint32_t index;
 
 		dc_yl = (tfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
 		if(dc_yl < ceilingclip[x] + 1)
@@ -515,11 +554,8 @@ static void R_RenderSegStripe(uint32_t texture, fixed_t top, fixed_t bot, int32_
 		texturecolumn = rw_offset - FixedMul(finetangent[angle], rw_distance);
 		texturecolumn >>= FRACBITS;
 
-		index = scalefrac >> LIGHTSCALESHIFT;
-		if(index >= MAXLIGHTSCALE)
-			index = MAXLIGHTSCALE - 1;
+		calculate_shade(light, scalefrac);
 
-		dc_colormap = walllights[index];
 		dc_x = x;
 		dc_iscale = 0xFFFFFFFF / (uint32_t)scalefrac;
 
@@ -580,6 +616,8 @@ static void render_striped_seg(uint32_t texture, fixed_t ht, fixed_t hb)
 __attribute((regparm(2),no_caller_saved_registers))
 static void R_RenderSegLoop()
 {
+	int32_t lightnum = 0;
+
 #ifdef RENDER_DEMO
 	if(render_demo > 1)
 	{
@@ -675,7 +713,8 @@ static void R_RenderSegLoop()
 			}
 		}
 		segtextured = 0;
-	}
+	} else
+		lightnum = calculate_lightnum(frontsector->lightlevel, curline);
 
 	for(uint32_t x = rw_x; x < rw_stopx; x++)
 	{
@@ -723,19 +762,15 @@ static void R_RenderSegLoop()
 		if(segtextured || maskedtexture)
 		{
 			angle_t angle;
-			uint32_t index;
 
 			angle = (rw_centerangle + xtoviewangle[x]) >> ANGLETOFINESHIFT;
 			texturecolumn = rw_offset - FixedMul(finetangent[angle], rw_distance);
 			texturecolumn >>= FRACBITS;
 
-			index = rw_scale >> LIGHTSCALESHIFT;
-			if(index >= MAXLIGHTSCALE)
-				index = MAXLIGHTSCALE - 1;
-
-			dc_colormap = walllights[index];
 			dc_x = x;
 			dc_iscale = 0xFFFFFFFF / (uint32_t)rw_scale;
+
+			calculate_shade(lightnum, rw_scale);
 		}
 
 		if(midtexture)
@@ -873,26 +908,18 @@ void R_DrawVisSprite(vissprite_t *vis)
 			{
 				sector_t *sec = viewplayer->mo->subsector->sector;
 				extraplane_t *pl = sec->exfloor;
-				int32_t light = sec->lightlevel;
+				int32_t lightnum = sec->lightlevel;
 				uint8_t **slight;
 
 				while(pl)
 				{
 					if(pl->light && viewz <= *pl->height)
-						light = *pl->light;
+						lightnum = *pl->light;
 					pl = pl->next;
 				}
 
-				light = (light >> LIGHTSEGSHIFT) + extralight;
-				if(light < 0)		
-					slight = scalelight[0];
-				else
-				if(light >= LIGHTLEVELS)
-					slight = scalelight[LIGHTLEVELS-1];
-				else
-					slight = scalelight[light];
-
-				dc_colormap = slight[MAXLIGHTSCALE-1];
+				lightnum = calculate_lightnum(lightnum, NULL);
+				calculate_shade(lightnum, (MAXLIGHTSCALE-1) << LIGHTSCALESHIFT);
 			}
 
 			if(viewplayer->mo->render_style == RS_TRANSLUCENT && (viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8))
@@ -912,32 +939,19 @@ void R_DrawVisSprite(vissprite_t *vis)
 		{
 			sector_t *sec = vis->mo->subsector->sector;
 			extraplane_t *pl = sec->exfloor;
-			int32_t light = sec->lightlevel;
+			int32_t lightnum = sec->lightlevel;
 			int32_t index;
 			uint8_t **slight;
 
 			while(pl)
 			{
 				if(pl->light && clip_height_top <= *pl->height)
-					light = *pl->light;
+					lightnum = *pl->light;
 				pl = pl->next;
 			}
 
-			light = (light >> LIGHTSEGSHIFT) + extralight;
-
-			if(light < 0)
-				slight = scalelight[0];
-			else
-			if(light >= LIGHTLEVELS)
-				slight = scalelight[LIGHTLEVELS-1];
-			else
-				slight = scalelight[light];
-
-			index = vis->scale >> LIGHTSCALESHIFT;
-			if(index >= MAXLIGHTSCALE)
-				index = MAXLIGHTSCALE - 1;
-
-			dc_colormap = slight[index];
+			lightnum = calculate_lightnum(lightnum, NULL);
+			calculate_shade(lightnum, vis->scale);
 		}
 
 		switch(vis->mo->render_style)
@@ -2425,6 +2439,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00035C14, CODE_HOOK | HOOK_UINT16, 0xA37F},
 	{0x00035C16, CODE_HOOK | HOOK_UINT32, (uint32_t)&mlook_pitch},
 	{0x00035C1A, CODE_HOOK | HOOK_UINT16, 0x5AEB},
+	// skip 'scalelight' calculation in 'R_ExecuteSetViewSize'
+	{0x00035CBA, CODE_HOOK | HOOK_JMP_DOOM, 0x00035D6D},
 	// allow screen size over 11
 	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
 	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 10},

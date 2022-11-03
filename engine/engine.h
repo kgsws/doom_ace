@@ -772,7 +772,7 @@ typedef struct
 	fixed_t ceilingheight;
 	uint16_t floorpic;
 	uint16_t ceilingpic;
-	uint16_t lightlevel;
+	int16_t lightlevel;
 	uint16_t special;
 	uint16_t tag;
 	int32_t sndtraversed;

@@ -98,6 +98,16 @@ static const uint8_t light_start[256] =
 	0x03, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
+// plane light table
+static const uint8_t plane_light[] =
+{
+	0x50, 0x28, 0x1A, 0x14, 0x10, 0x0D, 0x0B, 0x0A, 0x08, 0x08, 0x07, 0x06, 0x06, 0x05, 0x05, 0x05,
+	0x04, 0x04, 0x04, 0x04, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+	0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+};
+
 // mouselook scale
 static const uint16_t look_scale_table[] =
 {
@@ -1126,7 +1136,6 @@ static inline void draw_masked_range()
 
 void r_draw_plane(visplane_t *pl)
 {
-	int32_t light;
 	int32_t stop;
 	void *oldfunc = NULL;
 
@@ -1145,15 +1154,7 @@ void r_draw_plane(visplane_t *pl)
 
 	planeheight = abs(pl->height - viewz);
 
-	light = (pl->light >> LIGHTSEGSHIFT) + extralight;
-
-	if(light >= LIGHTLEVELS)
-	    light = LIGHTLEVELS - 1;
-
-	if(light < 0)
-	    light = 0;
-
-	planezlight = zlight[light];
+	planezlight = calculate_lightnum(pl->light, NULL) >> 2;
 
 	pl->top[pl->maxx + 1] = 255;
 	pl->top[pl->minx - 1] = 255;
@@ -1758,6 +1759,27 @@ uint32_t masked_side_check(side_t *side)
 	}
 
 	return 0;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint8_t *set_plane_light(uint32_t distance)
+{
+	int32_t shade;
+	uint8_t *ret;
+
+	shade = distance >> LIGHTZSHIFT;
+	if(shade < sizeof(plane_light))
+		shade = planezlight - plane_light[shade];
+
+	if(shade <= 0)
+		ret = colormaps;
+	else
+	if(shade >= 31)
+		ret = colormaps + 31 * 256;
+	else
+		ret = colormaps + shade * 256;
+
+	return ret;
 }
 
 //
@@ -2441,6 +2463,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00035C1A, CODE_HOOK | HOOK_UINT16, 0x5AEB},
 	// skip 'scalelight' calculation in 'R_ExecuteSetViewSize'
 	{0x00035CBA, CODE_HOOK | HOOK_JMP_DOOM, 0x00035D6D},
+	// change light calculation in 'R_MapPlane'
+	{0x0003616E, CODE_HOOK | HOOK_UINT8, 0x44},
+	{0x00036171, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_plane_light},
+	{0x00036176, CODE_HOOK | HOOK_UINT16, 0x11EB},
 	// allow screen size over 11
 	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
 	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 10},

@@ -237,10 +237,7 @@ extern int16_t ceilingclip[];
 // render, light
 extern uint8_t *colormaps;
 extern fixed_t planeheight;
-extern uint8_t **planezlight;
-extern uint8_t **walllights;
-extern uint8_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
-extern uint8_t *zlight[LIGHTLEVELS][MAXLIGHTZ];
+extern int32_t planezlight; // this was uint8_t**
 extern uint32_t fuzzpos;
 
 // render, draw

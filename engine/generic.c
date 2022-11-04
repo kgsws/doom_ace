@@ -10,6 +10,51 @@
 #include "generic.h"
 
 //
+// light effect
+
+static void light_effect(uint32_t tag, fixed_t frac)
+{
+	for(uint32_t i = 0; i < numsectors; i++)
+	{
+		sector_t *sec = sectors + i;
+		int32_t top, bot;
+
+		if(sec->tag != tag)
+			continue;
+
+		top = 0;
+		bot = sec->lightlevel;
+
+		for(uint32_t j = 0; j < sec->linecount; j++)
+		{
+			line_t *li = sec->lines[j];
+			sector_t *bs;
+
+			if(li->frontsector == sec)
+				bs = li->backsector;
+			else
+				bs = li->frontsector;
+			if(!bs)
+				continue;
+
+			if(bs->lightlevel < bot)
+				bot = bs->lightlevel;
+			if(bs->lightlevel > top)
+				top = bs->lightlevel;
+		}
+
+		bot += (((top - bot) * frac) >> 16);
+		if(bot < 0)
+			bot = 0;
+		else
+		if(bot > 255)
+			bot = 255;
+
+		sec->lightlevel = bot;
+	}
+}
+
+//
 // thinkers
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -22,6 +67,8 @@ void think_ceiling(generic_mover_t *gm)
 
 	if(gm->wait)
 	{
+		if(gm->flags & MVF_WAIT_STOP)
+			return;
 		gm->wait--;
 		if(!gm->wait)
 		{
@@ -45,6 +92,8 @@ void think_ceiling(generic_mover_t *gm)
 		if(sec->ceilingheight >= gm->top_height)
 		{
 			sec->ceilingheight = gm->top_height;
+			if(gm->lighttag)
+				light_effect(gm->lighttag, 0x10000);
 			if(gm->up_seq)
 			{
 				if(gm->up_seq->stop)
@@ -70,6 +119,8 @@ void think_ceiling(generic_mover_t *gm)
 		if(sec->ceilingheight <= gm->bot_height)
 		{
 			sec->ceilingheight = gm->bot_height;
+			if(gm->lighttag)
+				light_effect(gm->lighttag, 0);
 			if(gm->dn_seq)
 			{
 				if(gm->dn_seq->stop)
@@ -89,6 +140,13 @@ void think_ceiling(generic_mover_t *gm)
 			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->move);
 			gm->sndwait = gm->dn_seq->repeat;
 		}
+	}
+
+	if(gm->lighttag)
+	{
+		fixed_t frac;
+		frac = FixedDiv(sec->ceilingheight - gm->bot_height, gm->top_height - gm->bot_height);
+		light_effect(gm->lighttag, frac);
 	}
 
 	return;

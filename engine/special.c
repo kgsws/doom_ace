@@ -48,8 +48,7 @@ static uint32_t act_Door_Close(sector_t *sec, line_t *ln)
 	gm->top_height = sec->ceilingheight;
 	gm->bot_height = sec->floorheight;
 	gm->speed = (fixed_t)ln->arg1 * (FRACUNIT/8);
-
-	// todo 'lighttag' arg2
+	gm->lighttag = ln->arg2;
 
 	return 1;
 }
@@ -59,27 +58,11 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 	generic_mover_t *gm;
 	fixed_t height;
 
-	height = P_FindLowestCeilingSurrounding(sec) - 4 * FRACUNIT;
-
-	if(sec->ceilingheight == height)
+	if(sec->specialactive & ACT_CEILING)
 	{
-		// find existing door
-		gm = generic_ceiling_by_sector(sec);
-		if(gm && gm->type == MVT_DOOR && gm->wait)
-			gm->wait = 0;
-		return 1;
-	}
+		if(ln->arg0)
+			return 0;
 
-	if(sec->ceilingheight > height)
-	{
-		sec->ceilingheight = height;
-		// TODO: update things
-		return 1;
-	}
-
-	gm = generic_ceiling(sec, DIR_UP, SNDSEQ_DOOR, ln->arg1 >= 64);
-	if(!gm)
-	{
 		// find existing door, reverse direction
 		gm = generic_ceiling_by_sector(sec);
 
@@ -97,14 +80,24 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 		return 1;
 	}
 
+	height = P_FindLowestCeilingSurrounding(sec) - 4 * FRACUNIT;
+
+	if(sec->ceilingheight == height)
+		return 1;
+
+	gm = generic_ceiling(sec, DIR_UP, SNDSEQ_DOOR, ln->arg1 >= 64);
 	gm->top_height = height;
 	gm->bot_height = sec->floorheight;
 	gm->speed = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->type = MVT_DOOR;
-	gm->delay = ln->arg2;
 	gm->flags = MVF_TOP_REVERSE;
-
-	// todo 'lighttag' arg3
+	gm->lighttag = ln->arg3;
+	if(!ln->arg2)
+	{
+		gm->delay = 1;
+		gm->flags |= MVF_WAIT_STOP;
+	} else
+		gm->delay = ln->arg2;
 
 	return 1;
 }

@@ -2,8 +2,9 @@
 ////
 
 #define MVF_CRUSH	1
-#define MVF_TOP_REVERSE	2
-#define MVF_BOT_REVERSE	4
+#define MVF_WAIT_STOP	2
+#define MVF_TOP_REVERSE	4
+#define MVF_BOT_REVERSE	8
 
 #define ACT_CEILING	1
 #define ACT_FLOOR	2
@@ -31,6 +32,7 @@ typedef struct
 	uint16_t delay;
 	uint16_t wait;
 	uint16_t sndwait;
+	uint16_t lighttag;
 } generic_mover_t;
 
 //

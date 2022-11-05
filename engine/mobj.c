@@ -36,6 +36,8 @@ static uint32_t numspecbump;
 uint32_t mo_puff_type = 37;
 uint32_t mo_puff_flags;
 
+uint_fast8_t reborn_inventory_hack;
+
 uint32_t mobj_netid;
 
 static fixed_t oldfloorz;
@@ -605,8 +607,22 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		uint32_t itemcount;
 		uint32_t secretcount;
 		uint32_t is_cheater;
+		uint32_t extra_inv;
+		inventory_t *inventory;
+		mobjinfo_t *weapon;
 
-		inventory_destroy(pl->inventory);
+		if(reborn_inventory_hack)
+		{
+			weapon = pl->readyweapon;
+			inventory = pl->inventory;
+			extra_inv = pl->backpack;
+			extra_inv |= !!pl->powers[pw_allmap] << 1;
+			reborn_inventory_hack = 0;
+		} else
+		{
+			inventory = NULL;
+			inventory_destroy(pl->inventory);
+		}
 
 		killcount = pl->killcount;
 		itemcount = pl->itemcount;
@@ -632,33 +648,43 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		pl->pendingweapon = NULL;
 		pl->readyweapon = NULL;
 
-		// give 'depleted' original ammo; for status bar
-		inventory_give(mo, 63, 0); // Clip
-		inventory_give(mo, 69, 0); // Shell
-		inventory_give(mo, 67, 0); // Cell
-		inventory_give(mo, 65, 0); // RocketAmmo
-
-		// default inventory
-		for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
+		if(!inventory)
 		{
-			mobj_give_inventory(mo, si->type, si->count);
-			if(!pl->pendingweapon)
+			// give 'depleted' original ammo; for status bar
+			inventory_give(mo, 63, 0); // Clip
+			inventory_give(mo, 69, 0); // Shell
+			inventory_give(mo, 67, 0); // Cell
+			inventory_give(mo, 65, 0); // RocketAmmo
+
+			// default inventory
+			for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
 			{
-				if(mobjinfo[si->type].extra_type == ETYPE_WEAPON)
-					pl->pendingweapon = mobjinfo + si->type;
+				mobj_give_inventory(mo, si->type, si->count);
+				if(!pl->pendingweapon)
+				{
+					if(mobjinfo[si->type].extra_type == ETYPE_WEAPON)
+						pl->pendingweapon = mobjinfo + si->type;
+				}
 			}
-		}
 
-		pl->readyweapon = pl->pendingweapon;
+			pl->readyweapon = pl->pendingweapon;
 
-		if(deathmatch)
+			if(deathmatch)
+			{
+				for(uint32_t i = 0; i < num_mobj_types; i++)
+				{
+					mobjinfo_t *info = mobjinfo + i;
+					if(info->extra_type == ETYPE_KEY)
+						inventory_give(mo, i, INV_MAX_COUNT);
+				}
+			}
+		} else
 		{
-			for(uint32_t i = 0; i < num_mobj_types; i++)
-			{
-				mobjinfo_t *info = mobjinfo + i;
-				if(info->extra_type == ETYPE_KEY)
-					inventory_give(mo, i, INV_MAX_COUNT);
-			}
+			pl->readyweapon = weapon;
+			pl->pendingweapon = weapon;
+			pl->backpack = extra_inv & 1;
+			pl->powers[pw_allmap] = (extra_inv >> 1) & 1;
+			mo->inventory = inventory;
 		}
 	} else
 	{

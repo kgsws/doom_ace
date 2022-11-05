@@ -15,6 +15,8 @@ extern uint32_t mobj_netid;
 extern uint32_t mo_puff_type;
 extern uint32_t mo_puff_flags;
 
+extern uint_fast8_t reborn_inventory_hack;
+
 //
 
 #define mobj_set_animation(mo,anim)	mobj_set_state((mo), STATE_SET_ANIMATION((anim), 0))

@@ -744,11 +744,17 @@ uint32_t spawn_player(mapthing_t *mt)
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t respawn_check()
+uint32_t respawn_check(uint32_t idx)
 {
-	if(netgame)
-		return 1;
 	if(map_level_info->flags & MAP_FLAG_ALLOW_RESPAWN)
+	{
+		player_t *pl = players + idx;
+		pl->inventory = pl->mo->inventory;
+		pl->mo->inventory = NULL;
+		reborn_inventory_hack = 1;
+		return 1;
+	}
+	if(netgame)
 		return 1;
 	return 0;
 }

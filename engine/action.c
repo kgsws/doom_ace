@@ -10,6 +10,7 @@
 #include "mobj.h"
 #include "player.h"
 #include "weapon.h"
+#include "hitscan.h"
 #include "inventory.h"
 #include "sound.h"
 #include "stbar.h"

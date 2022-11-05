@@ -902,10 +902,10 @@ G_DeferedInitNew:
 	.4byte	0x00021540
 	pop	%ebx
 	ret
-////////////////////////////////// P_AimLineAttack
-.section .text.P_AimLineAttack
-.global P_AimLineAttack
-P_AimLineAttack:
+////////////////////////////////// doom_P_AimLineAttack
+.section .text.doom_P_AimLineAttack
+.global doom_P_AimLineAttack
+doom_P_AimLineAttack:
 	push	%ebx
 	mov	8(%esp),%ebx
 	.byte	0xE8

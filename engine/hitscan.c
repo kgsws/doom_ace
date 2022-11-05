@@ -11,6 +11,7 @@
 #include "map.h"
 #include "extra3d.h"
 #include "special.h"
+#include "sight.h"
 #include "hitscan.h"
 
 #define PIT_AddThingIntercepts	((void*)0x0002C720 + doom_code_segment)
@@ -275,97 +276,7 @@ static void add_intercepts(int32_t x, int32_t y, uint32_t flags)
 }
 
 //
-// API
-
-uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, uint32_t (*trav)(intercept_t*), uint32_t flags)
-{
-	int32_t dx, dy;
-	int32_t ia, ib, ic;
-
-	if(shootthing && shootthing->subsector)
-	{
-		// hack for hitscan; this should be in P_LineAttack
-		hitscanz = shootz;
-		hitscansector = shootthing->subsector->sector;
-	}
-
-	validcount++;
-	intercept_p = intercepts;
-
-	trace.x = x1;
-	trace.y = y1;
-	trace.dx = x2 - x1;
-	trace.dy = y2 - y1;
-
-	x1 -= bmaporgx;
-	y1 -= bmaporgy;
-	x2 -= bmaporgx;
-	y2 -= bmaporgy;
-
-	x1 >>= MAPBLOCKSHIFT;
-	y1 >>= MAPBLOCKSHIFT;
-	x2 >>= MAPBLOCKSHIFT;
-	y2 >>= MAPBLOCKSHIFT;
-
-	dx = x2 - x1;
-	dy = y2 - y1;
-
-	ia = dx < 0 ? -1 : 1;
-	ib = dy < 0 ? -1 : 1;
-
-	add_intercepts(x1, y1, flags);
-	add_intercepts(x1 + 1, y1, flags);
-	add_intercepts(x1, y1 + 1, flags);
-	add_intercepts(x1 - 1, y1, flags);
-	add_intercepts(x1, y1 - 1, flags);
-	add_intercepts(x1 + 1, y1 + 1, flags);
-	add_intercepts(x1 - 1, y1 - 1, flags);
-	add_intercepts(x1 - 1, y1 + 1, flags);
-	add_intercepts(x1 + 1, y1 - 1, flags);
-
-	dx = abs(dx);
-	dy = abs(dy);
-
-	if(dx >= dy)
-	{
-		ic = dx;
-		for(int32_t i = dx; i > 0; i--)
-		{
-			x1 += ia;
-			ic -= 2 * dy;
-			if(ic <= 0)
-			{
-				y1 += ib;
-				ic += 2 * dx;
-			}
-			add_intercepts(x1, y1, flags);
-			add_intercepts(x1, y1 - 1, flags);
-			add_intercepts(x1, y1 + 1, flags);
-		}
-	} else
-	{
-		ic = dy;
-		for(int32_t i = dy; i > 0; i--)
-		{
-			y1 += ib;
-			ic -= 2 * dx;
-			if(ic <= 0)
-			{
-				x1 += ia;
-				ic += 2 * dy;
-			}
-			add_intercepts(x1, y1, flags);
-			add_intercepts(x1 - 1, y1, flags);
-			add_intercepts(x1 + 1, y1, flags);
-		}
-	}
-
-	dx = P_TraverseIntercepts(trav, FRACUNIT);
-
-	shootthing = NULL; // again, a hack
-
-	return dx;
-}
+// traversers
 
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t hs_slide_traverse(intercept_t *in)
@@ -748,5 +659,315 @@ do_puff:
 
 		return 0;
 	}
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t PTR_AimTraverse(intercept_t* in)
+{
+	mobj_t *th;
+	fixed_t slope;
+	fixed_t thingtopslope;
+	fixed_t thingbottomslope;
+	fixed_t dist;
+
+	if(in->isaline)
+	{
+		line_t *li;
+		extraplane_t *pl;
+		uint32_t force;
+		sector_t *back;
+
+		li = in->d.line;
+
+		if(!(li->flags & ML_TWOSIDED))
+			return 0;
+
+		if(li->flags & ML_BLOCK_ALL)
+			return 0;
+
+		P_LineOpening(li);
+
+		if(openbottom >= opentop)
+			return 0;
+
+		if(topplane && *topplane->height < opentop)
+			opentop = *topplane->height;
+
+		if(botplane && *botplane->height > openbottom)
+			openbottom = *botplane->height;
+
+		if(openbottom >= opentop)
+			return 0;
+
+		topplane = NULL;
+		botplane = NULL;
+
+		if(sight_extra_3d_cover(li->frontsector))
+			return 0;
+
+		if(sight_extra_3d_cover(li->backsector))
+			return 0;
+
+		if(P_PointOnLineSide(trace.x, trace.y, li))
+		{
+			back = li->frontsector;
+		} else
+		{
+			back = li->backsector;
+		}
+
+		pl = back->exfloor;
+		while(pl)
+		{
+			if(	pl->flags & E3D_BLOCK_SIGHT &&
+				pl->source->ceilingheight < shootz &&
+				pl->source->ceilingheight >= openbottom &&
+				pl->source->floorheight <= openbottom
+			){
+				openbottom = pl->source->ceilingheight;
+				botplane = pl;
+				break;
+			}
+			pl = pl->next;
+		}
+
+		pl = back->exceiling;
+		while(pl)
+		{
+			if(	pl->flags & E3D_BLOCK_SIGHT &&
+				pl->source->floorheight > shootz &&
+				pl->source->floorheight <= opentop &&
+				pl->source->ceilingheight >= opentop
+			){
+				opentop = pl->source->floorheight;
+				topplane = pl;
+				break;
+			}
+			pl = pl->next;
+		}
+
+		if(openbottom >= opentop)
+			return 0;
+
+		dist = FixedMul(attackrange, in->frac);
+
+		force = li->frontsector->tag != li->backsector->tag && (li->frontsector->exfloor || li->backsector->exfloor);
+
+		if(force || li->frontsector->floorheight != li->backsector->floorheight)
+		{
+			slope = FixedDiv(openbottom - shootz , dist);
+			if(slope > botslope)
+				botslope = slope;
+		}
+
+		if(force || li->frontsector->ceilingheight != li->backsector->ceilingheight)
+		{
+			slope = FixedDiv(opentop - shootz , dist);
+			if(slope < topslope)
+				topslope = slope;
+		}
+
+		if(topslope <= botslope)
+			return 0;
+
+		return 1;
+	}
+
+	th = in->d.thing;
+	if(th == shootthing)
+		return 1;
+
+	if(!(th->flags & MF_SHOOTABLE))
+		return 1;
+
+	if(th->flags2 & MF2_NOTAUTOAIMED)
+		return 1;
+
+	dist = FixedMul(attackrange, in->frac);
+	thingtopslope = FixedDiv(th->z+th->height - shootz , dist);
+
+	if(thingtopslope < botslope)
+		return 1;
+
+	thingbottomslope = FixedDiv (th->z - shootz, dist);
+
+	if(thingbottomslope > topslope)
+		return 1;
+
+	if(thingtopslope > topslope)
+		thingtopslope = topslope;
+
+	if(thingbottomslope < botslope)
+		thingbottomslope = botslope;
+
+	aimslope = (thingtopslope + thingbottomslope) / 2;
+	linetarget = th;
+
+	return 0;
+}
+
+//
+// API
+
+uint32_t path_traverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2, void *func, uint32_t flags)
+{
+	int32_t dx, dy;
+	int32_t ia, ib, ic;
+
+	if(shootthing && shootthing->subsector)
+	{
+		// hack for hitscan; this should be in P_LineAttack
+		hitscanz = shootz;
+		hitscansector = shootthing->subsector->sector;
+	}
+
+	validcount++;
+	intercept_p = intercepts;
+
+	trace.x = x1;
+	trace.y = y1;
+	trace.dx = x2 - x1;
+	trace.dy = y2 - y1;
+
+	x1 -= bmaporgx;
+	y1 -= bmaporgy;
+	x2 -= bmaporgx;
+	y2 -= bmaporgy;
+
+	x1 >>= MAPBLOCKSHIFT;
+	y1 >>= MAPBLOCKSHIFT;
+	x2 >>= MAPBLOCKSHIFT;
+	y2 >>= MAPBLOCKSHIFT;
+
+	dx = x2 - x1;
+	dy = y2 - y1;
+
+	ia = dx < 0 ? -1 : 1;
+	ib = dy < 0 ? -1 : 1;
+
+	add_intercepts(x1, y1, flags);
+	add_intercepts(x1 + 1, y1, flags);
+	add_intercepts(x1, y1 + 1, flags);
+	add_intercepts(x1 - 1, y1, flags);
+	add_intercepts(x1, y1 - 1, flags);
+	add_intercepts(x1 + 1, y1 + 1, flags);
+	add_intercepts(x1 - 1, y1 - 1, flags);
+	add_intercepts(x1 - 1, y1 + 1, flags);
+	add_intercepts(x1 + 1, y1 - 1, flags);
+
+	dx = abs(dx);
+	dy = abs(dy);
+
+	if(dx >= dy)
+	{
+		ic = dx;
+		for(int32_t i = dx; i > 0; i--)
+		{
+			x1 += ia;
+			ic -= 2 * dy;
+			if(ic <= 0)
+			{
+				y1 += ib;
+				ic += 2 * dx;
+			}
+			add_intercepts(x1, y1, flags);
+			add_intercepts(x1, y1 - 1, flags);
+			add_intercepts(x1, y1 + 1, flags);
+		}
+	} else
+	{
+		ic = dy;
+		for(int32_t i = dy; i > 0; i--)
+		{
+			y1 += ib;
+			ic -= 2 * dx;
+			if(ic <= 0)
+			{
+				x1 += ia;
+				ic += 2 * dy;
+			}
+			add_intercepts(x1, y1, flags);
+			add_intercepts(x1 - 1, y1, flags);
+			add_intercepts(x1 + 1, y1, flags);
+		}
+	}
+
+	dx = P_TraverseIntercepts(func, FRACUNIT);
+
+	shootthing = NULL; // again, a hack
+
+	return dx;
+}
+
+__attribute((regparm(3),no_caller_saved_registers)) // three!
+fixed_t P_AimLineAttack(mobj_t *t1, angle_t angle, fixed_t distance)
+{
+	// TODO: old demo compatibility (path traverse)
+	fixed_t x2;
+	fixed_t y2;
+	extraplane_t *pl;
+
+	angle >>= ANGLETOFINESHIFT;
+	shootthing = t1;
+
+	x2 = t1->x + (distance >> FRACBITS) * finecosine[angle];
+	y2 = t1->y + (distance >> FRACBITS) * finesine[angle];
+	shootz = t1->z + (t1->height >> 1) + 8*FRACUNIT;
+
+	topslope = 100 * FRACUNIT / 160;
+	botslope = -100 * FRACUNIT / 160;
+	attackrange = distance;
+	linetarget = NULL;
+
+	topplane = NULL;
+	botplane = NULL;
+
+	pl = t1->subsector->sector->exceiling;
+	while(pl)
+	{
+		if(	pl->flags & E3D_BLOCK_SIGHT &&
+			*pl->height > shootz
+		){
+			topplane = pl;
+			break;
+		}
+		pl = pl->next;
+	}
+
+	pl = t1->subsector->sector->exfloor;
+	while(pl)
+	{
+		if(	pl->flags & E3D_BLOCK_SIGHT &&
+			*pl->height < shootz
+		){
+			botplane = pl;
+			break;
+		}
+		pl = pl->next;
+	}
+
+	path_traverse(t1->x, t1->y, x2, y2, PTR_AimTraverse, PT_ADDLINES | PT_ADDTHINGS);
+
+	if(topplane)
+	{
+		fixed_t slope = *topplane->height - shootz;
+		if(slope < topslope)
+			topslope = slope;
+	}
+
+	if(botplane)
+	{
+		fixed_t slope = *botplane->height - shootz;
+		if(slope > botslope)
+			botslope = slope;
+	}
+
+	if(topslope <= botslope)
+		linetarget = NULL;
+
+	if(linetarget)
+		return aimslope;
+
+	return 0;
 }
 

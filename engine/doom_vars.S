@@ -289,6 +289,9 @@ DOOM_VAR 0x0002C14C, numsectors
 DOOM_VAR 0x0002C150, deathmatch_p
 DOOM_VAR 0x0002C154, deathmatchstarts
 
+DOOM_VAR 0x0002C1E4, botslope
+DOOM_VAR 0x0002C1E8, topslope
+
 DOOM_VAR 0x0002CF74, thinkercap
 DOOM_VAR 0x0002CF80, leveltime
 DOOM_VAR 0x0002CF90, onground

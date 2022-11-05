@@ -591,6 +591,7 @@ static const dec_flag_t mobj_flags2[] =
 	{"icecorpse", MF2_ICECORPSE},
 	{"spawnsoundsource", MF2_SPAWNSOUNDSOURCE},
 	{"donttranslate", MF2_DONTTRANSLATE},
+	{"notautoaimed", MF2_NOTAUTOAIMED},
 	// terminator
 	{NULL}
 };

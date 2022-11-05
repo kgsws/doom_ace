@@ -10,6 +10,7 @@
 #include "mobj.h"
 #include "player.h"
 #include "action.h"
+#include "hitscan.h"
 #include "map.h"
 #include "stbar.h"
 #include "demo.h"

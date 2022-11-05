@@ -115,7 +115,8 @@ extern fixed_t shootz;
 extern fixed_t aimslope;
 extern uint32_t la_damage;
 extern fixed_t bulletslope;
-
+extern fixed_t botslope; // was bottomslope
+extern fixed_t topslope;
 extern mobj_t *shootthing;
 extern fixed_t attackrange;
 

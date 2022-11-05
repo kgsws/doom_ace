@@ -9,11 +9,9 @@
 #include "sight.h"
 
 static fixed_t sightzstart;
-static fixed_t topslope;
-static fixed_t botslope;
 
-static extraplane_t *topplane;
-static extraplane_t *botplane;
+extraplane_t *topplane;
+extraplane_t *botplane;
 
 //
 // funcs
@@ -26,7 +24,7 @@ static inline void P_MakeDivline(line_t *li, divline_t *dl)
 	dl->dy = li->dy;
 }
 
-static uint32_t extra_3d_cover(sector_t *sec)
+uint32_t sight_extra_3d_cover(sector_t *sec)
 {
 	// simple extra floor rejection; only rejects fully covered openings
 	extraplane_t *pl;
@@ -163,10 +161,10 @@ static uint32_t P_SightBlockLinesIterator(uint32_t x, uint32_t y)
 		if(ld->frontsector->exfloor || ld->backsector->exfloor)
 			P_LineOpening(ld);
 
-		if(extra_3d_cover(ld->frontsector))
+		if(sight_extra_3d_cover(ld->frontsector))
 			return 0;
 
-		if(extra_3d_cover(ld->backsector))
+		if(sight_extra_3d_cover(ld->backsector))
 			return 0;
 
 		if(intercept_p < intercepts + MAXINTERCEPTS)

@@ -1989,7 +1989,6 @@ static const hook_t patch_new[] =
 	{0x0002B5F6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
 	{0x0002B616, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
 	{0x0002B636, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
-	{0x0002BBFA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_AimLineAttack
 	{0x0002BC89, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_LineAttack
 	{0x0002BD55, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_UseLines
 	// replace pointers to 'PTR_SlideTraverse' in 'P_SlideMove'
@@ -2025,7 +2024,6 @@ static const hook_t patch_old[] =
 	{0x0002B5F6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
 	{0x0002B616, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
 	{0x0002B636, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
-	{0x0002BBFA, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_AimLineAttack
 	{0x0002BC89, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_LineAttack
 	{0x0002BD55, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_UseLines
 	// restore pointers to 'PTR_SlideTraverse' in 'P_SlideMove'
@@ -2063,6 +2061,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002E981, CODE_HOOK | HOOK_UINT16, 0x11EB},
 	// disable line scroller and stuff cleanup in 'P_SpawnSpecials'
 	{0x00030155, CODE_HOOK | HOOK_JMP_DOOM, 0x000301E1},
+	// replace 'P_AimLineAttack'
+	{0x0002BB80, CODE_HOOK | HOOK_UINT32, 0xD98951},
+	{0x0002BB83, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_AimLineAttack},
+	{0x0002BB88, CODE_HOOK | HOOK_UINT16, 0xC359},
 	// replace key checks in 'EV_VerticalDoor'
 	{0x00026C85, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_door_key},
 	{0x00026C8A, CODE_HOOK | HOOK_UINT16, 0xC085},

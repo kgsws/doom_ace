@@ -120,7 +120,7 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 }
 
 //
-// floors
+// floors & ceilings
 
 static uint32_t act_Floor_ByValue(sector_t *sec, line_t *ln)
 {
@@ -168,6 +168,25 @@ static uint32_t act_Ceiling_ByValue(sector_t *sec, line_t *ln)
 	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->speed_now = gm->speed_start;
 	gm->flags = MVF_BLOCK_STAY;
+
+	return 1;
+}
+
+static uint32_t act_FloorAndCeiling_ByValue(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+	fixed_t dest;
+
+	if(sec->specialactive & (ACT_FLOOR|ACT_CEILING))
+		return 0;
+
+	dest = sec->floorheight + (fixed_t)ln->arg2 * value_mult * FRACUNIT;
+
+	gm = generic_dual(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_FLOOR, 0);
+	gm->top_height = dest;
+	gm->bot_height = dest;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->gap_height = sec->ceilingheight - sec->floorheight;
 
 	return 1;
 }
@@ -312,6 +331,14 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 41: // Ceiling_RaiseByValue
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_ByValue);
+		break;
+		case 95: // FloorAndCeiling_LowerByValue
+			value_mult = -1;
+			spec_success = handle_tag(ln, ln->arg0, act_FloorAndCeiling_ByValue);
+		break;
+		case 96: // FloorAndCeiling_RaiseByValue
+			value_mult = 1;
+			spec_success = handle_tag(ln, ln->arg0, act_FloorAndCeiling_ByValue);
 		break;
 		default:
 			doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", ln->special, !!back_side, mo, mo->player);

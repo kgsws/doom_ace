@@ -141,6 +141,7 @@ void think_ceiling(generic_mover_t *gm)
 			gm->sndwait = gm->dn_seq->repeat;
 		}
 
+		no_extra_step = 1;
 		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
 		if(blocked && !sec->e3d_origin)
 		{
@@ -162,9 +163,11 @@ void think_ceiling(generic_mover_t *gm)
 			{
 				sec->ceilingheight += gm->speed_now;
 				P_ChangeSector(sec, 0);
+				no_extra_step = 0;
 				return;
 			}
 		}
+		no_extra_step = 0;
 
 		if(sec->ceilingheight <= gm->bot_height)
 		{
@@ -290,6 +293,7 @@ void think_floor(generic_mover_t *gm)
 			gm->sndwait = gm->dn_seq->repeat;
 		}
 
+		no_extra_step = 1;
 		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
 		if(blocked && sec->e3d_origin)
 		{
@@ -297,9 +301,11 @@ void think_floor(generic_mover_t *gm)
 			{
 				sec->floorheight += gm->speed_now;
 				P_ChangeSector(sec, 0);
+				no_extra_step = 0;
 				return;
 			}
 		}
+		no_extra_step = 0;
 
 		if(sec->floorheight <= gm->bot_height)
 		{
@@ -330,6 +336,107 @@ void think_floor(generic_mover_t *gm)
 finish_move:
 	gm->thinker.function = (void*)-1;
 	sec->specialactive &= ~ACT_FLOOR;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void think_dual(generic_mover_t *gm)
+{
+	sector_t *sec;
+	uint32_t blocked;
+
+	if(gm->sndwait)
+		gm->sndwait--;
+
+	sec = gm->sector;
+
+	if(gm->direction == DIR_UP)
+	{
+		sec->floorheight += gm->speed_now;
+		sec->ceilingheight = sec->floorheight + gm->gap_height;
+
+		if(!gm->sndwait && gm->up_seq && gm->up_seq->move)
+		{
+			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->move);
+			gm->sndwait = gm->up_seq->repeat;
+		}
+
+		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
+		if(blocked)
+		{
+			sec->floorheight -= gm->speed_now;
+			sec->ceilingheight = sec->floorheight + gm->gap_height;
+			P_ChangeSector(sec, 0);
+			return;
+		}
+
+		if(sec->floorheight >= gm->top_height)
+		{
+			sec->floorheight = gm->top_height;
+			sec->ceilingheight = sec->floorheight + gm->gap_height;
+
+			if(sec->e3d_origin)
+			{
+				e3d_update_bot(sec);
+				e3d_update_top(sec);
+			}
+
+			if(gm->up_seq && gm->up_seq->stop)
+					S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
+
+			goto finish_move;
+		}
+	} else
+	{
+		sec->floorheight -= gm->speed_now;
+		sec->ceilingheight = sec->floorheight + gm->gap_height;
+
+		if(!gm->sndwait && gm->dn_seq && gm->dn_seq->move)
+		{
+			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->move);
+			gm->sndwait = gm->dn_seq->repeat;
+		}
+
+		no_extra_step = 1;
+		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
+		if(blocked)
+		{
+			sec->floorheight += gm->speed_now;
+			sec->ceilingheight = sec->floorheight + gm->gap_height;
+			P_ChangeSector(sec, 0);
+			no_extra_step = 0;
+			return;
+		}
+		no_extra_step = 0;
+
+		if(sec->floorheight <= gm->bot_height)
+		{
+			sec->floorheight = gm->bot_height;
+			sec->ceilingheight = sec->floorheight + gm->gap_height;
+
+			if(sec->e3d_origin)
+			{
+				e3d_update_bot(sec);
+				e3d_update_top(sec);
+			}
+
+			if(gm->dn_seq && gm->dn_seq->stop)
+				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
+
+			goto finish_move;
+		}
+	}
+
+	if(sec->e3d_origin)
+	{
+		e3d_update_bot(sec);
+		e3d_update_top(sec);
+	}
+
+	return;
+
+finish_move:
+	gm->thinker.function = (void*)-1;
+	sec->specialactive &= ~(ACT_FLOOR|ACT_CEILING);
 }
 
 //
@@ -446,5 +553,46 @@ generic_mover_t *generic_floor_by_sector(sector_t *sec)
 	}
 
 	return NULL;
+}
+
+//
+// API - both
+
+generic_mover_t *generic_dual(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast)
+{
+	generic_mover_t *gm;
+	sound_seq_t *seq;
+
+	if(sec->specialactive & (ACT_FLOOR|ACT_CEILING))
+		return NULL;
+	sec->specialactive |= ACT_FLOOR | ACT_CEILING;
+
+	gm = Z_Malloc(sizeof(generic_mover_t), PU_LEVELSPEC, NULL);
+	memset(gm, 0, sizeof(generic_mover_t));
+	gm->thinker.function = think_dual;
+	gm->sector = sec;
+	gm->direction = dir;
+	think_add(&gm->thinker);
+
+	seq = snd_seq_by_sector(sec, def_seq);
+	if(seq)
+	{
+		seq_sounds_t *snd;
+		if(is_fast)
+		{
+			gm->up_seq = &seq->fast_open;
+			gm->dn_seq = &seq->fast_close;
+		} else
+		{
+			gm->up_seq = &seq->norm_open;
+			gm->dn_seq = &seq->norm_close;
+		}
+		snd = dir == DIR_UP ? gm->up_seq : gm->dn_seq;
+		if(snd->start)
+			S_StartSound((mobj_t*)&gm->sector->soundorg, snd->start);
+		gm->sndwait = snd->delay;
+	}
+
+	return gm;
 }
 

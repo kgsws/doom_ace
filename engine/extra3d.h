@@ -40,6 +40,8 @@ extern fixed_t tmextrafloor;
 extern fixed_t tmextraceiling;
 extern fixed_t tmextradrop;
 
+extern uint_fast8_t no_extra_step;
+
 //
 
 void e3d_init(uint32_t count);

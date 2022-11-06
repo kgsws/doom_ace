@@ -28,8 +28,12 @@ typedef struct
 	seq_sounds_t *dn_seq;
 	fixed_t top_height;
 	fixed_t bot_height;
-	fixed_t speed_start;
 	fixed_t speed_now;
+	union
+	{
+		fixed_t speed_start;
+		fixed_t gap_height;
+	};
 	uint16_t flags;
 	uint8_t type;
 	uint8_t direction;
@@ -46,4 +50,6 @@ generic_mover_t *generic_ceiling_by_sector(sector_t *sec);
 
 generic_mover_t *generic_floor(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
 generic_mover_t *generic_floor_by_sector(sector_t *sec);
+
+generic_mover_t *generic_dual(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
 

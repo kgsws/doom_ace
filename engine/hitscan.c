@@ -427,7 +427,7 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 			if(pl->flags & E3D_BLOCK_HITSCAN && hitscanz < *pl->height && z > *pl->height)
 			{
 				frac = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
-				*zz = *pl->height;
+				*zz = *pl->height - 1; // make it ever so slightly under
 				return frac;
 			}
 			pl = pl->next;

@@ -237,6 +237,19 @@ void e3d_add_height(fixed_t height)
 }
 
 //
+// plane movement
+
+void e3d_update_top(sector_t *src)
+{
+	// TODO: check & fix order
+}
+
+void e3d_update_bot(sector_t *src)
+{
+	// TODO: check & fix order
+}
+
+//
 // API
 
 void e3d_check_midtex(mobj_t *mo, line_t *ln, uint32_t no_step)
@@ -357,7 +370,7 @@ void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step)
 	{
 		if(pl->flags & E3D_SOLID)
 		{
-			if(*pl->height >= z && *pl->height < tmextraceiling)
+			if(*pl->height > z && *pl->height < tmextraceiling)
 				tmextraceiling = *pl->height;
 		}
 		pl = pl->next;
@@ -502,6 +515,13 @@ void e3d_create()
 
 		tag = ln->arg0 + ln->arg4 * 256;
 
+		if(!tag)
+			I_Error("[EX3D] Do not use zero tag!");
+
+		src->e3d_origin = tag;
+
+		M_ClearBox(src->extra->bbox);
+
 		for(uint32_t j = 0; j < numsectors; j++)
 		{
 			sector_t *sec = sectors + j;
@@ -535,22 +555,64 @@ void e3d_create()
 			height_count++;
 	}
 
-	// find maxium extra floor count per sector
+	// find maximum extra floor count per sector
+	// update model sector bounding box
 	for(uint32_t i = 0; i < numsectors; i++)
 	{
-		extraplane_t *pl;
 		sector_t *sec = sectors + i;
-		uint32_t count = 0;
 
-		pl = sec->exfloor;
-		while(pl)
+		// count
+		if(sec->exfloor)
 		{
-			count++;
-			pl = pl->next;
+			extraplane_t *pl;
+			uint32_t count = 0;
+
+			pl = sec->exfloor;
+			while(pl)
+			{
+				count++;
+				pl = pl->next;
+			}
+
+			if(count > 1)
+				sec->ed3_multiple = 1;
+
+			if(count > top_count)
+				top_count = count;
 		}
 
-		if(count > top_count)
-			top_count = count;
+		// model
+		if(sec->e3d_origin)
+		{
+			int32_t block;
+
+			for(uint32_t j = 0; j < numsectors; j++)
+			{
+				if(sectors[j].tag == sec->e3d_origin)
+				for(uint32_t k = 0; k < sectors[j].linecount; k++)
+				{
+					line_t *li = sectors[j].lines[k];
+					M_AddToBox(sec->extra->bbox, li->v1->x, li->v1->y);
+					M_AddToBox(sec->extra->bbox, li->v2->x, li->v2->y);
+				}
+			}
+
+			block = (sec->extra->bbox[BOXTOP] - bmaporgy + MAXRADIUS) >> MAPBLOCKSHIFT;
+			block = block >= bmapheight ? bmapheight-1 : block;
+			sec->blockbox[BOXTOP] = block;
+
+			block = (sec->extra->bbox[BOXBOTTOM] - bmaporgy - MAXRADIUS) >> MAPBLOCKSHIFT;
+			block = block < 0 ? 0 : block;
+			sec->blockbox[BOXBOTTOM] = block;
+
+			block = (sec->extra->bbox[BOXRIGHT] - bmaporgx + MAXRADIUS) >> MAPBLOCKSHIFT;
+			block = block >= bmapwidth ? bmapwidth-1 : block;
+			sec->blockbox[BOXRIGHT] = block;
+
+			block = (sec->extra->bbox[BOXLEFT] - bmaporgx - MAXRADIUS) >> MAPBLOCKSHIFT;
+			block = block < 0 ? 0 : block;
+			sec->blockbox[BOXLEFT] = block;
+		}
 	}
 
 	// mark linedefs that make extra floor boundary

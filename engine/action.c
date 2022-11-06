@@ -1592,6 +1592,7 @@ void A_SkullPop(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	th->angle = mo->angle;
 	th->player = mo->player;
 	th->player->mo = th;
+	th->target = mo->target;
 	th->inventory = mo->inventory;
 	mo->player = NULL;
 	mo->inventory = NULL;
@@ -1658,6 +1659,7 @@ void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		th->angle = mo->angle;
 		th->player = mo->player;
 		th->player->mo = th;
+		th->target = mo->target;
 		th->inventory = mo->inventory;
 		mo->player = NULL;
 		mo->inventory = NULL;

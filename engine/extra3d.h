@@ -54,6 +54,9 @@ extraplane_t *e3d_check_inside(sector_t *sec, fixed_t z, uint32_t flags);
 void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step);
 void e3d_check_midtex(mobj_t *mo, line_t *ln, uint32_t no_step);
 
+void e3d_update_top(sector_t *src);
+void e3d_update_bot(sector_t *src);
+
 //
 
 visplane_t *e3d_find_plane(fixed_t height, uint32_t picnum, uint16_t light, uint16_t alpha);

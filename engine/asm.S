@@ -636,6 +636,12 @@ P_XYMovement:
 P_SlideMove:
 	.byte	0xE9
 	.4byte	0x0002B560
+////////////////////////////////// P_ChangeSector
+.section .text.P_ChangeSector
+.global P_ChangeSector
+P_ChangeSector:
+	.byte	0xE9
+	.4byte	0x0002BF90
 ////////////////////////////////// P_KillMobj
 .section .text.P_KillMobj
 .global P_KillMobj

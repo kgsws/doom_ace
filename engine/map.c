@@ -140,8 +140,7 @@ static const map_attr_t map_attr[] =
 	{.name = "resetinventory", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_RESET_INVENTORY},
 //	{.name = "forgetstate", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_FORGET_STATE},
 	{.name = "spawnwithweaponraised", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_SPAWN_WITH_WEAPON_RAISED},
-	{.name = "nojump", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_JUMP}, // ZDoom compatibility - might be implemented
-	{.name = "nocrouch", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_CROUCH}, // ZDoom compatibility - probably won't be implemented
+	{.name = "strictmonsteractivation", .type = IT_FLAG, .offset = offsetof(map_level_t, flags), .flag = MAP_FLAG_NO_MONSTER_ACTIVATION},
 	// terminator
 	{.name = NULL}
 };
@@ -285,6 +284,8 @@ static inline void parse_sectors()
 		sec->exfloor = NULL;
 		sec->exceiling = NULL;
 		sec->sndseq = 255;
+		sec->ed3_multiple = 0;
+		sec->e3d_origin = 0;
 
 		// this should be done in 'P_GroupLines'
 		M_ClearBox(se->bbox);

@@ -43,6 +43,7 @@ typedef uint32_t angle_t;
 #define LIGHTZSHIFT	20
 #define FUZZTABLE	50
 #define MAXBOB	(16 * FRACUNIT)
+#define MAXRADIUS	(64 * FRACUNIT)
 #define ONFLOORZ	-2147483648
 #define ONCEILINGZ	2147483647
 
@@ -787,7 +788,8 @@ typedef struct
 			struct extraplane_s *exceiling;
 			fixed_t x, y; // SOUND
 			uint8_t sndseq;
-			uint8_t __free[3];
+			uint8_t ed3_multiple;
+			uint16_t e3d_origin;
 		};
 		degenmobj_t soundorg;
 	};
@@ -1360,6 +1362,7 @@ fixed_t doom_P_AimLineAttack(mobj_t*,angle_t,fixed_t) __attribute((regparm(2),no
 void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_SlideMove(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_CheckPosition(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t P_ChangeSector(sector_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

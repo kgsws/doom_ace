@@ -3,8 +3,11 @@
 
 #define MVF_CRUSH	1
 #define MVF_WAIT_STOP	2
-#define MVF_TOP_REVERSE	4
-#define MVF_BOT_REVERSE	8
+#define MVF_BLOCK_STAY	4
+#define MVF_BLOCK_SLOW	8
+#define MVF_BLOCK_GO_UP	16
+#define MVF_TOP_REVERSE	32
+#define MVF_BOT_REVERSE	64
 
 #define ACT_CEILING	1
 #define ACT_FLOOR	2
@@ -25,7 +28,8 @@ typedef struct
 	seq_sounds_t *dn_seq;
 	fixed_t top_height;
 	fixed_t bot_height;
-	fixed_t speed;
+	fixed_t speed_start;
+	fixed_t speed_now;
 	uint16_t flags;
 	uint8_t type;
 	uint8_t direction;
@@ -39,4 +43,7 @@ typedef struct
 
 generic_mover_t *generic_ceiling(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
 generic_mover_t *generic_ceiling_by_sector(sector_t *sec);
+
+generic_mover_t *generic_floor(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
+generic_mover_t *generic_floor_by_sector(sector_t *sec);
 

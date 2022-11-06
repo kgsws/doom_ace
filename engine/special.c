@@ -137,7 +137,7 @@ static uint32_t act_Floor_ByValue(sector_t *sec, line_t *ln)
 	if(dest == sec->floorheight)
 		return 1;
 
-	gm = generic_floor(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_STNMOV, 0);
+	gm = generic_floor(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_FLOOR, 0);
 	gm->top_height = dest;
 	gm->bot_height = dest;
 	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
@@ -162,7 +162,7 @@ static uint32_t act_Ceiling_ByValue(sector_t *sec, line_t *ln)
 	if(dest == sec->ceilingheight)
 		return 1;
 
-	gm = generic_ceiling(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_STNMOV, 0);
+	gm = generic_ceiling(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_CEILING, 0);
 	gm->top_height = dest;
 	gm->bot_height = dest;
 	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);

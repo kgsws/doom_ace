@@ -106,7 +106,7 @@ static const sound_seq_t def_sndseq[NUMSNDSEQ] =
 		.fast_close.start = 18,
 		.fast_close.stop = 19,
 	},
-	[SNDSEQ_STNMOV] =
+	[SNDSEQ_CEILING] =
 	{
 		.norm_open.move = 22,
 		.norm_open.repeat = 8,
@@ -115,6 +115,21 @@ static const sound_seq_t def_sndseq[NUMSNDSEQ] =
 		.fast_open.move = 22,
 		.fast_open.repeat = 8,
 		.fast_close.move = 22,
+		.fast_close.repeat = 8,
+	},
+	[SNDSEQ_FLOOR] =
+	{
+		.norm_open.move = 22,
+		.norm_open.stop = 19,
+		.norm_open.repeat = 8,
+		.norm_close.move = 22,
+		.norm_close.stop = 19,
+		.norm_close.repeat = 8,
+		.fast_open.move = 22,
+		.fast_open.stop = 19,
+		.fast_open.repeat = 8,
+		.fast_close.move = 22,
+		.fast_close.stop = 19,
 		.fast_close.repeat = 8,
 	},
 };

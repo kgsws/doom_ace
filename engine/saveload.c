@@ -21,6 +21,7 @@
 #include "demo.h"
 #include "render.h"
 #include "draw.h"
+#include "extra3d.h"
 #include "saveload.h"
 
 #define SAVE_SLOT_COUNT	6
@@ -1392,11 +1393,15 @@ static inline uint32_t ld_get_sectors()
 		{
 			if(reader_get_u32(&sec->floorheight))
 				return 1;
+			if(sec->e3d_origin)
+				e3d_update_bot(sec);
 		}
 		if(CHECK_BIT(flags, SF_SEC_HEIGHT_CEILING))
 		{
 			if(reader_get_u32(&sec->ceilingheight))
 				return 1;
+			if(sec->e3d_origin)
+				e3d_update_top(sec);
 		}
 		if(CHECK_BIT(flags, SF_SEC_LIGHT_LEVEL))
 		{

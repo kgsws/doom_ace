@@ -114,7 +114,7 @@ void think_ceiling(generic_mover_t *gm)
 			sec->ceilingheight = gm->top_height;
 
 			if(sec->e3d_origin)
-				e3d_update_bot(sec);
+				e3d_update_top(sec);
 
 			if(gm->lighttag)
 				light_effect(gm->lighttag, 0x10000);
@@ -171,7 +171,7 @@ void think_ceiling(generic_mover_t *gm)
 			sec->ceilingheight = gm->bot_height;
 
 			if(sec->e3d_origin)
-				e3d_update_bot(sec);
+				e3d_update_top(sec);
 
 			if(gm->lighttag)
 				light_effect(gm->lighttag, 0);
@@ -191,7 +191,7 @@ void think_ceiling(generic_mover_t *gm)
 	}
 
 	if(sec->e3d_origin)
-		e3d_update_bot(sec);
+		e3d_update_top(sec);
 
 	if(gm->lighttag)
 	{
@@ -266,7 +266,7 @@ void think_floor(generic_mover_t *gm)
 			sec->floorheight = gm->top_height;
 
 			if(sec->e3d_origin)
-				e3d_update_top(sec);
+				e3d_update_bot(sec);
 
 			if(gm->up_seq && gm->up_seq->stop)
 					S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
@@ -306,7 +306,7 @@ void think_floor(generic_mover_t *gm)
 			sec->floorheight = gm->bot_height;
 
 			if(sec->e3d_origin)
-				e3d_update_top(sec);
+				e3d_update_bot(sec);
 
 			if(gm->dn_seq && gm->dn_seq->stop)
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
@@ -323,7 +323,7 @@ void think_floor(generic_mover_t *gm)
 	}
 
 	if(sec->e3d_origin)
-		e3d_update_top(sec);
+		e3d_update_bot(sec);
 
 	return;
 

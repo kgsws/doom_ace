@@ -241,12 +241,104 @@ void e3d_add_height(fixed_t height)
 
 void e3d_update_top(sector_t *src)
 {
-	// TODO: check & fix order
+	for(uint32_t i = 0; i < numsectors; i++)
+	{
+		sector_t *sec = sectors + i;
+		extraplane_t *pl;
+		extraplane_t **pr;
+		fixed_t old_height;
+
+		if(!sec->ed3_multiple)
+			// only one extra floor in this sector
+			continue;
+
+		if(sec->tag != src->e3d_origin)
+			continue;
+
+		old_height = ONCEILINGZ;
+		pl = sec->exfloor;
+		pr = &sec->exfloor;
+		while(pl)
+		{
+			if(pl->source == src)
+			{
+				if(	*pl->height > old_height ||
+					(pl->next && *pl->next->height > *pl->height)
+				){
+					extraplane_t *pp;
+					// remove
+					*pr = pl->next;
+					// sort, top to bottom
+					pr = &sec->exfloor;
+					pp = sec->exfloor;
+					while(pp)
+					{
+						if(*pl->height > *pp->height)
+							break;
+						pr = &pp->next;
+						pp = pp->next;
+					}
+					*pr = pl;
+					pl->next = pp;
+				}
+				break;
+			}
+			old_height = *pl->height;
+			pr = &pl->next;
+			pl = pl->next;
+		}
+	}
 }
 
 void e3d_update_bot(sector_t *src)
 {
-	// TODO: check & fix order
+	for(uint32_t i = 0; i < numsectors; i++)
+	{
+		sector_t *sec = sectors + i;
+		extraplane_t *pl;
+		extraplane_t **pr;
+		fixed_t old_height;
+
+		if(!sec->ed3_multiple)
+			// only one extra floor in this sector
+			continue;
+
+		if(sec->tag != src->e3d_origin)
+			continue;
+
+		old_height = ONFLOORZ;
+		pl = sec->exceiling;
+		pr = &sec->exceiling;
+		while(pl)
+		{
+			if(pl->source == src)
+			{
+				if(	*pl->height < old_height ||
+					(pl->next && *pl->next->height < *pl->height)
+				){
+					extraplane_t *pp;
+					// remove
+					*pr = pl->next;
+					// sort, bottom to top
+					pr = &sec->exceiling;
+					pp = sec->exceiling;
+					while(pp)
+					{
+						if(*pl->height < *pp->height)
+							break;
+						pr = &pp->next;
+						pp = pp->next;
+					}
+					*pr = pl;
+					pl->next = pp;
+				}
+				break;
+			}
+			old_height = *pl->height;
+			pr = &pl->next;
+			pl = pl->next;
+		}
+	}
 }
 
 //

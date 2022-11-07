@@ -148,6 +148,101 @@ static uint32_t act_Floor_ByValue(sector_t *sec, line_t *ln)
 	return 1;
 }
 
+static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+	fixed_t dest;
+
+	if(sec->specialactive & ACT_FLOOR)
+		return 0;
+
+	switch(ln->arg3)
+	{
+		case 0:
+			dest = sec->floorheight;
+			if(ln->arg4 & 8)
+				dest += (fixed_t)ln->arg2 * FRACUNIT;
+			else
+				dest -= (fixed_t)ln->arg2 * FRACUNIT;
+		break;
+		case 1:
+			dest = P_FindHighestFloorSurrounding(sec);
+		break;
+		case 2:
+			dest = P_FindLowestFloorSurrounding(sec);
+		break;
+//		case 3: // move to nearest neighboring floor
+//		break;
+		case 4:
+			dest = P_FindLowestCeilingSurrounding(sec);
+		break;
+		case 5:
+			dest = sec->ceilingheight;
+		break;
+		default:
+			return 0;
+	}
+
+	if(dest > sec->ceilingheight)
+		dest = sec->ceilingheight;
+
+	gm = generic_floor(sec, ln->arg4 & 8 ? DIR_UP : DIR_DOWN, SNDSEQ_FLOOR, 0);
+	gm->top_height = dest;
+	gm->bot_height = dest;
+	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed_now = gm->speed_start;
+	gm->flags = ln->arg4 & 16 ? MVF_CRUSH : MVF_BLOCK_STAY;
+
+	if(ln->arg4 & 3)
+	{
+		if(ln->arg4 & 4)
+		{
+			for(uint32_t i = 0; i < sec->linecount; i++)
+			{
+				line_t *li = sec->lines[i];
+				sector_t *bs;
+
+				if(li->frontsector == sec)
+					bs = li->backsector;
+				else
+					bs = li->frontsector;
+				if(!bs)
+					continue;
+
+				if(bs->floorheight == dest)
+				{
+					gm->texture = bs->floorpic;
+					gm->special = bs->special;
+					break;
+				}
+			}
+		} else
+		if(ln->frontsector)
+		{
+			gm->texture = ln->frontsector->floorpic;
+			gm->special = ln->frontsector->special;
+		} else
+		{
+			gm->texture = sec->floorpic;
+			gm->special = sec->special;
+		}
+	}
+
+	switch(ln->arg4 & 3)
+	{
+		case 1:
+			gm->special = 0;
+		case 3:
+			gm->flags |= MVF_SET_TEXTURE | MVF_SET_SPECIAL;
+		break;
+		case 2:
+			gm->flags |= MVF_SET_TEXTURE;
+		break;
+	}
+
+	return 1;
+}
+
 static uint32_t act_Ceiling_ByValue(sector_t *sec, line_t *ln)
 {
 	generic_mover_t *gm;
@@ -169,6 +264,101 @@ static uint32_t act_Ceiling_ByValue(sector_t *sec, line_t *ln)
 	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->speed_now = gm->speed_start;
 	gm->flags = MVF_BLOCK_STAY;
+
+	return 1;
+}
+
+static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+	fixed_t dest;
+
+	if(sec->specialactive & ACT_CEILING)
+		return 0;
+
+	switch(ln->arg3)
+	{
+		case 0:
+			dest = sec->ceilingheight;
+			if(ln->arg4 & 8)
+				dest += (fixed_t)ln->arg2 * FRACUNIT;
+			else
+				dest -= (fixed_t)ln->arg2 * FRACUNIT;
+		break;
+		case 1:
+			dest = P_FindHighestCeilingSurrounding(sec);
+		break;
+		case 2:
+			dest = P_FindLowestCeilingSurrounding(sec);
+		break;
+//		case 3: // move to nearest neighboring ceiling
+//		break;
+		case 4:
+			dest = P_FindHighestFloorSurrounding(sec);
+		break;
+		case 5:
+			dest = sec->floorheight;
+		break;
+		default:
+			return 0;
+	}
+
+	if(dest < sec->floorheight)
+		dest = sec->floorheight;
+
+	gm = generic_ceiling(sec, ln->arg4 & 8 ? DIR_UP : DIR_DOWN, SNDSEQ_CEILING, 0);
+	gm->top_height = dest;
+	gm->bot_height = dest;
+	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed_now = gm->speed_start;
+	gm->flags = ln->arg4 & 16 ? MVF_CRUSH : MVF_BLOCK_STAY;
+
+	if(ln->arg4 & 3)
+	{
+		if(ln->arg4 & 4)
+		{
+			for(uint32_t i = 0; i < sec->linecount; i++)
+			{
+				line_t *li = sec->lines[i];
+				sector_t *bs;
+
+				if(li->frontsector == sec)
+					bs = li->backsector;
+				else
+					bs = li->frontsector;
+				if(!bs)
+					continue;
+
+				if(bs->ceilingheight == dest)
+				{
+					gm->texture = bs->ceilingpic;
+					gm->special = bs->special;
+					break;
+				}
+			}
+		} else
+		if(ln->frontsector)
+		{
+			gm->texture = ln->frontsector->ceilingpic;
+			gm->special = ln->frontsector->special;
+		} else
+		{
+			gm->texture = sec->ceilingpic;
+			gm->special = sec->special;
+		}
+	}
+
+	switch(ln->arg4 & 3)
+	{
+		case 1:
+			gm->special = 0;
+		case 3:
+			gm->flags |= MVF_SET_TEXTURE | MVF_SET_SPECIAL;
+		break;
+		case 2:
+			gm->flags |= MVF_SET_TEXTURE;
+		break;
+	}
 
 	return 1;
 }
@@ -395,6 +585,12 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 199: // Ceiling_LowerByValueTimes8
 			value_mult = -8;
 			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_ByValue);
+		break;
+		case 200: // Generic_Floor
+			spec_success = handle_tag(ln, ln->arg0, act_Generic_Floor);
+		break;
+		case 201: // Generic_Ceiling
+			spec_success = handle_tag(ln, ln->arg0, act_Generic_Ceiling);
 		break;
 		case 206: // Plat_DownWaitUpStayLip
 			value_mult = -1;

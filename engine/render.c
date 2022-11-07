@@ -774,7 +774,7 @@ static void R_RenderSegLoop()
 			angle_t angle;
 
 			angle = (rw_centerangle + xtoviewangle[x]) >> ANGLETOFINESHIFT;
-			texturecolumn = rw_offset - FixedMul(finetangent[angle], rw_distance);
+			texturecolumn = rw_offset - FixedMul(finetangent[angle & 4095], rw_distance);
 			texturecolumn >>= FRACBITS;
 
 			dc_x = x;

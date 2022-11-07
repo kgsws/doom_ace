@@ -1398,6 +1398,7 @@ void P_SpawnSpecials() __attribute((regparm(2),no_caller_saved_registers));
 void P_ShootSpecialLine(mobj_t*,line_t*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t P_FindLowestCeilingSurrounding(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t P_FindLowestFloorSurrounding(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
+fixed_t P_FindHighestCeilingSurrounding(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t P_FindHighestFloorSurrounding(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t P_FindNextHighestFloor(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
 

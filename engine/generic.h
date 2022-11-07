@@ -9,6 +9,8 @@
 #define MVF_BLOCK_GO_DN	32
 #define MVF_TOP_REVERSE	64
 #define MVF_BOT_REVERSE	128
+#define MVF_SET_TEXTURE	256
+#define MVF_SET_SPECIAL	512
 
 #define ACT_CEILING	1
 #define ACT_FLOOR	2
@@ -38,10 +40,22 @@ typedef struct
 	uint16_t flags;
 	uint8_t type;
 	uint8_t direction;
-	uint16_t delay;
-	uint16_t wait;
 	uint16_t sndwait;
-	uint16_t lighttag;
+	uint16_t wait;
+	union
+	{
+		uint32_t combo;
+		struct
+		{
+			uint16_t delay;
+			uint16_t lighttag;
+		};
+		struct
+		{
+			uint16_t texture;
+			uint16_t special;
+		};
+	};
 } generic_mover_t;
 
 //

@@ -116,7 +116,7 @@ void think_ceiling(generic_mover_t *gm)
 			if(sec->e3d_origin)
 				e3d_update_top(sec);
 
-			if(gm->lighttag)
+			if(gm->lighttag && !(gm->flags & MVF_SET_SPECIAL))
 				light_effect(gm->lighttag, 0x10000);
 
 			if(gm->up_seq && gm->up_seq->stop)
@@ -176,7 +176,7 @@ void think_ceiling(generic_mover_t *gm)
 			if(sec->e3d_origin)
 				e3d_update_top(sec);
 
-			if(gm->lighttag)
+			if(gm->lighttag && !(gm->flags & MVF_SET_SPECIAL))
 				light_effect(gm->lighttag, 0);
 
 			if(gm->dn_seq && gm->dn_seq->stop)
@@ -196,7 +196,7 @@ void think_ceiling(generic_mover_t *gm)
 	if(sec->e3d_origin)
 		e3d_update_top(sec);
 
-	if(gm->lighttag)
+	if(gm->lighttag && !(gm->flags & MVF_SET_SPECIAL))
 	{
 		fixed_t frac;
 		frac = FixedDiv(sec->ceilingheight - gm->bot_height, gm->top_height - gm->bot_height);
@@ -206,6 +206,11 @@ void think_ceiling(generic_mover_t *gm)
 	return;
 
 finish_move:
+	if(gm->flags & MVF_SET_TEXTURE)
+		sec->ceilingpic = gm->texture;
+	if(gm->flags & MVF_SET_SPECIAL)
+		sec->special = gm->special;
+
 	gm->thinker.function = (void*)-1;
 	sec->specialactive &= ~ACT_CEILING;
 }
@@ -345,6 +350,11 @@ void think_floor(generic_mover_t *gm)
 	return;
 
 finish_move:
+	if(gm->flags & MVF_SET_TEXTURE)
+		sec->floorpic = gm->texture;
+	if(gm->flags & MVF_SET_SPECIAL)
+		sec->special = gm->special;
+
 	gm->thinker.function = (void*)-1;
 	sec->specialactive &= ~ACT_FLOOR;
 }

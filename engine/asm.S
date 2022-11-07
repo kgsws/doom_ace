@@ -798,6 +798,12 @@ doom_V_CopyRect:
 P_FindLowestCeilingSurrounding:
 	.byte	0xE9
 	.4byte	0x0002F170
+////////////////////////////////// P_FindHighestCeilingSurrounding
+.section .text.P_FindHighestCeilingSurrounding
+.global P_FindHighestCeilingSurrounding
+P_FindHighestCeilingSurrounding:
+	.byte	0xE9
+	.4byte	0x0002F1D0
 ////////////////////////////////// P_FindLowestFloorSurrounding
 .section .text.P_FindLowestFloorSurrounding
 .global P_FindLowestFloorSurrounding

@@ -3,7 +3,7 @@ OBJ = asm.o main.o utils.o bugfix.o wadfile.o config.o controls.o ldr_texture.o 
 CC = gcc -m32 -march=i386
 OPT = -O2 -g0
 BOTH = -fno-pie
-CFLAGS = ${BOTH} ${OPT} -mgeneral-regs-only -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-protector -fcf-protection=none -Wno-address-of-packed-member -U_FORTIFY_SOURCE
+CFLAGS = ${BOTH} ${OPT} -mgeneral-regs-only -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-protector -fno-reorder-blocks-and-partition -fcf-protection=none -Wno-address-of-packed-member -U_FORTIFY_SOURCE
 
 build: ${program}.lmp
 

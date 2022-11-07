@@ -6,8 +6,9 @@
 #define MVF_BLOCK_STAY	4
 #define MVF_BLOCK_SLOW	8
 #define MVF_BLOCK_GO_UP	16
-#define MVF_TOP_REVERSE	32
-#define MVF_BOT_REVERSE	64
+#define MVF_BLOCK_GO_DN	32
+#define MVF_TOP_REVERSE	64
+#define MVF_BOT_REVERSE	128
 
 #define ACT_CEILING	1
 #define ACT_FLOOR	2

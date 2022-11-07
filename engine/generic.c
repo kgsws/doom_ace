@@ -152,7 +152,7 @@ void think_ceiling(generic_mover_t *gm)
 				{
 					if(gm->up_seq->start)
 						S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->start);
-					gm->sndwait = gm->dn_seq->delay;
+					gm->sndwait = gm->up_seq->delay;
 				}
 			}
 
@@ -253,10 +253,21 @@ void think_floor(generic_mover_t *gm)
 		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
 		if(blocked && !sec->e3d_origin)
 		{
+			if(gm->flags & MVF_BLOCK_GO_DN)
+			{
+				gm->direction = DIR_DOWN;
+				if(gm->dn_seq)
+				{
+					if(gm->dn_seq->start)
+						S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->start);
+					gm->sndwait = gm->dn_seq->delay;
+				}
+			}
+
 			if(gm->flags & MVF_BLOCK_SLOW)
 				gm->speed_now = FRACUNIT;
 
-			if(gm->flags & (MVF_BLOCK_STAY | MVF_BLOCK_GO_UP))
+			if(gm->flags & (MVF_BLOCK_STAY | MVF_BLOCK_GO_DN))
 			{
 				sec->floorheight -= gm->speed_now;
 				P_ChangeSector(sec, 0);

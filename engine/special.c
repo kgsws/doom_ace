@@ -27,6 +27,7 @@ uint32_t spec_success;
 
 static uint_fast8_t door_monster_hack;
 static fixed_t value_mult;
+static fixed_t value_offs;
 
 //
 // Doors
@@ -192,6 +193,40 @@ static uint32_t act_FloorAndCeiling_ByValue(sector_t *sec, line_t *ln)
 }
 
 //
+// platforms
+
+static uint32_t act_Plat_Bidir(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+
+	if(sec->specialactive & ACT_FLOOR)
+		return 0;
+
+	gm = generic_floor(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_PLAT, 0);
+
+	if(value_mult < 0)
+	{
+		gm->bot_height = P_FindLowestFloorSurrounding(sec) + value_offs;
+		gm->top_height = sec->floorheight;
+		gm->flags = MVF_BLOCK_GO_DN | MVF_BOT_REVERSE;
+	} else
+	{
+		if(value_mult)
+			gm->top_height = P_FindNextHighestFloor(sec);
+		else
+			gm->top_height = P_FindHighestFloorSurrounding(sec);
+		gm->bot_height = sec->floorheight;
+		gm->flags = MVF_BLOCK_GO_DN | MVF_TOP_REVERSE;
+	}
+
+	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed_now = gm->speed_start;
+	gm->delay = ln->arg2;
+
+	return 1;
+}
+
+//
 // tag handler
 
 static uint32_t handle_tag(line_t *ln, uint32_t tag, uint32_t (*cb)(sector_t*,line_t*))
@@ -332,6 +367,15 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_ByValue);
 		break;
+		case 62: // Plat_DownWaitUpStay
+			value_mult = -1;
+			value_offs = 8 * FRACUNIT;
+			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
+		break;
+		case 64: // Plat_UpWaitDownStay
+			value_mult = 0;
+			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
+		break;
 		case 95: // FloorAndCeiling_LowerByValue
 			value_mult = -1;
 			spec_success = handle_tag(ln, ln->arg0, act_FloorAndCeiling_ByValue);
@@ -339,6 +383,23 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 96: // FloorAndCeiling_RaiseByValue
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_FloorAndCeiling_ByValue);
+		break;
+		case 172: // Plat_UpNearestWaitDownStay
+			value_mult = 1;
+			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
+		break;
+		case 198: // Ceiling_RaiseByValueTimes8
+			value_mult = 8;
+			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_ByValue);
+		break;
+		case 199: // Ceiling_LowerByValueTimes8
+			value_mult = -8;
+			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_ByValue);
+		break;
+		case 206: // Plat_DownWaitUpStayLip
+			value_mult = -1;
+			value_offs = (fixed_t)ln->arg3 * FRACUNIT;
+			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
 		break;
 		default:
 			doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", ln->special, !!back_side, mo, mo->player);

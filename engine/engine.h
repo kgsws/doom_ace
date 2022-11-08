@@ -789,7 +789,8 @@ typedef struct
 			fixed_t x, y; // SOUND
 			uint8_t sndseq;
 			uint8_t ed3_multiple;
-			uint16_t e3d_origin;
+			uint8_t e3d_origin;
+			uint8_t __free;
 		};
 		degenmobj_t soundorg;
 	};

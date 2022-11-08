@@ -251,10 +251,6 @@ void e3d_update_top(sector_t *src)
 		fixed_t old_height;
 
 		if(!sec->ed3_multiple)
-			// only one extra floor in this sector
-			continue;
-
-		if(sec->tag != src->e3d_origin)
 			continue;
 
 		old_height = ONCEILINGZ;
@@ -302,10 +298,6 @@ void e3d_update_bot(sector_t *src)
 		fixed_t old_height;
 
 		if(!sec->ed3_multiple)
-			// only one extra floor in this sector
-			continue;
-
-		if(sec->tag != src->e3d_origin)
 			continue;
 
 		old_height = ONFLOORZ;
@@ -614,7 +606,7 @@ void e3d_create()
 		if(!tag)
 			I_Error("[EX3D] Do not use zero tag!");
 
-		src->e3d_origin = tag;
+		src->e3d_origin = 1;
 
 		M_ClearBox(src->extra->bbox);
 
@@ -684,12 +676,22 @@ void e3d_create()
 
 			for(uint32_t j = 0; j < numsectors; j++)
 			{
-				if(sectors[j].tag == sec->e3d_origin)
-				for(uint32_t k = 0; k < sectors[j].linecount; k++)
+				extraplane_t *pl;
+
+				pl = sectors[j].exfloor;
+				while(pl)
 				{
-					line_t *li = sectors[j].lines[k];
-					M_AddToBox(sec->extra->bbox, li->v1->x, li->v1->y);
-					M_AddToBox(sec->extra->bbox, li->v2->x, li->v2->y);
+					if(pl->source == sec)
+					{
+						for(uint32_t k = 0; k < sectors[j].linecount; k++)
+						{
+							line_t *li = sectors[j].lines[k];
+							M_AddToBox(sec->extra->bbox, li->v1->x, li->v1->y);
+							M_AddToBox(sec->extra->bbox, li->v2->x, li->v2->y);
+						}
+						break;
+					}
+					pl = pl->next;
 				}
 			}
 

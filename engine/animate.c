@@ -86,6 +86,7 @@ static uint8_t engine_animdefs[] =
 "flat	FWATER1	r FWATER4 t 8\n"
 "flat	LAVA1	r LAVA4 t 8\n"
 "flat	NUKAGE1	r NUKAGE3 t 8\n"
+"flat	RROCK05 r RROCK08 t 8\n"
 "flat	SLIME01	r SLIME04 t 8\n"
 "flat	SLIME05	r SLIME08 t 8\n"
 "flat	SLIME09	r SLIME12 t 8\n"

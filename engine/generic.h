@@ -1,16 +1,15 @@
 // kgsws' ACE Engine
 ////
 
-#define MVF_CRUSH	1
-#define MVF_WAIT_STOP	2
-#define MVF_BLOCK_STAY	4
-#define MVF_BLOCK_SLOW	8
-#define MVF_BLOCK_GO_UP	16
-#define MVF_BLOCK_GO_DN	32
-#define MVF_TOP_REVERSE	64
-#define MVF_BOT_REVERSE	128
-#define MVF_SET_TEXTURE	256
-#define MVF_SET_SPECIAL	512
+#define MVF_WAIT_STOP	0x0001
+#define MVF_BLOCK_STAY	0x0002
+#define MVF_BLOCK_SLOW	0x0004
+#define MVF_BLOCK_GO_UP	0x0008
+#define MVF_BLOCK_GO_DN	0x0010
+#define MVF_TOP_REVERSE	0x0020
+#define MVF_BOT_REVERSE	0x0040
+#define MVF_SET_TEXTURE	0x0080
+#define MVF_SET_SPECIAL	0x0100
 
 #define ACT_CEILING	1
 #define ACT_FLOOR	2
@@ -37,12 +36,13 @@ typedef struct
 		fixed_t speed_start;
 		fixed_t gap_height;
 	};
-	uint16_t flags;
 	uint8_t type;
 	uint8_t direction;
+	uint16_t flags;
 	uint16_t sndwait;
 	uint16_t wait;
 	uint16_t delay;
+	uint16_t crush;
 	uint16_t lighttag;
 	uint16_t texture;
 	uint16_t special;

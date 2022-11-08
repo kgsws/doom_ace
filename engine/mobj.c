@@ -1220,7 +1220,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 
 	if(crushchange && !(leveltime & 3))
 	{
-		mobj_damage(thing, NULL, NULL, 10, 0);
+		mobj_damage(thing, NULL, NULL, crushchange & 0x8000 ? crushchange & 0x7FFF : 10, 0); // 'crushchange' sould contain damage value directly
 
 		if(!(thing->flags & MF_NOBLOOD) || demoplayback == DEMO_OLD)
 		{

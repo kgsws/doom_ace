@@ -330,8 +330,8 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 	gm->bot_height = dest;
 	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->speed_now = gm->speed_start;
-	gm->flags = ln->arg4 & 16 ? MVF_CRUSH : MVF_BLOCK_STAY;
-	gm->flags |= flags;
+	gm->flags = flags | MVF_BLOCK_STAY;
+	gm->crush = ln->arg4 & 16 ? 0x8014 : 0;
 	gm->texture = texture;
 	gm->special = special;
 
@@ -470,7 +470,8 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 	gm->bot_height = dest;
 	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->speed_now = gm->speed_start;
-	gm->flags = ln->arg4 & 16 ? MVF_CRUSH : MVF_BLOCK_STAY;
+	gm->flags = ln->arg4 & 16 ? 0 : MVF_BLOCK_STAY;
+	gm->crush = ln->arg4 & 16 ? 0x8014 : 0;
 	gm->flags |= flags;
 	gm->texture = texture;
 	gm->special = special;

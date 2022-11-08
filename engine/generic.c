@@ -102,7 +102,7 @@ void think_ceiling(generic_mover_t *gm)
 			gm->sndwait = gm->up_seq->repeat;
 		}
 
-		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
+		blocked = P_ChangeSector(sec, gm->crush);
 		if(blocked && sec->e3d_origin)
 		{
 			if(gm->flags & MVF_BLOCK_STAY)
@@ -146,7 +146,7 @@ void think_ceiling(generic_mover_t *gm)
 		}
 
 		no_extra_step = 1;
-		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
+		blocked = P_ChangeSector(sec, gm->crush);
 		if(blocked && !sec->e3d_origin)
 		{
 			if(gm->flags & MVF_BLOCK_GO_UP)
@@ -261,7 +261,7 @@ void think_floor(generic_mover_t *gm)
 			gm->sndwait = gm->up_seq->repeat;
 		}
 
-		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
+		blocked = P_ChangeSector(sec, gm->crush);
 		if(blocked && !sec->e3d_origin)
 		{
 			if(gm->flags & MVF_BLOCK_GO_DN)
@@ -316,7 +316,7 @@ void think_floor(generic_mover_t *gm)
 		}
 
 		no_extra_step = 1;
-		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
+		blocked = P_ChangeSector(sec, gm->crush);
 		if(blocked && sec->e3d_origin)
 		{
 			if(gm->flags & MVF_BLOCK_STAY)
@@ -385,7 +385,7 @@ void think_dual(generic_mover_t *gm)
 			gm->sndwait = gm->up_seq->repeat;
 		}
 
-		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
+		blocked = P_ChangeSector(sec, gm->crush);
 		if(blocked)
 		{
 			sec->floorheight -= gm->speed_now;
@@ -422,7 +422,7 @@ void think_dual(generic_mover_t *gm)
 		}
 
 		no_extra_step = 1;
-		blocked = P_ChangeSector(sec, gm->flags & MVF_CRUSH);
+		blocked = P_ChangeSector(sec, gm->crush);
 		if(blocked)
 		{
 			sec->floorheight += gm->speed_now;

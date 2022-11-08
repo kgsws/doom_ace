@@ -42,20 +42,10 @@ typedef struct
 	uint8_t direction;
 	uint16_t sndwait;
 	uint16_t wait;
-	union
-	{
-		uint32_t combo;
-		struct
-		{
-			uint16_t delay;
-			uint16_t lighttag;
-		};
-		struct
-		{
-			uint16_t texture;
-			uint16_t special;
-		};
-	};
+	uint16_t delay;
+	uint16_t lighttag;
+	uint16_t texture;
+	uint16_t special;
 } generic_mover_t;
 
 //

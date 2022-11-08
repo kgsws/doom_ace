@@ -63,6 +63,7 @@ void think_ceiling(generic_mover_t *gm)
 {
 	sector_t *sec;
 	uint32_t blocked;
+	fixed_t original;
 
 	if(gm->sndwait)
 		gm->sndwait--;
@@ -87,10 +88,13 @@ void think_ceiling(generic_mover_t *gm)
 	}
 
 	sec = gm->sector;
+	original = sec->ceilingheight;
 
 	if(gm->direction == DIR_UP)
 	{
 		sec->ceilingheight += gm->speed_now;
+		if(sec->ceilingheight > gm->top_height)
+			sec->ceilingheight = gm->top_height;
 
 		if(!gm->sndwait && gm->up_seq && gm->up_seq->move)
 		{
@@ -103,7 +107,7 @@ void think_ceiling(generic_mover_t *gm)
 		{
 			if(gm->flags & MVF_BLOCK_STAY)
 			{
-				sec->ceilingheight -= gm->speed_now;
+				sec->ceilingheight = original;
 				P_ChangeSector(sec, 0);
 				return;
 			}
@@ -111,8 +115,6 @@ void think_ceiling(generic_mover_t *gm)
 
 		if(sec->ceilingheight >= gm->top_height)
 		{
-			sec->ceilingheight = gm->top_height;
-
 			if(sec->e3d_origin)
 				e3d_update_top(sec);
 
@@ -134,6 +136,8 @@ void think_ceiling(generic_mover_t *gm)
 	} else
 	{
 		sec->ceilingheight -= gm->speed_now;
+		if(sec->ceilingheight < gm->bot_height)
+			sec->ceilingheight = gm->bot_height;
 
 		if(!gm->sndwait && gm->dn_seq && gm->dn_seq->move)
 		{
@@ -161,7 +165,7 @@ void think_ceiling(generic_mover_t *gm)
 
 			if(gm->flags & (MVF_BLOCK_STAY | MVF_BLOCK_GO_UP))
 			{
-				sec->ceilingheight += gm->speed_now;
+				sec->ceilingheight = original;
 				P_ChangeSector(sec, 0);
 				no_extra_step = 0;
 				return;
@@ -171,8 +175,6 @@ void think_ceiling(generic_mover_t *gm)
 
 		if(sec->ceilingheight <= gm->bot_height)
 		{
-			sec->ceilingheight = gm->bot_height;
-
 			if(sec->e3d_origin)
 				e3d_update_top(sec);
 
@@ -220,6 +222,7 @@ void think_floor(generic_mover_t *gm)
 {
 	sector_t *sec;
 	uint32_t blocked;
+	fixed_t original;
 
 	if(gm->sndwait)
 		gm->sndwait--;
@@ -244,10 +247,13 @@ void think_floor(generic_mover_t *gm)
 	}
 
 	sec = gm->sector;
+	original = sec->floorheight;
 
 	if(gm->direction == DIR_UP)
 	{
 		sec->floorheight += gm->speed_now;
+		if(sec->floorheight > gm->top_height)
+			sec->floorheight = gm->top_height;
 
 		if(!gm->sndwait && gm->up_seq && gm->up_seq->move)
 		{
@@ -274,7 +280,7 @@ void think_floor(generic_mover_t *gm)
 
 			if(gm->flags & (MVF_BLOCK_STAY | MVF_BLOCK_GO_DN))
 			{
-				sec->floorheight -= gm->speed_now;
+				sec->floorheight = original;
 				P_ChangeSector(sec, 0);
 				return;
 			}
@@ -282,8 +288,6 @@ void think_floor(generic_mover_t *gm)
 
 		if(sec->floorheight >= gm->top_height)
 		{
-			sec->floorheight = gm->top_height;
-
 			if(sec->e3d_origin)
 				e3d_update_bot(sec);
 
@@ -302,6 +306,8 @@ void think_floor(generic_mover_t *gm)
 	} else
 	{
 		sec->floorheight -= gm->speed_now;
+		if(sec->floorheight < gm->bot_height)
+			sec->floorheight = gm->bot_height;
 
 		if(!gm->sndwait && gm->dn_seq && gm->dn_seq->move)
 		{
@@ -315,7 +321,7 @@ void think_floor(generic_mover_t *gm)
 		{
 			if(gm->flags & MVF_BLOCK_STAY)
 			{
-				sec->floorheight += gm->speed_now;
+				sec->floorheight = original;
 				P_ChangeSector(sec, 0);
 				no_extra_step = 0;
 				return;
@@ -325,8 +331,6 @@ void think_floor(generic_mover_t *gm)
 
 		if(sec->floorheight <= gm->bot_height)
 		{
-			sec->floorheight = gm->bot_height;
-
 			if(sec->e3d_origin)
 				e3d_update_bot(sec);
 

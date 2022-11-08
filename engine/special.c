@@ -29,6 +29,72 @@ static uint_fast8_t door_monster_hack;
 static fixed_t value_mult;
 static fixed_t value_offs;
 
+fixed_t nearest_up;
+fixed_t nearest_dn;
+
+//
+// missing height search
+
+void find_nearest_floor(sector_t *sec)
+{
+	nearest_up = ONCEILINGZ;
+	nearest_dn = ONFLOORZ;
+
+	for(uint32_t i = 0; i < sec->linecount; i++)
+	{
+		line_t *li = sec->lines[i];
+		sector_t *bs;
+
+		if(li->frontsector == sec)
+			bs = li->backsector;
+		else
+			bs = li->frontsector;
+		if(!bs)
+			continue;
+
+		if(bs->floorheight < sec->floorheight && bs->floorheight > nearest_dn)
+			nearest_dn = bs->floorheight;
+
+		if(bs->floorheight > sec->floorheight && bs->floorheight < nearest_up)
+			nearest_up = bs->floorheight;
+	}
+
+	if(nearest_up == ONCEILINGZ)
+		nearest_up = sec->floorheight;
+	if(nearest_dn == ONFLOORZ)
+		nearest_dn = sec->floorheight;
+}
+
+void find_nearest_ceiling(sector_t *sec)
+{
+	nearest_up = ONCEILINGZ;
+	nearest_dn = ONFLOORZ;
+
+	for(uint32_t i = 0; i < sec->linecount; i++)
+	{
+		line_t *li = sec->lines[i];
+		sector_t *bs;
+
+		if(li->frontsector == sec)
+			bs = li->backsector;
+		else
+			bs = li->frontsector;
+		if(!bs)
+			continue;
+
+		if(bs->ceilingheight < sec->ceilingheight && bs->ceilingheight > nearest_dn)
+			nearest_dn = bs->ceilingheight;
+
+		if(bs->ceilingheight > sec->ceilingheight && bs->ceilingheight < nearest_up)
+			nearest_up = bs->ceilingheight;
+	}
+
+	if(nearest_up == ONCEILINGZ)
+		nearest_up = sec->ceilingheight;
+	if(nearest_dn == ONFLOORZ)
+		nearest_dn = sec->ceilingheight;
+}
+
 //
 // Doors
 
@@ -145,6 +211,12 @@ static uint32_t act_Floor_ByValue(sector_t *sec, line_t *ln)
 	gm->speed_now = gm->speed_start;
 	gm->flags = MVF_BLOCK_STAY;
 
+	if(ln->special == 239 && ln->frontsector)
+	{
+		sec->floorpic = ln->frontsector->floorpic;
+		sec->special = ln->frontsector->special;
+	}
+
 	return 1;
 }
 
@@ -152,6 +224,9 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 {
 	generic_mover_t *gm;
 	fixed_t dest;
+	uint16_t texture;
+	uint16_t special;
+	uint16_t flags;
 
 	if(sec->specialactive & ACT_FLOOR)
 		return 0;
@@ -171,8 +246,13 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 		case 2:
 			dest = P_FindLowestFloorSurrounding(sec);
 		break;
-//		case 3: // move to nearest neighboring floor
-//		break;
+		case 3:
+			find_nearest_floor(sec);
+			if(ln->arg4 & 8)
+				dest = nearest_up;
+			else
+				dest = nearest_dn;
+		break;
 		case 4:
 			dest = P_FindLowestCeilingSurrounding(sec);
 		break;
@@ -185,13 +265,6 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 
 	if(dest > sec->ceilingheight)
 		dest = sec->ceilingheight;
-
-	gm = generic_floor(sec, ln->arg4 & 8 ? DIR_UP : DIR_DOWN, SNDSEQ_FLOOR, 0);
-	gm->top_height = dest;
-	gm->bot_height = dest;
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
-	gm->flags = ln->arg4 & 16 ? MVF_CRUSH : MVF_BLOCK_STAY;
 
 	if(ln->arg4 & 3)
 	{
@@ -211,34 +284,56 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 
 				if(bs->floorheight == dest)
 				{
-					gm->texture = bs->floorpic;
-					gm->special = bs->special;
+					texture = bs->floorpic;
+					special = bs->special;
 					break;
 				}
 			}
 		} else
 		if(ln->frontsector)
 		{
-			gm->texture = ln->frontsector->floorpic;
-			gm->special = ln->frontsector->special;
+			texture = ln->frontsector->floorpic;
+			special = ln->frontsector->special;
 		} else
 		{
-			gm->texture = sec->floorpic;
-			gm->special = sec->special;
+			texture = sec->floorpic;
+			special = sec->special;
 		}
 	}
 
 	switch(ln->arg4 & 3)
 	{
 		case 1:
-			gm->special = 0;
+			special = 0;
 		case 3:
-			gm->flags |= MVF_SET_TEXTURE | MVF_SET_SPECIAL;
+			flags |= MVF_SET_TEXTURE | MVF_SET_SPECIAL;
 		break;
 		case 2:
-			gm->flags |= MVF_SET_TEXTURE;
+			flags |= MVF_SET_TEXTURE;
+		break;
+		default:
+			flags = 0;
 		break;
 	}
+
+	if(dest == sec->floorheight)
+	{
+		if(flags & MVF_SET_TEXTURE)
+			sec->floorpic = texture;
+		if(flags & MVF_SET_SPECIAL)
+			sec->special = special;
+		return 1;
+	}
+
+	gm = generic_floor(sec, ln->arg4 & 8 ? DIR_UP : DIR_DOWN, SNDSEQ_FLOOR, 0);
+	gm->top_height = dest;
+	gm->bot_height = dest;
+	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed_now = gm->speed_start;
+	gm->flags = ln->arg4 & 16 ? MVF_CRUSH : MVF_BLOCK_STAY;
+	gm->flags |= flags;
+	gm->texture = texture;
+	gm->special = special;
 
 	return 1;
 }
@@ -272,6 +367,9 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 {
 	generic_mover_t *gm;
 	fixed_t dest;
+	uint16_t texture;
+	uint16_t special;
+	uint16_t flags;
 
 	if(sec->specialactive & ACT_CEILING)
 		return 0;
@@ -291,8 +389,13 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 		case 2:
 			dest = P_FindLowestCeilingSurrounding(sec);
 		break;
-//		case 3: // move to nearest neighboring ceiling
-//		break;
+		case 3:
+			find_nearest_ceiling(sec);
+			if(ln->arg4 & 8)
+				dest = nearest_up;
+			else
+				dest = nearest_dn;
+		break;
 		case 4:
 			dest = P_FindHighestFloorSurrounding(sec);
 		break;
@@ -305,13 +408,6 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 
 	if(dest < sec->floorheight)
 		dest = sec->floorheight;
-
-	gm = generic_ceiling(sec, ln->arg4 & 8 ? DIR_UP : DIR_DOWN, SNDSEQ_CEILING, 0);
-	gm->top_height = dest;
-	gm->bot_height = dest;
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
-	gm->flags = ln->arg4 & 16 ? MVF_CRUSH : MVF_BLOCK_STAY;
 
 	if(ln->arg4 & 3)
 	{
@@ -331,34 +427,53 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 
 				if(bs->ceilingheight == dest)
 				{
-					gm->texture = bs->ceilingpic;
-					gm->special = bs->special;
+					texture = bs->ceilingpic;
+					special = bs->special;
 					break;
 				}
 			}
 		} else
 		if(ln->frontsector)
 		{
-			gm->texture = ln->frontsector->ceilingpic;
-			gm->special = ln->frontsector->special;
+			texture = ln->frontsector->ceilingpic;
+			special = ln->frontsector->special;
 		} else
 		{
-			gm->texture = sec->ceilingpic;
-			gm->special = sec->special;
+			texture = sec->ceilingpic;
+			special = sec->special;
 		}
 	}
 
 	switch(ln->arg4 & 3)
 	{
 		case 1:
-			gm->special = 0;
+			special = 0;
 		case 3:
-			gm->flags |= MVF_SET_TEXTURE | MVF_SET_SPECIAL;
+			flags |= MVF_SET_TEXTURE | MVF_SET_SPECIAL;
 		break;
 		case 2:
-			gm->flags |= MVF_SET_TEXTURE;
+			flags |= MVF_SET_TEXTURE;
 		break;
 	}
+
+	if(dest == sec->ceilingheight)
+	{
+		if(flags & MVF_SET_TEXTURE)
+			sec->ceilingpic = texture;
+		if(flags & MVF_SET_SPECIAL)
+			sec->special = special;
+		return 1;
+	}
+
+	gm = generic_ceiling(sec, ln->arg4 & 8 ? DIR_UP : DIR_DOWN, SNDSEQ_CEILING, 0);
+	gm->top_height = dest;
+	gm->bot_height = dest;
+	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed_now = gm->speed_start;
+	gm->flags = ln->arg4 & 16 ? MVF_CRUSH : MVF_BLOCK_STAY;
+	gm->flags |= flags;
+	gm->texture = texture;
+	gm->special = special;
 
 	return 1;
 }
@@ -402,8 +517,10 @@ static uint32_t act_Plat_Bidir(sector_t *sec, line_t *ln)
 	} else
 	{
 		if(value_mult)
-			gm->top_height = P_FindNextHighestFloor(sec);
-		else
+		{
+			find_nearest_floor(sec);
+			gm->top_height = nearest_up;
+		} else
 			gm->top_height = P_FindHighestFloorSurrounding(sec);
 		gm->bot_height = sec->floorheight;
 		gm->flags = MVF_BLOCK_GO_DN | MVF_TOP_REVERSE;
@@ -596,6 +713,10 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			value_mult = -1;
 			value_offs = (fixed_t)ln->arg3 * FRACUNIT;
 			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
+		break;
+		case 239: // Floor_RaiseByValueTxTy
+			value_mult = 1;
+			spec_success = handle_tag(ln, ln->arg0, act_Floor_ByValue);
 		break;
 		default:
 			doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", ln->special, !!back_side, mo, mo->player);

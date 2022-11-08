@@ -46,6 +46,7 @@ typedef struct
 	uint16_t lighttag;
 	uint16_t texture;
 	uint16_t special;
+	uint8_t seq_save;
 } generic_mover_t;
 
 //
@@ -57,4 +58,9 @@ generic_mover_t *generic_floor(sector_t *sec, uint32_t dir, uint32_t def_seq, ui
 generic_mover_t *generic_floor_by_sector(sector_t *sec);
 
 generic_mover_t *generic_dual(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
+
+//
+void think_ceiling(generic_mover_t *gm) __attribute((regparm(2),no_caller_saved_registers));
+void think_floor(generic_mover_t *gm) __attribute((regparm(2),no_caller_saved_registers));
+void think_dual(generic_mover_t *gm) __attribute((regparm(2),no_caller_saved_registers));
 

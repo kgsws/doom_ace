@@ -6,6 +6,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "sound.h"
+#include "map.h"
 #include "extra3d.h"
 #include "think.h"
 #include "generic.h"
@@ -58,7 +59,7 @@ static void light_effect(uint32_t tag, fixed_t frac)
 //
 // thinkers
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void think_ceiling(generic_mover_t *gm)
 {
 	sector_t *sec;
@@ -217,7 +218,7 @@ finish_move:
 	sec->specialactive &= ~ACT_CEILING;
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void think_floor(generic_mover_t *gm)
 {
 	sector_t *sec;
@@ -363,7 +364,7 @@ finish_move:
 	sec->specialactive &= ~ACT_FLOOR;
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void think_dual(generic_mover_t *gm)
 {
 	sector_t *sec;
@@ -483,6 +484,8 @@ generic_mover_t *generic_ceiling(sector_t *sec, uint32_t dir, uint32_t def_seq, 
 	gm->direction = dir;
 	think_add(&gm->thinker);
 
+	gm->seq_save = def_seq | (!!is_fast << 7);
+
 	seq = snd_seq_by_sector(sec, def_seq);
 	if(seq)
 	{
@@ -497,7 +500,7 @@ generic_mover_t *generic_ceiling(sector_t *sec, uint32_t dir, uint32_t def_seq, 
 			gm->dn_seq = &seq->norm_close;
 		}
 		snd = dir == DIR_UP ? gm->up_seq : gm->dn_seq;
-		if(snd->start)
+		if(snd->start && !map_skip_stuff)
 			S_StartSound((mobj_t*)&gm->sector->soundorg, snd->start);
 		gm->sndwait = snd->delay;
 	}
@@ -541,6 +544,8 @@ generic_mover_t *generic_floor(sector_t *sec, uint32_t dir, uint32_t def_seq, ui
 	gm->direction = dir;
 	think_add(&gm->thinker);
 
+	gm->seq_save = def_seq | (!!is_fast << 7);
+
 	seq = snd_seq_by_sector(sec, def_seq);
 	if(seq)
 	{
@@ -555,7 +560,7 @@ generic_mover_t *generic_floor(sector_t *sec, uint32_t dir, uint32_t def_seq, ui
 			gm->dn_seq = &seq->norm_close;
 		}
 		snd = dir == DIR_UP ? gm->up_seq : gm->dn_seq;
-		if(snd->start)
+		if(snd->start && !map_skip_stuff)
 			S_StartSound((mobj_t*)&gm->sector->soundorg, snd->start);
 		gm->sndwait = snd->delay;
 	}
@@ -599,6 +604,8 @@ generic_mover_t *generic_dual(sector_t *sec, uint32_t dir, uint32_t def_seq, uin
 	gm->direction = dir;
 	think_add(&gm->thinker);
 
+	gm->seq_save = def_seq | (!!is_fast << 7);
+
 	seq = snd_seq_by_sector(sec, def_seq);
 	if(seq)
 	{
@@ -613,7 +620,7 @@ generic_mover_t *generic_dual(sector_t *sec, uint32_t dir, uint32_t def_seq, uin
 			gm->dn_seq = &seq->norm_close;
 		}
 		snd = dir == DIR_UP ? gm->up_seq : gm->dn_seq;
-		if(snd->start)
+		if(snd->start && !map_skip_stuff)
 			S_StartSound((mobj_t*)&gm->sector->soundorg, snd->start);
 		gm->sndwait = snd->delay;
 	}

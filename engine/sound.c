@@ -595,7 +595,7 @@ sound_seq_t *snd_seq_by_sector(sector_t *sec, uint32_t def_type)
 	if(def_type == SNDSEQ_DOOR)
 		magic |= 0x8000;
 
-	for(uint32_t i = numsndseq - 1; i >= NUMSNDSEQ; i++)
+	for(uint32_t i = numsndseq - 1; i >= NUMSNDSEQ; i--)
 	{
 		if(sndseq[i].number == magic)
 			return sndseq + i;

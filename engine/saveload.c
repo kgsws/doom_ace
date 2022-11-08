@@ -19,6 +19,7 @@
 #include "think.h"
 #include "menu.h"
 #include "demo.h"
+#include "generic.h"
 #include "render.h"
 #include "draw.h"
 #include "extra3d.h"
@@ -32,7 +33,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA8	// increment with updates
+#define SAVE_VERSION	0xE58BAFA9	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -98,6 +99,7 @@ enum
 	STH_ACE_LINE_SCROLL,
 	STH_ACE_CEILING,
 	STH_ACE_FLOOR,
+	STH_ACE_DUAL,
 };
 
 //
@@ -351,6 +353,27 @@ typedef struct
 	int8_t x, y;
 } save_line_scroll_t;
 
+typedef struct
+{ // STH_ACE_CEILING, STH_ACE_FLOOR, STH_ACE_DUAL
+	uint16_t sector;
+	uint64_t texture;
+	uint8_t sndseq;
+	uint8_t type;
+	uint8_t direction;
+	uint8_t __unused;
+	fixed_t top_height;
+	fixed_t bot_height;
+	fixed_t speed_now;
+	fixed_t speed_or_gap;
+	uint16_t flags;
+	uint16_t sndwait;
+	uint16_t wait;
+	uint16_t delay;
+	uint16_t crush;
+	uint16_t lighttag;
+	uint16_t special;
+} save_generic_mover_t;
+
 //
 
 static uint32_t *brain_sound_id;
@@ -571,6 +594,32 @@ static uint32_t sv_convert_state(state_t *st, mobjinfo_t *info)
 	else
 		// this should never happen
 		return 0x80000000;
+}
+
+static void save_put_generic(generic_mover_t *gm, uint32_t magic)
+{
+	save_generic_mover_t sav;
+
+	writer_add_u16(magic);
+
+	sav.sector = gm->sector - sectors;
+	sav.texture = gm->flags & MVF_SET_TEXTURE ? flat_get_name(gm->texture) : 0;
+	sav.sndseq = gm->seq_save;
+	sav.type = gm->type;
+	sav.direction = gm->direction;
+	sav.top_height = gm->top_height;
+	sav.bot_height = gm->bot_height;
+	sav.speed_now = gm->speed_now;
+	sav.speed_or_gap = gm->speed_start;
+	sav.flags = gm->flags;
+	sav.sndwait = gm->sndwait;
+	sav.wait = gm->wait;
+	sav.delay = gm->delay;
+	sav.crush = gm->crush;
+	sav.lighttag = gm->lighttag;
+	sav.special = gm->special;
+
+	writer_add(&sav, sizeof(sav));
 }
 
 static inline void sv_put_sectors(int32_t lump)
@@ -809,6 +858,18 @@ static inline void sv_put_thinkers()
 			sav.y = now->y;
 
 			writer_add(&sav, sizeof(sav));
+		} else
+		if(th->function == think_ceiling)
+		{
+			save_put_generic((generic_mover_t*)th, STH_ACE_CEILING);
+		} else
+		if(th->function == think_floor)
+		{
+			save_put_generic((generic_mover_t*)th, STH_ACE_FLOOR);
+		} else
+		if(th->function == think_dual)
+		{
+			save_put_generic((generic_mover_t*)th, STH_ACE_DUAL);
 		}
 	}
 }
@@ -1600,6 +1661,55 @@ static inline uint32_t ld_get_specials()
 				now->thinker.function = think_line_scroll;
 
 				think_add(&now->thinker);
+			}
+			break;
+			case STH_ACE_CEILING:
+			case STH_ACE_FLOOR:
+			case STH_ACE_DUAL:
+			{
+				save_generic_mover_t sav;
+				generic_mover_t *gm;
+				sector_t *sec;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= numsectors)
+					return 1;
+
+				if(sav.direction > 1)
+					return 1;
+
+				sec = sectors + sav.sector;
+
+				if(type == STH_ACE_CEILING)
+					gm = generic_ceiling(sec, sav.direction, sav.sndseq & 3, sav.sndseq & 128);
+				else
+				if(type == STH_ACE_FLOOR)
+					gm = generic_floor(sec, sav.direction, sav.sndseq & 3, sav.sndseq & 128);
+				else
+				if(type == STH_ACE_DUAL)
+					gm = generic_dual(sec, sav.direction, sav.sndseq & 3, sav.sndseq & 128);
+
+				if(!gm)
+					return 1;
+
+				if(sav.flags & MVF_SET_TEXTURE)
+					gm->texture = flat_num_get((uint8_t*)&sav.texture);
+
+				gm->type = sav.type;
+				gm->direction = sav.direction;
+				gm->top_height = sav.top_height;
+				gm->bot_height = sav.bot_height;
+				gm->speed_now = sav.speed_now;
+				gm->speed_start = sav.speed_or_gap;
+				gm->flags = sav.flags;
+				gm->sndwait = sav.sndwait;
+				gm->wait = sav.wait;
+				gm->delay = sav.delay;
+				gm->crush = sav.crush;
+				gm->lighttag = sav.lighttag;
+				gm->special = sav.special;
 			}
 			break;
 			// old thinkers

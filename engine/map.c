@@ -510,7 +510,12 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	}
 
 	if(map_skip_stuff)
-		return;
+	{
+		if(!mt)
+			return;
+		if(mt->type != 1411)
+			return;
+	}
 
 	// check network game
 	if(netgame)

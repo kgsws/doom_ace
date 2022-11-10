@@ -1768,8 +1768,10 @@ uint8_t *set_plane_light(uint32_t distance)
 	uint8_t *ret;
 
 	shade = distance >> LIGHTZSHIFT;
-	if(shade < sizeof(plane_light))
-		shade = planezlight - plane_light[shade];
+	if(shade >= sizeof(plane_light))
+		shade = sizeof(plane_light) - 1;
+
+	shade = planezlight - plane_light[shade];
 
 	if(shade <= 0)
 		ret = colormaps;

@@ -63,7 +63,6 @@ __attribute((regparm(2),no_caller_saved_registers))
 void think_ceiling(generic_mover_t *gm)
 {
 	sector_t *sec;
-	uint32_t blocked;
 	fixed_t original;
 
 	if(gm->sndwait)
@@ -103,16 +102,19 @@ void think_ceiling(generic_mover_t *gm)
 			gm->sndwait = gm->up_seq->repeat;
 		}
 
-		blocked = P_ChangeSector(sec, gm->crush);
-		if(blocked && sec->e3d_origin)
+		if(sec->e3d_origin)
 		{
-			if(gm->flags & MVF_BLOCK_STAY)
+			if(P_ChangeSector(sec, gm->crush))
 			{
-				sec->ceilingheight = original;
-				P_ChangeSector(sec, 0);
-				return;
+				if(gm->flags & MVF_BLOCK_STAY)
+				{
+					sec->ceilingheight = original;
+					P_ChangeSector(sec, 0);
+					return;
+				}
 			}
-		}
+		} else
+			P_ChangeSector(sec, 0);
 
 		if(sec->ceilingheight >= gm->top_height)
 		{
@@ -125,11 +127,11 @@ void think_ceiling(generic_mover_t *gm)
 			if(gm->up_seq && gm->up_seq->stop)
 					S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
 
-			if(gm->flags & MVF_TOP_REVERSE)
+			if(gm->speed_dn)
 			{
-				gm->direction = !gm->direction;
+				gm->direction = DIR_DOWN;
 				gm->wait = gm->delay;
-				gm->speed_now = gm->speed_start;
+				gm->speed_now = gm->speed_dn;
 				return;
 			}
 			goto finish_move;
@@ -147,31 +149,38 @@ void think_ceiling(generic_mover_t *gm)
 		}
 
 		no_extra_step = 1;
-		blocked = P_ChangeSector(sec, gm->crush);
-		if(blocked && !sec->e3d_origin)
+
+		if(!sec->e3d_origin)
 		{
-			if(gm->flags & MVF_BLOCK_GO_UP)
+			if(P_ChangeSector(sec, gm->crush))
 			{
-				gm->direction = DIR_UP;
-				if(gm->up_seq)
+				if(gm->flags & MVF_BLOCK_GO_UP)
 				{
-					if(gm->up_seq->start)
-						S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->start);
-					gm->sndwait = gm->up_seq->delay;
+					gm->direction = DIR_UP;
+					if(gm->speed_up)
+						gm->speed_now = gm->speed_up;
+					if(gm->up_seq)
+					{
+						if(gm->up_seq->start)
+							S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->start);
+						gm->sndwait = gm->up_seq->delay;
+					}
+				}
+
+				if(gm->flags & MVF_BLOCK_SLOW)
+					gm->speed_now = FRACUNIT / 8;
+
+				if(gm->flags & (MVF_BLOCK_STAY | MVF_BLOCK_GO_UP))
+				{
+					sec->ceilingheight = original;
+					P_ChangeSector(sec, 0);
+					no_extra_step = 0;
+					return;
 				}
 			}
+		} else
+			P_ChangeSector(sec, 0);
 
-			if(gm->flags & MVF_BLOCK_SLOW)
-				gm->speed_now = FRACUNIT;
-
-			if(gm->flags & (MVF_BLOCK_STAY | MVF_BLOCK_GO_UP))
-			{
-				sec->ceilingheight = original;
-				P_ChangeSector(sec, 0);
-				no_extra_step = 0;
-				return;
-			}
-		}
 		no_extra_step = 0;
 
 		if(sec->ceilingheight <= gm->bot_height)
@@ -185,11 +194,11 @@ void think_ceiling(generic_mover_t *gm)
 			if(gm->dn_seq && gm->dn_seq->stop)
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
 
-			if(gm->flags & MVF_BOT_REVERSE)
+			if(gm->speed_up)
 			{
-				gm->direction = !gm->direction;
+				gm->direction = DIR_UP;
 				gm->wait = gm->delay;
-				gm->speed_now = gm->speed_start;
+				gm->speed_now = gm->speed_up;
 				return;
 			}
 			goto finish_move;
@@ -222,7 +231,6 @@ __attribute((regparm(2),no_caller_saved_registers))
 void think_floor(generic_mover_t *gm)
 {
 	sector_t *sec;
-	uint32_t blocked;
 	fixed_t original;
 
 	if(gm->sndwait)
@@ -262,30 +270,35 @@ void think_floor(generic_mover_t *gm)
 			gm->sndwait = gm->up_seq->repeat;
 		}
 
-		blocked = P_ChangeSector(sec, gm->crush);
-		if(blocked && !sec->e3d_origin)
+		if(!sec->e3d_origin)
 		{
-			if(gm->flags & MVF_BLOCK_GO_DN)
+			if(P_ChangeSector(sec, gm->crush))
 			{
-				gm->direction = DIR_DOWN;
-				if(gm->dn_seq)
+				if(gm->flags & MVF_BLOCK_GO_DN)
 				{
-					if(gm->dn_seq->start)
-						S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->start);
-					gm->sndwait = gm->dn_seq->delay;
+					gm->direction = DIR_DOWN;
+					if(gm->speed_dn)
+						gm->speed_now = gm->speed_dn;
+					if(gm->dn_seq)
+					{
+						if(gm->dn_seq->start)
+							S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->start);
+						gm->sndwait = gm->dn_seq->delay;
+					}
+				}
+
+				if(gm->flags & MVF_BLOCK_SLOW)
+					gm->speed_now = FRACUNIT / 8;
+
+				if(gm->flags & (MVF_BLOCK_STAY | MVF_BLOCK_GO_DN))
+				{
+					sec->floorheight = original;
+					P_ChangeSector(sec, 0);
+					return;
 				}
 			}
-
-			if(gm->flags & MVF_BLOCK_SLOW)
-				gm->speed_now = FRACUNIT;
-
-			if(gm->flags & (MVF_BLOCK_STAY | MVF_BLOCK_GO_DN))
-			{
-				sec->floorheight = original;
-				P_ChangeSector(sec, 0);
-				return;
-			}
-		}
+		} else
+			P_ChangeSector(sec, 0);
 
 		if(sec->floorheight >= gm->top_height)
 		{
@@ -295,11 +308,11 @@ void think_floor(generic_mover_t *gm)
 			if(gm->up_seq && gm->up_seq->stop)
 					S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
 
-			if(gm->flags & MVF_TOP_REVERSE)
+			if(gm->speed_dn)
 			{
-				gm->direction = !gm->direction;
+				gm->direction = DIR_DOWN;
 				gm->wait = gm->delay;
-				gm->speed_now = gm->speed_start;
+				gm->speed_now = gm->speed_dn;
 				return;
 			}
 			goto finish_move;
@@ -317,17 +330,22 @@ void think_floor(generic_mover_t *gm)
 		}
 
 		no_extra_step = 1;
-		blocked = P_ChangeSector(sec, gm->crush);
-		if(blocked && sec->e3d_origin)
+
+		if(sec->e3d_origin)
 		{
-			if(gm->flags & MVF_BLOCK_STAY)
+			if(P_ChangeSector(sec, gm->crush))
 			{
-				sec->floorheight = original;
-				P_ChangeSector(sec, 0);
-				no_extra_step = 0;
-				return;
+				if(gm->flags & MVF_BLOCK_STAY)
+				{
+					sec->floorheight = original;
+					P_ChangeSector(sec, 0);
+					no_extra_step = 0;
+					return;
+				}
 			}
-		}
+		} else
+			P_ChangeSector(sec, 0);
+
 		no_extra_step = 0;
 
 		if(sec->floorheight <= gm->bot_height)
@@ -338,11 +356,11 @@ void think_floor(generic_mover_t *gm)
 			if(gm->dn_seq && gm->dn_seq->stop)
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
 
-			if(gm->flags & MVF_BOT_REVERSE)
+			if(gm->speed_up)
 			{
-				gm->direction = !gm->direction;
+				gm->direction = DIR_UP;
 				gm->wait = gm->delay;
-				gm->speed_now = gm->speed_start;
+				gm->speed_now = gm->speed_up;
 				return;
 			}
 			goto finish_move;
@@ -368,16 +386,20 @@ __attribute((regparm(2),no_caller_saved_registers))
 void think_dual(generic_mover_t *gm)
 {
 	sector_t *sec;
-	uint32_t blocked;
+	fixed_t original;
 
 	if(gm->sndwait)
 		gm->sndwait--;
 
 	sec = gm->sector;
 
+	original = sec->floorheight;
+
 	if(gm->direction == DIR_UP)
 	{
-		sec->floorheight += gm->speed_now;
+		sec->floorheight += gm->speed_up;
+		if(sec->floorheight > gm->top_height)
+			sec->floorheight = gm->top_height;
 		sec->ceilingheight = sec->floorheight + gm->gap_height;
 
 		if(!gm->sndwait && gm->up_seq && gm->up_seq->move)
@@ -386,10 +408,9 @@ void think_dual(generic_mover_t *gm)
 			gm->sndwait = gm->up_seq->repeat;
 		}
 
-		blocked = P_ChangeSector(sec, gm->crush);
-		if(blocked)
+		if(P_ChangeSector(sec, gm->crush))
 		{
-			sec->floorheight -= gm->speed_now;
+			sec->floorheight = original;
 			sec->ceilingheight = sec->floorheight + gm->gap_height;
 			P_ChangeSector(sec, 0);
 			return;
@@ -413,7 +434,9 @@ void think_dual(generic_mover_t *gm)
 		}
 	} else
 	{
-		sec->floorheight -= gm->speed_now;
+		sec->floorheight -= gm->speed_dn;
+		if(sec->floorheight < gm->bot_height)
+			sec->floorheight = gm->bot_height;
 		sec->ceilingheight = sec->floorheight + gm->gap_height;
 
 		if(!gm->sndwait && gm->dn_seq && gm->dn_seq->move)
@@ -423,10 +446,9 @@ void think_dual(generic_mover_t *gm)
 		}
 
 		no_extra_step = 1;
-		blocked = P_ChangeSector(sec, gm->crush);
-		if(blocked)
+		if(P_ChangeSector(sec, gm->crush))
 		{
-			sec->floorheight += gm->speed_now;
+			sec->floorheight = original;
 			sec->ceilingheight = sec->floorheight + gm->gap_height;
 			P_ChangeSector(sec, 0);
 			no_extra_step = 0;

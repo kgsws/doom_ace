@@ -458,6 +458,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	mobjinfo_t *info;
 	fixed_t x, y, z;
 	angle_t angle;
+	uint32_t hack;
 
 	if(ot)
 	{
@@ -517,6 +518,8 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 			return;
 	}
 
+	hack = mt->type;
+
 	// check network game
 	if(netgame)
 	{
@@ -547,6 +550,10 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		ss->sector->sndseq = mt->arg[0];
 		return;
 	}
+
+	// teleport with Z
+	if(mt && mt->type == 9044)
+		mt->type = 14;
 
 	// backward search for type
 	idx = num_mobj_types;
@@ -588,6 +595,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	mo = P_SpawnMobj(x, y, z, idx);
 	mo->spawnpoint.x = mt->x;
 	mo->spawnpoint.y = mt->y;
+	mo->spawnpoint.type = hack;
 	mo->angle = angle;
 
 	if(mt->flags & MTF_AMBUSH)
@@ -621,6 +629,9 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	mo->special.arg[3] = mt->arg[3];
 	mo->special.arg[4] = mt->arg[4];
 	mo->special.tid = mt->tid;
+
+	if(hack == 9044)
+		mo->flags |= MF_NOGRAVITY;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))

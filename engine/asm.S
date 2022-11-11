@@ -1006,7 +1006,16 @@ R_FindPlane:
 	.4byte	0x00036270
 	pop	%ebx
 	ret
-////////////////////////////////// end
+////////////////////////////////// P_TeleportMove
+.section .text.P_TeleportMove
+.global P_TeleportMove
+P_TeleportMove:
+	push	%ebx
+	mov	8(%esp),%ebx
+	.byte	0xE8
+	.4byte	0x0002AC00
+	pop	%ebx
+	ret////////////////////////////////// end
 .section .text.__reloc_code_arg3_end
 __reloc_code_arg3_end:
 ////////////////////////////////////////////////////////

@@ -8,6 +8,7 @@
 #include "player.h"
 #include "mobj.h"
 #include "map.h"
+#include "action.h"
 #include "sound.h"
 #include "animate.h"
 #include "generic.h"
@@ -15,15 +16,17 @@
 
 enum
 {
-	MVT_GENERIC,
+	MVT_GENERIC, // must be zero
 	MVT_DOOR,
-	MVT_PLAT,
+	MVT_CRUSH_CEILING,
 };
 
 //
 
 line_t spec_magic_line;
 uint32_t spec_success;
+
+static mobj_t *activator;
 
 static uint_fast8_t door_monster_hack;
 static fixed_t value_mult;
@@ -118,8 +121,7 @@ static uint32_t act_Door_Close(sector_t *sec, line_t *ln)
 
 	gm->top_height = sec->ceilingheight;
 	gm->bot_height = sec->floorheight;
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->flags = MVF_BLOCK_STAY;
 	gm->lighttag = ln->arg2;
 
@@ -130,6 +132,14 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 {
 	generic_mover_t *gm;
 	fixed_t height;
+
+	if(value_mult)
+	{
+		if(!activator->player)
+			return 0;
+		// TODO: LOCKDEFS
+		activator->player->message = "TODO: LOCKDEFS";
+	}
 
 	if(sec->specialactive & ACT_CEILING)
 	{
@@ -145,20 +155,31 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 		if(gm->type != MVT_DOOR)
 			return 0;
 
-		if(gm->direction != DIR_DOWN && door_monster_hack)
+		if(door_monster_hack && gm->direction != DIR_DOWN)
 			return 0;
 
 		if(gm->wait)
-		{
 			gm->wait = 0;
+		else
+			gm->direction = !gm->direction;
+
+		if(gm->direction == DIR_UP)
+		{
 			if(gm->up_seq)
 			{
 				if(gm->up_seq->start)
 					S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->start);
-				gm->sndwait = gm->dn_seq->delay;
+				gm->sndwait = gm->up_seq->delay;
 			}
 		} else
-			gm->direction = !gm->direction;
+		{
+			if(gm->dn_seq)
+			{
+				if(gm->dn_seq->start)
+					S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->start);
+				gm->sndwait = gm->dn_seq->delay;
+			}
+		}
 
 		return 1;
 	}
@@ -171,17 +192,31 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 	gm = generic_ceiling(sec, DIR_UP, SNDSEQ_DOOR, ln->arg1 >= 64);
 	gm->top_height = height;
 	gm->bot_height = sec->floorheight;
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed_dn = gm->speed_now;
 	gm->type = MVT_DOOR;
-	gm->flags = MVF_TOP_REVERSE | MVF_BLOCK_GO_UP;
-	gm->lighttag = ln->arg3;
-	if(!ln->arg2)
+	gm->flags = MVF_BLOCK_GO_UP;
+
+	if(value_mult)
 	{
-		gm->delay = 1;
-		gm->flags |= MVF_WAIT_STOP;
-	} else
+		gm->lighttag = ln->arg4;
 		gm->delay = ln->arg2;
+		if(!ln->arg2)
+		{
+			gm->speed_dn = 0;
+			gm->flags = 0;
+			gm->type = MVT_GENERIC;
+		}
+	} else
+	{
+		gm->lighttag = ln->arg3;
+		if(!ln->arg2)
+		{
+			gm->delay = 1;
+			gm->flags |= MVF_WAIT_STOP;
+		} else
+			gm->delay = ln->arg2;
+	}
 
 	return 1;
 }
@@ -207,8 +242,7 @@ static uint32_t act_Floor_ByValue(sector_t *sec, line_t *ln)
 	gm = generic_floor(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_FLOOR, 0);
 	gm->top_height = dest;
 	gm->bot_height = dest;
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->flags = MVF_BLOCK_STAY;
 
 	if(ln->special == 239 && ln->frontsector)
@@ -328,12 +362,50 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 	gm = generic_floor(sec, ln->arg4 & 8 ? DIR_UP : DIR_DOWN, SNDSEQ_FLOOR, 0);
 	gm->top_height = dest;
 	gm->bot_height = dest;
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->flags = flags | MVF_BLOCK_STAY;
 	gm->crush = ln->arg4 & 16 ? 0x8014 : 0;
 	gm->texture = texture;
 	gm->special = special;
+
+	return 1;
+}
+
+static uint32_t act_Floor_Crush(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+	fixed_t dest;
+
+	if(sec->specialactive & ACT_FLOOR)
+		return 0;
+
+	if(value_mult)
+		dest = P_FindLowestCeilingSurrounding(sec);
+	else
+		dest = sec->ceilingheight;
+
+	dest -= 8 * FRACUNIT;
+
+	gm = generic_floor(sec, DIR_UP, SNDSEQ_FLOOR, 0);
+	gm->top_height = dest;
+	gm->bot_height = dest;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->crush = 0x8000 | ln->arg2;
+
+	switch(ln->arg3)
+	{
+		case 2:
+			gm->flags = MVF_BLOCK_STAY;
+		break;
+		case 0:
+			if(gm->speed_now != FRACUNIT)
+				break;
+		case 3:
+			gm->flags = MVF_BLOCK_SLOW;
+		break;
+	}
+
+	gm->flags |= MVF_WAIT_STOP;
 
 	return 1;
 }
@@ -356,8 +428,7 @@ static uint32_t act_Ceiling_ByValue(sector_t *sec, line_t *ln)
 	gm = generic_ceiling(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_CEILING, 0);
 	gm->top_height = dest;
 	gm->bot_height = dest;
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->flags = MVF_BLOCK_STAY;
 
 	return 1;
@@ -468,13 +539,114 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 	gm = generic_ceiling(sec, ln->arg4 & 8 ? DIR_UP : DIR_DOWN, SNDSEQ_CEILING, 0);
 	gm->top_height = dest;
 	gm->bot_height = dest;
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->flags = ln->arg4 & 16 ? 0 : MVF_BLOCK_STAY;
 	gm->crush = ln->arg4 & 16 ? 0x8014 : 0;
 	gm->flags |= flags;
 	gm->texture = texture;
 	gm->special = special;
+
+	return 1;
+}
+
+static uint32_t act_Ceiling_Crush(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+	fixed_t dest;
+
+	if(sec->specialactive & ACT_CEILING)
+	{
+		if(!value_mult)
+			return 0;
+
+		gm = generic_ceiling_by_sector(sec);
+
+		if(!gm)
+			return 0;
+
+		if(gm->type != MVT_CRUSH_CEILING)
+			return 0;
+
+		gm->wait = 0;
+
+		return 0;
+	}
+
+	gm = generic_ceiling(sec, DIR_DOWN, SNDSEQ_CEILING, 0);
+	gm->top_height = sec->ceilingheight;
+	gm->bot_height = sec->floorheight;
+	gm->speed_up = (fixed_t)ln->arg2 * (FRACUNIT/8);
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->type = MVT_CRUSH_CEILING;
+	gm->crush = 0x8000 | ln->arg3;
+	if(value_mult)
+		gm->speed_dn = gm->speed_now;
+
+	switch(ln->arg4)
+	{
+		case 2:
+			gm->flags = MVF_BLOCK_STAY;
+		break;
+		case 0:
+			if(gm->speed_now != FRACUNIT)
+				break;
+		case 3:
+			gm->flags = MVF_BLOCK_SLOW;
+		break;
+	}
+
+	gm->flags |= MVF_WAIT_STOP;
+
+	return 1;
+}
+
+static uint32_t act_Ceiling_LowerAndCrushDist(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+
+	if(sec->specialactive & ACT_CEILING)
+		return 0;
+
+	gm = generic_ceiling(sec, DIR_DOWN, SNDSEQ_CEILING, 0);
+	gm->bot_height = sec->floorheight + (fixed_t)ln->arg3 * FRACUNIT;
+	gm->top_height = gm->bot_height;
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->type = MVT_CRUSH_CEILING;
+	gm->crush = 0x8000 | ln->arg2;
+
+	switch(ln->arg4)
+	{
+		case 2:
+			gm->flags = MVF_BLOCK_STAY;
+		break;
+		case 0:
+			if(gm->speed_now != FRACUNIT)
+				break;
+		case 3:
+			gm->flags = MVF_BLOCK_SLOW;
+		break;
+	}
+
+	gm->flags |= MVF_WAIT_STOP;
+
+	return 1;
+}
+
+static uint32_t act_Ceiling_CrushStop(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+
+	if(!(sec->specialactive & ACT_CEILING))
+		return 1;
+
+	gm = generic_ceiling_by_sector(sec);
+	if(!gm)
+		return 1;
+
+	if(gm->type != MVT_CRUSH_CEILING)
+		return 1;
+
+	gm->wait = 1;
 
 	return 1;
 }
@@ -492,7 +664,8 @@ static uint32_t act_FloorAndCeiling_ByValue(sector_t *sec, line_t *ln)
 	gm = generic_dual(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_FLOOR, 0);
 	gm->top_height = dest;
 	gm->bot_height = dest;
-	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed_up = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->speed_dn = 	gm->speed_up;
 	gm->gap_height = sec->ceilingheight - sec->floorheight;
 
 	return 1;
@@ -509,12 +682,15 @@ static uint32_t act_Plat_Bidir(sector_t *sec, line_t *ln)
 		return 0;
 
 	gm = generic_floor(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_PLAT, 0);
+	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
+	gm->delay = ln->arg2;
+	gm->flags = MVF_BLOCK_GO_DN;
 
 	if(value_mult < 0)
 	{
 		gm->bot_height = P_FindLowestFloorSurrounding(sec) + value_offs;
 		gm->top_height = sec->floorheight;
-		gm->flags = MVF_BLOCK_GO_DN | MVF_BOT_REVERSE;
+		gm->speed_up = gm->speed_now;
 	} else
 	{
 		if(value_mult)
@@ -524,12 +700,89 @@ static uint32_t act_Plat_Bidir(sector_t *sec, line_t *ln)
 		} else
 			gm->top_height = P_FindHighestFloorSurrounding(sec);
 		gm->bot_height = sec->floorheight;
-		gm->flags = MVF_BLOCK_GO_DN | MVF_TOP_REVERSE;
+		gm->speed_dn = gm->speed_now;
 	}
 
-	gm->speed_start = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_now = gm->speed_start;
-	gm->delay = ln->arg2;
+	return 1;
+}
+
+//
+// teleports
+
+static uint32_t cb_teleport(mobj_t *mo)
+{
+	fixed_t x, y, z, f;
+	angle_t angle;
+
+	if(mo->special.tid != value_offs)
+		return 0;
+
+	if(mo->type != 41) // MT_TELEPORTMAN
+		return 0;
+
+	x = activator->x;
+	y = activator->y;
+	z = activator->z;
+	f = activator->floorz;
+
+	if(!P_TeleportMove(activator, mo->x, mo->y)) // TODO: handle Z
+		return 0;
+
+	if(mo->spawnpoint.type == 9044)
+	{
+		activator->z = mo->z;
+		if(P_CheckPosition(activator, activator->x, activator->y))
+		{
+			activator->floorz = tmfloorz;
+			activator->ceilingz = tmceilingz;
+		}
+	} else
+	{
+		activator->z = mo->floorz;
+		if(activator->flags & MF_MISSILE)
+		{
+			activator->z += (z - f);
+			if(P_CheckPosition(activator, activator->x, activator->y))
+			{
+				activator->floorz = tmfloorz;
+				activator->ceilingz = tmceilingz;
+			}
+		}
+	}
+
+	activator->angle = mo->angle;
+	angle = mo->angle >> ANGLETOFINESHIFT;
+
+	P_SpawnMobj(x, y, z, 39); // MT_TFOG
+	P_SpawnMobj(activator->x + 20 * finecosine[angle], activator->y + 20 * finesine[angle], activator->z, 39); // MT_TFOG
+
+	if(activator->player)
+		activator->reactiontime = 18;
+
+	if(activator->flags & MF_MISSILE)
+	{
+		fixed_t speed, pitch;
+
+		if(activator->info->fast_speed && (fastparm || gameskill == sk_nightmare))
+			speed = activator->info->fast_speed;
+		else
+			speed = activator->info->speed;
+
+		if(activator->momz)
+		{
+			pitch = slope_to_angle(activator->momz);
+			pitch >>= ANGLETOFINESHIFT;
+			speed = FixedMul(speed, finecosine[pitch]);
+		}
+
+		activator->momx = FixedMul(speed, finecosine[angle]);
+		activator->momy = FixedMul(speed, finesine[angle]);
+	} else
+	{
+		activator->momx = 0;
+		activator->momy = 0;
+		activator->momz = 0;
+	}
 
 	return 1;
 }
@@ -565,6 +818,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 {
 	uint32_t back_side = type & SPEC_ACT_BACK_SIDE;
 
+	activator = mo;
 	spec_success = 0;
 	type &= SPEC_ACT_TYPE_MASK;
 
@@ -581,7 +835,19 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				return;
 			if(mo->player)
 				break;
-			if(!(ln->flags & ML_MONSTER_ACT))
+			if(	mo->flags & MF_MISSILE &&
+				!(mo->flags & MF1_NOTELEPORT) &&
+				ln->special == 70	// Teleport
+			)
+				break;
+			if(	!(ln->flags & ML_MONSTER_ACT) &&
+				(	map_level_info->flags & MAP_FLAG_NO_MONSTER_ACTIVATION ||
+					(
+						ln->special != 206 &&	// Plat_DownWaitUpStayLip
+						ln->special != 70	// Teleport
+					)
+				)
+			)
 				return;
 			if(!(mo->flags1 & MF1_ISMONSTER))
 				return;
@@ -589,8 +855,9 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case MLA_PLR_USE:
 			if(type != SPEC_ACT_USE)
 				return;
-			if(	!mo->player &&
-				!(ln->flags & ML_MONSTER_ACT) &&
+			if(mo->player)
+				break;
+			if(	!(ln->flags & ML_MONSTER_ACT) &&
 				(	map_level_info->flags & MAP_FLAG_NO_MONSTER_ACTIVATION ||
 					(
 						ln->special != 12 &&	// Door_Raise
@@ -649,6 +916,12 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		break;
 		case 12: // Door_Raise
 			door_monster_hack = !mo->player;
+			value_mult = 0;
+			spec_success = handle_tag(ln, ln->arg0, act_Door_Raise);
+		break;
+		case 13: // Door_LockedRaise
+			door_monster_hack = 0;
+			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Door_Raise);
 		break;
 		case 20: // Floor_LowerByValue
@@ -658,6 +931,10 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 23: // Floor_RaiseByValue
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Floor_ByValue);
+		break;
+		case 28: // Floor_RaiseAndCrush
+			value_mult = 0;
+			spec_success = handle_tag(ln, ln->arg0, act_Floor_Crush);
 		break;
 		case 35: // Floor_RaiseByValueTimes8
 			value_mult = 8;
@@ -675,6 +952,9 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_ByValue);
 		break;
+		case 44: // Ceiling_CrushStop
+			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_CrushStop);
+		break;
 		case 62: // Plat_DownWaitUpStay
 			value_mult = -1;
 			value_offs = 8 * FRACUNIT;
@@ -684,6 +964,14 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			value_mult = 0;
 			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
 		break;
+		case 70: // Teleport
+			if(!back_side)
+			{
+				value_offs = ln->arg0;
+				spec_success = mobj_for_each(cb_teleport);
+			} else
+				spec_success = 0;
+		break;
 		case 95: // FloorAndCeiling_LowerByValue
 			value_mult = -1;
 			spec_success = handle_tag(ln, ln->arg0, act_FloorAndCeiling_ByValue);
@@ -692,9 +980,24 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_FloorAndCeiling_ByValue);
 		break;
+		case 97: // Ceiling_LowerAndCrushDist
+			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_LowerAndCrushDist);
+		break;
+		case 99: // Floor_RaiseAndCrushDoom
+			value_mult = 1;
+			spec_success = handle_tag(ln, ln->arg0, act_Floor_Crush);
+		break;
 		case 172: // Plat_UpNearestWaitDownStay
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
+		break;
+		case 195: // Ceiling_CrushRaiseAndStayA
+			value_mult = 0;
+			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_Crush);
+		break;
+		case 196: // Ceiling_CrushAndRaiseA
+			value_mult = 1;
+			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_Crush);
 		break;
 		case 198: // Ceiling_RaiseByValueTimes8
 			value_mult = 8;

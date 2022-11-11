@@ -33,7 +33,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFA9	// increment with updates
+#define SAVE_VERSION	0xE58BAFAC	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -189,7 +189,7 @@ typedef struct
 		int16_t x;
 		int16_t y;
 		int16_t angle;
-		int16_t options;
+		int16_t type;
 	} spawn;
 	//
 	uint32_t flags;
@@ -364,7 +364,8 @@ typedef struct
 	fixed_t top_height;
 	fixed_t bot_height;
 	fixed_t speed_now;
-	fixed_t speed_or_gap;
+	fixed_t speed_up;
+	fixed_t speed_dn;
 	uint16_t flags;
 	uint16_t sndwait;
 	uint16_t wait;
@@ -610,7 +611,8 @@ static void save_put_generic(generic_mover_t *gm, uint32_t magic)
 	sav.top_height = gm->top_height;
 	sav.bot_height = gm->bot_height;
 	sav.speed_now = gm->speed_now;
-	sav.speed_or_gap = gm->speed_start;
+	sav.speed_up = gm->speed_up;
+	sav.speed_dn = gm->speed_dn;
 	sav.flags = gm->flags;
 	sav.sndwait = gm->sndwait;
 	sav.wait = gm->wait;
@@ -1097,7 +1099,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 	thing.spawn.x = mo->spawnpoint.x;
 	thing.spawn.y = mo->spawnpoint.y;
 	thing.spawn.angle = mo->spawnpoint.angle;
-	thing.spawn.options = mo->spawnpoint.options;
+	thing.spawn.type = mo->spawnpoint.type;
 
 	thing.flags = mo->flags;
 	thing.flags1 = mo->flags1;
@@ -1702,7 +1704,8 @@ static inline uint32_t ld_get_specials()
 				gm->top_height = sav.top_height;
 				gm->bot_height = sav.bot_height;
 				gm->speed_now = sav.speed_now;
-				gm->speed_start = sav.speed_or_gap;
+				gm->speed_up = sav.speed_up;
+				gm->speed_dn = sav.speed_dn;
 				gm->flags = sav.flags;
 				gm->sndwait = sav.sndwait;
 				gm->wait = sav.wait;
@@ -2046,7 +2049,7 @@ static inline uint32_t ld_get_things()
 		mo->spawnpoint.y = thing.spawn.y;
 		mo->spawnpoint.angle = thing.spawn.angle;
 		mo->spawnpoint.type = type;
-		mo->spawnpoint.options = thing.spawn.options;
+		mo->spawnpoint.type = thing.spawn.type;
 
 		mo->flags = thing.flags;
 		mo->flags1 = thing.flags1;

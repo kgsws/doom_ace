@@ -6,10 +6,8 @@
 #define MVF_BLOCK_SLOW	0x0004
 #define MVF_BLOCK_GO_UP	0x0008
 #define MVF_BLOCK_GO_DN	0x0010
-#define MVF_TOP_REVERSE	0x0020
-#define MVF_BOT_REVERSE	0x0040
-#define MVF_SET_TEXTURE	0x0080
-#define MVF_SET_SPECIAL	0x0100
+#define MVF_SET_TEXTURE	0x0020
+#define MVF_SET_SPECIAL	0x0040
 
 #define ACT_CEILING	1
 #define ACT_FLOOR	2
@@ -30,10 +28,11 @@ typedef struct
 	seq_sounds_t *dn_seq;
 	fixed_t top_height;
 	fixed_t bot_height;
-	fixed_t speed_now;
+	fixed_t speed_up;
+	fixed_t speed_dn;
 	union
 	{
-		fixed_t speed_start;
+		fixed_t speed_now;
 		fixed_t gap_height;
 	};
 	uint8_t type;

@@ -1809,58 +1809,38 @@ static void mobj_xy_move(mobj_t *mo)
 	if(demoplayback != DEMO_OLD)
 	{
 		// new, better movement code
-		// split movement into half-radius steps
+		// split movement based on half of radius
 		fixed_t ox, oy; // original location
-		fixed_t mx, my; // momentnum
-		fixed_t nx, ny; // new location
-		fixed_t step; // increment
+		fixed_t sx, sy; // step move
+		int32_t count; // step count
+
+		ox = mo->radius >> (FRACBITS + 1);
+		if(ox < 4)
+			ox = 4;
+
+		sx = abs(mo->momx);
+		sy = abs(mo->momy);
+
+		if(sx > sy)
+			count = 1 + ((sx / ox) >> FRACBITS);
+		else
+			count = 1 + ((sy / ox) >> FRACBITS);
+
+		sx = mo->momx / count;
+		sy = mo->momy / count;
 
 		ox = mo->x;
 		oy = mo->y;
 
-		nx = mo->x;
-		ny = mo->y;
-
-		mx = mo->momx;
-		my = mo->momy;
-
-		step = mo->radius / 2;
-		if(step < 4 * FRACUNIT)
-			step = 4 * FRACUNIT;
-
-		while(mx || my)
+		do
 		{
-			// current X step
-			if(mx > step)
-			{
-				nx += step;
-				mx -= step;
-			} else
-			if(mx < -step)
-			{
-				nx -= step;
-				mx += step;
-			} else
-			{
-				nx += mx;
-				mx = 0;
-			}
+			fixed_t nx, ny; // new location
+			fixed_t xx, yy; // previous location
 
-			// current Y step
-			if(my > step)
-			{
-				ny += step;
-				my -= step;
-			} else
-			if(my < -step)
-			{
-				ny -= step;
-				my += step;
-			} else
-			{
-				ny += my;
-				my = 0;
-			}
+			xx = mo->x;
+			nx = xx + sx;
+			yy = mo->y;
+			ny = yy + sy;
 
 			// move
 			if(P_TryMove(mo, nx, ny))
@@ -1870,6 +1850,10 @@ static void mobj_xy_move(mobj_t *mo)
 					break;
 			} else
 			{
+				// check for teleport
+				if(mo->x != xx || mo->y != yy)
+					break;
+
 				// blocked
 				if(mo->flags & MF_SLIDE)
 				{
@@ -1912,7 +1896,7 @@ static void mobj_xy_move(mobj_t *mo)
 				}
 				break;
 			}
-		}
+		} while(--count);
 	} else
 		// use old movement code
 		P_XYMovement(mo);

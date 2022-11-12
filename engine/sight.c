@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "hitscan.h"
 #include "extra3d.h"
+#include "render.h"
 #include "sight.h"
 
 static fixed_t sightzstart;
@@ -350,6 +351,10 @@ __attribute((regparm(2),no_caller_saved_registers))
 uint32_t P_CheckSight(mobj_t *t1, mobj_t *t2)
 {
 	extraplane_t *pl;
+
+	if(t2->render_style >= RS_INVISIBLE && t1->flags1 & MF1_ISMONSTER && !(t1->flags & MF_CORPSE))
+		// HACK: 'INVISIBLE' check should be in A_Chase
+		return 0;
 
 	if(rejectmatrix)
 	{

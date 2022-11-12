@@ -82,14 +82,20 @@ static void invul_stop(mobj_t *mo)
 static void invis_start(mobj_t *mo, mobjinfo_t *info)
 {
 	mo->flags |= MF_SHADOW;
+
+	if(!info->powerup.mode)
+	{
+		mo->render_style = RS_FUZZ;
+		mo->render_alpha = 255;
+		return;
+	}
+
 	mo->render_alpha = 255 - ((uint32_t)info->powerup.strength * 255) / 100;
+
 	if(!mo->render_alpha)
 		mo->render_style = RS_INVISIBLE;
 	else
-	if(info->powerup.mode)
 		mo->render_style = RS_TRANSLUCENT;
-	else
-		mo->render_style = RS_FUZZ;
 }
 
 static void invis_stop(mobj_t *mo)

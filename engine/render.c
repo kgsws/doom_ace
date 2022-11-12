@@ -902,7 +902,7 @@ void R_DrawVisSprite(vissprite_t *vis)
 		if(	(viewplayer->mo->render_style == RS_FUZZ || viewplayer->mo->render_style == RS_INVISIBLE) &&
 			(viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8))
 		{
-			if(viewplayer->mo->render_style = RS_INVISIBLE)
+			if(viewplayer->mo->render_style == RS_INVISIBLE)
 			{
 				colfunc = R_DrawShadowColumn;
 				dc_colormap = colormaps + 32 * 256;

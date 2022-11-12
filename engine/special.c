@@ -818,7 +818,6 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 {
 	uint32_t back_side = type & SPEC_ACT_BACK_SIDE;
 
-	activator = mo;
 	spec_success = 0;
 	type &= SPEC_ACT_TYPE_MASK;
 
@@ -880,6 +879,8 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			{
 				if(!(mo->flags & MF_MISSILE))
 					return;
+				if(type == SPEC_ACT_BUMP)
+					mo = mo->target;
 				break;
 			}
 			if(type != SPEC_ACT_SHOOT)
@@ -908,6 +909,8 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			ln->special = 0;
 			return;
 	}
+
+	activator = mo;
 
 	switch(ln->special)
 	{

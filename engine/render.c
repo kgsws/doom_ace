@@ -780,7 +780,8 @@ static void R_RenderSegLoop()
 			dc_x = x;
 			dc_iscale = 0xFFFFFFFF / (uint32_t)rw_scale;
 
-			calculate_shade(lightnum, rw_scale);
+			if(!fixedcolormap)
+				calculate_shade(lightnum, rw_scale);
 		}
 
 		if(midtexture)

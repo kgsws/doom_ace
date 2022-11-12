@@ -58,6 +58,9 @@ int32_t map_lump_idx;
 uint_fast8_t map_format;
 map_level_t *map_level_info;
 map_level_t *map_next_info;
+uint8_t map_start_id;
+uint8_t map_start_facing;
+uint16_t map_next_levelnum;
 
 uint_fast8_t map_skip_stuff;
 uint_fast8_t is_title_map;
@@ -386,8 +389,11 @@ uint32_t map_load_setup()
 		utils_install_hooks(patch_new, 0);
 
 	if(map_format == MAP_FORMAT_DOOM)
+	{
+		map_start_id = 0;
+		map_start_facing = 0;
 		utils_install_hooks(patch_doom, 0);
-	else
+	} else
 		utils_install_hooks(patch_hexen, 0);
 
 	// clear player mobjs
@@ -426,6 +432,13 @@ uint32_t map_load_setup()
 			spawn_line_scroll();
 		}
 		// TODO: ZDoom specials
+
+		// check for player starts
+		for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		{
+			if(playeringame[i] && !players[i].mo)
+				goto map_load_error;
+		}
 	}
 
 	// in the level
@@ -499,7 +512,12 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	// player starts
 	if(mt->type && mt->type <= 4)
 	{
-		uint32_t idx = mt->type - 1;
+		uint32_t idx;
+
+		if(mt->arg[0] != map_start_id)
+			return;
+
+		idx = mt->type - 1;
 		playerstarts[idx].x = mt->x;
 		playerstarts[idx].y = mt->y;
 		playerstarts[idx].angle = mt->angle;
@@ -507,6 +525,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		playerstarts[idx].options = mt->arg[0];
 		if(!deathmatch && !map_skip_stuff)
 			mobj_spawn_player(idx, mt->x * FRACUNIT, mt->y * FRACUNIT, angle);
+
 		return;
 	}
 
@@ -766,6 +785,10 @@ void map_start_title()
 	prndindex = 0;
 	netgame = 0;
 	netdemo = 0;
+
+	map_next_levelnum = 0;
+	map_start_id = 0;
+	map_start_facing = 0;
 
 	consoleplayer = 0;
 	memset(players, 0, sizeof(player_t) * MAXPLAYERS);
@@ -1689,6 +1712,10 @@ static void do_new_game()
 	gameepisode = 1;
 	wipegamestate = -1;
 
+	map_next_levelnum = 0;
+	map_start_id = 0;
+	map_start_facing = 0;
+
 	map_load_setup();
 }
 
@@ -1714,6 +1741,10 @@ static void do_autostart_game()
 	gameepisode = 1;
 	wipegamestate = -1;
 
+	map_next_levelnum = 0;
+	map_start_id = 0;
+	map_start_facing = 0;
+
 	map_load_setup();
 }
 
@@ -1734,6 +1765,12 @@ static void set_world_done()
 		next = map_level_info->next_secret;
 	} else
 		next = map_level_info->next_normal;
+
+	if(map_next_levelnum)
+	{
+		next = 0;
+		map_next_levelnum = 0;
+	}
 
 	// check for cluser change
 	old_cl = map_find_cluster(map_level_info->cluster);
@@ -1832,6 +1869,23 @@ static void do_completed()
 		player_finish(players + i);
 
 	// check next level
+	if(map_next_levelnum)
+	{
+		int32_t i;
+		for(i = num_maps - 1; i >= 0; i--)
+		{
+			if(map_info[i].levelnum == map_next_levelnum)
+			{
+				next = i;
+				break;
+			}
+		}
+		if(i < 0)
+		{
+			map_next_levelnum = 0;
+			map_next_info = NULL;
+		}
+	} else
 	if(secretexit)
 		next = map_level_info->next_secret;
 	else

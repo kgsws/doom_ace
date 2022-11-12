@@ -750,14 +750,17 @@ static uint32_t cb_teleport(mobj_t *mo)
 		}
 	}
 
-	activator->angle = mo->angle;
+	if(value_mult < 0)
+		// TODO: other angle modes
+		activator->angle = mo->angle;
+
 	angle = mo->angle >> ANGLETOFINESHIFT;
 
-	P_SpawnMobj(x, y, z, 39); // MT_TFOG
-	P_SpawnMobj(activator->x + 20 * finecosine[angle], activator->y + 20 * finesine[angle], activator->z, 39); // MT_TFOG
-
-	if(activator->player)
-		activator->reactiontime = 18;
+	if(value_mult < 0)
+	{
+		P_SpawnMobj(x, y, z, 39); // MT_TFOG
+		P_SpawnMobj(activator->x + 20 * finecosine[angle], activator->y + 20 * finesine[angle], activator->z, 39); // MT_TFOG
+	}
 
 	if(activator->flags & MF_MISSILE)
 	{
@@ -779,9 +782,14 @@ static uint32_t cb_teleport(mobj_t *mo)
 		activator->momy = FixedMul(speed, finesine[angle]);
 	} else
 	{
-		activator->momx = 0;
-		activator->momy = 0;
-		activator->momz = 0;
+		if(value_mult < 0)
+		{
+			activator->momx = 0;
+			activator->momy = 0;
+			activator->momz = 0;
+			if(activator->player)
+				activator->reactiontime = 18;
+		}
 	}
 
 	return 1;
@@ -836,14 +844,18 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				break;
 			if(	mo->flags & MF_MISSILE &&
 				!(mo->flags & MF1_NOTELEPORT) &&
-				ln->special == 70	// Teleport
+				(
+					ln->special == 70 ||	// Teleport
+					ln->special == 71	// Teleport_NoFog
+				)
 			)
 				break;
 			if(	!(ln->flags & ML_MONSTER_ACT) &&
 				(	map_level_info->flags & MAP_FLAG_NO_MONSTER_ACTIVATION ||
 					(
 						ln->special != 206 &&	// Plat_DownWaitUpStayLip
-						ln->special != 70	// Teleport
+						ln->special != 70 &&	// Teleport
+						ln->special != 71	// Teleport_NoFog
 					)
 				)
 			)
@@ -970,10 +982,28 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 70: // Teleport
 			if(!back_side)
 			{
+				value_mult = -1;
 				value_offs = ln->arg0;
 				spec_success = mobj_for_each(cb_teleport);
 			} else
 				spec_success = 0;
+		break;
+		case 71: // Teleport_NoFog
+			if(!back_side)
+			{
+				value_mult = 0;
+				value_offs = ln->arg0;
+				spec_success = mobj_for_each(cb_teleport);
+			} else
+				spec_success = 0;
+		break;
+		case 74: // Teleport_NewMap
+			secretexit = 0;
+			gameaction = ga_completed;
+			map_next_levelnum = ln->arg0;
+			map_start_id = ln->arg1;
+			map_start_facing = !!ln->arg2;
+			spec_success = 1;
 		break;
 		case 95: // FloorAndCeiling_LowerByValue
 			value_mult = -1;
@@ -1024,6 +1054,18 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 239: // Floor_RaiseByValueTxTy
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Floor_ByValue);
+		break;
+		case 243: // Exit_Normal
+			secretexit = 0;
+			gameaction = ga_completed;
+			map_start_id = ln->arg0;
+			spec_success = 1;
+		break;
+		case 244: // Exit_Secret
+			secretexit = 1;
+			gameaction = ga_completed;
+			map_start_id = ln->arg0;
+			spec_success = 1;
 		break;
 		default:
 			doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", ln->special, !!back_side, mo, mo->player);

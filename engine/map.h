@@ -272,6 +272,9 @@ extern map_lump_name_t map_lump;
 extern int32_t map_lump_idx;
 extern uint_fast8_t map_format;
 extern map_level_t *map_level_info;
+extern uint8_t map_start_id;
+extern uint8_t map_start_facing;
+extern uint16_t map_next_levelnum;
 
 extern uint_fast8_t map_skip_stuff;
 extern uint_fast8_t is_title_map;

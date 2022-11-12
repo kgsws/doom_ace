@@ -20,6 +20,7 @@
 #include "menu.h"
 #include "stbar.h"
 #include "render.h"
+#include "draw.h"
 #include "extra3d.h"
 #include "ldr_flat.h"
 #include "ldr_texture.h"
@@ -1850,6 +1851,18 @@ static void set_world_done()
 		}
 		if(music_lump >= -1) // -1 means STOP
 			start_music(music_lump, 1); // technically, 'mus_bunny' should not loop ...
+	} else
+	if(map_level_info->flags & MAP_FLAG_NO_INTERMISSION)
+	{
+		int32_t lump;
+		lump = W_CheckNumForName("M_LDING");
+		if(lump >= 0)
+		{
+			patch_t *patch;
+			patch = W_CacheLumpNum(lump, PU_STATIC);
+			V_DrawPatchDirect(0, 0, patch);
+			I_FinishUpdate();
+		}
 	}
 }
 

@@ -722,6 +722,8 @@ void player_finish(player_t *pl)
 		inventory_hubstrip(pl->mo);
 		pl->inventory = pl->mo->inventory;
 		pl->mo->inventory = NULL;
+		pl->angle = pl->mo->angle;
+		pl->pitch = pl->mo->pitch;
 	}
 }
 

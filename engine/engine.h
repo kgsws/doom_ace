@@ -354,7 +354,9 @@ typedef struct player_s
 	uint32_t info_flags;
 	uint8_t power_color[NUMPOWERS];
 	uint32_t flags;
-	uint32_t __unused[4+4];
+	uint32_t __unused[4+2];
+	angle_t angle;
+	angle_t pitch;
 	uint16_t attackdown;
 	uint16_t weapon_ready;
 	int32_t usedown;

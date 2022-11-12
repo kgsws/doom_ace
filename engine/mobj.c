@@ -598,6 +598,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 
 	// create body
 	mo = P_SpawnMobj(x, y, 0x80000000, player_class[0]);
+	mo->angle = angle;
 
 	// check for reset
 	if(pl->playerstate == PST_REBORN || map_level_info->flags & MAP_FLAG_RESET_INVENTORY)
@@ -698,12 +699,15 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 			mo->inventory = pl->mo->inventory;
 			pl->mo->inventory = NULL;
 		}
+		if(map_start_facing)
+		{
+			mo->angle = pl->angle;
+			mo->pitch = pl->pitch;
+		}
 	}
 
-	// TODO: translation not in flags
-	mo->flags |= idx << 26;
+	// TODO: translation - player color
 
-	mo->angle = angle;
 	mo->player = pl;
 	mo->health = pl->health;
 

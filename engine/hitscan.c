@@ -657,6 +657,8 @@ do_puff:
 		if(la_damage)
 			mobj_damage(th, shootthing, shootthing, la_damage, mobjinfo + mo_puff_type);
 
+		linetarget = th;
+
 		return 0;
 	}
 }

@@ -28,7 +28,7 @@ fixed_t tmextrafloor;
 fixed_t tmextraceiling;
 fixed_t tmextradrop;
 
-uint_fast8_t no_extra_step;
+uint_fast8_t e3d_plane_move;
 
 //
 // funcs
@@ -420,8 +420,6 @@ void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step)
 	extraplane_t *pl;
 	fixed_t z;
 
-	no_step |= no_extra_step;
-
 	tmextrafloor = tmfloorz;
 	tmextraceiling = tmceilingz;
 	tmextradrop = 0x7FFFFFFF;
@@ -436,7 +434,7 @@ void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step)
 	pl = sec->exfloor;
 	while(pl)
 	{
-		if(pl->flags & E3D_SOLID)
+		if(pl->flags & E3D_SOLID && (!e3d_plane_move || mo->z > pl->source->floorheight))
 		{
 			if(*pl->height <= z && *pl->height > tmextrafloor)
 				tmextrafloor = *pl->height;

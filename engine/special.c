@@ -260,7 +260,7 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 	fixed_t dest;
 	uint16_t texture;
 	uint16_t special;
-	uint16_t flags;
+	uint16_t flags = 0;
 
 	if(sec->specialactive & ACT_FLOOR)
 		return 0;
@@ -440,7 +440,7 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 	fixed_t dest;
 	uint16_t texture;
 	uint16_t special;
-	uint16_t flags;
+	uint16_t flags = 0;
 
 	if(sec->specialactive & ACT_CEILING)
 		return 0;
@@ -651,26 +651,6 @@ static uint32_t act_Ceiling_CrushStop(sector_t *sec, line_t *ln)
 	return 1;
 }
 
-static uint32_t act_FloorAndCeiling_ByValue(sector_t *sec, line_t *ln)
-{
-	generic_mover_t *gm;
-	fixed_t dest;
-
-	if(sec->specialactive & (ACT_FLOOR|ACT_CEILING))
-		return 0;
-
-	dest = sec->floorheight + (fixed_t)ln->arg2 * value_mult * FRACUNIT;
-
-	gm = generic_dual(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_FLOOR, 0);
-	gm->top_height = dest;
-	gm->bot_height = dest;
-	gm->speed_up = (fixed_t)ln->arg1 * (FRACUNIT/8);
-	gm->speed_dn = 	gm->speed_up;
-	gm->gap_height = sec->ceilingheight - sec->floorheight;
-
-	return 1;
-}
-
 //
 // platforms
 
@@ -684,7 +664,7 @@ static uint32_t act_Plat_Bidir(sector_t *sec, line_t *ln)
 	gm = generic_floor(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_PLAT, 0);
 	gm->speed_now = (fixed_t)ln->arg1 * (FRACUNIT/8);
 	gm->delay = ln->arg2;
-	gm->flags = MVF_BLOCK_GO_DN;
+	gm->flags = MVF_BLOCK_GO_DN | MVF_BLOCK_GO_UP;
 
 	if(value_mult < 0)
 	{
@@ -1004,14 +984,6 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			map_start_id = ln->arg1;
 			map_start_facing = !!ln->arg2;
 			spec_success = 1;
-		break;
-		case 95: // FloorAndCeiling_LowerByValue
-			value_mult = -1;
-			spec_success = handle_tag(ln, ln->arg0, act_FloorAndCeiling_ByValue);
-		break;
-		case 96: // FloorAndCeiling_RaiseByValue
-			value_mult = 1;
-			spec_success = handle_tag(ln, ln->arg0, act_FloorAndCeiling_ByValue);
 		break;
 		case 97: // Ceiling_LowerAndCrushDist
 			spec_success = handle_tag(ln, ln->arg0, act_Ceiling_LowerAndCrushDist);

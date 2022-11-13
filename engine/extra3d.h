@@ -40,7 +40,7 @@ extern fixed_t tmextrafloor;
 extern fixed_t tmextraceiling;
 extern fixed_t tmextradrop;
 
-extern uint_fast8_t no_extra_step;
+extern uint_fast8_t e3d_plane_move;
 
 //
 

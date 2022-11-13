@@ -765,11 +765,20 @@ typedef struct
 } degenmobj_t;
 
 typedef struct
-{ // this should be part of 'sector_t'
-	fixed_t bbox[4];
-} sector_extra_t;
+{
+	struct sector_s *target;
+	uint8_t use_ceiling;
+	uint8_t link_floor;
+	uint8_t link_ceiling;
+} plane_link_t;
 
 typedef struct
+{ // this should be part of 'sector_t'
+	fixed_t bbox[4];
+	plane_link_t *plink;
+} sector_extra_t;
+
+typedef struct sector_s
 { // this structure has been changed
 	fixed_t floorheight;
 	fixed_t ceilingheight;

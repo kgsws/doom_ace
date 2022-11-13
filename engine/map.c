@@ -283,6 +283,7 @@ static inline void parse_sectors()
 	for(uint32_t i = 0; i < numsectors; i++, se++)
 	{
 		sector_t *sec = sectors + i;
+		uint32_t plink_count = 0;
 
 		sec->extra = se;
 		sec->exfloor = NULL;
@@ -291,14 +292,65 @@ static inline void parse_sectors()
 		sec->ed3_multiple = 0;
 		sec->e3d_origin = 0;
 
-		// this should be done in 'P_GroupLines'
 		M_ClearBox(se->bbox);
 		for(uint32_t j = 0; j < sec->linecount; j++)
 		{
 			line_t *li = sec->lines[j];
+
+			// should this be done in 'P_GroupLines'?
 			M_AddToBox(se->bbox, li->v1->x, li->v1->y);
 			M_AddToBox(se->bbox, li->v2->x, li->v2->y);
+
+			// check for plane links
+			if(	li->frontsector == sec &&
+				li->special == 51 // Sector_SetLink
+			){
+				if(li->arg0 || !li->arg1 || !li->arg3 || li->arg3 & 0xFC)
+					I_Error("[MAP] Invalid use of 'Sector_SetLink'!");
+
+				for(uint32_t k = 0; k < numsectors; k++)
+				{
+					if(sectors[k].tag == li->arg1)
+						plink_count++;
+				}
+			}
 		}
+
+		if(plink_count)
+		{
+			plane_link_t *plink;
+
+			plink_count++;
+			plink = Z_Malloc(plink_count * sizeof(plane_link_t), PU_LEVEL, NULL);
+			se->plink = plink;
+
+			for(uint32_t j = 0; j < sec->linecount; j++)
+			{
+				line_t *li = sec->lines[j];
+
+				if(	li->frontsector == sec &&
+					li->special == 51 // Sector_SetLink
+				){
+					for(uint32_t k = 0; k < numsectors; k++)
+					{
+						if(sectors[k].tag == li->arg1)
+						{
+							plink->target = sectors + k;
+							plink->use_ceiling = li->arg2 > 0;
+							plink->link_floor = li->arg3 & 1;
+							plink->link_ceiling = li->arg3 & 2;
+							plink++;
+						}
+					}
+					li->special = 0;
+					li->arg0 = 0;
+					li->args = 0;
+				}
+			}
+
+			plink->target = NULL;
+		} else
+			se->plink = NULL;
 	}
 }
 
@@ -1855,7 +1907,7 @@ static void set_world_done()
 	if(map_level_info->flags & MAP_FLAG_NO_INTERMISSION)
 	{
 		int32_t lump;
-		lump = W_CheckNumForName("M_LDING");
+		lump = W_CheckNumForName("WILOADIN");
 		if(lump >= 0)
 		{
 			patch_t *patch;

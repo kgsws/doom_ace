@@ -33,7 +33,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFAC	// increment with updates
+#define SAVE_VERSION	0xE58BAFAD	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -99,7 +99,6 @@ enum
 	STH_ACE_LINE_SCROLL,
 	STH_ACE_CEILING,
 	STH_ACE_FLOOR,
-	STH_ACE_DUAL,
 };
 
 //
@@ -354,7 +353,7 @@ typedef struct
 } save_line_scroll_t;
 
 typedef struct
-{ // STH_ACE_CEILING, STH_ACE_FLOOR, STH_ACE_DUAL
+{ // STH_ACE_CEILING, STH_ACE_FLOOR
 	uint16_t sector;
 	uint64_t texture;
 	uint8_t sndseq;
@@ -868,10 +867,6 @@ static inline void sv_put_thinkers()
 		if(th->function == think_floor)
 		{
 			save_put_generic((generic_mover_t*)th, STH_ACE_FLOOR);
-		} else
-		if(th->function == think_dual)
-		{
-			save_put_generic((generic_mover_t*)th, STH_ACE_DUAL);
 		}
 	}
 }
@@ -1667,7 +1662,6 @@ static inline uint32_t ld_get_specials()
 			break;
 			case STH_ACE_CEILING:
 			case STH_ACE_FLOOR:
-			case STH_ACE_DUAL:
 			{
 				save_generic_mover_t sav;
 				generic_mover_t *gm;
@@ -1689,9 +1683,6 @@ static inline uint32_t ld_get_specials()
 				else
 				if(type == STH_ACE_FLOOR)
 					gm = generic_floor(sec, sav.direction, sav.sndseq & 3, sav.sndseq & 128);
-				else
-				if(type == STH_ACE_DUAL)
-					gm = generic_dual(sec, sav.direction, sav.sndseq & 3, sav.sndseq & 128);
 
 				if(!gm)
 					return 1;

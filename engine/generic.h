@@ -30,11 +30,7 @@ typedef struct
 	fixed_t bot_height;
 	fixed_t speed_up;
 	fixed_t speed_dn;
-	union
-	{
-		fixed_t speed_now;
-		fixed_t gap_height;
-	};
+	fixed_t speed_now;
 	uint8_t type;
 	uint8_t direction;
 	uint16_t flags;
@@ -56,10 +52,7 @@ generic_mover_t *generic_ceiling_by_sector(sector_t *sec);
 generic_mover_t *generic_floor(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
 generic_mover_t *generic_floor_by_sector(sector_t *sec);
 
-generic_mover_t *generic_dual(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
-
 //
 void think_ceiling(generic_mover_t *gm) __attribute((regparm(2),no_caller_saved_registers));
 void think_floor(generic_mover_t *gm) __attribute((regparm(2),no_caller_saved_registers));
-void think_dual(generic_mover_t *gm) __attribute((regparm(2),no_caller_saved_registers));
 

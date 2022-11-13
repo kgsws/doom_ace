@@ -305,6 +305,7 @@ static void cf_resurrect(player_t *pl, uint8_t *arg)
 	mo->radius = info->radius;
 	mo->flags = info->flags;
 	mo->flags1 = info->flags1;
+	mo->flags2 = info->flags2;
 
 	cheat_player_flags(pl);
 

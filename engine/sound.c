@@ -446,7 +446,7 @@ static void cb_sndseq(lumpinfo_t *li)
 
 		while(1)
 		{
-			wk = tp_get_keyword();
+			wk = tp_get_keyword_lc();
 			if(!wk)
 				goto error_end;
 

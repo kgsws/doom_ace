@@ -477,3 +477,17 @@ uint32_t tp_load_file(const uint8_t *path)
 	return 0;
 }
 
+void tp_use_text(uint8_t *ptr)
+{
+	if(ptr)
+		tp_text_ptr = ptr;
+	else
+		tp_text_ptr = TP_MEMORY_ADDR;
+
+	backup_char = 0;
+	pushed_kw = 0;
+
+	tp_enable_math = 0;
+	tp_enable_newline = 0;
+}
+

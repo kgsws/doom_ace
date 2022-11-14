@@ -27,6 +27,16 @@ enum
 
 typedef struct
 {
+	const uint8_t *flat;
+	const uint8_t *texture;
+	const uint8_t *swtch;
+	const uint8_t *range;
+	const uint8_t *tics;
+	const uint8_t *pic;
+} anim_kw_list_t;
+
+typedef struct
+{
 	uint16_t pic;
 	uint16_t tick;
 } animframe_t;
@@ -80,70 +90,91 @@ static void *animations;
 
 switch_t active_switch[MAX_BUTTONS];
 
+// keywords
+static const anim_kw_list_t anim_kw_list[] =
+{
+	{
+		.flat = "f",
+		.texture = "t",
+		.swtch = "s",
+		.range = "r",
+		.tics = "t",
+		.pic = "p",
+	},
+	{
+		.flat = "flat",
+		.texture = "texture",
+		.swtch = "switch",
+		.range = "range",
+		.tics = "tics",
+		.pic = "pic",
+	}
+};
+
 // built-in animations
 static uint8_t engine_animdefs[] =
-"flat	BLOOD1	r BLOOD3 t 8\n"
-"flat	FWATER1	r FWATER4 t 8\n"
-"flat	LAVA1	r LAVA4 t 8\n"
-"flat	NUKAGE1	r NUKAGE3 t 8\n"
-"flat	RROCK05 r RROCK08 t 8\n"
-"flat	SLIME01	r SLIME04 t 8\n"
-"flat	SLIME05	r SLIME08 t 8\n"
-"flat	SLIME09	r SLIME12 t 8\n"
-"flat	SWATER1	r SWATER4 t 8\n"
-"texture	BFALL1	r BFALL4 t 8\n"
-"texture	BLODGR1	r BLODGR4 t 8\n"
-"texture	BLODRIP1	r BLODRIP4 t 8\n"
-"texture	DBRAIN1	r DBRAIN4 t 8\n"
-"texture	FIREBLU1	r FIREBLU2 t 8\n"
-"texture	FIRELAV3	r FIRELAVA t 8\n"
-"texture	FIREMAG1	r FIREMAG3 t 8\n"
-"texture	FIREWALA	r FIREWALL t 8\n"
-"texture	GSTFONT1	r GSTFONT3 t 8\n"
-"texture	ROCKRED1	r ROCKRED3 t 8\n"
-"texture	SFALL1	r SFALL4 t 8\n"
-"texture	SLADRIP1	r SLADRIP3 t 8\n"
-"texture	WFALL1	r WFALL4 t 8\n"
-"switch	SW1BRCOM on p SW2BRCOM t 0\n"
-"switch	SW1BRN1 on p SW2BRN1 t 0\n"
-"switch	SW1BRN2 on p SW2BRN2 t 0\n"
-"switch	SW1BRNGN on p SW2BRNGN t 0\n"
-"switch	SW1BROWN on p SW2BROWN t 0\n"
-"switch	SW1COMM on p SW2COMM t 0\n"
-"switch	SW1COMP on p SW2COMP t 0\n"
-"switch	SW1DIRT on p SW2DIRT t 0\n"
-"switch	SW1EXIT on p SW2EXIT t 0\n"
-"switch	SW1GRAY on p SW2GRAY t 0\n"
-"switch	SW1GRAY1 on p SW2GRAY1 t 0\n"
-"switch	SW1METAL on p SW2METAL t 0\n"
-"switch	SW1PIPE on p SW2PIPE t 0\n"
-"switch	SW1SLAD on p SW2SLAD t 0\n"
-"switch	SW1STARG on p SW2STARG t 0\n"
-"switch	SW1STON1 on p SW2STON1 t 0\n"
-"switch	SW1STON2 on p SW2STON2 t 0\n"
-"switch	SW1STONE on p SW2STONE t 0\n"
-"switch	SW1STRTN on p SW2STRTN t 0\n"
-"switch	SW1BLUE on p SW2BLUE t 0\n"
-"switch	SW1CMT on p SW2CMT t 0\n"
-"switch	SW1GARG on p SW2GARG t 0\n"
-"switch	SW1GSTON on p SW2GSTON t 0\n"
-"switch	SW1HOT on p SW2HOT t 0\n"
-"switch	SW1LION on p SW2LION t 0\n"
-"switch	SW1SATYR on p SW2SATYR t 0\n"
-"switch	SW1SKIN on p SW2SKIN t 0\n"
-"switch	SW1VINE on p SW2VINE t 0\n"
-"switch	SW1WOOD on p SW2WOOD t 0\n"
-"switch	SW1PANEL on p SW2PANEL t 0\n"
-"switch	SW1ROCK on p SW2ROCK t 0\n"
-"switch	SW1MET2 on p SW2MET2 t 0\n"
-"switch	SW1WDMET on p SW2WDMET t 0\n"
-"switch	SW1BRIK on p SW2BRIK t 0\n"
-"switch	SW1MOD1 on p SW2MOD1 t 0\n"
-"switch	SW1ZIM on p SW2ZIM t 0\n"
-"switch	SW1STON6 on p SW2STON6 t 0\n"
-"switch	SW1TEK on p SW2TEK t 0\n"
-"switch	SW1MARB on p SW2MARB t 0\n"
-"switch	SW1SKULL on p SW2SKULL t 0\n"
+"f	BLOOD1	r BLOOD3 t 8\n"
+"f	FWATER1	r FWATER4 t 8\n"
+"f	LAVA1	r LAVA4 t 8\n"
+"f	NUKAGE1	r NUKAGE3 t 8\n"
+"f	RROCK05 r RROCK08 t 8\n"
+"f	SLIME01	r SLIME04 t 8\n"
+"f	SLIME05	r SLIME08 t 8\n"
+"f	SLIME09	r SLIME12 t 8\n"
+"f	SWATER1	r SWATER4 t 8\n"
+"t	BFALL1	r BFALL4 t 8\n"
+"t	BLODGR1	r BLODGR4 t 8\n"
+"t	BLODRIP1	r BLODRIP4 t 8\n"
+"t	DBRAIN1	r DBRAIN4 t 8\n"
+"t	FIREBLU1	r FIREBLU2 t 8\n"
+"t	FIRELAV3	r FIRELAVA t 8\n"
+"t	FIREMAG1	r FIREMAG3 t 8\n"
+"t	FIREWALA	r FIREWALL t 8\n"
+"t	GSTFONT1	r GSTFONT3 t 8\n"
+"t	ROCKRED1	r ROCKRED3 t 8\n"
+"t	SFALL1	r SFALL4 t 8\n"
+"t	SLADRIP1	r SLADRIP3 t 8\n"
+"t	WFALL1	r WFALL4 t 8\n"
+"s	SW1BRCOM on p SW2BRCOM t 0\n"
+"s	SW1BRN1 on p SW2BRN1 t 0\n"
+"s	SW1BRN2 on p SW2BRN2 t 0\n"
+"s	SW1BRNGN on p SW2BRNGN t 0\n"
+"s	SW1BROWN on p SW2BROWN t 0\n"
+"s	SW1COMM on p SW2COMM t 0\n"
+"s	SW1COMP on p SW2COMP t 0\n"
+"s	SW1DIRT on p SW2DIRT t 0\n"
+"s	SW1EXIT on p SW2EXIT t 0\n"
+"s	SW1GRAY on p SW2GRAY t 0\n"
+"s	SW1GRAY1 on p SW2GRAY1 t 0\n"
+"s	SW1METAL on p SW2METAL t 0\n"
+"s	SW1PIPE on p SW2PIPE t 0\n"
+"s	SW1SLAD on p SW2SLAD t 0\n"
+"s	SW1STARG on p SW2STARG t 0\n"
+"s	SW1STON1 on p SW2STON1 t 0\n"
+"s	SW1STON2 on p SW2STON2 t 0\n"
+"s	SW1STONE on p SW2STONE t 0\n"
+"s	SW1STRTN on p SW2STRTN t 0\n"
+"s	SW1BLUE on p SW2BLUE t 0\n"
+"s	SW1CMT on p SW2CMT t 0\n"
+"s	SW1GARG on p SW2GARG t 0\n"
+"s	SW1GSTON on p SW2GSTON t 0\n"
+"s	SW1HOT on p SW2HOT t 0\n"
+"s	SW1LION on p SW2LION t 0\n"
+"s	SW1SATYR on p SW2SATYR t 0\n"
+"s	SW1SKIN on p SW2SKIN t 0\n"
+"s	SW1VINE on p SW2VINE t 0\n"
+"s	SW1WOOD on p SW2WOOD t 0\n"
+"s	SW1PANEL on p SW2PANEL t 0\n"
+"s	SW1ROCK on p SW2ROCK t 0\n"
+"s	SW1MET2 on p SW2MET2 t 0\n"
+"s	SW1WDMET on p SW2WDMET t 0\n"
+"s	SW1BRIK on p SW2BRIK t 0\n"
+"s	SW1MOD1 on p SW2MOD1 t 0\n"
+"s	SW1ZIM on p SW2ZIM t 0\n"
+"s	SW1STON6 on p SW2STON6 t 0\n"
+"s	SW1TEK on p SW2TEK t 0\n"
+"s	SW1MARB on p SW2MARB t 0\n"
+"s	SW1SKULL on p SW2SKULL t 0\n"
 ;
 
 //
@@ -267,7 +298,7 @@ static uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t d
 //
 // parser
 
-static void parse_animdefs()
+static void parse_animdefs(const anim_kw_list_t *kwl)
 {
 	union
 	{
@@ -281,18 +312,18 @@ static void parse_animdefs()
 
 	while(1)
 	{
-		kw = tp_get_keyword();
+		kw = tp_get_keyword_lc();
 continue_keyword:
 		if(!kw)
 			return;
 
-		if(!strcmp(kw, "flat"))
+		if(!strcmp(kw, kwl->flat))
 			get_pic = flat_num_check;
 		else
-		if(!strcmp(kw, "texture"))
+		if(!strcmp(kw, kwl->texture))
 			get_pic = texture_num_check;
 		else
-		if(!strcmp(kw, "switch"))
+		if(!strcmp(kw, kwl->swtch))
 		{
 			int32_t num;
 			uint32_t tick_total;
@@ -318,18 +349,18 @@ continue_keyword:
 			name = kw;
 
 			// expecting 'on'
-			kw = tp_get_keyword();
+			kw = tp_get_keyword_lc();
 			if(!kw)
 				goto error_end;
 			if(*((uint16_t*)kw) != 0x6E6F)
-				I_Error("[ANIMDEFS] Expected keyword 'ok' found '%s' in '%s'!", kw, name);
+				I_Error("[ANIMDEFS] Expected keyword 'on' found '%s' in '%s'!", kw, name);
 
 			// expecting 'pic' or 'sound'
-			kw = tp_get_keyword();
+			kw = tp_get_keyword_lc();
 			if(!kw)
 				goto error_end;
 
-			if(kw[0] == 's')
+			if(!strcmp(kw, "sound"))
 			{
 				// get sound name
 				kw = tp_get_keyword();
@@ -339,12 +370,12 @@ continue_keyword:
 				sound = sfx_by_name(kw);
 
 				// read next keyword
-				kw = tp_get_keyword();
+				kw = tp_get_keyword_lc();
 				if(!kw)
 					goto error_end;
 			}
 
-			if(kw[0] != 'p')
+			if(strcmp(kw, kwl->pic))
 				I_Error("[ANIMDEFS] Expected keyword 'pic' found '%s' in '%s'!", kw, name);
 
 			// switch
@@ -380,10 +411,10 @@ continue_keyword:
 				}
 
 				// only 'tics' is supported; no 'rand'
-				kw = tp_get_keyword();
+				kw = tp_get_keyword_lc();
 				if(!kw)
 					goto error_end;
-				if(kw[0] != 't')
+				if(strcmp(kw, kwl->tics))
 					goto error_tics;
 
 				// get tick count
@@ -398,10 +429,10 @@ continue_keyword:
 				tick_total += num;
 
 				// check for next frame
-				kw = tp_get_keyword();
+				kw = tp_get_keyword_lc();
 				if(!kw)
 					break;
-				if(!kw || kw[0] != 'p')
+				if(!kw || strcmp(kw, kwl->pic))
 					break;
 			}
 
@@ -429,12 +460,12 @@ continue_keyword:
 			// check for 'off'
 			if(kw && *((uint32_t*)kw) == 0x0066666F)
 			{
-				// expecting 'pic'
-				kw = tp_get_keyword();
+				// expecting 'pic' or 'sound
+				kw = tp_get_keyword_lc();
 				if(!kw)
 					goto error_end;
 
-				if(kw[0] == 's')
+				if(!strcmp(kw, "sound"))
 				{
 					// get sound name
 					kw = tp_get_keyword();
@@ -444,12 +475,12 @@ continue_keyword:
 					sound = sfx_by_name(kw);
 
 					// read next keyword
-					kw = tp_get_keyword();
+					kw = tp_get_keyword_lc();
 					if(!kw)
 						goto error_end;
 				}
 
-				if(kw[0] != 'p')
+				if(strcmp(kw, kwl->pic))
 					I_Error("[ANIMDEFS] Expected keyword 'pic' found '%s' in '%s'!", kw, name);
 
 				// switch
@@ -485,10 +516,10 @@ continue_keyword:
 					}
 
 					// only 'tics' is supported; no 'rand'
-					kw = tp_get_keyword();
+					kw = tp_get_keyword_lc();
 					if(!kw)
 						goto error_end;
-					if(kw[0] != 't')
+					if(strcmp(kw, kwl->tics))
 						goto error_tics;
 
 					// get tick count
@@ -503,10 +534,10 @@ continue_keyword:
 					tick_total += num;
 
 					// check for next frame
-					kw = tp_get_keyword();
+					kw = tp_get_keyword_lc();
 					if(!kw)
 						break;
-					if(!kw || kw[0] != 'p')
+					if(!kw || strcmp(kw, kwl->pic))
 						break;
 				}
 
@@ -576,18 +607,18 @@ continue_keyword:
 		dest.anim = anim_ptr;
 
 		// expecting 'pic' or 'range'
-		kw = tp_get_keyword();
+		kw = tp_get_keyword_lc();
 		if(!kw)
 			goto error_end;
 
 		skip = 0;
 
-		if(kw[0] == 'r')
+		if(!strcmp(kw, kwl->range))
 		{
-			// 'range'
 			int32_t num;
 			uint32_t tics;
 
+			// get picture name
 			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
@@ -600,10 +631,10 @@ continue_keyword:
 			num++;
 
 			// only 'tics' is supported; no 'rand'
-			kw = tp_get_keyword();
+			kw = tp_get_keyword_lc();
 			if(!kw)
 				goto error_end;
-			if(kw[0] != 't')
+			if(strcmp(kw, kwl->tics))
 				goto error_tics;
 
 			kw = tp_get_keyword();
@@ -642,9 +673,8 @@ continue_keyword:
 
 			continue;
 		} else
-		if(kw[0] == 'p')
+		if(!strcmp(kw, kwl->pic))
 		{
-			// 'pic'
 			uint32_t tick_total;
 			uint32_t count;
 
@@ -679,10 +709,10 @@ continue_keyword:
 				}
 
 				// only 'tics' is supported; no 'rand'
-				kw = tp_get_keyword();
+				kw = tp_get_keyword_lc();
 				if(!kw)
 					goto error_end;
-				if(kw[0] != 't')
+				if(strcmp(kw, kwl->tics))
 					goto error_tics;
 
 				// get tick count
@@ -697,16 +727,16 @@ continue_keyword:
 				tick_total += num;
 
 				// check next keyword
-				kw = tp_get_keyword();
+				kw = tp_get_keyword_lc();
 				if(!kw)
 					break;
 
-				if(kw[0] == 'a')
-					// skip 'allowdecals'
-					kw = tp_get_keyword();
+				if(!strcmp(kw, "allowdecals"))
+					// skip
+					kw = tp_get_keyword_lc();
 
 				// check for next frame
-				if(!kw || kw[0] != 'p')
+				if(!kw || strcmp(kw, kwl->pic))
 					break;
 			}
 
@@ -793,7 +823,7 @@ void do_line_switch(line_t *ln, uint32_t repeat)
 static void cb_animdefs(lumpinfo_t *li)
 {
 	tp_load_lump(li);
-	parse_animdefs();
+	parse_animdefs(anim_kw_list + 1);
 }
 
 //
@@ -813,8 +843,8 @@ void init_animations()
 	// count all animations (get buffer size)
 
 	// internal
-	tp_text_ptr = engine_animdefs;
-	parse_animdefs();
+	tp_use_text(engine_animdefs);
+	parse_animdefs(anim_kw_list + 0);
 
 	// external
 	wad_handle_lump("ANIMDEFS", cb_animdefs);
@@ -828,7 +858,7 @@ void init_animations()
 	anim_ptr = animations;
 	switch_ptr = animations + size + 1;
 
-	// fix internal animations
+	// fix internal animations (broken by text parser)
 	for(uint32_t i = 0; i < sizeof(engine_animdefs)-1; i++)
 	{
 		if(!engine_animdefs[i])
@@ -838,8 +868,8 @@ void init_animations()
 	// generate animations
 
 	// internal
-	tp_text_ptr = engine_animdefs;
-	parse_animdefs();
+	tp_use_text(engine_animdefs);
+	parse_animdefs(anim_kw_list + 0);
 
 	// external
 	wad_handle_lump("ANIMDEFS", cb_animdefs);

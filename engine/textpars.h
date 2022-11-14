@@ -16,6 +16,7 @@ extern uint_fast8_t tp_enable_newline;
 
 void tp_load_lump(lumpinfo_t*);
 uint32_t tp_load_file(const uint8_t *path);
+void tp_use_text(uint8_t *ptr);
 
 uint8_t *tp_get_keyword();
 uint8_t *tp_get_keyword_uc();

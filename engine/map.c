@@ -46,6 +46,18 @@ enum
 
 typedef struct
 {
+	const uint8_t *lock;
+	const uint8_t *any;
+	const uint8_t *message;
+	const uint8_t *msg_data;
+	const uint8_t *remote;
+	const uint8_t *rmt_data;
+	const uint8_t *mapcolor;
+	const uint8_t *sound;
+} lockdefs_kw_list_t;
+
+typedef struct
+{
 	const uint8_t *name;
 	uint32_t offset;
 	uint16_t flag;
@@ -74,6 +86,10 @@ map_cluster_t *map_cluster;
 
 static uint32_t max_cluster;
 static int32_t cluster_music;
+
+static lockdef_t *lockdefs;
+static uint32_t lockdefs_size;
+static uint32_t lockdefs_max = LOCKDEFS_DEF_SIZE;
 
 static int32_t patch_finshed;
 static int32_t patch_entering;
@@ -165,6 +181,28 @@ static const map_attr_t epi_attr[] =
 	{.name = "noskillmenu", .type = IT_FLAG, .offset = offsetof(map_episode_t, flags), .flag = EPI_FLAG_NO_SKILL_MENU},
 	// terminator
 	{.name = NULL}
+};
+
+// LOCKDEFS parser
+static const lockdefs_kw_list_t lockdefs_kw_list[] =
+{
+	{
+		.lock = "l",
+		.any = "a",
+		.message = "m",
+		.msg_data = "g",
+		.remote = "r",
+		.rmt_data = "h",
+		.mapcolor = "c",
+	},
+	{
+		.lock = "lock",
+		.any = "any",
+		.message = "message",
+		.remote = "remotemessage",
+		.mapcolor = "mapcolor",
+		.sound = "lockedsound",
+	}
 };
 
 //
@@ -1161,6 +1199,30 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 }
 
 //
+// LOCKDEFS
+
+static void parse_lockdefs(const lockdefs_kw_list_t *kwl)
+{
+	uint8_t *kw;
+
+	while(1)
+	{
+		// keyword
+		kw = tp_get_keyword_lc();
+		if(!kw)
+			return;
+
+		if(!strcmp(kw, "clearlocks"))
+		{
+			lockdefs_size = 0;
+			continue;
+		}
+
+		doom_printf("[LOCKDEFS] '%s'\n", kw);
+	}
+}
+
+//
 // callbacks
 
 static void cb_count_stuff(lumpinfo_t *li)
@@ -1438,6 +1500,12 @@ static void cb_mapinfo(lumpinfo_t *li)
 	}
 
 	I_Error("[MAPINFO] Incomplete definition!");
+}
+
+static void cb_lockdefs(lumpinfo_t *li)
+{
+	tp_load_lump(li);
+	parse_lockdefs(lockdefs_kw_list + 1);
 }
 
 //
@@ -1735,6 +1803,16 @@ void init_map()
 	if(!map_episode_count)
 		I_Error("[MAPINFO] No episodes defined!");
 	menu_setup_episodes();
+
+	// prepare LOCKDEFS memory
+	lockdefs = ldr_malloc(LOCKDEFS_DEF_SIZE);
+
+	// parse LOCKDEFS (internal)
+	tp_use_text(engine_lockdefs);
+	parse_lockdefs(lockdefs_kw_list + 0);
+
+	// parse LOCKDEFS
+	wad_handle_lump("LOCKDEFS", cb_lockdefs);
 }
 
 //

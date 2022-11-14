@@ -1,6 +1,8 @@
 // kgsws' ACE Engine
 ////
 
+#define LOCKDEFS_DEF_SIZE	1024
+
 #define MAX_EPISODES	5
 
 #define MAP_FORMAT_DOOM	1
@@ -265,6 +267,17 @@ typedef struct
 	uint8_t levelnum;
 	uint8_t levelhack; // for original maps
 } map_level_t;
+
+//
+
+typedef struct
+{
+	uint16_t size;
+	uint8_t id;
+	uint8_t color; // not implemented
+	uint16_t sound;
+	uint16_t data[];
+} lockdef_t;
 
 //
 

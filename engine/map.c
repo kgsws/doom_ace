@@ -87,8 +87,8 @@ map_cluster_t *map_cluster;
 static uint32_t max_cluster;
 static int32_t cluster_music;
 
-static lockdef_t *lockdefs;
-static uint32_t lockdefs_size;
+void *lockdefs;
+uint32_t lockdefs_size;
 static uint32_t lockdefs_max = LOCKDEFS_DEF_SIZE;
 
 static int32_t patch_finshed;
@@ -1028,7 +1028,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 		return 1;
 
 	if(kw[0] != '{')
-		I_Error("[MAPINFO] Expected '%c' found '%s'!", '{', kw);
+		I_Error("[%s] Expected '%c' found '%s'!", "MAPINFO", '{', kw);
 
 	while(1)
 	{
@@ -1058,7 +1058,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 			if(!kw)
 				return 1;
 			if(kw[0] != '=')
-				I_Error("[MAPINFO] Expected '%c' found '%s'!", '=', kw);
+				I_Error("[%s] Expected '%c' found '%s'!", "MAPINFO", '=', kw);
 		}
 
 		switch(attr->type)
@@ -1116,7 +1116,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 					if(!kw)
 						return 1;
 					if(kw[0] != ',')
-						I_Error("[MAPINFO] Expected '%c' found '%s'!", ',', kw);
+						I_Error("[%s] Expected '%c' found '%s'!", "MAPINFO", ',', kw);
 
 					kw = tp_get_keyword_lc();
 					if(!kw)
@@ -1201,9 +1201,29 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 //
 // LOCKDEFS
 
+static uint16_t *lockdefs_add_text(uint16_t *bptr, uint16_t *end, uint8_t *text, uint16_t code)
+{
+	uint32_t len;
+
+	len = strlen(text) + 2; // NUL + align
+	len /= 2; // uint16_t
+
+	if(bptr + len + 1 > end)
+		return NULL;
+
+	*bptr++ = code | len;
+	strcpy((uint8_t*)bptr, text);
+
+	return bptr + len;
+}
+
 static void parse_lockdefs(const lockdefs_kw_list_t *kwl)
 {
 	uint8_t *kw;
+	uint32_t id, offs;
+	uint16_t buffer[256];
+	uint16_t *bptr;
+	lockdef_t ld;
 
 	while(1)
 	{
@@ -1218,8 +1238,192 @@ static void parse_lockdefs(const lockdefs_kw_list_t *kwl)
 			continue;
 		}
 
-		doom_printf("[LOCKDEFS] '%s'\n", kw);
+		if(!strcmp(kw, kwl->lock))
+		{
+			kw = tp_get_keyword();
+			if(!kw)
+				goto error_end;
+
+			if(doom_sscanf(kw, "%u", &id) != 1 || !id || id > 255)
+				I_Error("[LOCKDEFS] Invalid lock ID '%s'!", kw);
+
+			kw = tp_get_keyword();
+			if(!kw)
+				goto error_end;
+
+			if(kw[0] != '{')
+				I_Error("[%s] Expected '%c' found '%s'!", "LOCKDEFS", '{', kw);
+
+			bptr = buffer;
+			ld.id = id;
+			ld.color = r_color_duplicate;
+			ld.sound = 0;
+
+			while(1)
+			{
+				kw = tp_get_keyword();
+				if(!kw)
+					goto error_end;
+
+				if(kw[0] == '}')
+					break;
+
+				if(!strcasecmp(kw, kwl->message) || !strcasecmp(kw, kwl->remote))
+				{
+					uint16_t *ret;
+					uint16_t code = kw[0] == kwl->message[0] ? KEYLOCK_MESSAGE : KEYLOCK_REMTMSG;
+
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+
+					ret = lockdefs_add_text(bptr, buffer + 256, kw, code);
+					if(!ret)
+						goto error_overflow;
+
+					bptr = ret;
+				} else
+				if(kwl->msg_data && (!strcasecmp(kw, kwl->msg_data) || !strcasecmp(kw, kwl->rmt_data)))
+				{
+					uint16_t *ret;
+					uint32_t addr;
+					uint16_t code = kw[0] == kwl->msg_data[0] ? KEYLOCK_MESSAGE : KEYLOCK_REMTMSG;
+
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+
+					doom_sscanf(kw, "%X", &addr);
+
+					ret = lockdefs_add_text(bptr, buffer + 256, (uint8_t*)addr + doom_data_segment, code);
+					if(!ret)
+						goto error_overflow;
+
+					bptr = ret;
+				} else
+				if(!strcasecmp(kw, kwl->mapcolor))
+				{
+					uint32_t r, g, b;
+
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+
+					if(doom_sscanf(kw, "%u", &r) != 1 || r > 255)
+						goto error_value;
+
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+
+					if(doom_sscanf(kw, "%u", &g) != 1 || g > 255)
+						goto error_value;
+
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+
+					if(doom_sscanf(kw, "%u", &b) != 1 || b > 255)
+						goto error_value;
+
+					ld.color = r_find_color(r, g, b);
+				} else
+				if(kwl->sound && !strcasecmp(kw, kwl->sound))
+				{
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+
+					ld.sound = sfx_by_name(kw);
+				} else
+				if(!strcasecmp(kw, kwl->any))
+				{
+					uint16_t *value = bptr++;
+
+					if(bptr >= buffer + 256)
+						goto error_overflow;
+
+					kw = tp_get_keyword();
+					if(!kw)
+						goto error_end;
+
+					if(kw[0] != '{')
+						I_Error("[%s] Expected '%c' found '%s'!", "LOCKDEFS", '}', kw);
+
+					*value = KEYLOCK_KEYLIST;
+					while(1)
+					{
+						int32_t type;
+
+						kw = tp_get_keyword();
+						if(!kw)
+							goto error_end;
+
+						if(kw[0] == '}')
+						{
+							*value = KEYLOCK_KEYLIST | ((bptr - value) - 1);
+							break;
+						}
+
+						if(bptr >= buffer + 256)
+							goto error_overflow;
+
+						type = mobj_check_type(tp_hash64(kw));
+						if(type < 0 || mobjinfo[type].extra_type != ETYPE_KEY)
+							goto error_type;
+
+						*bptr++ = type;
+					}
+				} else
+				{
+					int32_t type;
+
+					if(bptr + 2 >= buffer + 256)
+						goto error_overflow;
+
+					type = mobj_check_type(tp_hash64(kw));
+					if(type < 0 || mobjinfo[type].extra_type != ETYPE_KEY)
+						goto error_type;
+
+					*bptr++ = KEYLOCK_KEYLIST | 1;
+					*bptr++ = type;
+				}
+			}
+
+			if(bptr >= buffer + 256)
+				goto error_overflow;
+			*bptr++ = 0;
+
+			id = (bptr - buffer) * sizeof(uint16_t);
+			ld.size = sizeof(lockdef_t) + id;
+
+			offs = lockdefs_size;
+			lockdefs_size += ld.size;
+			if(lockdefs_size < lockdefs_max)
+			{
+				lockdefs_max += LOCKDEFS_DEF_SIZE;
+				lockdefs = ldr_realloc(lockdefs, lockdefs_max);
+			}
+
+			memcpy(lockdefs + offs, &ld, sizeof(lockdef_t));
+			offs += sizeof(lockdef_t);
+			memcpy(lockdefs + offs, buffer, id);
+
+			continue;
+		}
+
+		break;
 	}
+
+	I_Error("[LOCKDEFS] Unknown keyword '%s'!", kw);
+error_overflow:
+	I_Error("[LOCKDEFS] Data overflow in lock %u!", id);
+error_end:
+	I_Error("[LOCKDEFS] Incomplete definition!");
+error_value:
+	I_Error("[LOCKDEFS] Bad number '%s'!", kw);
+error_type:
+	I_Error("[LOCKDEFS] Bad key type '%s'!", kw);
 }
 
 //
@@ -1384,7 +1588,7 @@ static void cb_mapinfo(lumpinfo_t *li)
 					return;
 
 				if(kw[0] != '{')
-					I_Error("[MAPINFO] Expected '%c' found '%s'!", '{', kw);
+					I_Error("[%s] Expected '%c' found '%s'!", "MAPINFO", '{', kw);
 
 				if(tp_skip_code_block(1))
 					break;

@@ -1295,6 +1295,93 @@ uint32_t check_position_extra(sector_t *sec)
 //
 // API
 
+uint8_t *mobj_check_keylock(mobj_t *mo, uint32_t lockdef, uint32_t is_remote)
+{
+	uint32_t have_key = 1;
+	uint32_t did_check = 0;
+	uint16_t *data = NULL;
+	void *ptr = lockdefs;
+	uint8_t *msg = NULL;
+	uint8_t *rsg = NULL;
+
+	while(ptr < lockdefs + lockdefs_size)
+	{
+		lockdef_t *ld = ptr;
+
+		if(ld->id == lockdef)
+			data = ld->data;
+
+		ptr += ld->size;
+	}
+
+	if(!data)
+		return "That doesn't seem to work";
+
+	while(*data)
+	{
+		switch(*data & 0xF000)
+		{
+			case KEYLOCK_MESSAGE:
+				msg = (uint8_t*)(data + 1);
+			break;
+			case KEYLOCK_REMTMSG:
+				rsg = (uint8_t*)(data + 1);
+			break;
+			case KEYLOCK_KEYLIST:
+				if(have_key)
+				{
+					uint32_t count = *data & 0x0FFF;
+					uint32_t i;
+
+					for(i = 0; i < count; i++)
+					{
+						did_check = 1;
+						if(inventory_check(mo, data[1+i]))
+							break;
+					}
+
+					if(i >= count)
+						have_key = 0;
+				}
+			break;
+		}
+		data += 1 + (*data & 0x0FFF);
+	}
+
+	if(!did_check)
+	{
+		// any key
+		inventory_t *item = mo->inventory;
+		while(item)
+		{
+			if(item->count && mobjinfo[item->type].extra_type == ETYPE_KEY)
+				break;
+			item = item->prev;
+		}
+		if(!item)
+			have_key = 0;
+	}
+
+	if(have_key)
+		// NULL = unlock
+		return NULL;
+
+	if(is_remote)
+	{
+		if(rsg)
+			msg = rsg;
+	} else
+	{
+		if(!msg)
+			msg = rsg;
+	}
+
+	if(msg)
+		return msg;
+
+	return "";
+}
+
 void mobj_use_item(mobj_t *mo, inventory_t *item)
 {
 	mobjinfo_t *info = mobjinfo + item->type;

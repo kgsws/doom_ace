@@ -141,6 +141,14 @@ enum
 	NUM_D2_MAPS
 };
 
+enum
+{
+	KEYLOCK_TERMINATOR = 0,
+	KEYLOCK_MESSAGE = 0x1000,
+	KEYLOCK_REMTMSG = 0x2000,
+	KEYLOCK_KEYLIST = 0x3000,
+};
+
 typedef struct
 {
 	int16_t floorheight;
@@ -297,6 +305,9 @@ extern map_cluster_t *map_cluster;
 
 extern uint32_t map_episode_count;
 extern map_episode_t map_episode_def[MAX_EPISODES];
+
+extern void *lockdefs;
+extern uint32_t lockdefs_size;
 
 //
 

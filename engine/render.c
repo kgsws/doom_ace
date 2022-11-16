@@ -121,6 +121,7 @@ static const uint16_t look_scale_table[] =
 };
 
 // basic colors
+uint8_t r_color_duplicate = 255;
 uint8_t r_color_black;
 #ifdef RENDER_DEMO
 static uint8_t r_color_demo_real;
@@ -2122,6 +2123,25 @@ void render_preinit(uint8_t *palette)
 			pal->l = pal->g;
 		if(pal->l < pal->b)
 			pal->l = pal->b;
+	}
+
+	// find duplicate color; Doom has one at index 247
+	// this is not a requirement, but some obscure features might break
+	for(uint32_t i = 0; i < 256; i++)
+	{
+		uint32_t j = i + 1;
+
+		for(j = i + 1; j < 256; j++)
+		{
+			if(r_palette[i].w == r_palette[j].w)
+			{
+				r_color_duplicate = j;
+				break;
+			}
+		}
+
+		if(j < 256)
+			break;
 	}
 
 	// check for pre-calculated render tables

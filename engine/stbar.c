@@ -10,6 +10,7 @@
 #include "config.h"
 #include "player.h"
 #include "map.h"
+#include "mobj.h"
 #include "render.h"
 #include "draw.h"
 #include "stbar.h"
@@ -58,6 +59,8 @@ static patch_t *xhair_custom;
 static uint32_t fps_value;
 static uint32_t fps_diff;
 static uint32_t last_gt;
+
+static const uint8_t keyboxlock[] = {2, 3, 1, 5, 6, 4};
 
 //
 // crosshairs
@@ -192,6 +195,53 @@ void stbar_init()
 }
 
 //
+// key overlay
+
+static inline void draw_keybar(player_t *pl)
+{
+	uint32_t tx, ty, cc, cm;
+
+	cm = 0;
+	cc = 0;
+	tx = SCREENWIDTH - 1;
+	ty = 1;
+	for(uint32_t i = 0; i < MAX_KEY_ICONS; i++)
+	{
+		patch_t *patch;
+		int16_t ox, oy; // hack for right align
+
+		if(!keyinv[i])
+			break;
+
+		patch = get_icon_ptr(keyinv[i]->inventory.icon);
+
+		ox = patch->x;
+		oy = patch->y;
+		patch->x = patch->width;
+		patch->y = 0;
+
+		V_DrawPatchDirect(tx, ty, patch);
+
+		patch->x = ox;
+		patch->y = oy;
+
+		ty += patch->height + 1;
+
+		if(patch->width > cm)
+			cm = patch->width;
+
+		cc++;
+		if(cc >= 6)
+		{
+			tx -= cm + 1;
+			ty = 1;
+			cc = 0;
+			cm = 0;
+		}
+	}
+}
+
+//
 // fullscreen status bar
 
 static inline void draw_full_stbar(player_t *pl)
@@ -205,6 +255,9 @@ static inline void draw_full_stbar(player_t *pl)
 
 	if(screenblocks > 12)
 		return;
+
+	// keys overlay
+	draw_keybar(pl);
 
 	if(screenblocks > 11)
 	{
@@ -240,60 +293,6 @@ static inline void draw_full_stbar(player_t *pl)
 	}
 	if(ammo_sec)
 		stbar_draw_number_r(SCREENWIDTH - 4, ty, *ammo_sec, -4, numfont);
-}
-
-//
-// key overlay
-
-static inline void draw_keybar(player_t *pl, uint32_t skip)
-{
-	uint32_t tx, ty, cc, cm;
-
-	if(screenblocks > 12)
-		return;
-
-	cm = 0;
-	cc = 0;
-	tx = SCREENWIDTH - 1;
-	ty = 1;
-	for(uint32_t i = 0; i < MAX_KEY_ICONS; i++)
-	{
-		patch_t *patch;
-		int16_t ox, oy; // hack for right align
-
-		if(!keyinv[i])
-			break;
-
-		if(skip && keyinv[i] - mobjinfo < NUMMOBJTYPES)
-			// skip original keys
-			continue;
-
-		patch = get_icon_ptr(keyinv[i]->inventory.icon);
-
-		ox = patch->x;
-		oy = patch->y;
-		patch->x = patch->width;
-		patch->y = 0;
-
-		V_DrawPatchDirect(tx, ty, patch);
-
-		patch->x = ox;
-		patch->y = oy;
-
-		ty += patch->height + 1;
-
-		if(patch->width > cm)
-			cm = patch->width;
-
-		cc++;
-		if(cc >= 6)
-		{
-			tx -= cm + 1;
-			ty = 1;
-			cc = 0;
-			cm = 0;
-		}
-	}
 }
 
 //
@@ -452,9 +451,6 @@ static void update_keys(player_t *pl)
 {
 	uint32_t idx = 0;
 
-	for(uint32_t i = 0; i < 3; i++)
-		keyboxes[i] = -1;
-
 	for(uint32_t i = 0; i < num_mobj_types; i++)
 	{
 		mobjinfo_t *info = mobjinfo + i;
@@ -468,30 +464,6 @@ static void update_keys(player_t *pl)
 		if(!inventory_check(pl->mo, i))
 			continue;
 
-		// original status bar
-		switch(i)
-		{
-			case 47:
-				keyboxes[0] = 0;
-			break;
-			case 48:
-				keyboxes[2] = 2;
-			break;
-			case 49:
-				keyboxes[1] = 1;
-			break;
-			case 50:
-				keyboxes[1] = 4;
-			break;
-			case 51:
-				keyboxes[2] = 5;
-			break;
-			case 52:
-				keyboxes[0] = 3;
-			break;
-		}
-
-		// new status bar
 		keyinv[idx++] = info;
 
 		if(idx >= MAX_KEY_ICONS)
@@ -500,6 +472,15 @@ static void update_keys(player_t *pl)
 
 	if(idx < MAX_KEY_ICONS)
 		keyinv[idx] = NULL;
+
+	for(uint32_t i = 0; i < ORIGINAL_KEY_COUNT / 2; i++)
+		keyboxes[i] = -1;
+
+	for(uint32_t i = 0; i < ORIGINAL_KEY_COUNT; i++)
+	{
+		if(!mobj_check_keylock(pl->mo, keyboxlock[i], 0))
+			keyboxes[i % 3] = i;
+	}
 }
 
 static void update_backpack(player_t *pl)
@@ -745,9 +726,6 @@ void stbar_draw(player_t *pl)
 
 	if(!automapactive)
 	{
-		// keys overlay
-		draw_keybar(pl, screenblocks < 11);
-
 		// status bar
 		draw_full_stbar(pl);
 

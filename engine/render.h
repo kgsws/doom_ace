@@ -27,9 +27,13 @@ enum
 	NUM_RENDER_STYLES
 };
 
-typedef struct
+typedef union
 {
-	uint8_t r, g, b, l;
+	uint32_t w;
+	struct
+	{
+		uint8_t r, g, b, l;
+	};
 } pal_col_t;
 
 typedef struct
@@ -45,6 +49,7 @@ typedef struct
 extern pal_col_t r_palette[256];
 
 // basic colors
+extern uint8_t r_color_duplicate;
 extern uint8_t r_color_black;
 
 // render tables

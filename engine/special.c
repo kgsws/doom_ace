@@ -133,14 +133,6 @@ static uint32_t act_Door_Raise(sector_t *sec, line_t *ln)
 	generic_mover_t *gm;
 	fixed_t height;
 
-	if(value_mult)
-	{
-		if(!activator->player)
-			return 0;
-		// TODO: LOCKDEFS
-		activator->player->message = "TODO: LOCKDEFS";
-	}
-
 	if(sec->specialactive & ACT_CEILING)
 	{
 		if(ln->arg0)
@@ -917,7 +909,20 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 13: // Door_LockedRaise
 			door_monster_hack = 0;
 			value_mult = 1;
-			spec_success = handle_tag(ln, ln->arg0, act_Door_Raise);
+			if(ln->arg3)
+			{
+				uint8_t *message;
+				message = mobj_check_keylock(activator, ln->arg3, ln->arg0);
+				if(message)
+				{
+					if(activator->player && message[0])
+						activator->player->message = message;
+					spec_success = 0;
+					value_mult = 0;
+				}
+			}
+			if(value_mult)
+				spec_success = handle_tag(ln, ln->arg0, act_Door_Raise);
 		break;
 		case 20: // Floor_LowerByValue
 			value_mult = -1;

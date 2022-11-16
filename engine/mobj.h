@@ -37,6 +37,7 @@ void explode_missile(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registe
 // inventory
 uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count);
 void mobj_use_item(mobj_t *mo, struct inventory_s *item);
+uint8_t *mobj_check_keylock(mobj_t *mo, uint32_t lockdef, uint32_t is_remote);
 
 // helpers
 uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*));

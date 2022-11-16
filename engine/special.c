@@ -764,6 +764,12 @@ static uint32_t cb_teleport(mobj_t *mo)
 		}
 	}
 
+	// HACK - move other sound slots
+	activator->sound_body.x = activator->x;
+	activator->sound_body.y = activator->y;
+	activator->sound_weapon.x = activator->x;
+	activator->sound_weapon.y = activator->y;
+
 	return 1;
 }
 

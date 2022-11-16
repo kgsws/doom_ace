@@ -6,6 +6,8 @@
 #define FONT_COLOR_WHITE	4
 #define ICE_CMAP_IDX	5
 
+#define MAX_SECTOR_COLORS	32
+
 enum
 {
 	TRANSLATION_PLAYER2,
@@ -38,6 +40,14 @@ typedef union
 
 typedef struct
 {
+	uint16_t color;
+	uint16_t fade;
+	uint8_t *cmap;
+	uint8_t *fmap;
+} sector_light_t;
+
+typedef struct
+{
 	uint8_t cmap[256*5]; // gold, red, green, blue, white; used for extra colormap, fonts and translation
 	uint8_t trn0[256*256];
 	uint8_t trn1[256*256];
@@ -65,11 +75,17 @@ extern uint64_t *translation_alias;
 extern uint32_t translation_count;
 extern uint32_t blood_color_count;
 
+// sector light / fog
+
+extern uint32_t sector_light_count;
+extern sector_light_t sector_light[MAX_SECTOR_COLORS];
+
 //
 
 void init_render();
 void render_preinit(uint8_t*);
 void render_generate_blood();
+void render_map_setup();
 
 uint8_t r_find_color(uint8_t, uint8_t, uint8_t);
 

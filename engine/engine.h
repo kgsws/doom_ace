@@ -776,6 +776,8 @@ typedef struct
 { // this should be part of 'sector_t'
 	fixed_t bbox[4];
 	plane_link_t *plink;
+	uint16_t color;
+	uint16_t fade;
 } sector_extra_t;
 
 typedef struct sector_s

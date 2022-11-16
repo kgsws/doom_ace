@@ -49,6 +49,9 @@ static visplane_t *ptr_visplanes;
 static vissprite_t *ptr_vissprites;
 static drawseg_t *ptr_drawsegs;
 
+static uint32_t lightvalue;
+static uint8_t *lightmap;
+
 int32_t render_tables_lump = -1;
 render_tables_t *render_tables;
 uint8_t *render_trn0;
@@ -61,6 +64,10 @@ uint32_t translation_count = NUM_EXTRA_TRANSLATIONS;
 
 uint8_t *blood_translation;
 uint32_t blood_color_count;
+
+uint32_t sector_light_count = 1;
+sector_light_t sector_light[MAX_SECTOR_COLORS];
+static uint8_t *sector_light_table;
 
 pal_col_t r_palette[256];
 
@@ -195,11 +202,42 @@ static void render_demo_pixels(uint32_t x, int32_t y0, int32_t y1, uint8_t color
 #endif
 
 //
+// light color
+
+static uint32_t add_sector_color(uint16_t color, uint16_t fade)
+{
+	uint32_t ret;
+
+	if(sector_light_count >= MAX_SECTOR_COLORS)
+		I_Error("[RENDER] Too many sector colors\n");
+
+	for(uint32_t i = 1; i < sector_light_count; i++)
+	{
+		if(sector_light[i].color == color && sector_light[i].fade == fade)
+			return i;
+	}
+
+	ret = sector_light_count++;
+
+	sector_light[ret].color = color;
+	sector_light[ret].fade = fade;
+
+	return ret;
+}
+
+//
 // light shading
 
-static inline int32_t calculate_lightnum(int32_t lightlevel, seg_t *seg)
+static void calculate_lightnum(int32_t lightlevel, seg_t *seg)
 {
-	lightlevel += extralight << LIGHTSEGSHIFT;
+	lightmap = sector_light[lightlevel >> 9].cmap;
+
+	if(sector_light[lightlevel >> 9].fmap)
+		seg = NULL;
+	else
+		lightlevel += extralight << LIGHTSEGSHIFT;
+
+	lightlevel &= 0x1FF;
 
 	if(seg)
 	{
@@ -211,15 +249,15 @@ static inline int32_t calculate_lightnum(int32_t lightlevel, seg_t *seg)
 	}
 
 	if(lightlevel < 0)
-		return light_start[0];
-
+		lightvalue = light_start[0];
+	else
 	if(lightlevel > 255)
-		return light_start[255];
-
-	return light_start[lightlevel];
+		lightvalue = light_start[255];
+	else
+		lightvalue = light_start[lightlevel];
 }
 
-static inline void calculate_shade(int32_t lightnum, fixed_t scale)
+static void calculate_shade(fixed_t scale)
 {
 	int32_t shade;
 
@@ -227,15 +265,15 @@ static inline void calculate_shade(int32_t lightnum, fixed_t scale)
 	if(shade >= MAXLIGHTSCALE)
 		shade = MAXLIGHTSCALE - 1;
 
-	shade = lightnum - shade_table[shade];
+	shade = lightvalue - shade_table[shade];
 	shade >>= 2;
 	if(shade <= 0)
-		dc_colormap = colormaps;
+		dc_colormap = lightmap;
 	else
 	if(shade >= 31)
-		dc_colormap = colormaps + 31 * 256;
+		dc_colormap = lightmap + 31 * 256;
 	else
-		dc_colormap = colormaps + shade * 256;
+		dc_colormap = lightmap + shade * 256;
 }
 
 //
@@ -354,7 +392,6 @@ void draw_masked_column(column_t *column, int32_t fc, int32_t cc)
 __attribute((regparm(2),no_caller_saved_registers))
 void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 {
-	int32_t lightnum;
 	int32_t scalestep;
 	int32_t height;
 	int32_t topfrac, topstep;
@@ -439,15 +476,27 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	if(!texnum)
 	{
 		// there is no texture to draw
-		// but step has to be flipped anyway
-		for(int32_t x = x1; x <= x2; x++)
-			if((tcol[x] & 0x8000) == masked_col_step)
-				tcol[x] ^= 0x8000;
-		return;
+
+		// check for fog
+		if(	!fixedcolormap && backsector &&
+			sector_light[frontsector->lightlevel >> 9].fade != 0x0000 &&
+			sector_light[frontsector->lightlevel >> 9].fade != sector_light[backsector->lightlevel >> 9].fade
+		){
+			// this is not ideal as it totally disregards extra floors on both sides
+			texnum = -1;
+		} else
+		{
+			// step has to be flipped anyway
+			for(int32_t x = x1; x <= x2; x++)
+				if((tcol[x] & 0x8000) == masked_col_step)
+					tcol[x] ^= 0x8000;
+
+			return;
+		}
 	}
 
 	// light
-	lightnum = calculate_lightnum(frontsector->lightlevel, seg);
+	calculate_lightnum(frontsector->lightlevel, seg);
 
 	// scale
 
@@ -479,6 +528,12 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 
 	// draw
 
+	if(texnum < 0)
+	{
+		lightmap = sector_light[frontsector->lightlevel >> 9].fmap;
+		colfunc = R_DrawShadowColumn;
+	}
+
 	for(dc_x = x1; dc_x <= x2; dc_x++)
 	{
 		if((tcol[dc_x] & 0x8000) == masked_col_step)
@@ -487,7 +542,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			uint8_t *data;
 
 			if(!fixedcolormap)
-				calculate_shade(lightnum, spryscale);
+				calculate_shade(spryscale);
 
 			sprtopscreen = centeryfrac - FixedMul(dc_texturemid, spryscale);
 			dc_iscale = 0xFFFFFFFF / (uint32_t)spryscale;
@@ -509,11 +564,15 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 					mcc = tmp;
 			}
 
-			data = texture_get_column(texnum, tcol[dc_x] & 0x7FFF);
-			if(tex_was_composite || (height < 0 && data[-2] >= 128))
-				draw_solid_column(data, mfc, mcc, height);
-			else
-				draw_masked_column((column_t*)(data - 3), mfc, mcc);
+			if(texnum >= 0)
+			{
+				data = texture_get_column(texnum, tcol[dc_x] & 0x7FFF);
+				if(tex_was_composite || (height < 0 && data[-2] >= 128))
+					draw_solid_column(data, mfc, mcc, height);
+				else
+					draw_masked_column((column_t*)(data - 3), mfc, mcc);
+			} else
+				draw_solid_column(NULL, mfc, mcc, -1);
 
 			tcol[dc_x] ^= 0x8000;
 		}
@@ -537,7 +596,7 @@ static void R_RenderSegStripe(uint32_t texture, fixed_t top, fixed_t bot, int32_
 	fixed_t bstep;
 	fixed_t scalefrac = rw_scale;
 
-	light = calculate_lightnum(light, curline);
+	calculate_lightnum(light, curline);
 
 	top -= viewz >> 4;
 	bot -= viewz >> 4;
@@ -565,7 +624,7 @@ static void R_RenderSegStripe(uint32_t texture, fixed_t top, fixed_t bot, int32_
 		texturecolumn = rw_offset - FixedMul(finetangent[angle], rw_distance);
 		texturecolumn >>= FRACBITS;
 
-		calculate_shade(light, scalefrac);
+		calculate_shade(scalefrac);
 
 		dc_x = x;
 		dc_iscale = 0xFFFFFFFF / (uint32_t)scalefrac;
@@ -627,8 +686,6 @@ static void render_striped_seg(uint32_t texture, fixed_t ht, fixed_t hb)
 __attribute((regparm(2),no_caller_saved_registers))
 static void R_RenderSegLoop()
 {
-	int32_t lightnum = 0;
-
 #ifdef RENDER_DEMO
 	if(render_demo > 1)
 	{
@@ -725,7 +782,7 @@ static void R_RenderSegLoop()
 		}
 		segtextured = 0;
 	} else
-		lightnum = calculate_lightnum(frontsector->lightlevel, curline);
+		calculate_lightnum(frontsector->lightlevel, curline);
 
 	for(uint32_t x = rw_x; x < rw_stopx; x++)
 	{
@@ -782,7 +839,7 @@ static void R_RenderSegLoop()
 			dc_iscale = 0xFFFFFFFF / (uint32_t)rw_scale;
 
 			if(!fixedcolormap)
-				calculate_shade(lightnum, rw_scale);
+				calculate_shade(rw_scale);
 		}
 
 		if(midtexture)
@@ -921,7 +978,6 @@ void R_DrawVisSprite(vissprite_t *vis)
 				sector_t *sec = viewplayer->mo->subsector->sector;
 				extraplane_t *pl = sec->exfloor;
 				int32_t lightnum = sec->lightlevel;
-				uint8_t **slight;
 
 				while(pl)
 				{
@@ -930,8 +986,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 					pl = pl->next;
 				}
 
-				lightnum = calculate_lightnum(lightnum, NULL);
-				calculate_shade(lightnum, (MAXLIGHTSCALE-1) << LIGHTSCALESHIFT);
+				calculate_lightnum(lightnum, NULL);
+				calculate_shade((MAXLIGHTSCALE-1) << LIGHTSCALESHIFT);
 			}
 
 			if(viewplayer->mo->render_style == RS_TRANSLUCENT && (viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8))
@@ -952,8 +1008,6 @@ void R_DrawVisSprite(vissprite_t *vis)
 			sector_t *sec = vis->mo->subsector->sector;
 			extraplane_t *pl = sec->exfloor;
 			int32_t lightnum = sec->lightlevel;
-			int32_t index;
-			uint8_t **slight;
 
 			while(pl)
 			{
@@ -962,8 +1016,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 				pl = pl->next;
 			}
 
-			lightnum = calculate_lightnum(lightnum, NULL);
-			calculate_shade(lightnum, vis->scale);
+			calculate_lightnum(lightnum, NULL);
+			calculate_shade(vis->scale);
 		}
 
 		switch(vis->mo->render_style)
@@ -1156,7 +1210,8 @@ void r_draw_plane(visplane_t *pl)
 
 	planeheight = abs(pl->height - viewz);
 
-	planezlight = calculate_lightnum(pl->light, NULL) >> 2;
+	calculate_lightnum(pl->light, NULL);
+	planezlight = lightvalue >> 2;
 
 	pl->top[pl->maxx + 1] = 255;
 	pl->top[pl->minx - 1] = 255;
@@ -1760,6 +1815,12 @@ uint32_t masked_side_check(side_t *side)
 			return 1;
 	}
 
+	if(	backsector &&
+		sector_light[frontsector->lightlevel >> 9].fade != 0x0000 &&
+		sector_light[frontsector->lightlevel >> 9].fade != sector_light[backsector->lightlevel >> 9].fade
+	)
+		return 1;
+
 	return 0;
 }
 
@@ -1776,12 +1837,12 @@ uint8_t *set_plane_light(uint32_t distance)
 	shade = planezlight - plane_light[shade];
 
 	if(shade <= 0)
-		ret = colormaps;
+		ret = lightmap;
 	else
 	if(shade >= 31)
-		ret = colormaps + 31 * 256;
+		ret = lightmap + 31 * 256;
 	else
-		ret = colormaps + shade * 256;
+		ret = lightmap + shade * 256;
 
 	return ret;
 }
@@ -1927,6 +1988,56 @@ static void generate_translation(uint8_t *dest, uint8_t first, uint8_t last, uin
 	{
 		dest[i] = now >> 16;
 		now += step;
+	}
+}
+
+static void generate_sector_light(uint8_t *dest, uint16_t color, uint16_t fade)
+{
+	if(color & 0xF000 && (color & 0xF000) != 0xF000)
+		I_Error("[RENDER] Unable to generate desaturation %u!\n", (color >> 8) & 0xF000);
+
+	for(uint32_t level = 0; level < 32; level++)
+	{
+		pal_col_t *pal = r_palette;
+
+		for(uint32_t i = 0; i < 256; i++, pal++)
+		{
+			uint8_t rr, gg, bb;
+			uint32_t fg = 32 - level;
+			uint32_t bg = level * 17;
+
+			if(color & 0xF000)
+			{
+				// desaturate
+				rr = ((uint32_t)pal->l * (color & 0x000F)) / 15;
+				gg = ((uint32_t)pal->l * ((color & 0x00F0) >> 4)) / 15;
+				bb = ((uint32_t)pal->l * ((color & 0x0F00) >> 8)) / 15;
+			} else
+			if(color != 0x0FFF)
+			{
+				// multiply
+				rr = ((uint32_t)pal->r * (color & 0x000F)) / 15;
+				gg = ((uint32_t)pal->g * ((color & 0x00F0) >> 4)) / 15;
+				bb = ((uint32_t)pal->b * (color >> 8)) / 15;
+			} else
+			{
+				// unchanged
+				rr = pal->r;
+				gg = pal->g;
+				bb = pal->b;
+			}
+
+			rr = ((uint32_t)rr * fg) / 32;
+			rr += ((uint32_t)(fade & 0x000F) * bg) / 32;
+
+			gg = ((uint32_t)gg * fg) / 32;
+			gg += ((uint32_t)((fade >> 4) & 0x000F) * bg) / 32;
+
+			bb = ((uint32_t)bb * fg) / 32;
+			bb += ((uint32_t)(fade >> 8) * bg) / 32;
+
+			*dest++ = r_find_color(rr, gg, bb);
+		}
 	}
 }
 
@@ -2284,6 +2395,11 @@ void init_render()
 		wad_read_lump(ptr, render_tables_lump, sizeof(render_tables_t));
 	}
 
+	// default sector color
+	sector_light[0].cmap = colormaps;
+	sector_light[0].fmap = NULL;
+
+	// optional export
 	if(M_CheckParm("-dumptables"))
 		ldr_dump_buffer("ace_rndr.bin", ptr, sizeof(render_tables_t));
 }
@@ -2302,6 +2418,61 @@ void render_generate_blood()
 	{
 		uint32_t color = BLOOD_COLOR_STORAGE[i];
 		generate_color(blood_translation + i * 256, color, color >> 8, color >> 16);
+	}
+}
+
+void render_map_setup()
+{
+	uint32_t count;
+	uint8_t *tables;
+
+	// find all active colors and fades
+	for(uint32_t i = 0; i < numsectors; i++)
+	{
+		sector_t *sec = sectors + i;
+
+		if(sec->extra->color != 0x0FFF || sec->extra->fade != 0x0000)
+			sec->lightlevel |= add_sector_color(sec->extra->color, sec->extra->fade) << 9;
+	}
+
+	// count colormap tables
+	count = 0;
+	for(uint32_t i = 1; i < sector_light_count; i++)
+	{
+		sector_light_t *cl = sector_light + i;
+
+		if(cl->color != 0x0FFF)
+			count++;
+		if(cl->fade != 0x0000)
+			count++;
+	}
+
+	// allocate memory
+	tables = Z_Malloc(count * (256*32) + 255, PU_LEVEL, NULL);
+	tables = (void*)(((uint32_t)tables + 255) & ~255); // align for ASM optimisations
+
+	// generate colormap tables
+	for(uint32_t i = 1; i < sector_light_count; i++)
+	{
+		sector_light_t *cl = sector_light + i;
+
+		if(cl->color != 0x0FFF)
+		{
+			generate_sector_light(tables, cl->color, cl->fade);
+			cl->cmap = tables;
+			tables += 256*32;
+		} else
+			cl->cmap = colormaps;
+
+		if(cl->fade != 0x0000)
+		{
+			generate_sector_light(tables, 0x0FFF, cl->fade);
+			cl->fmap = tables;
+			if(cl->color == 0x0FFF)
+				cl->cmap = tables;
+			tables += 256*32;
+		} else
+			cl->fmap = NULL;
 	}
 }
 

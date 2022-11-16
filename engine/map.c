@@ -330,6 +330,14 @@ static inline void parse_sectors()
 		sec->ed3_multiple = 0;
 		sec->e3d_origin = 0;
 
+		if(sec->lightlevel >= 384)
+			sec->lightlevel = 383;
+		if(sec->lightlevel < 0)
+			sec->lightlevel = 0;
+
+		se->color = 0x0FFF;
+		se->fade = 0x0000;
+
 		M_ClearBox(se->bbox);
 		for(uint32_t j = 0; j < sec->linecount; j++)
 		{
@@ -532,6 +540,9 @@ uint32_t map_load_setup()
 		}
 	}
 
+	// render stuff
+	render_map_setup();
+
 	// in the level
 	gamestate = GS_LEVEL;
 	usergame = !is_title_map && !demoplayback;
@@ -625,6 +636,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		if(!mt)
 			return;
 		if(mt->type != 1411)
+			// don't skip sound sequence
 			return;
 	}
 
@@ -652,12 +664,26 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	if(!(mt->flags & skillbits[gameskill]))
 		return;
 
-	// sound sequence
-	if(mt && mt->type == 1411)
-	{
+	// special types
+	if(	mt && (
+		mt->type == 1411 ||	// sound sequence
+		mt->type == 9038 ||	// color setter
+		mt->type == 9039	// fade setter
+	)){
 		subsector_t *ss;
 		ss = R_PointInSubsector((fixed_t)mt->x << FRACBITS, (fixed_t)mt->y << FRACBITS);
-		ss->sector->sndseq = mt->arg[0];
+		switch(mt->type)
+		{
+			case 1411:
+				ss->sector->sndseq = mt->arg[0];
+			break;
+			case 9038:
+				ss->sector->extra->color = (mt->arg[0] >> 4) | (mt->arg[1] & 0xF0) | ((uint16_t)(mt->arg[2] & 0xF0) << 4) | ((uint16_t)(mt->arg[3] & 0xF0) << 8);
+			break;
+			case 9039:
+				ss->sector->extra->fade = (mt->arg[0] >> 4) | (mt->arg[1] & 0xF0) | ((uint16_t)(mt->arg[2] & 0xF0) << 4);
+			break;
+		}
 		return;
 	}
 

@@ -997,7 +997,7 @@ typedef struct mobj_s
 	angle_t angle;
 	uint16_t sprite;
 	uint16_t frame;
-	uint32_t flags1;	// new flags
+	fixed_t gravity;
 	struct mobj_s *bnext;
 	struct mobj_s *bprev;
 	struct subsector_s *subsector;
@@ -1027,6 +1027,7 @@ typedef struct mobj_s
 	// new pointer
 	struct mobj_s *master;
 	// more flags
+	uint32_t flags1;
 	uint32_t flags2;
 	uint32_t iflags;
 	// render

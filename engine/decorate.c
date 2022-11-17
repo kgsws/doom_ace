@@ -2897,6 +2897,17 @@ static void parse_keyconf()
 //
 // API
 
+int32_t mobj_by_spawnid(uint32_t id)
+{
+	for(uint32_t i = num_mobj_types-1; i; i--)
+	{
+		if(mobjinfo[i].spawnid == id)
+			return i;
+	}
+
+	return -1;
+}
+
 int32_t mobj_check_type(uint64_t alias)
 {
 	for(uint32_t i = 0; i < num_mobj_types; i++)

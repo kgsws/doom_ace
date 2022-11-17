@@ -166,6 +166,7 @@ typedef struct
 	fixed_t ceilingz;
 	fixed_t radius;
 	fixed_t height;
+	fixed_t gravity;
 	fixed_t mx, my, mz;
 	//
 	int32_t health;
@@ -1080,6 +1081,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 	thing.ceilingz = mo->ceilingz;
 	thing.radius = mo->radius;
 	thing.height = mo->height;
+	thing.gravity = mo->gravity;
 	thing.mx = mo->momx;
 	thing.my = mo->momy;
 	thing.mz = mo->momz;
@@ -2040,6 +2042,7 @@ static inline uint32_t ld_get_things()
 		mo->ceilingz = thing.ceilingz;
 		mo->radius = thing.radius;
 		mo->height = thing.height;
+		mo->gravity = thing.gravity;
 		mo->momx = thing.mx;
 		mo->momy = thing.my;
 		mo->momz = thing.mz;

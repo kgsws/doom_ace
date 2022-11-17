@@ -67,6 +67,7 @@ extern void *dec_es_ptr;
 void init_decorate();
 
 int32_t mobj_check_type(uint64_t alias);
+int32_t mobj_by_spawnid(uint32_t id);
 
 void *dec_es_alloc(uint32_t size);
 void *dec_reloc_es(void *target, void *ptr);

@@ -694,6 +694,10 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	if(mt && mt->type == 9044)
 		mt->type = 14;
 
+	// map spot
+	if(mt && mt->type == 9001)
+		mt->type = 14;
+
 	// backward search for type
 	idx = num_mobj_types;
 	do
@@ -769,7 +773,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	mo->special.arg[4] = mt->arg[4];
 	mo->special.tid = mt->tid;
 
-	if(hack == 9044)
+	if(hack == 9044 || hack == 9001)
 		mo->flags |= MF_NOGRAVITY;
 }
 
@@ -2401,6 +2405,8 @@ static const hook_t patch_doom[] =
 	{0x0002B340, CODE_HOOK | HOOK_CALL_DOOM, 0x0002F500},
 	{0x00027286, CODE_HOOK | HOOK_CALL_DOOM, 0x00030710},
 	{0x0002BCFE, CODE_HOOK | HOOK_CALL_DOOM, 0x00030710},
+	// restore 'P_Move'
+	{0x000272BD, CODE_HOOK | HOOK_UINT16, 0xC2F6},
 	// terminator
 	{0}
 };
@@ -2413,6 +2419,8 @@ static const hook_t patch_hexen[] =
 	{0x0002B340, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_cross},
 	{0x00027286, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by monster
 	{0x0002BCFE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by player
+	// disable snap-to-floor in 'P_Move'
+	{0x000272BD, CODE_HOOK | HOOK_UINT16, 0x09EB},
 	// terminator
 	{0}
 };

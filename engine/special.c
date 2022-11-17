@@ -11,6 +11,7 @@
 #include "render.h"
 #include "action.h"
 #include "sound.h"
+#include "decorate.h"
 #include "animate.h"
 #include "generic.h"
 #include "special.h"
@@ -32,6 +33,7 @@ static mobj_t *activator;
 static uint_fast8_t door_monster_hack;
 static fixed_t value_mult;
 static fixed_t value_offs;
+static int32_t spawn_type;
 
 fixed_t nearest_up;
 fixed_t nearest_dn;
@@ -717,6 +719,79 @@ static uint32_t act_SetFade(sector_t *sec, line_t *ln)
 }
 
 //
+// thing stuff
+
+static uint32_t act_Thing_Stop(mobj_t *th, line_t *ln)
+{
+	th->momx = 0;
+	th->momy = 0;
+	th->momz = 0;
+	return 1;
+}
+
+static uint32_t act_ThrustThing(mobj_t *th, line_t *ln)
+{
+	angle_t angle = ln->arg0 << (24 - ANGLETOFINESHIFT);
+	fixed_t force = (fixed_t)ln->arg1 * FRACUNIT;
+
+	if(!ln->arg2 && force > 30 * FRACUNIT)
+		force = 30 * FRACUNIT;
+
+	th->momx += FixedMul(force, finecosine[angle]);
+	th->momy += FixedMul(force, finesine[angle]);
+
+	return 1;
+}
+
+static uint32_t act_Thing_Damage(mobj_t *th, line_t *ln)
+{
+	mobj_damage(th, NULL, NULL, ln->arg1, NULL);
+	return 1;
+}
+
+static uint32_t act_Thing_Spawn(mobj_t *th, line_t *ln)
+{
+	mobj_t *mo;
+
+	mo = P_SpawnMobj(th->x, th->y, th->z, spawn_type);
+
+	if(!P_CheckPosition(mo, mo->x, mo->y))
+	{
+		mobj_remove(mo);
+		return 1;
+	}
+
+	if(value_mult)
+	{
+		mo->angle = ln->arg2 << 24;
+		if(value_mult > 1)
+		{
+			fixed_t speed = (fixed_t)ln->arg3 * (FRACUNIT/8);
+			angle_t angle = mo->angle >> ANGLETOFINESHIFT;
+			mo->momx = FixedMul(speed, finecosine[angle]);
+			mo->momy = FixedMul(speed, finesine[angle]);
+			mo->momz = (fixed_t)ln->arg4 * (FRACUNIT/8);
+			if(value_mult > 2)
+			{
+				mo->flags &= ~MF_NOGRAVITY;
+				if(mo->flags & MF_MISSILE)
+					mo->gravity = FRACUNIT / 8;
+			} else
+				mo->flags |= MF_NOGRAVITY;
+			return 1;
+		}
+	} else
+		mo->angle = th->angle;
+
+	mo->special.tid = ln->arg3;
+
+	if(value_offs)
+		P_SpawnMobj(th->x, th->y, th->z, 39); // MT_TFOG
+
+	return 1;
+}
+
+//
 // teleports
 
 static uint32_t cb_teleport(mobj_t *mo)
@@ -830,6 +905,39 @@ static uint32_t handle_tag(line_t *ln, uint32_t tag, uint32_t (*cb)(sector_t*,li
 		sector_t *sec = sectors + i;
 		if(sec->tag == tag)
 			success |= cb(sec, ln);
+	}
+
+	return success;
+}
+
+//
+// tid handler
+
+static uint32_t handle_tid(line_t *ln, uint32_t tid, uint32_t (*cb)(mobj_t*,line_t*))
+{
+	uint32_t success = 0;
+
+	if(!tid)
+	{
+		if(activator)
+			return cb(activator, ln);
+		return 0;
+	}
+
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+	{
+		uint32_t ret;
+		mobj_t *mo;
+
+		if(th->function != (void*)0x00031490 + doom_code_segment)
+			continue;
+
+		mo = (mobj_t*)th;
+
+		if(mo->special.tid != tid)
+			continue;
+
+		success |= cb(mo, ln);
 	}
 
 	return success;
@@ -961,12 +1069,14 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				{
 					if(activator->player && message[0])
 						activator->player->message = message;
-					spec_success = 0;
 					value_mult = 0;
 				}
 			}
 			if(value_mult)
 				spec_success = handle_tag(ln, ln->arg0, act_Door_Raise);
+		break;
+		case 19: // Thing_Stop
+			spec_success = handle_tid(ln, ln->arg0, act_Thing_Stop);
 		break;
 		case 20: // Floor_LowerByValue
 			value_mult = -1;
@@ -1014,8 +1124,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				value_mult = -1;
 				value_offs = ln->arg0;
 				spec_success = mobj_for_each(cb_teleport);
-			} else
-				spec_success = 0;
+			}
 		break;
 		case 71: // Teleport_NoFog
 			if(!back_side)
@@ -1023,8 +1132,20 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				value_mult = 0;
 				value_offs = ln->arg0;
 				spec_success = mobj_for_each(cb_teleport);
-			} else
-				spec_success = 0;
+			}
+		break;
+		case 72: // ThrustThing
+			spec_success = handle_tid(ln, ln->arg3, act_ThrustThing);
+		break;
+		case 73: // DamageThing
+			if(activator)
+			{
+				uint32_t damage = ln->arg0;
+				if(!damage)
+					damage = 1000000;
+				mobj_damage(activator, NULL, NULL, damage, NULL);
+				spec_success = 1;
+			}
 		break;
 		case 74: // Teleport_NewMap
 			secretexit = 0;
@@ -1040,6 +1161,37 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 99: // Floor_RaiseAndCrushDoom
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Floor_Crush);
+		break;
+		case 119: // Thing_Damage
+			spec_success = handle_tid(ln, ln->arg0, act_Thing_Damage);
+		break;
+		case 134: // Thing_Projectile
+			value_mult = 2;
+			value_offs = 1;
+			goto thing_spawn;
+		break;
+		case 135: // Thing_Spawn
+			value_mult = 1;
+			value_offs = 1;
+			goto thing_spawn;
+		break;
+		case 136: // Thing_ProjectileGravity
+			value_mult = 3;
+			value_offs = 1;
+			goto thing_spawn;
+		break;
+		case 137: // Thing_SpawnNoFog
+			value_mult = 1;
+			value_offs = 0;
+			goto thing_spawn;
+		break;
+		case 139: // Thing_SpawnFacing
+			value_mult = 0;
+			value_offs = !ln->arg2;
+thing_spawn:
+			spawn_type = mobj_by_spawnid(ln->arg1);
+			if(spawn_type >= 0 && ln->arg0 != ln->arg3)
+				spec_success = handle_tid(ln, ln->arg0, act_Thing_Spawn);
 		break;
 		case 172: // Plat_UpNearestWaitDownStay
 			value_mult = 1;

@@ -25,7 +25,6 @@
 #define STOPSPEED	0x1000
 #define FRICTION	0xe800
 #define FLOATSPEED	(FRACUNIT * 4)
-#define GRAVITY	FRACUNIT
 
 static line_t *ceilingline;
 static line_t *floorline;
@@ -778,6 +777,7 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	mo->flags1 = info->flags1;
 	mo->flags2 = info->flags2;
 	mo->translation = info->translation;
+	mo->gravity = info->gravity;
 	mo->netid = mobj_netid;
 
 	// vertical speed
@@ -2075,7 +2075,7 @@ static void mobj_z_move(mobj_t *mo)
 		// hit the floor
 		if(mo->momz < 0)
 		{
-			if(mo->momz < mo->info->gravity * -8)
+			if(mo->momz < mo->gravity * -8)
 			{
 				if(mo->player && mo->health > 0)
 				{
@@ -2170,9 +2170,9 @@ static void mobj_z_move(mobj_t *mo)
 				demoplayback == DEMO_OLD
 			)
 		)
-			mo->momz = mo->info->gravity * -2;
+			mo->momz = mo->gravity * -2;
 		else
-			mo->momz -= mo->info->gravity;
+			mo->momz -= mo->gravity;
 	}
 
 	if(mo->z + mo->height > mo->ceilingz)

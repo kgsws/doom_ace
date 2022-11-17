@@ -8,6 +8,7 @@
 #include "player.h"
 #include "mobj.h"
 #include "map.h"
+#include "render.h"
 #include "action.h"
 #include "sound.h"
 #include "animate.h"
@@ -679,6 +680,43 @@ static uint32_t act_Plat_Bidir(sector_t *sec, line_t *ln)
 }
 
 //
+// colors
+
+static uint32_t act_SetColor(sector_t *sec, line_t *ln)
+{
+	sec->extra->color = (ln->arg1 >> 4) | (ln->arg2 & 0xF0) | ((uint16_t)(ln->arg3 & 0xF0) << 4) | ((uint16_t)(ln->arg4 & 0xF0) << 8);
+
+	for(uint32_t i = 0; i < sector_light_count; i++)
+	{
+		sector_light_t *cl = sector_light + i;
+
+		if(cl->color == sec->extra->color && cl->fade == sec->extra->fade)
+		{
+			sec->lightlevel = (sec->lightlevel & 0x1FF) | (i << 9);
+			break;
+		}
+	}
+}
+
+static uint32_t act_SetFade(sector_t *sec, line_t *ln)
+{
+	sec->extra->fade = (ln->arg1 >> 4) | (ln->arg2 & 0xF0) | ((uint16_t)(ln->arg3 & 0xF0) << 4);
+
+	for(uint32_t i = 0; i < sector_light_count; i++)
+	{
+		sector_light_t *cl = sector_light + i;
+
+		if(cl->color == sec->extra->color && cl->fade == sec->extra->fade)
+		{
+			sec->lightlevel = (sec->lightlevel & 0x1FF) | (i << 9);
+			break;
+		}
+	}
+
+	return 1;
+}
+
+//
 // teleports
 
 static uint32_t cb_teleport(mobj_t *mo)
@@ -1033,6 +1071,12 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			value_mult = -1;
 			value_offs = (fixed_t)ln->arg3 * FRACUNIT;
 			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
+		break;
+		case 212: // Sector_SetColor
+			spec_success = handle_tag(ln, ln->arg0, act_SetColor);
+		break;
+		case 213: // Sector_SetFade
+			spec_success = handle_tag(ln, ln->arg0, act_SetFade);
 		break;
 		case 239: // Floor_RaiseByValueTxTy
 			value_mult = 1;

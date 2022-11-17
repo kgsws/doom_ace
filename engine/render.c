@@ -950,6 +950,7 @@ void R_DrawVisSprite(vissprite_t *vis)
 	fixed_t frac;
 	patch_t *patch;
 	int32_t fc, cc;
+	sector_t *sec;
 
 	patch = W_CacheLumpNum(sprite_lump[vis->patch], PU_CACHE);
 
@@ -968,14 +969,14 @@ void R_DrawVisSprite(vissprite_t *vis)
 				colfunc = R_DrawFuzzColumn;
 		} else
 		{
+			sector_t *sec = viewplayer->mo->subsector->sector;
+
 			if(fixedcolormap)
 				dc_colormap = fixedcolormap;
-			else
-			if(vis->psp->state->frame & FF_FULLBRIGHT)
+			if(vis->psp->state->frame & FF_FULLBRIGHT && !sec->exfloor && !sector_light[sec->lightlevel >> 9].fmap)
 				dc_colormap = colormaps;
 			else
 			{
-				sector_t *sec = viewplayer->mo->subsector->sector;
 				extraplane_t *pl = sec->exfloor;
 				int32_t lightnum = sec->lightlevel;
 
@@ -986,8 +987,12 @@ void R_DrawVisSprite(vissprite_t *vis)
 					pl = pl->next;
 				}
 
-				calculate_lightnum(lightnum, NULL);
-				calculate_shade((MAXLIGHTSCALE-1) << LIGHTSCALESHIFT);
+				if(!(vis->psp->state->frame & FF_FULLBRIGHT) || sector_light[lightnum >> 9].fmap)
+				{
+					calculate_lightnum(lightnum, NULL);
+					calculate_shade((MAXLIGHTSCALE-1) << LIGHTSCALESHIFT);
+				} else
+					dc_colormap = colormaps;
 			}
 
 			if(viewplayer->mo->render_style == RS_TRANSLUCENT && (viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8))
@@ -995,17 +1000,18 @@ void R_DrawVisSprite(vissprite_t *vis)
 		}
 	} else
 	{
+		sector_t *sec = vis->mo->subsector->sector;
+
 		if(vis->mo->render_style == RS_FUZZ)
 			colfunc = R_DrawFuzzColumn;
 		else
 		if(fixedcolormap)
 			dc_colormap = fixedcolormap;
 		else
-		if(vis->mo->frame & FF_FULLBRIGHT)
+		if(vis->mo->frame & FF_FULLBRIGHT && !sec->exfloor && !sector_light[sec->lightlevel >> 9].fmap)
 			dc_colormap = colormaps;
 		else
 		{
-			sector_t *sec = vis->mo->subsector->sector;
 			extraplane_t *pl = sec->exfloor;
 			int32_t lightnum = sec->lightlevel;
 
@@ -1016,8 +1022,12 @@ void R_DrawVisSprite(vissprite_t *vis)
 				pl = pl->next;
 			}
 
-			calculate_lightnum(lightnum, NULL);
-			calculate_shade(vis->scale);
+			if(!(vis->mo->frame & FF_FULLBRIGHT) || sector_light[lightnum >> 9].fmap)
+			{
+				calculate_lightnum(lightnum, NULL);
+				calculate_shade(vis->scale);
+			} else
+				dc_colormap = colormaps;
 		}
 
 		switch(vis->mo->render_style)

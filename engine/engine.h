@@ -1350,6 +1350,7 @@ void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
 uint8_t HU_dequeueChatChar() __attribute((regparm(2),no_caller_saved_registers));
 
 // m_menu
+void M_Drawer() __attribute((regparm(2),no_caller_saved_registers));
 void M_WriteText(uint32_t,uint32_t,const uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void M_ClearMenus() __attribute((regparm(2),no_caller_saved_registers));
 void M_StartMessage(uint8_t*,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));

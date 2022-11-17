@@ -33,7 +33,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFAD	// increment with updates
+#define SAVE_VERSION	0xE58BAFB0	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -53,7 +53,7 @@ enum
 	SF_SEC_TEXTURE_CEILING,
 	SF_SEC_HEIGHT_FLOOR,
 	SF_SEC_HEIGHT_CEILING,
-	SF_SEC_LIGHT_LEVEL,
+	SF_SEC_LIGHT_LEVEL, // this also contains color / fade
 	SF_SEC_SPECIAL,
 	SF_SEC_TAG,
 	SF_SEC_SOUNDTARGET,
@@ -637,6 +637,7 @@ static inline void sv_put_sectors(int32_t lump)
 		uint32_t flags = 0;
 		uint64_t tname;
 		fixed_t height;
+		int16_t lightlevel;
 
 		flags |= (sec->floorpic != flat_num_get(ms[i].floorpic)) << SF_SEC_TEXTURE_FLOOR;
 		flags |= (sec->ceilingpic != flat_num_get(ms[i].ceilingpic)) << SF_SEC_TEXTURE_CEILING;
@@ -647,7 +648,13 @@ static inline void sv_put_sectors(int32_t lump)
 		height = (fixed_t)ms[i].ceilingheight * FRACUNIT;
 		flags |= (sec->ceilingheight != height) << SF_SEC_HEIGHT_CEILING;
 
-		flags |= (sec->lightlevel != ms[i].lightlevel) << SF_SEC_LIGHT_LEVEL;
+		lightlevel = ms[i].lightlevel;
+		if(lightlevel < 0)
+			lightlevel = 0;
+		if(lightlevel >= 384)
+			lightlevel = 383;
+		flags |= (sec->lightlevel != lightlevel) << SF_SEC_LIGHT_LEVEL;
+
 		flags |= (sec->special != ms[i].special) << SF_SEC_SPECIAL;
 		flags |= (sec->tag != ms[i].tag) << SF_SEC_TAG;
 
@@ -1241,6 +1248,17 @@ static inline void sv_put_mapped_lines()
 	}
 }
 
+static inline void sv_put_sector_light()
+{
+	writer_add_u16(sector_light_count - 1);
+
+	for(uint32_t i = 1; i < sector_light_count; i++)
+	{
+		sector_light_t *cl = sector_light + i;
+		writer_add_u32(cl->color | ((uint32_t)cl->fade << 16));
+	}
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void do_save()
 {
@@ -1349,6 +1367,10 @@ void do_save()
 
 	// mapped lines list
 	sv_put_mapped_lines();
+	writer_add_u32(SAVE_VERSION);
+
+	// colored light
+	sv_put_sector_light();
 	writer_add_u32(SAVE_VERSION);
 
 	// DONE
@@ -2220,6 +2242,35 @@ static inline uint32_t ld_get_mapped_lines()
 	return reader_get_u32(&flags) || flags != SAVE_VERSION;
 }
 
+static inline uint32_t ld_get_sector_light()
+{
+	uint32_t check;
+	uint16_t count;
+
+	if(reader_get_u16(&count))
+		return 1;
+
+	sector_light_count = count + 1;
+	if(sector_light_count >= MAX_SECTOR_COLORS)
+		return 1;
+
+	for(uint32_t i = 1; i < sector_light_count; i++)
+	{
+		sector_light_t *cl = sector_light + i;
+
+		if(reader_get_u32(&check))
+			return 1;
+
+		cl->color = check;
+		cl->fade = check >> 16;
+
+		if(cl->fade & 0xF000)
+			return 1;
+	}
+
+	return reader_get_u32(&check) || check != SAVE_VERSION;
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void do_load()
 {
@@ -2311,6 +2362,9 @@ void do_load()
 	if(ld_get_mapped_lines())
 		goto error_fail;
 
+	if(ld_get_sector_light())
+		goto error_fail;
+
 	if(!playeringame[consoleplayer])
 		goto error_fail;
 
@@ -2319,6 +2373,10 @@ void do_load()
 
 	pl = players + consoleplayer;
 	if(pl->mo->info->extra_type != ETYPE_PLAYERPAWN)
+		goto error_fail;
+
+	// colored light
+	if(render_setup_light_color(1))
 		goto error_fail;
 
 	// count brain targets; hack + silence

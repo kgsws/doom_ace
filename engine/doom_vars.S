@@ -222,6 +222,8 @@ DOOM_VAR 0x0002B40C, usergame
 
 DOOM_VAR 0x0002B67C, currentMenu
 DOOM_VAR 0x0002B698, screenblocks
+DOOM_VAR 0x0002B6A0, messageString
+DOOM_VAR 0x0002B6A4, messageToPrint
 DOOM_VAR 0x0002B6AC, detaillevel
 DOOM_VAR 0x0002B6B0, showMessages
 DOOM_VAR 0x0002B6B4, snd_MusicVolume

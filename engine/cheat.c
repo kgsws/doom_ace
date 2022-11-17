@@ -11,13 +11,12 @@
 #include "player.h"
 #include "action.h"
 #include "hitscan.h"
+#include "render.h"
 #include "map.h"
 #include "stbar.h"
 #include "demo.h"
 #include "textpars.h"
 #include "cheat.h"
-
-//#define DEBUG
 
 typedef struct
 {
@@ -45,9 +44,7 @@ static void cf_kill(player_t*,uint8_t*);
 static void cf_resurrect(player_t*,uint8_t*);
 static void cf_summon(player_t*,uint8_t*);
 static void cf_revenge(player_t*,uint8_t*);
-#ifdef DEBUG
-static void cf_colormap(player_t*,uint8_t*);
-#endif
+static void cf_save_light(player_t*,uint8_t*);
 static const cheat_func_t cheat_func[] =
 {
 	// old
@@ -67,9 +64,8 @@ static const cheat_func_t cheat_func[] =
 	{"summon", cf_summon},
 	// kg
 	{"kgRevenge", cf_revenge},
-#ifdef DEBUG
-	{"cmap", cf_colormap},
-#endif
+	// dev
+	{"savelight", cf_save_light},
 	// terminator
 	{NULL}
 };
@@ -365,17 +361,46 @@ static void cf_revenge(player_t *pl, uint8_t *arg)
 		pl->message = "Revenge mode OFF";
 }
 
-#ifdef DEBUG
-static void cf_colormap(player_t *pl, uint8_t *arg)
+static void cf_save_light(player_t *pl, uint8_t *arg)
 {
-	uint32_t idx;
+	uint32_t fail = 0;
+	uint8_t text[16];
 
-	if(doom_sscanf(arg, "%u", &idx) != 1)
+	if(sector_light_count <= 1)
 		return;
 
-	pl->fixedcolormap = idx;
+	for(uint32_t i = 1; i < sector_light_count; i++)
+	{
+		int32_t fd;
+		sector_light_t *cl = sector_light + i;
+
+		if(cl->color != 0x0FFF)
+		{
+			doom_sprintf(text, "+%03X%04X.lmp", cl->fade, cl->color);
+			fd = doom_open_WR(text);
+			if(fd >= 0)
+			{
+				doom_write(fd, cl->cmap, 256 * 32);
+				doom_close(fd);
+			} else
+				fail = 1;
+		}
+
+		if(cl->fade != 0x0000)
+		{
+			doom_sprintf(text, "+%03X%04X.lmp", cl->fade, 0x0FFF);
+			fd = doom_open_WR(text);
+			if(fd >= 0)
+			{
+				doom_write(fd, cl->fmap, 256 * 32);
+				doom_close(fd);
+			} else
+				fail = 1;
+		}
+	}
+
+	pl->message = fail ? "Export error!" : "Color tables exported";
 }
-#endif
 
 //
 // API

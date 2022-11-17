@@ -702,6 +702,12 @@ P_NoiseAlert:
 M_ClearMenus:
 	.byte	0xE9
 	.4byte	0x00023F60
+////////////////////////////////// M_Drawer
+.section .text.M_Drawer
+.global M_Drawer
+M_Drawer:
+	.byte	0xE9
+	.4byte	0x00023D00
 ////////////////////////////////// R_ExecuteSetViewSize
 .section .text.R_ExecuteSetViewSize
 .global R_ExecuteSetViewSize

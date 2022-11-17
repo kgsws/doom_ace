@@ -42,6 +42,8 @@ extern uint32_t am_lastlevel;
 extern uint32_t am_cheating;
 
 // menu
+extern uint32_t messageToPrint;
+extern uint8_t *messageString;
 extern uint16_t menu_item_now; // itemOn
 extern menu_t *currentMenu;
 extern uint32_t showMessages;

@@ -85,7 +85,7 @@ extern sector_light_t sector_light[MAX_SECTOR_COLORS];
 void init_render();
 void render_preinit(uint8_t*);
 void render_generate_blood();
-void render_map_setup();
+uint32_t render_setup_light_color(uint32_t);
 
 uint8_t r_find_color(uint8_t, uint8_t, uint8_t);
 

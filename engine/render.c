@@ -65,9 +65,9 @@ uint32_t translation_count = NUM_EXTRA_TRANSLATIONS;
 uint8_t *blood_translation;
 uint32_t blood_color_count;
 
-uint32_t sector_light_count = 1;
+uint32_t sector_light_count;
 sector_light_t sector_light[MAX_SECTOR_COLORS];
-static uint8_t *sector_light_table;
+static uint_fast8_t sector_light_warning;
 
 pal_col_t r_palette[256];
 
@@ -783,7 +783,11 @@ static void R_RenderSegLoop()
 		}
 		segtextured = 0;
 	} else
+	if(!fixedcolormap)
 		calculate_lightnum(frontsector->lightlevel, curline);
+
+	if(fixedcolormap)
+		dc_colormap = fixedcolormap;
 
 	for(uint32_t x = rw_x; x < rw_stopx; x++)
 	{
@@ -2008,8 +2012,31 @@ static void generate_translation(uint8_t *dest, uint8_t first, uint8_t last, uin
 
 static void generate_sector_light(uint8_t *dest, uint16_t color, uint16_t fade)
 {
+	uint8_t name[12];
+	int32_t lump;
+
+	doom_sprintf(name, "+%03X%04X", fade, color);
+	lump = W_CheckNumForName(name);
+	if(lump >= 0 && W_LumpLength(lump) == 256 * 32)
+	{
+		W_ReadLump(lump, dest);
+		return;
+	}
+
 	if(color & 0xF000 && (color & 0xF000) != 0xF000)
 		I_Error("[RENDER] Unable to generate desaturation %u!\n", (color >> 8) & 0xF000);
+
+	if(!sector_light_warning)
+	{
+		for(uint8_t *ptr = screen_buffer; ptr < screen_buffer + 320 * 200; ptr++)
+			*ptr = colormaps[*ptr + 256 * 22];
+		messageToPrint = 1;
+		messageString = "Generating colored light.\nThis will take a while ...\n\nInclude generated tables in WAD file\nto speed this up!";
+		M_Drawer();
+		I_FinishUpdate();
+		messageToPrint = 0;
+		sector_light_warning = 1;
+	}
 
 	for(uint32_t level = 0; level < 32; level++)
 	{
@@ -2436,18 +2463,43 @@ void render_generate_blood()
 	}
 }
 
-void render_map_setup()
+uint32_t render_setup_light_color(uint32_t from_save)
 {
 	uint32_t count;
 	uint8_t *tables;
 
-	// find all active colors and fades
-	for(uint32_t i = 0; i < numsectors; i++)
-	{
-		sector_t *sec = sectors + i;
+	sector_light_warning = 0;
 
-		if(sec->extra->color != 0x0FFF || sec->extra->fade != 0x0000)
-			sec->lightlevel |= add_sector_color(sec->extra->color, sec->extra->fade) << 9;
+	if(from_save)
+	{
+		// setup sector colors and fades
+		for(uint32_t i = 0; i < numsectors; i++)
+		{
+			sector_t *sec = sectors + i;
+			uint32_t idx = sec->lightlevel >> 9;
+			sector_light_t *cl;
+
+			if(idx >= sector_light_count)
+				return 1;
+
+			cl = sector_light + idx;
+
+			sec->extra->color = cl->color;
+			sec->extra->fade = cl->fade;
+		}
+	} else
+	{
+		// reset colors and fades
+		sector_light_count = 1;
+
+		// find all active colors and fades
+		for(uint32_t i = 0; i < numsectors; i++)
+		{
+			sector_t *sec = sectors + i;
+
+			if(sec->extra->color != 0x0FFF || sec->extra->fade != 0x0000)
+				sec->lightlevel |= add_sector_color(sec->extra->color, sec->extra->fade) << 9;
+		}
 	}
 
 	// count colormap tables
@@ -2489,6 +2541,8 @@ void render_map_setup()
 		} else
 			cl->fmap = NULL;
 	}
+
+	return 0;
 }
 
 void render_player_view(player_t *pl)

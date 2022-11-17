@@ -347,17 +347,20 @@ static inline void parse_sectors()
 			M_AddToBox(se->bbox, li->v1->x, li->v1->y);
 			M_AddToBox(se->bbox, li->v2->x, li->v2->y);
 
-			// check for plane links
-			if(	li->frontsector == sec &&
-				li->special == 51 // Sector_SetLink
-			){
-				if(li->arg0 || !li->arg1 || !li->arg3 || li->arg3 & 0xFC)
-					I_Error("[MAP] Invalid use of 'Sector_SetLink'!");
+			if(map_format != MAP_FORMAT_DOOM)
+			{
+				// check for plane links
+				if(	li->frontsector == sec &&
+					li->special == 51 // Sector_SetLink
+				){
+					if(li->arg0 || !li->arg1 || !li->arg3 || li->arg3 & 0xFC)
+						I_Error("[MAP] Invalid use of 'Sector_SetLink'!");
 
-				for(uint32_t k = 0; k < numsectors; k++)
-				{
-					if(sectors[k].tag == li->arg1)
-						plink_count++;
+					for(uint32_t k = 0; k < numsectors; k++)
+					{
+						if(sectors[k].tag == li->arg1)
+							plink_count++;
+					}
 				}
 			}
 		}
@@ -538,10 +541,10 @@ uint32_t map_load_setup()
 			if(playeringame[i] && !players[i].mo)
 				goto map_load_error;
 		}
-	}
 
-	// render stuff
-	render_map_setup();
+		// colored light
+		render_setup_light_color(0);
+	}
 
 	// in the level
 	gamestate = GS_LEVEL;

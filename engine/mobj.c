@@ -1894,7 +1894,8 @@ static void mobj_xy_move(mobj_t *mo)
 			mo->momz = 0;
 			mobj_set_animation(mo, ANIM_SPAWN);
 		}
-		return;
+		if(demoplayback == DEMO_OLD || !(mo->flags & MF_MISSILE))
+			return;
 	}
 
 	if(demoplayback != DEMO_OLD)

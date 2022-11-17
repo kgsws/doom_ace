@@ -721,15 +721,14 @@ static uint32_t act_SetFade(sector_t *sec, line_t *ln)
 //
 // thing stuff
 
-static uint32_t act_Thing_Stop(mobj_t *th, line_t *ln)
+static void act_Thing_Stop(mobj_t *th, line_t *ln)
 {
 	th->momx = 0;
 	th->momy = 0;
 	th->momz = 0;
-	return 1;
 }
 
-static uint32_t act_ThrustThing(mobj_t *th, line_t *ln)
+static void act_ThrustThing(mobj_t *th, line_t *ln)
 {
 	angle_t angle = ln->arg0 << (24 - ANGLETOFINESHIFT);
 	fixed_t force = (fixed_t)ln->arg1 * FRACUNIT;
@@ -739,27 +738,58 @@ static uint32_t act_ThrustThing(mobj_t *th, line_t *ln)
 
 	th->momx += FixedMul(force, finecosine[angle]);
 	th->momy += FixedMul(force, finesine[angle]);
-
-	return 1;
 }
 
-static uint32_t act_Thing_Damage(mobj_t *th, line_t *ln)
+static void act_ThrustThingZ(mobj_t *th, line_t *ln)
+{
+	fixed_t speed = (fixed_t)ln->arg1 * (FRACUNIT/4);
+
+	if(ln->arg2)
+		speed = -speed;
+
+	if(ln->arg3)
+		speed += th->momz;
+
+	th->momz = speed;
+}
+
+static void act_Thing_SetSpecial(mobj_t *th, line_t *ln)
+{
+	th->special.special = ln->arg1;
+	th->special.arg[0] = ln->arg2;
+	th->special.arg[1] = ln->arg3;
+	th->special.arg[2] = ln->arg4;
+}
+
+static void act_Thing_ChangeTID(mobj_t *th, line_t *ln)
+{
+	th->special.tid = ln->arg1;
+}
+
+static void act_Thing_Damage(mobj_t *th, line_t *ln)
 {
 	mobj_damage(th, NULL, NULL, ln->arg1, NULL);
-	return 1;
 }
 
-static uint32_t act_Thing_Spawn(mobj_t *th, line_t *ln)
+static void act_Thing_Spawn(mobj_t *th, line_t *ln)
 {
 	mobj_t *mo;
 
 	mo = P_SpawnMobj(th->x, th->y, th->z, spawn_type);
 
+	if(value_mult > 1)
+		mo->target = th;
+
 	if(!P_CheckPosition(mo, mo->x, mo->y))
 	{
 		mobj_remove(mo);
-		return 1;
+		return;
 	}
+
+	if(mo->flags & MF_COUNTKILL)
+		totalkills++;
+	if(mo->flags & MF_COUNTITEM)
+		totalitems++;
 
 	if(value_mult)
 	{
@@ -778,17 +808,42 @@ static uint32_t act_Thing_Spawn(mobj_t *th, line_t *ln)
 					mo->gravity = FRACUNIT / 8;
 			} else
 				mo->flags |= MF_NOGRAVITY;
-			return 1;
+			return;
 		}
 	} else
 		mo->angle = th->angle;
 
 	mo->special.tid = ln->arg3;
 
-	if(value_offs)
-		P_SpawnMobj(th->x, th->y, th->z, 39); // MT_TFOG
+	if(!value_offs)
+		return;
 
-	return 1;
+	P_SpawnMobj(th->x, th->y, th->z, 39); // MT_TFOG
+}
+
+static void act_Thing_Remove(mobj_t *th, line_t *ln)
+{
+	if(th->player)
+		return;
+
+	if(th->flags & MF_COUNTKILL)
+		totalkills--;
+
+	if(th->flags & MF_COUNTITEM)
+		totalitems--;
+
+	mobj_remove(th);
+}
+
+static void act_Thing_Destroy(mobj_t *th, line_t *ln)
+{
+	if(ln->arg2 && th->subsector->sector->tag != ln->arg2)
+		return;
+
+	if(!ln->arg0 && !(th->flags1 & MF1_ISMONSTER))
+		return;
+
+	mobj_damage(th, NULL, NULL, ln->arg1 ? 1000000 : 1000001, NULL);
 }
 
 //
@@ -913,15 +968,15 @@ static uint32_t handle_tag(line_t *ln, uint32_t tag, uint32_t (*cb)(sector_t*,li
 //
 // tid handler
 
-static uint32_t handle_tid(line_t *ln, uint32_t tid, uint32_t (*cb)(mobj_t*,line_t*))
+static void handle_tid(line_t *ln, int32_t tid, void (*cb)(mobj_t*,line_t*))
 {
-	uint32_t success = 0;
+	spec_success = 1;
 
 	if(!tid)
 	{
 		if(activator)
-			return cb(activator, ln);
-		return 0;
+			cb(activator, ln);
+		return;
 	}
 
 	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
@@ -934,13 +989,11 @@ static uint32_t handle_tid(line_t *ln, uint32_t tid, uint32_t (*cb)(mobj_t*,line
 
 		mo = (mobj_t*)th;
 
-		if(mo->special.tid != tid)
+		if(tid > 0 && mo->special.tid != tid)
 			continue;
 
-		success |= cb(mo, ln);
+		cb(mo, ln);
 	}
-
-	return success;
 }
 
 //
@@ -984,7 +1037,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				)
 			)
 				return;
-			if(!(mo->flags1 & MF1_ISMONSTER))
+			if(mo->flags & MF_MISSILE)
 				return;
 		break;
 		case MLA_PLR_USE:
@@ -1076,7 +1129,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				spec_success = handle_tag(ln, ln->arg0, act_Door_Raise);
 		break;
 		case 19: // Thing_Stop
-			spec_success = handle_tid(ln, ln->arg0, act_Thing_Stop);
+			handle_tid(ln, ln->arg0, act_Thing_Stop);
 		break;
 		case 20: // Floor_LowerByValue
 			value_mult = -1;
@@ -1135,7 +1188,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			}
 		break;
 		case 72: // ThrustThing
-			spec_success = handle_tid(ln, ln->arg3, act_ThrustThing);
+			handle_tid(ln, ln->arg3, act_ThrustThing);
 		break;
 		case 73: // DamageThing
 			if(activator)
@@ -1163,7 +1216,19 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			spec_success = handle_tag(ln, ln->arg0, act_Floor_Crush);
 		break;
 		case 119: // Thing_Damage
-			spec_success = handle_tid(ln, ln->arg0, act_Thing_Damage);
+			handle_tid(ln, ln->arg0, act_Thing_Damage);
+		break;
+		case 127: // Thing_SetSpecial
+			handle_tid(ln, ln->arg0, act_Thing_SetSpecial);
+		break;
+		case 128: // ThrustThingZ
+			handle_tid(ln, ln->arg0, act_ThrustThingZ);
+		break;
+		case 132: // Thing_Remove
+			handle_tid(ln, ln->arg0, act_Thing_Remove);
+		break;
+		case 133: // Thing_Destroy
+			handle_tid(ln, ln->arg0 > 0 ? ln->arg0 : -1, act_Thing_Destroy);
 		break;
 		case 134: // Thing_Projectile
 			value_mult = 2;
@@ -1191,11 +1256,15 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 thing_spawn:
 			spawn_type = mobj_by_spawnid(ln->arg1);
 			if(spawn_type >= 0 && ln->arg0 != ln->arg3)
-				spec_success = handle_tid(ln, ln->arg0, act_Thing_Spawn);
+				handle_tid(ln, ln->arg0, act_Thing_Spawn);
 		break;
 		case 172: // Plat_UpNearestWaitDownStay
 			value_mult = 1;
 			spec_success = handle_tag(ln, ln->arg0, act_Plat_Bidir);
+		break;
+		case 176: // Thing_ChangeTID
+			if(!ln->arg1 || ln->arg0 != ln->arg1)
+				handle_tid(ln, ln->arg0, act_Thing_ChangeTID);
 		break;
 		case 195: // Ceiling_CrushRaiseAndStayA
 			value_mult = 0;

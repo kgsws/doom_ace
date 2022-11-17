@@ -1549,6 +1549,22 @@ mobj_t *mobj_by_netid(uint32_t netid)
 __attribute((regparm(2),no_caller_saved_registers))
 void mobj_remove(mobj_t *mo)
 {
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+	{
+		mobj_t *om;
+
+		if(th->function != (void*)0x00031490 + doom_code_segment)
+			continue;
+
+		om = (mobj_t*)th;
+
+		if(om->target == mo)
+			om->target = NULL;
+		if(om->tracer == mo)
+			om->tracer = NULL;
+		if(om->master == mo)
+			om->master = NULL;
+	}
 	inventory_destroy(mo->inventory);
 	P_UnsetThingPosition(mo);
 	S_StopSound(mo);
@@ -1742,6 +1758,12 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		if(target->subsector->sector->special == 11 && damage >= target->health)
 			damage = target->health - 1;
 
+		if(forced)
+		{
+			player->armortype = 0;
+			player->armorpoints = 0;
+		}
+
 		if(player->armortype)
 		{
 			uint32_t saved;
@@ -1807,6 +1829,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 					target->flags &= ~MF_NOGRAVITY;
 
 				P_KillMobj(source, target);
+				target->flags &= ~MF_COUNTKILL;
 
 				if(!target->momz)
 					// fake some Z movement for crash states
@@ -1882,6 +1905,7 @@ static void mobj_fall_damage(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 static void mobj_xy_move(mobj_t *mo)
 {
+	uint32_t dropoff;
 	player_t *pl = mo->player;
 
 	oldfloorz = mo->floorz;
@@ -1897,6 +1921,10 @@ static void mobj_xy_move(mobj_t *mo)
 		if(demoplayback == DEMO_OLD || !(mo->flags & MF_MISSILE))
 			return;
 	}
+
+	// allow pushing monsters off ledges (and +PUSHABLE)
+	dropoff = (mo->flags ^ MF_DROPOFF) & MF_DROPOFF;
+	mo->flags |= MF_DROPOFF;
 
 	if(demoplayback != DEMO_OLD)
 	{
@@ -1992,6 +2020,9 @@ static void mobj_xy_move(mobj_t *mo)
 	} else
 		// use old movement code
 		P_XYMovement(mo);
+
+	// restore +DROPOFF
+	mo->flags ^= dropoff;
 
 	// HACK - move other sound slots
 	mo->sound_body.x = mo->x;

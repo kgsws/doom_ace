@@ -572,6 +572,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				else
 					draw_masked_column((column_t*)(data - 3), mfc, mcc);
 			} else
+			if(dc_colormap != lightmap)
 				draw_solid_column(NULL, mfc, mcc, -1);
 
 			tcol[dc_x] ^= 0x8000;
@@ -990,6 +991,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 				if(!(vis->psp->state->frame & FF_FULLBRIGHT) || sector_light[lightnum >> 9].fmap)
 				{
 					calculate_lightnum(lightnum, NULL);
+					if(vis->psp->state->frame & FF_FULLBRIGHT && sector_light[lightnum >> 9].fmap)
+						lightmap = sector_light[lightnum >> 9].fmap;
 					calculate_shade((MAXLIGHTSCALE-1) << LIGHTSCALESHIFT);
 				} else
 					dc_colormap = colormaps;
@@ -1025,6 +1028,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 			if(!(vis->mo->frame & FF_FULLBRIGHT) || sector_light[lightnum >> 9].fmap)
 			{
 				calculate_lightnum(lightnum, NULL);
+				if(vis->mo->frame & FF_FULLBRIGHT && sector_light[lightnum >> 9].fmap)
+					lightmap = sector_light[lightnum >> 9].fmap;
 				calculate_shade(vis->scale);
 			} else
 				dc_colormap = colormaps;

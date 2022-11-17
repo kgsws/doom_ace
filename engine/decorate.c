@@ -2950,6 +2950,7 @@ void init_decorate()
 		mobjinfo[i].attacksound = deh_mobjinfo[i].attacksound;
 		mobjinfo[i].state_pain = deh_mobjinfo[i].painstate;
 		mobjinfo[i].painsound = deh_mobjinfo[i].painsound;
+		mobjinfo[i].state_melee = deh_mobjinfo[i].meleestate;
 		mobjinfo[i].state_missile = deh_mobjinfo[i].missilestate;
 		mobjinfo[i].state_death = deh_mobjinfo[i].deathstate;
 		mobjinfo[i].state_xdeath = deh_mobjinfo[i].xdeathstate;

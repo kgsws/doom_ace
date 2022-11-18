@@ -744,7 +744,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	if(mt->flags & MTF_AMBUSH)
 		mo->flags |= MF_AMBUSH;
 
-	if(mt->flags & MTF_INACTIVE)
+	if(mt->flags & MTF_INACTIVE && mo->flags1 & MF1_ISMONSTER)
 	{
 		mo->flags1 |= MF1_DORMANT;
 		mo->tics = -1;

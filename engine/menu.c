@@ -841,12 +841,29 @@ void menu_setup_episodes()
 //
 // hooks
 
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t menu_check_message()
+{
+	// fade background behind message
+	if(messageToPrint)
+		for(uint8_t *ptr = screen_buffer; ptr < screen_buffer + 320 * 200; ptr++)
+			*ptr = colormaps[*ptr + 256 * 21];
+	return messageToPrint;
+}
+
+//
+// hooks
+
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace item and cursor drawer
 	{0x00023E96, CODE_HOOK | HOOK_UINT16, 0xF889},
 	{0x00023E98, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)menu_items_draw},
 	{0x00023E9D, CODE_HOOK | HOOK_JMP_DOOM, 0x00023F4E},
+	// change 'messageToPrint' check in 'M_Drawer'
+	{0x00023D0B, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)menu_check_message},
+	{0x00023D10, CODE_HOOK | HOOK_UINT8, 0x90},
+	{0x00023D17, CODE_HOOK | HOOK_UINT16, 0xC085},
 	// replace 'options'
 	{0x000229B2, CODE_HOOK | HOOK_UINT32, (uint32_t)&options_menu},
 	{0x000229B8, CODE_HOOK | HOOK_UINT32, (uint32_t)&options_menu + offsetof(menu_t, last)},

@@ -2028,8 +2028,6 @@ static void generate_sector_light(uint8_t *dest, uint16_t color, uint16_t fade)
 
 	if(!sector_light_warning)
 	{
-		for(uint8_t *ptr = screen_buffer; ptr < screen_buffer + 320 * 200; ptr++)
-			*ptr = colormaps[*ptr + 256 * 22];
 		messageToPrint = 1;
 		messageString = "Generating colored light.\nThis will take a while ...\n\nInclude generated tables in WAD file\nto speed this up!";
 		M_Drawer();

@@ -2436,8 +2436,8 @@ void init_render()
 	}
 
 	// default sector color
+	sector_light[0].color = 0x0FFF;
 	sector_light[0].cmap = colormaps;
-	sector_light[0].fmap = NULL;
 
 	// optional export
 	if(M_CheckParm("-dumptables"))

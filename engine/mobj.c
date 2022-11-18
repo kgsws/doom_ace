@@ -557,6 +557,18 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	if(mo->flags & MF_COUNTITEM)
 		pl->itemcount++;
 
+	// activate special
+	if(mo->special.special)
+	{
+		spec_special = mo->special.special;
+		spec_arg[0] = mo->special.arg[0];
+		spec_arg[1] = mo->special.arg[1];
+		spec_arg[2] = mo->special.arg[2];
+		spec_arg[3] = mo->special.arg[3];
+		spec_arg[4] = mo->special.arg[4];
+		spec_activate(NULL, toucher, 0);
+	}
+
 	// remove // TODO: handle respawn logic (like heretic does)
 	mobj_remove(mo);
 
@@ -1827,6 +1839,17 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 				if(!(target->flags1 & MF1_DONTFALL))
 					target->flags &= ~MF_NOGRAVITY;
+
+				if(target->special.special)
+				{
+					spec_special = target->special.special;
+					spec_arg[0] = target->special.arg[0];
+					spec_arg[1] = target->special.arg[1];
+					spec_arg[2] = target->special.arg[2];
+					spec_arg[3] = target->special.arg[3];
+					spec_arg[4] = target->special.arg[4];
+					spec_activate(NULL, source, 0);
+				}
 
 				P_KillMobj(source, target);
 				target->flags &= ~MF_COUNTKILL;

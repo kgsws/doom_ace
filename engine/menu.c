@@ -844,8 +844,8 @@ void menu_setup_episodes()
 static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t menu_check_message()
 {
-	// fade background behind message
-	if(messageToPrint)
+	// fade background behind menu or message
+	if(menuactive || messageToPrint)
 		for(uint8_t *ptr = screen_buffer; ptr < screen_buffer + 320 * 200; ptr++)
 			*ptr = colormaps[*ptr + 256 * 21];
 	return messageToPrint;

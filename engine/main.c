@@ -365,7 +365,7 @@ void late_init()
 static const hook_t restore_loader[] =
 {
 	// 'I_Error' patch
-	{0x0001AB1E, CODE_HOOK | HOOK_CALL_DOOM, 0x0001B830},
+	{0x0001B830, CODE_HOOK | HOOK_UINT8, 0xE8},
 };
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -389,7 +389,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// place 'loading' structure into 'vissprites' + 1024
 	{0x0005A610, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 	// early 'I_Error' fix
-	{0x0001AB1E, CODE_HOOK | HOOK_SET_NOPS, 5},
+	{0x0001B830, CODE_HOOK | HOOK_UINT8, 0xC3},
 	// read stuff
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},

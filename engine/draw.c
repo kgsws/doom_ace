@@ -133,8 +133,8 @@ void R_DrawFuzzColumn()
 	if(!dc_yl)
 		dc_yl = 1;
 
-	if(dc_yh == SCREENHEIGHT - 1)
-		dc_yh = SCREENHEIGHT - 2;
+	if(dc_yh > viewheight - 2)
+		dc_yh = viewheight - 2;
 
 	count = dc_yh - dc_yl;
 

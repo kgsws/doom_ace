@@ -15,6 +15,7 @@
 #include "sound.h"
 #include "stbar.h"
 #include "map.h"
+#include "special.h"
 #include "demo.h"
 #include "render.h"
 #include "config.h"
@@ -52,6 +53,12 @@ typedef struct
 	void (*check)(const void*);
 } dec_action_t;
 
+typedef struct
+{
+	uint8_t special; // so far u8 is enough but ZDoom has types > 255
+	const uint8_t *name;
+} __attribute__((packed)) dec_linespec_t; // 'packed' for DOS use only
+
 //
 
 static const uint8_t *action_name;
@@ -60,6 +67,7 @@ void *parse_action_func;
 void *parse_action_arg;
 
 static const dec_action_t mobj_action[];
+static const dec_linespec_t special_action[];
 
 //
 // common
@@ -1686,6 +1694,31 @@ void A_IceSetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// activate line special
+
+static int32_t parse_arg_value(mobj_t *mo, int32_t value)
+{
+	if(value <= 32000)
+		return value;
+	return mo->special.arg[value - 32001];
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_LineSpecial(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_lineSpecial_t *arg = st->arg;
+
+	spec_special = arg->special;
+	spec_arg[0] = parse_arg_value(mo, arg->arg[0]);
+	spec_arg[1] = parse_arg_value(mo, arg->arg[1]);
+	spec_arg[2] = parse_arg_value(mo, arg->arg[2]);
+	spec_arg[3] = parse_arg_value(mo, arg->arg[3]);
+	spec_arg[4] = parse_arg_value(mo, arg->arg[4]);
+
+	spec_activate(NULL, mo, 0);
+}
+
+//
 // parser
 
 uint8_t *action_parser(uint8_t *name)
@@ -1700,8 +1733,101 @@ uint8_t *action_parser(uint8_t *name)
 			break;
 		act++;
 	}
+
 	if(!act->name)
+	{
+		// try line specials
+		const dec_linespec_t *spec = special_action;
+
+		while(spec->special)
+		{
+			if(!strcmp(spec->name, name))
+				break;
+			spec++;
+		}
+
+		if(spec->special)
+		{
+			args_lineSpecial_t *arg;
+			uint32_t idx = 0;
+
+			// set defaults
+			arg = dec_es_alloc(sizeof(args_lineSpecial_t));
+			arg->special = spec->special;
+			arg->arg[0] = 0;
+			arg->arg[1] = 0;
+			arg->arg[2] = 0;
+			arg->arg[3] = 0;
+			arg->arg[4] = 0;
+
+			// enter function
+			kw = tp_get_keyword();
+			if(!kw || kw[0] != '(')
+				return NULL;
+
+			// parse
+			while(1)
+			{
+				int32_t value;
+
+				// get value
+				kw = tp_get_keyword();
+				if(!kw)
+					return NULL;
+
+				if(idx >= 5)
+					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", spec->name, parse_actor_name);
+
+				// check for 'args'
+				if(!strcmp(kw, "args"))
+				{
+					kw = tp_get_keyword();
+					if(!kw || kw[0] != '[')
+						return NULL;
+
+					kw = tp_get_keyword();
+					if(!kw)
+						return NULL;
+
+					if(doom_sscanf(kw, "%d", &value) != 1 || value < 0 || value > 4)
+						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, spec->name, parse_actor_name);
+
+					kw = tp_get_keyword();
+					if(!kw || kw[0] != ']')
+						return NULL;
+
+					value += 32001;
+				} else
+				{
+					// parse numeric value
+					if(doom_sscanf(kw, "%d", &value) != 1 || value < -32000 || value > 32000)
+						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, spec->name, parse_actor_name);
+				}
+
+				arg->arg[idx++] = value;
+
+				// get comma or end
+				kw = tp_get_keyword();
+				if(!kw)
+					return NULL;
+
+				if(kw[0] == ')')
+					break;
+
+				if(kw[0] != ',')
+					return NULL;
+			}
+
+			parse_action_func = A_LineSpecial;
+			parse_action_arg = arg;
+
+			// return next keyword
+			return tp_get_keyword();
+		}
+
+		// not found
 		I_Error("[DECORATE] Unknown action '%s' in '%s'!", name, parse_actor_name);
+	}
 
 	// action function
 	parse_action_func = act->func;
@@ -1814,5 +1940,69 @@ static const dec_action_t mobj_action[] =
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	// terminator
 	{NULL}
+};
+
+//
+// table of line specials
+
+static const dec_linespec_t special_action[] =
+{
+	{10, "door_close"},
+	{12, "door_raise"},
+	{13, "door_lockedraise"},
+	{19, "thing_stop"},
+	{20, "floor_lowerbyvalue"},
+	{23, "floor_raisebyvalue"},
+	{28, "floor_raiseandcrush"},
+	{35, "floor_raisebyvaluetimes8"},
+	{36, "floor_lowerbyvaluetimes8"},
+	{40, "ceiling_lowerbyvalue"},
+	{41, "ceiling_raisebyvalue"},
+	{44, "ceiling_crushstop"},
+	{62, "plat_downwaitupstay"},
+	{64, "plat_upwaitdownstay"},
+	{70, "teleport"},
+	{71, "teleport_nofog"},
+	{72, "thrustthing"},
+	{73, "damagething"},
+	{74, "teleport_newmap"},
+	{97, "ceiling_lowerandcrushdist"},
+	{99, "floor_raiseandcrushdoom"},
+	{110, "light_raisebyvalue"},
+	{111, "light_lowerbyvalue"},
+	{112, "light_changetovalue"},
+	{113, "light_fade"},
+	{114, "light_glow"},
+	{116, "light_strobe"},
+	{117, "light_stop"},
+	{119, "thing_damage"},
+	{127, "thing_setspecial"},
+	{128, "thrustthingz"},
+	{130, "thing_activate"},
+	{131, "thing_deactivate"},
+	{132, "thing_remove"},
+	{133, "thing_destroy"},
+	{134, "thing_projectile"},
+	{135, "thing_spawn"},
+	{136, "thing_projectilegravity"},
+	{137, "thing_spawnnofog"},
+	{139, "thing_spawnfacing"},
+	{172, "plat_upnearestwaitdownstay"},
+	{176, "thing_changetid"},
+	{179, "changeskill"},
+	{195, "ceiling_crushraiseandstaya"},
+	{196, "ceiling_crushandraisea"},
+	{198, "ceiling_raisebyvaluetimes8"},
+	{199, "ceiling_lowerbyvaluetimes8"},
+	{200, "generic_floor"},
+	{201, "generic_ceiling"},
+	{206, "plat_downwaitupstaylip"},
+	{212, "sector_setcolor"},
+	{213, "sector_setfade"},
+	{239, "floor_raisebyvaluetxty"},
+	{243, "exit_normal"},
+	{244, "exit_secret"},
+	// terminator
+	{0}
 };
 

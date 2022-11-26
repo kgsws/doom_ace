@@ -9,6 +9,7 @@
 #include "map.h"
 #include "stbar.h"
 #include "wipe.h"
+#include "decorate.h"
 #include "textpars.h"
 #include "controls.h"
 #include "config.h"
@@ -20,6 +21,7 @@ enum
 	TYPE_U8,
 	TYPE_U16,
 	TYPE_S32,
+	TYPE_STRING_ALLOC,
 };
 
 typedef struct
@@ -28,6 +30,7 @@ typedef struct
 	union
 	{
 		void *ptr;
+		void **ptrp;
 		uint8_t *u8;
 		uint16_t *u16;
 		int32_t *s32;
@@ -132,6 +135,18 @@ static config_entry_t config_mod[] =
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
 	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
+	// custom damage types
+	{"damage[0].name", &damage_type_name[DAMAGE_CUSTOM_0], TYPE_STRING_ALLOC},
+	{"damage[1].name", &damage_type_name[DAMAGE_CUSTOM_1], TYPE_STRING_ALLOC},
+	{"damage[2].name", &damage_type_name[DAMAGE_CUSTOM_2], TYPE_STRING_ALLOC},
+	{"damage[3].name", &damage_type_name[DAMAGE_CUSTOM_3], TYPE_STRING_ALLOC},
+	{"damage[4].name", &damage_type_name[DAMAGE_CUSTOM_4], TYPE_STRING_ALLOC},
+	{"damage[5].name", &damage_type_name[DAMAGE_CUSTOM_5], TYPE_STRING_ALLOC},
+	{"damage[6].name", &damage_type_name[DAMAGE_CUSTOM_6], TYPE_STRING_ALLOC},
+	{"damage[7].name", &damage_type_name[DAMAGE_CUSTOM_7], TYPE_STRING_ALLOC},
+	{"damage[8].name", &damage_type_name[DAMAGE_CUSTOM_8], TYPE_STRING_ALLOC},
+	{"damage[9].name", &damage_type_name[DAMAGE_CUSTOM_9], TYPE_STRING_ALLOC},
+	{"damage[10].name", &damage_type_name[DAMAGE_CUSTOM_10], TYPE_STRING_ALLOC},
 	// terminator
 	{NULL}
 };
@@ -174,6 +189,12 @@ static uint32_t parse_value(config_entry_t *conf_def)
 						if(doom_sscanf(kv, "%d", &value) == 1)
 							*conf->s32 = value;
 					break;
+					case TYPE_STRING_ALLOC:
+						value = strlen(kv) + 1;
+						kw = ldr_malloc(value);
+						strcpy(kw, kv);
+						*conf->ptrp = kw;
+					break;
 				}
 			}
 			conf++;
@@ -189,6 +210,8 @@ void init_config()
 	player_info_t *pli;
 	config_entry_t *conf;
 	int32_t lump;
+
+	ldr_alloc_message = "Config";
 
 	// relocate pointers
 	conf = config_game;

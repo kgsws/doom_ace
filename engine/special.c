@@ -721,6 +721,171 @@ static uint32_t act_SetFade(sector_t *sec, line_t *ln)
 }
 
 //
+// lights
+
+static uint32_t act_Light_ByValue(sector_t *sec, line_t *ln)
+{
+	int32_t light = sec->lightlevel & 0x1FF;
+
+	light += value_offs;
+	if(light >= 255)
+		light = 255;
+	if(light < 0)
+		light = 0;
+
+	sec->lightlevel &= 0xFE00;
+	sec->lightlevel |= light;
+
+	return 1;
+}
+
+static uint32_t arg_Light_ChangeToValue(sector_t *sec, line_t *ln)
+{
+	int32_t light = spec_arg[1];
+
+	if(light >= 255)
+		light = 255;
+	if(light < 0)
+		light = 0;
+
+	sec->lightlevel &= 0xFE00;
+	sec->lightlevel |= light;
+
+	return 1;
+}
+
+static uint32_t arg_Light_Fade(sector_t *sec, line_t *ln)
+{
+	generic_light_t *gl;
+	fixed_t now = (sec->lightlevel & 0x1FF) << FRACBITS;
+	fixed_t set = (fixed_t)spec_arg[1] << FRACBITS;
+
+	if(sec->specialactive & ACT_LIGHT)
+	{
+		gl = generic_light_by_sector(sec);
+		if(gl && gl->flags & LIF_IS_FADE)
+		{
+			if(now == set || !spec_arg[2])
+			{
+				sec->lightlevel &= 0xFE00;
+				sec->lightlevel |= set >> FRACBITS;
+				gl->thinker.function = (void*)-1;
+				sec->specialactive &= ~ACT_LIGHT;
+				return 1;
+			} else
+				goto do_fade;
+		}
+		return 0;
+	}
+
+	if(now == set)
+		return 1;
+
+	if(!spec_arg[2])
+	{
+		arg_Light_ChangeToValue(sec, ln);
+		return 1;
+	}
+
+	gl = generic_light(sec);
+	if(!gl)
+		return 0;
+
+	gl->flags = LIF_IS_FADE;
+
+do_fade:
+	if(set > now)
+	{
+		gl->direction = DIR_UP;
+		gl->top = set;
+		gl->speed = (set - now) / spec_arg[2];
+	} else
+	{
+		gl->direction = DIR_DOWN;
+		gl->bot = set;
+		gl->speed = (now - set) / spec_arg[2];
+	}
+
+	return 1;
+}
+
+static uint32_t arg_Light_Glow(sector_t *sec, line_t *ln)
+{
+	generic_light_t *gl;
+	fixed_t now = (sec->lightlevel & 0x1FF) << FRACBITS;
+	fixed_t top = (fixed_t)spec_arg[1] << FRACBITS;
+	fixed_t bot = (fixed_t)spec_arg[2] << FRACBITS;
+
+	if(sec->specialactive & ACT_LIGHT)
+		return 0;
+
+	if(!spec_arg[3])
+		return 0;
+
+	gl = generic_light(sec);
+	if(!gl)
+		return 0;
+
+	gl->top = top;
+	gl->bot = bot;
+	gl->speed = (top - bot) / spec_arg[3];
+	gl->flags = LIF_TOP_REVERSE | LIF_BOT_REVERSE;
+
+	if(top > now)
+		gl->direction = DIR_UP;
+	else
+		gl->direction = DIR_DOWN;
+
+	return 1;
+}
+
+static uint32_t arg_Light_Strobe(sector_t *sec, line_t *ln)
+{
+	generic_light_t *gl;
+	fixed_t now = (sec->lightlevel & 0x1FF) << FRACBITS;
+	fixed_t top = (fixed_t)spec_arg[1] << FRACBITS;
+	fixed_t bot = (fixed_t)spec_arg[2] << FRACBITS;
+
+	if(sec->specialactive & ACT_LIGHT)
+		return 0;
+
+	gl = generic_light(sec);
+	if(!gl)
+		return 0;
+
+	gl->delay_top = spec_arg[3];
+	gl->delay_bot = spec_arg[4];
+	gl->top = top;
+	gl->bot = bot;
+	gl->speed = top - bot;
+	gl->flags = LIF_TOP_REVERSE | LIF_BOT_REVERSE;
+
+	if(bot < now)
+		gl->direction = DIR_DOWN;
+	else
+		gl->direction = DIR_UP;
+
+	return 1;
+}
+
+static uint32_t arg_Light_Stop(sector_t *sec, line_t *ln)
+{
+	generic_light_t *gl;
+
+	if(!(sec->specialactive & ACT_LIGHT))
+		return 0;
+
+	gl = generic_light_by_sector(sec);
+	if(!gl)
+		return 0;
+
+	gl->thinker.function = (void*)-1;
+	sec->specialactive &= ~ACT_LIGHT;
+
+	return 1;
+}
+
+//
 // thing stuff
 
 static void act_Thing_Stop(mobj_t *th)
@@ -757,6 +922,13 @@ static void act_ThrustThingZ(mobj_t *th)
 
 static void act_Thing_Activate(mobj_t *th)
 {
+	if(th->info->extra_type == ETYPE_SWITCHABLE)
+	{
+		th->flags1 &= ~MF1_DORMANT;
+		mobj_set_animation(th, ANIM_S_ACTIVE);
+		return;
+	}
+
 	if(th->player)
 		return;
 
@@ -772,6 +944,13 @@ static void act_Thing_Activate(mobj_t *th)
 
 static void act_Thing_Deactivate(mobj_t *th)
 {
+	if(th->info->extra_type == ETYPE_SWITCHABLE)
+	{
+		th->flags1 |= MF1_DORMANT;
+		mobj_set_animation(th, ANIM_S_INACTIVE);
+		return;
+	}
+
 	if(th->player)
 		return;
 
@@ -839,8 +1018,7 @@ static void act_Thing_Spawn(mobj_t *th)
 			if(value_mult > 2)
 			{
 				mo->flags &= ~MF_NOGRAVITY;
-				if(mo->flags & MF_MISSILE)
-					mo->gravity = FRACUNIT / 8;
+				mo->gravity = FRACUNIT / 8;
 			} else
 				mo->flags |= MF_NOGRAVITY;
 			return;
@@ -1075,7 +1253,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 					)
 				)
 					return;
-				if(mo->flags & MF_MISSILE)
+				if(!(mo->flags1 & MF1_ISMONSTER))
 					return;
 			break;
 			case MLA_PLR_USE:
@@ -1253,6 +1431,29 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 99: // Floor_RaiseAndCrushDoom
 			value_mult = 1;
 			spec_success = handle_tag(ln, spec_arg[0], act_Floor_Crush);
+		break;
+		case 110: // Light_RaiseByValue
+			value_offs = spec_arg[1];
+			spec_success = handle_tag(ln, spec_arg[0], act_Light_ByValue);
+		break;
+		case 111: // Light_LowerByValue
+			value_offs = -spec_arg[1];
+			spec_success = handle_tag(ln, spec_arg[0], act_Light_ByValue);
+		break;
+		case 112: // Light_ChangeToValue
+			spec_success = handle_tag(ln, spec_arg[0], arg_Light_ChangeToValue);
+		break;
+		case 113: // Light_Fade
+			spec_success = handle_tag(ln, spec_arg[0], arg_Light_Fade);
+		break;
+		case 114: // Light_Glow
+			spec_success = handle_tag(ln, spec_arg[0], arg_Light_Glow);
+		break;
+		case 116: // Light_Strobe
+			spec_success = handle_tag(ln, spec_arg[0], arg_Light_Strobe);
+		break;
+		case 117: // Light_Stop
+			spec_success = handle_tag(ln, spec_arg[0], arg_Light_Stop);
 		break;
 		case 119: // Thing_Damage
 			handle_tid(ln, spec_arg[0], act_Thing_Damage);

@@ -1,6 +1,6 @@
 // kgsws' ACE Engine
 ////
-// Generic floor / ceiling mover.
+// Generic floor / ceiling mover. Generic light effect.
 // Replaces all original types. Used only in Hexen map format.
 #include "sdk.h"
 #include "engine.h"
@@ -460,6 +460,61 @@ finish_move:
 	sec->specialactive &= ~ACT_FLOOR;
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+void think_light(generic_light_t *gl)
+{
+	sector_t *sec;
+	fixed_t level;
+	uint32_t finished = 0;
+
+	if(gl->wait)
+	{
+		gl->wait--;
+		return;
+	}
+
+	sec = gl->sector;
+	level = gl->level;
+
+	if(gl->direction == DIR_UP)
+	{
+		level += gl->speed;
+		if(level >= gl->top)
+		{
+			level = gl->top;
+			if(gl->flags & LIF_TOP_REVERSE)
+			{
+				gl->wait = gl->delay_top;
+				gl->direction = DIR_DOWN;
+			} else
+				finished = 1;
+		}
+	} else
+	{
+		level -= gl->speed;
+		if(level <= gl->bot)
+		{
+			level = gl->bot;
+			if(gl->flags & LIF_BOT_REVERSE)
+			{
+				gl->wait = gl->delay_bot;
+				gl->direction = DIR_UP;
+			} else
+				finished = 1;
+		}
+	}
+
+	sec->lightlevel &= 0xFE00;
+	sec->lightlevel |= level >> FRACBITS;
+	gl->level = level;
+
+	if(!finished)
+		return;
+
+	gl->thinker.function = (void*)-1;
+	sec->specialactive &= ~ACT_LIGHT;
+}
+
 //
 // API - ceiling
 
@@ -575,6 +630,44 @@ generic_mover_t *generic_floor_by_sector(sector_t *sec)
 		gm = (generic_mover_t*)th;
 		if(gm->sector == sec)
 			return gm;
+	}
+
+	return NULL;
+}
+
+//
+// API - light
+
+generic_light_t *generic_light(sector_t *sec)
+{
+	generic_light_t *gl;
+
+	if(sec->specialactive & ACT_LIGHT)
+		return NULL;
+	sec->specialactive |= ACT_LIGHT;
+
+	gl = Z_Malloc(sizeof(generic_mover_t), PU_LEVELSPEC, NULL);
+	memset(gl, 0, sizeof(generic_mover_t));
+	gl->thinker.function = think_light;
+	gl->sector = sec;
+	gl->level = (sec->lightlevel & 0x1FF) << FRACBITS;
+	think_add(&gl->thinker);
+
+	return gl;
+}
+
+generic_light_t *generic_light_by_sector(sector_t *sec)
+{
+	for(thinker_t *th = thcap.next; th != &thcap; th = th->next)
+	{
+		generic_light_t *gl;
+
+		if(th->function != think_light)
+			continue;
+
+		gl = (generic_light_t*)th;
+		if(gl->sector == sec)
+			return gl;
 	}
 
 	return NULL;

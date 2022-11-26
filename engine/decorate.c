@@ -443,6 +443,9 @@ static const dec_anim_t mobj_anim[] =
 	{"crush", ANIM_CRUSH, ETYPE_NONE, offsetof(mobjinfo_t, state_crush)},
 	{"crash", ANIM_CRASH, ETYPE_NONE, offsetof(mobjinfo_t, state_crash)},
 	{"crash.extreme", ANIM_XCRASH, ETYPE_NONE, offsetof(mobjinfo_t, state_xcrash)},
+	// switchable decoration
+	{"active", ANIM_S_ACTIVE, ETYPE_SWITCHABLE, offsetof(mobjinfo_t, st_switchable.active)},
+	{"inactive", ANIM_S_INACTIVE, ETYPE_SWITCHABLE, offsetof(mobjinfo_t, st_switchable.inactive)},
 	// weapon
 	{"ready", ANIM_W_READY, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.ready)},
 	{"deselect", ANIM_W_LOWER, ETYPE_WEAPON, offsetof(mobjinfo_t, st_weapon.lower)},
@@ -754,6 +757,11 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 		.name = "PlayerPawn",
 		.def = &default_player,
 		.attr[0] = attr_player
+	},
+	[ETYPE_SWITCHABLE] =
+	{
+		.name = "SwitchableDecoration",
+		.def = &default_mobj
 	},
 	[ETYPE_HEALTH] =
 	{

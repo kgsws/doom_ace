@@ -99,6 +99,7 @@ enum
 	STH_ACE_LINE_SCROLL,
 	STH_ACE_CEILING,
 	STH_ACE_FLOOR,
+	STH_ACE_LIGHT,
 };
 
 //
@@ -374,6 +375,20 @@ typedef struct
 	uint16_t lighttag;
 	uint16_t special;
 } save_generic_mover_t;
+
+typedef struct
+{ // STH_ACE_LIGHT
+	fixed_t speed;
+	fixed_t level;
+	fixed_t top;
+	fixed_t bot;
+	uint16_t sector;
+	uint16_t wait;
+	uint16_t delay_top;
+	uint16_t delay_bot;
+	uint8_t flags;
+	uint8_t direction;
+} save_generic_light_t;
 
 //
 
@@ -875,6 +890,26 @@ static inline void sv_put_thinkers()
 		if(th->function == think_floor)
 		{
 			save_put_generic((generic_mover_t*)th, STH_ACE_FLOOR);
+		} else
+		if(th->function == think_light)
+		{
+			save_generic_light_t sav;
+			generic_light_t *gl = (generic_light_t*)th;
+
+			writer_add_u16(STH_ACE_LIGHT);
+
+			sav.speed = gl->speed;
+			sav.level = gl->level;
+			sav.top = gl->top;
+			sav.bot = gl->bot;
+			sav.sector = gl->sector - sectors;
+			sav.wait = gl->wait;
+			sav.delay_top = gl->delay_top;
+			sav.delay_bot = gl->delay_bot;
+			sav.flags = gl->flags;
+			sav.direction = gl->direction;
+
+			writer_add(&sav, sizeof(sav));
 		}
 	}
 }
@@ -1730,6 +1765,38 @@ static inline uint32_t ld_get_specials()
 				gm->special = sav.special;
 			}
 			break;
+			case STH_ACE_LIGHT:
+			{
+				save_generic_light_t sav;
+				generic_light_t *gl;
+				sector_t *sec;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				if(sav.sector >= numsectors)
+					return 1;
+
+				if(sav.direction > 1)
+					return 1;
+
+				sec = sectors + sav.sector;
+
+				gl = generic_light(sec);
+				if(!gl)
+					return 1;
+
+				gl->speed = sav.speed;
+				gl->level = sav.level;
+				gl->top = sav.top;
+				gl->bot = sav.bot;
+				gl->wait = sav.wait;
+				gl->delay_top = sav.delay_top;
+				gl->delay_bot = sav.delay_bot;
+				gl->flags = sav.flags;
+				gl->direction = sav.direction;
+			}
+			break;
 			// old thinkers
 			case STH_DOOM_CEILING:
 			{
@@ -2010,7 +2077,7 @@ static inline uint32_t ld_get_things()
 		if(sprite >= numsprites)
 			return 1;
 
-		if((thing.frame & 0x1F) >= sprites[sprite].numframes)
+		if(thing.sprite != 0x31544E54 && (thing.frame & 0x1F) >= sprites[sprite].numframes)
 			return 1;
 
 		if(thing.translation & 0x8000)

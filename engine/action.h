@@ -21,6 +21,12 @@ typedef struct
 	uint16_t type;
 } args_singleType_t;
 
+typedef struct
+{
+	uint16_t special;
+	int16_t arg[5];
+} args_lineSpecial_t;
+
 //
 
 #define CHAN_BODY	0

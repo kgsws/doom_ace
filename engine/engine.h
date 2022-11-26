@@ -434,6 +434,7 @@ enum
 {
 	ETYPE_NONE, // must be first
 	ETYPE_PLAYERPAWN,
+	ETYPE_SWITCHABLE,
 	ETYPE_HEALTH,
 	ETYPE_INV_SPECIAL,
 	ETYPE_INVENTORY,
@@ -651,6 +652,11 @@ typedef struct mobjinfo_s
 			uint16_t pickup;
 			uint16_t use;
 		} st_custinv;
+		struct
+		{
+			uint16_t active;
+			uint16_t inactive;
+		} st_switchable;
 	};
 	// extra stuff list
 	union

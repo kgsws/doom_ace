@@ -9,8 +9,13 @@
 #define MVF_SET_TEXTURE	0x0020
 #define MVF_SET_SPECIAL	0x0040
 
+#define LIF_TOP_REVERSE	0x01
+#define LIF_BOT_REVERSE	0x02
+#define LIF_IS_FADE	0x80
+
 #define ACT_CEILING	1
 #define ACT_FLOOR	2
+#define ACT_LIGHT	4
 
 enum
 {
@@ -44,6 +49,21 @@ typedef struct
 	uint8_t seq_save;
 } generic_mover_t;
 
+typedef struct
+{
+	thinker_t thinker;
+	sector_t *sector;
+	fixed_t speed;
+	fixed_t level;
+	fixed_t top;
+	fixed_t bot;
+	uint16_t wait;
+	uint16_t delay_top;
+	uint16_t delay_bot;
+	uint8_t flags;
+	uint8_t direction;
+} generic_light_t;
+
 //
 
 generic_mover_t *generic_ceiling(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
@@ -52,7 +72,11 @@ generic_mover_t *generic_ceiling_by_sector(sector_t *sec);
 generic_mover_t *generic_floor(sector_t *sec, uint32_t dir, uint32_t def_seq, uint32_t is_fast);
 generic_mover_t *generic_floor_by_sector(sector_t *sec);
 
+generic_light_t *generic_light(sector_t *sec);
+generic_light_t *generic_light_by_sector(sector_t *sec);
+
 //
 void think_ceiling(generic_mover_t *gm) __attribute((regparm(2),no_caller_saved_registers));
 void think_floor(generic_mover_t *gm) __attribute((regparm(2),no_caller_saved_registers));
+void think_light(generic_light_t *gl) __attribute((regparm(2),no_caller_saved_registers));
 

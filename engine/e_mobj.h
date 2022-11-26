@@ -47,6 +47,13 @@ enum
 	NUM_MOBJ_ANIMS
 };
 
+// switchable animations
+enum
+{
+	ANIM_S_ACTIVE = NUM_MOBJ_ANIMS,
+	ANIM_S_INACTIVE,
+};
+
 // weapon animations
 enum
 {

@@ -365,6 +365,22 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 	gm->texture = texture;
 	gm->special = special;
 
+	if(spec_arg[4] & 8)
+	{
+		if(dest <= sec->floorheight)
+		{
+			gm->sndwait = 2;
+			think_floor(gm);
+		}
+	} else
+	{
+		if(dest >= sec->floorheight)
+		{
+			gm->sndwait = 2;
+			think_floor(gm);
+		}
+	}
+
 	return 1;
 }
 
@@ -542,6 +558,22 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 	gm->flags |= flags;
 	gm->texture = texture;
 	gm->special = special;
+
+	if(spec_arg[4] & 8)
+	{
+		if(dest <= sec->ceilingheight)
+		{
+			gm->sndwait = 2;
+			think_ceiling(gm);
+		}
+	} else
+	{
+		if(dest >= sec->ceilingheight)
+		{
+			gm->sndwait = 2;
+			think_ceiling(gm);
+		}
+	}
 
 	return 1;
 }
@@ -1236,7 +1268,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				if(mo->player)
 					break;
 				if(	mo->flags & MF_MISSILE &&
-					!(mo->flags & MF1_NOTELEPORT) &&
+					!(mo->flags1 & MF1_NOTELEPORT) &&
 					(
 						ln->special == 70 ||	// Teleport
 						ln->special == 71	// Teleport_NoFog
@@ -1484,7 +1516,8 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 135: // Thing_Spawn
 			value_mult = 1;
 			value_offs = 1;
-			goto thing_spawn;
+			if(spec_arg[0] != spec_arg[3])
+				goto thing_spawn;
 		break;
 		case 136: // Thing_ProjectileGravity
 			value_mult = 3;
@@ -1494,15 +1527,21 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 137: // Thing_SpawnNoFog
 			value_mult = 1;
 			value_offs = 0;
-			goto thing_spawn;
+			if(spec_arg[0] != spec_arg[3])
+				goto thing_spawn;
 		break;
 		case 139: // Thing_SpawnFacing
 			value_mult = 0;
 			value_offs = !spec_arg[2];
+			if(spec_arg[0] == spec_arg[3])
+				break;
 thing_spawn:
-			spawn_type = mobj_by_spawnid(spec_arg[1]);
-			if(spawn_type >= 0 && spec_arg[0] != spec_arg[3])
-				handle_tid(ln, spec_arg[0], act_Thing_Spawn);
+			if(spec_arg[1])
+			{
+				spawn_type = mobj_by_spawnid(spec_arg[1]);
+				if(spawn_type >= 0)
+					handle_tid(ln, spec_arg[0], act_Thing_Spawn);
+			}
 		break;
 		case 172: // Plat_UpNearestWaitDownStay
 			value_mult = 1;

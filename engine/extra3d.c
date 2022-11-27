@@ -434,7 +434,7 @@ void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step)
 	pl = sec->exfloor;
 	while(pl)
 	{
-		if(pl->flags & E3D_SOLID && (!e3d_plane_move || mo->z > pl->source->floorheight))
+		if(pl->flags & E3D_SOLID && (!e3d_plane_move || mo->z > pl->source->floorheight || pl->source->floorheight == pl->source->ceilingheight))
 		{
 			if(*pl->height <= z && *pl->height > tmextrafloor)
 				tmextrafloor = *pl->height;

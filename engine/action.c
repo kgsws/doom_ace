@@ -1966,6 +1966,7 @@ static const dec_linespec_t special_action[] =
 	{72, "thrustthing"},
 	{73, "damagething"},
 	{74, "teleport_newmap"},
+	{76, "teleportother"},
 	{97, "ceiling_lowerandcrushdist"},
 	{99, "floor_raiseandcrushdoom"},
 	{110, "light_raisebyvalue"},

@@ -121,6 +121,7 @@ extern fixed_t botslope; // was bottomslope
 extern fixed_t topslope;
 extern mobj_t *shootthing;
 extern fixed_t attackrange;
+extern fixed_t tmbbox[4];
 
 // player
 extern uint32_t playeringame[];

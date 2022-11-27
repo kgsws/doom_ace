@@ -37,6 +37,10 @@ static fixed_t value_mult;
 static fixed_t value_offs;
 static int32_t spawn_type;
 
+static fixed_t ts_offs_x;
+static fixed_t ts_offs_y;
+static fixed_t ts_offs_z;
+
 fixed_t nearest_up;
 fixed_t nearest_dn;
 
@@ -1094,96 +1098,102 @@ static void act_Thing_Destroy(mobj_t *th)
 //
 // teleports
 
-static uint32_t cb_teleport(mobj_t *mo)
+static uint32_t do_Teleport()
 {
-	fixed_t x, y, z, f;
-	angle_t angle;
+	// TODO: other angle modes
+	mobj_t *mo;
+	uint32_t flags = 0;
 
-	if(mo->special.tid != value_offs)
+	if(activator->flags1 & MF1_NOTELEPORT)
 		return 0;
 
-	if(mo->type != 41) // MT_TELEPORTMAN
+	mo = mobj_by_tid_first(spec_arg[0]);
+	if(!mo)
 		return 0;
 
-	x = activator->x;
-	y = activator->y;
-	z = activator->z;
-	f = activator->floorz;
-
-	if(!P_TeleportMove(activator, mo->x, mo->y)) // TODO: handle Z
+	if(mo->spawnpoint.type != 9044 && mo->spawnpoint.type != 14)
 		return 0;
 
 	if(mo->spawnpoint.type == 9044)
-	{
-		activator->z = mo->z;
-		if(P_CheckPosition(activator, activator->x, activator->y))
-		{
-			activator->floorz = tmfloorz;
-			activator->ceilingz = tmceilingz;
-		}
-	} else
-	{
-		activator->z = mo->floorz;
-		if(activator->flags & MF_MISSILE)
-		{
-			activator->z += (z - f);
-			if(P_CheckPosition(activator, activator->x, activator->y))
-			{
-				activator->floorz = tmfloorz;
-				activator->ceilingz = tmceilingz;
-			}
-		}
-	}
+		flags |= TELEF_USE_Z;
 
 	if(value_mult < 0)
-		// TODO: other angle modes
-		activator->angle = mo->angle;
+		flags |= TELEF_USE_ANGLE | TELEF_FOG;
 
-	angle = mo->angle >> ANGLETOFINESHIFT;
+	return mobj_teleport(activator, mo->x, mo->y, mo->z, mo->angle, flags);
+}
 
-	if(value_mult < 0)
-	{
-		P_SpawnMobj(x, y, z, 39); // MT_TFOG
-		P_SpawnMobj(activator->x + 20 * finecosine[angle], activator->y + 20 * finesine[angle], activator->z, 39); // MT_TFOG
-	}
+static uint32_t do_TeleportOther()
+{
+	mobj_t *mo, *target;
+	fixed_t x, y, z;
+	uint32_t flags = TELEF_NO_KILL | TELEF_USE_Z;
 
-	if(activator->flags & MF_MISSILE)
-	{
-		fixed_t speed, pitch;
+	mo = mobj_by_tid_first(spec_arg[0]);
+	if(!mo)
+		return 0;
 
-		if(activator->info->fast_speed && (fastparm || gameskill == sk_nightmare))
-			speed = activator->info->fast_speed;
-		else
-			speed = activator->info->speed;
+	target = mobj_by_tid_first(spec_arg[1]);
+	if(!target)
+		return 0;
 
-		if(activator->momz)
-		{
-			pitch = slope_to_angle(activator->momz);
-			pitch >>= ANGLETOFINESHIFT;
-			speed = FixedMul(speed, finecosine[pitch]);
-		}
+	if(spec_arg[2])
+		flags |= TELEF_USE_ANGLE | TELEF_FOG;
 
-		activator->momx = FixedMul(speed, finecosine[angle]);
-		activator->momy = FixedMul(speed, finesine[angle]);
-	} else
-	{
-		if(value_mult < 0)
-		{
-			activator->momx = 0;
-			activator->momy = 0;
-			activator->momz = 0;
-			if(activator->player)
-				activator->reactiontime = 18;
-		}
-	}
+	return mobj_teleport(mo, target->x, target->y, target->z, mo->angle, flags);
+}
 
-	// HACK - move other sound slots
-	activator->sound_body.x = activator->x;
-	activator->sound_body.y = activator->y;
-	activator->sound_weapon.x = activator->x;
-	activator->sound_weapon.y = activator->y;
-
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t PIT_TeleportInSector(mobj_t *mo)
+{
+//	value_offs = 1;
 	return 1;
+}
+
+static uint32_t do_TeleportInSector()
+{
+	mobj_t *anchor, *target;
+
+	if(!spec_arg[0])
+		return 0;
+
+	anchor = mobj_by_tid_first(spec_arg[1]);
+	if(!anchor)
+		return 0;
+
+	target = mobj_by_tid_first(spec_arg[2]);
+	if(!target)
+		return 0;
+	if(target->spawnpoint.type != 9044 && target->spawnpoint.type != 14)
+		return 0;
+
+	if(anchor->angle != target->angle)
+		// sorry, rotation is not supported
+		return 0;
+
+	ts_offs_x = target->x - anchor->x;
+	ts_offs_y = target->y - anchor->y;
+
+	if(target->spawnpoint.type == 9044)
+		ts_offs_z = target->z - anchor->z;
+	else
+		ts_offs_z = ONFLOORZ;
+
+	value_offs = 0;
+
+	for(uint32_t i = 0; i < numsectors; i++)
+	{
+		sector_t *sec = sectors + i;
+
+		if(sec->tag != spec_arg[0])
+			continue;
+
+		for(int32_t x = sec->blockbox[BOXLEFT]; x <= sec->blockbox[BOXRIGHT]; x++)
+			for(int32_t y = sec->blockbox[BOXBOTTOM]; y <= sec->blockbox[BOXTOP]; y++)
+				P_BlockThingsIterator(x, y, PIT_TeleportInSector);
+	}
+
+	return value_offs;
 }
 
 //
@@ -1268,7 +1278,6 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				if(mo->player)
 					break;
 				if(	mo->flags & MF_MISSILE &&
-					!(mo->flags1 & MF1_NOTELEPORT) &&
 					(
 						ln->special == 70 ||	// Teleport
 						ln->special == 71	// Teleport_NoFog
@@ -1285,7 +1294,11 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 					)
 				)
 					return;
-				if(!(mo->flags1 & MF1_ISMONSTER))
+				if(mo->flags1 & MF1_ISMONSTER)
+					break;
+				if(	ln->special != 70 &&	// Teleport
+					ln->special != 71	// Teleport_NoFog
+				)
 					return;
 			break;
 			case MLA_PLR_USE:
@@ -1297,7 +1310,8 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 					(	map_level_info->flags & MAP_FLAG_NO_MONSTER_ACTIVATION ||
 						(
 							ln->special != 12 &&	// Door_Raise
-							ln->special != 70	// Teleport
+							ln->special != 70 &&	// Teleport
+							ln->special != 71	// Teleport_NoFog
 						)
 					)
 				)
@@ -1424,16 +1438,14 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			if(!back_side)
 			{
 				value_mult = -1;
-				value_offs = spec_arg[0];
-				spec_success = mobj_for_each(cb_teleport);
+				spec_success = do_Teleport();
 			}
 		break;
 		case 71: // Teleport_NoFog
 			if(!back_side)
 			{
 				value_mult = 0;
-				value_offs = spec_arg[0];
-				spec_success = mobj_for_each(cb_teleport);
+				spec_success = do_Teleport();
 			}
 		break;
 		case 72: // ThrustThing
@@ -1456,6 +1468,12 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			map_start_id = spec_arg[1];
 			map_start_facing = !!spec_arg[2];
 			spec_success = 1;
+		break;
+		case 76: // TeleportOther
+			spec_success = do_TeleportOther();
+		break;
+		case 78: // TeleportInSector
+			spec_success = do_TeleportInSector();
 		break;
 		case 97: // Ceiling_LowerAndCrushDist
 			spec_success = handle_tag(ln, spec_arg[0], act_Ceiling_LowerAndCrushDist);

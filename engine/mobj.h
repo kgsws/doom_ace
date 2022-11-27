@@ -8,6 +8,11 @@
 #define DAMAGE_IS_CUSTOM	0x80000000
 #define DAMAGE_CUSTOM(lo,hi,mul,add)	((lo) | ((hi) << 9) | ((add) << 18) | ((mul) << 27) | DAMAGE_IS_CUSTOM)
 
+#define TELEF_USE_Z	1
+#define TELEF_USE_ANGLE	2
+#define TELEF_NO_KILL	4
+#define TELEF_FOG	8
+
 //
 
 extern uint32_t mobj_netid;
@@ -39,7 +44,11 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count);
 void mobj_use_item(mobj_t *mo, struct inventory_s *item);
 uint8_t *mobj_check_keylock(mobj_t *mo, uint32_t lockdef, uint32_t is_remote);
 
+// teleport
+uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angle, uint32_t flags);
+
 // helpers
 uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*));
+mobj_t *mobj_by_tid_first(uint32_t tid);
 mobj_t *mobj_by_netid(uint32_t netid);
 

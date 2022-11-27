@@ -40,8 +40,8 @@ uint_fast8_t reborn_inventory_hack;
 uint32_t mobj_netid;
 
 static fixed_t oldfloorz;
-
 static mobj_t *hit_thing;
+static uint_fast8_t teleblock;
 
 //
 
@@ -898,7 +898,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 {
 	uint32_t damage;
 
-	if(map_format != MAP_FORMAT_DOOM && thing->flags & MF_SOLID && !(tmthing->flags & MF_MISSILE))
+	if(map_format != MAP_FORMAT_DOOM && thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->iflags & MFI_TELEPORT))
 	{
 		// thing-over-thing
 		// TODO: overlapping things should be marked and checked every tic
@@ -918,13 +918,20 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		}
 	}
 
+	// ignore when teleporting
+	if(tmthing->iflags & MFI_TELEPORT)
+	{
+		teleblock = thing->flags & (MF_SOLID | MF_SHOOTABLE);
+		return 1;
+	}
+
 	if(tmthing->flags & MF_SKULLFLY)
 	{
 		damage = tmthing->info->damage;
 		if(!(damage & DAMAGE_IS_CUSTOM))
 			damage |= DAMAGE_IS_PROJECTILE;
 
-		mobj_damage(thing, tmthing, tmthing, damage, 0);
+		mobj_damage(thing, tmthing, tmthing, damage, NULL);
 
 		tmthing->flags &= ~MF_SKULLFLY;
 		tmthing->momx = 0;
@@ -997,7 +1004,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 				damage |= DAMAGE_IS_PROJECTILE;
 		}
 
-		mobj_damage(thing, tmthing, tmthing->target, damage, 0);
+		mobj_damage(thing, tmthing, tmthing->target, damage, NULL);
 
 		if(is_ripper)
 		{
@@ -1236,7 +1243,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 
 	if(crushchange && !(leveltime & 3))
 	{
-		mobj_damage(thing, NULL, NULL, crushchange & 0x8000 ? crushchange & 0x7FFF : 10, 0); // 'crushchange' sould contain damage value directly
+		mobj_damage(thing, NULL, NULL, crushchange & 0x8000 ? crushchange & 0x7FFF : 10, NULL); // 'crushchange' sould contain damage value directly
 
 		if(!(thing->flags & MF_NOBLOOD) || demoplayback == DEMO_OLD)
 		{
@@ -1535,6 +1542,24 @@ uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*))
 	return 0;
 }
 
+mobj_t *mobj_by_tid_first(uint32_t tid)
+{
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+	{
+		mobj_t *mo;
+
+		if(th->function != (void*)0x00031490 + doom_code_segment)
+			continue;
+
+		mo = (mobj_t*)th;
+
+		if(mo->special.tid == tid)
+			return mo;
+	}
+
+	return NULL;
+}
+
 mobj_t *mobj_by_netid(uint32_t netid)
 {
 	if(!netid)
@@ -1805,7 +1830,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		player->attacker = source;
 
 		if(source && source != target && player->cheats & CF_REVENGE)
-			mobj_damage(source, NULL, target, 1000000, 0);
+			mobj_damage(source, NULL, target, 1000000, NULL);
 
 		// I_Tactile ...
 	}
@@ -1909,7 +1934,7 @@ static void mobj_fall_damage(mobj_t *mo)
 			!(map_level_info->flags & MAP_FLAG_MONSTER_FALL_DMG)
 		)
 	){
-		mobj_damage(mo, NULL, NULL, 1000000, 0);
+		mobj_damage(mo, NULL, NULL, 1000000, NULL);
 		return;
 	}
 
@@ -1922,7 +1947,7 @@ static void mobj_fall_damage(mobj_t *mo)
 	)
 		damage = mo->health - 1;
 
-	mobj_damage(mo, NULL, NULL, damage, 0);
+	mobj_damage(mo, NULL, NULL, damage, NULL);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -2253,6 +2278,174 @@ static void mobj_z_move(mobj_t *mo)
 			return;
 		}
 	}
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t PIT_StompThing(mobj_t *thing)
+{
+	fixed_t blockdist;
+
+	if(thing == tmthing)
+		return 1;
+
+	if(!(thing->flags & MF_SHOOTABLE))
+		return 1;
+
+	if(thing->z >= tmthing->z + tmthing->height)
+		return 1;
+
+	if(tmthing->z >= thing->z + thing->height)
+		return 1;
+
+	blockdist = thing->radius + tmthing->radius;
+
+	if(abs(thing->x - tmthing->x) >= blockdist)
+		return 1;
+
+	if(abs(thing->y - tmthing->y) >= blockdist)
+		return 1;
+
+	mobj_damage(thing, tmthing, tmthing, 1000000, NULL);
+
+	return 1;
+}
+
+uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angle, uint32_t flags)
+{
+	// TODO: failed teleport should not explode projectiles
+	fixed_t xx, yy, zz, fz, cz, ff;
+	uint32_t blocked;
+
+	xx = mo->x;
+	yy = mo->y;
+	zz = mo->z;
+	cz = mo->ceilingz;
+	fz = mo->floorz;
+
+	if(mo->flags & MF_MISSILE)
+		ff = mo->subsector->sector->floorheight;
+
+	P_UnsetThingPosition(mo);
+
+	mo->x = x;
+	mo->y = y;
+	if(!(flags & TELEF_USE_Z))
+	{
+		subsector_t *ss;
+		ss = R_PointInSubsector(x, y);
+		mo->z = ss->sector->floorheight;
+		if(mo->flags & MF_MISSILE)
+			mo->z += zz - ff;
+	} else
+		mo->z = z;
+
+	P_SetThingPosition(mo);
+
+	teleblock = 0;
+
+	mo->flags |= MF_TELEPORT;
+	mo->iflags |= MFI_TELEPORT;
+	blocked = !P_TryMove(mo, mo->x, mo->y) | teleblock;
+	mo->flags &= ~MF_TELEPORT;
+	mo->iflags &= ~MFI_TELEPORT;
+	if(blocked)
+	{
+		int32_t xl, xh, yl, yh;
+
+		if(flags & TELEF_NO_KILL)
+			goto revert;
+
+		if(!(mo->flags1 & MF1_TELESTOMP))
+			goto revert;
+
+		tmbbox[BOXTOP] = y + tmthing->radius;
+		tmbbox[BOXBOTTOM] = y - tmthing->radius;
+		tmbbox[BOXRIGHT] = x + tmthing->radius;
+		tmbbox[BOXLEFT] = x - tmthing->radius;
+
+		xl = (tmbbox[BOXLEFT] - bmaporgx - MAXRADIUS) >> MAPBLOCKSHIFT;
+		xh = (tmbbox[BOXRIGHT] - bmaporgx + MAXRADIUS) >> MAPBLOCKSHIFT;
+		yl = (tmbbox[BOXBOTTOM] - bmaporgy - MAXRADIUS) >> MAPBLOCKSHIFT;
+		yh = (tmbbox[BOXTOP] - bmaporgy + MAXRADIUS) >> MAPBLOCKSHIFT;
+
+		tmthing = mo;
+
+		for(int32_t bx = xl; bx <= xh; bx++)
+			for(int32_t by = yl; by <= yh; by++)
+				P_BlockThingsIterator(bx, by, PIT_StompThing);
+	}
+
+	if(flags & TELEF_USE_ANGLE)
+		mo->angle = angle;
+
+	angle = mo->angle >> ANGLETOFINESHIFT;
+
+	if(mo->flags & MF_MISSILE)
+	{
+		fixed_t speed, pitch;
+
+		if(mo->info->fast_speed && (fastparm || gameskill == sk_nightmare))
+			speed = mo->info->fast_speed;
+		else
+			speed = mo->info->speed;
+
+		if(mo->momz)
+		{
+			pitch = slope_to_angle(mo->momz);
+			pitch >>= ANGLETOFINESHIFT;
+			speed = FixedMul(speed, finecosine[pitch]);
+		}
+
+		mo->momx = FixedMul(speed, finecosine[angle]);
+		mo->momy = FixedMul(speed, finesine[angle]);
+	}
+
+	if(flags & TELEF_FOG)
+	{
+		if(!(mo->flags & MF_MISSILE))
+		{
+			mo->momx = 0;
+			mo->momy = 0;
+			mo->momz = 0;
+		}
+
+		P_SpawnMobj(xx, yy, zz, 39); // MT_TFOG
+
+		x = mo->x + 20 * finecosine[angle];
+		y = mo->y + 20 * finesine[angle];
+		z = mo->z;
+		P_SpawnMobj(x, y, z, 39); // MT_TFOG
+
+		if(mo->player)
+			mo->reactiontime = 18;
+	}
+
+	if(mo->player)
+	{
+		fixed_t viewheight = mo->info->player.view_height;
+		mo->player->viewz = mo->z + viewheight;
+		mo->player->viewheight = viewheight;
+		mo->player->deltaviewheight = 0;
+	}
+
+	// HACK - move other sound slots
+	mo->sound_body.x = mo->x;
+	mo->sound_body.y = mo->y;
+	mo->sound_weapon.x = mo->x;
+	mo->sound_weapon.y = mo->y;
+
+	return 1;
+
+revert:
+	P_UnsetThingPosition(mo);
+	mo->x = xx;
+	mo->y = yy;
+	mo->z = zz;
+	mo->ceilingz = cz;
+	mo->floorz = fz;
+	P_SetThingPosition(mo);
+
+	return 0;
 }
 
 void mobj_spawn_puff(divline_t *trace, mobj_t *target)

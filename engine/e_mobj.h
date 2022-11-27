@@ -160,6 +160,7 @@ enum
 // internal FLAGS
 #define MFI_SHATTERING	0x00000001
 #define MFI_CRASHED	0x00000002
+#define MFI_TELEPORT	0x00000004
 
 // FLAGS extra (inventory) [shared]
 #define MFE_INVENTORY_QUIET	0x00000001

@@ -238,6 +238,7 @@ DOOM_VAR 0x0002B6EC, usejoystick
 DOOM_VAR 0x0002B840, activeceilings
 
 DOOM_VAR 0x0002B960, spechit
+DOOM_VAR 0x0002B980, tmbbox
 DOOM_VAR 0x0002B990, nofit
 DOOM_VAR 0x0002B994, crushchange
 DOOM_VAR 0x0002B9A8, shootz

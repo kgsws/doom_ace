@@ -901,7 +901,8 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	if(map_format != MAP_FORMAT_DOOM && thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->iflags & MFI_TELEPORT))
 	{
 		// thing-over-thing
-		// TODO: overlapping things should be marked and checked every tic
+		tmthing->iflags |= MFI_MOBJONMOBJ;
+		thing->iflags |= MFI_MOBJONMOBJ;
 
 		if(tmthing->z >= thing->z + thing->height)
 		{
@@ -1286,6 +1287,8 @@ uint32_t check_position_extra(sector_t *sec)
 	ceilingline = NULL;
 	floorline = NULL;
 	numspecbump = 0;
+
+	tmthing->iflags &= ~MFI_MOBJONMOBJ;
 
 	tmceilingz = sec->ceilingheight;
 	tmfloorz = sec->floorheight;
@@ -1966,8 +1969,12 @@ static void mobj_xy_move(mobj_t *mo)
 			mo->momz = 0;
 			mobj_set_animation(mo, ANIM_SPAWN);
 		}
-		if(demoplayback == DEMO_OLD || !(mo->flags & MF_MISSILE))
+		if(demoplayback == DEMO_OLD)
 			return;
+		if(!(mo->flags & MF_MISSILE) && !(mo->iflags & MFI_MOBJONMOBJ))
+			return;
+if(mo->iflags & MFI_MOBJONMOBJ)
+doom_printf("ONMOBJ %u\n", leveltime);
 	}
 
 	// allow pushing monsters off ledges (and +PUSHABLE)

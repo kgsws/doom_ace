@@ -549,6 +549,7 @@ static inline void prepare_nodes(int32_t map_lump)
 
 	// mark as present; do not load yet
 	xnod_present = 1;
+	doom_printf("[MAP] extended nodes\n");
 }
 
 static inline void load_nodes(int32_t map_lump)

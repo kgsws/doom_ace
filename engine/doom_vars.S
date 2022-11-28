@@ -198,6 +198,8 @@ DOOM_VAR 0x0002B388, netdemo
 DOOM_VAR 0x0002B390, key_straferight
 DOOM_VAR 0x0002B394, key_right
 
+DOOM_VAR 0x0002B3A8, bodyqueslot
+
 DOOM_VAR 0x0002B3B4, singledemo
 DOOM_VAR 0x0002B3B8, viewactive
 DOOM_VAR 0x0002B3BC, gametic
@@ -282,10 +284,15 @@ DOOM_VAR 0x0002C114, rejectmatrix
 DOOM_VAR 0x0002C118, sides
 DOOM_VAR 0x0002C11C, numsides
 DOOM_VAR 0x0002C120, lines
+DOOM_VAR 0x0002C124, nodes
+DOOM_VAR 0x0002C128, numnodes
 DOOM_VAR 0x0002C12C, segs
+DOOM_VAR 0x0002C130, numsegs
 DOOM_VAR 0x0002C134, numlines
 DOOM_VAR 0x0002C138, vertexes
+DOOM_VAR 0x0002C13C, numvertexes
 DOOM_VAR 0x0002C140, subsectors
+DOOM_VAR 0x0002C144, numsubsectors
 DOOM_VAR 0x0002C148, sectors
 DOOM_VAR 0x0002C14C, numsectors
 

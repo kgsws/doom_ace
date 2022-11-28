@@ -462,12 +462,66 @@ HU_Start:
 HU_dequeueChatChar:
 	.byte	0xE9
 	.4byte	0x0003B920
-////////////////////////////////// P_SetupLevel
-.section .text.P_SetupLevel
-.global P_SetupLevel
-P_SetupLevel:
+////////////////////////////////// P_LoadBlockMap
+.section .text.P_LoadBlockMap
+.global P_LoadBlockMap
+P_LoadBlockMap:
 	.byte	0xE9
-	.4byte	0x0002E7A0
+	.4byte	0x0002E4F0
+////////////////////////////////// P_LoadSectors
+.section .text.P_LoadSectors
+.global P_LoadSectors
+P_LoadSectors:
+	.byte	0xE9
+	.4byte	0x0002DF40
+////////////////////////////////// P_LoadSideDefs
+.section .text.P_LoadSideDefs
+.global P_LoadSideDefs
+P_LoadSideDefs:
+	.byte	0xE9
+	.4byte	0x0002E3E0
+////////////////////////////////// P_LoadSubsectors
+.section .text.P_LoadSubsectors
+.global P_LoadSubsectors
+P_LoadSubsectors:
+	.byte	0xE9
+	.4byte	0x0002DE90
+////////////////////////////////// P_LoadNodes
+.section .text.P_LoadNodes
+.global P_LoadNodes
+P_LoadNodes:
+	.byte	0xE9
+	.4byte	0x0002E030
+////////////////////////////////// P_LoadSegs
+.section .text.P_LoadSegs
+.global P_LoadSegs
+P_LoadSegs:
+	.byte	0xE9
+	.4byte	0x0002DD50
+////////////////////////////////// doom_LoadLineDefs
+.section .text.doom_LoadLineDefs
+.global doom_LoadLineDefs
+doom_LoadLineDefs:
+	.byte	0xE9
+	.4byte	0x0002E220
+////////////////////////////////// G_DeathMatchSpawnPlayer
+.section .text.G_DeathMatchSpawnPlayer
+.global G_DeathMatchSpawnPlayer
+G_DeathMatchSpawnPlayer:
+	.byte	0xE9
+	.4byte	0x00020BC0
+////////////////////////////////// P_GroupLines
+.section .text.P_GroupLines
+.global P_GroupLines
+P_GroupLines:
+	.byte	0xE9
+	.4byte	0x0002E5B0
+////////////////////////////////// P_InitThinkers
+.section .text.P_InitThinkers
+.global P_InitThinkers
+P_InitThinkers:
+	.byte	0xE9
+	.4byte	0x00032EB0
 ////////////////////////////////// R_RenderPlayerView
 .section .text.R_RenderPlayerView
 .global R_RenderPlayerView

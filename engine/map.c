@@ -77,6 +77,7 @@ uint16_t map_next_levelnum;
 
 uint_fast8_t map_skip_stuff;
 uint_fast8_t is_title_map;
+uint_fast8_t xnod_present;
 
 uint32_t num_maps;
 map_level_t *map_info;
@@ -210,8 +211,6 @@ static const lockdefs_kw_list_t lockdefs_kw_list[] =
 static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
 
 //
-static const hook_t hook_reject_en[];
-static const hook_t hook_reject_di[];
 static const hook_t patch_doom[];
 static const hook_t patch_hexen[];
 static const hook_t patch_new[];
@@ -288,286 +287,7 @@ static map_cluster_t *map_find_cluster(uint32_t num)
 }
 
 //
-// map loading
-
-static inline uint32_t check_map(int32_t lump)
-{
-	if(lump < 0)
-		return 0;
-
-	for(uint32_t i = ML_THINGS; i < ML_BEHAVIOR; i++)
-	{
-		lump++;
-		if(lump >= numlumps)
-			return 0;
-		if(lumpinfo[lump].wame != map_wame_check[i-1])
-			return 0;
-	}
-
-	lump++;
-
-	if(lump < numlumps && lumpinfo[lump].wame == map_wame_check[ML_BEHAVIOR-1])
-		return MAP_FORMAT_HEXEN;
-
-	return MAP_FORMAT_DOOM;
-}
-
-static inline void parse_sectors()
-{
-	sector_extra_t *se;
-
-	se = Z_Malloc(numsectors * sizeof(sector_extra_t), PU_LEVEL, NULL);
-
-	for(uint32_t i = 0; i < numsectors; i++, se++)
-	{
-		sector_t *sec = sectors + i;
-		uint32_t plink_count = 0;
-
-		sec->extra = se;
-		sec->exfloor = NULL;
-		sec->exceiling = NULL;
-		sec->sndseq = 255;
-		sec->ed3_multiple = 0;
-		sec->e3d_origin = 0;
-
-		if(sec->lightlevel >= 384)
-			sec->lightlevel = 383;
-		if(sec->lightlevel < 0)
-			sec->lightlevel = 0;
-
-		se->color = 0x0FFF;
-		se->fade = 0x0000;
-
-		M_ClearBox(se->bbox);
-		for(uint32_t j = 0; j < sec->linecount; j++)
-		{
-			line_t *li = sec->lines[j];
-
-			// should this be done in 'P_GroupLines'?
-			M_AddToBox(se->bbox, li->v1->x, li->v1->y);
-			M_AddToBox(se->bbox, li->v2->x, li->v2->y);
-
-			if(map_format != MAP_FORMAT_DOOM)
-			{
-				// check for plane links
-				if(	li->frontsector == sec &&
-					li->special == 51 // Sector_SetLink
-				){
-					if(li->arg0 || !li->arg1 || !li->arg3 || li->arg3 & 0xFC)
-						I_Error("[MAP] Invalid use of 'Sector_SetLink'!");
-
-					for(uint32_t k = 0; k < numsectors; k++)
-					{
-						if(sectors[k].tag == li->arg1)
-							plink_count++;
-					}
-				}
-			}
-		}
-
-		if(plink_count)
-		{
-			plane_link_t *plink;
-
-			plink_count++;
-			plink = Z_Malloc(plink_count * sizeof(plane_link_t), PU_LEVEL, NULL);
-			se->plink = plink;
-
-			for(uint32_t j = 0; j < sec->linecount; j++)
-			{
-				line_t *li = sec->lines[j];
-
-				if(	li->frontsector == sec &&
-					li->special == 51 // Sector_SetLink
-				){
-					for(uint32_t k = 0; k < numsectors; k++)
-					{
-						if(sectors[k].tag == li->arg1)
-						{
-							plink->target = sectors + k;
-							plink->use_ceiling = li->arg2 > 0;
-							plink->link_floor = li->arg3 & 1;
-							plink->link_ceiling = li->arg3 & 2;
-							plink++;
-						}
-					}
-					li->special = 0;
-					li->arg0 = 0;
-					li->args = 0;
-				}
-			}
-
-			plink->target = NULL;
-		} else
-			se->plink = NULL;
-	}
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
-uint32_t map_load_setup()
-{
-	uint32_t cache;
-
-	if(paused) 
-	{ 
-		paused = 0;
-		S_ResumeSound();
-	}
-
-	if(gameskill > sk_nightmare)
-		gameskill = sk_nightmare;
-
-	viewactive = 1;
-	automapactive = 0;
-	am_lastlevel = -1;
-	respawnmonsters = gameskill == sk_nightmare || respawnparm;
-
-	if(gameepisode)
-	{
-		is_title_map = 0;
-		cache = !demoplayback;
-	} else
-	{
-		// titlemap can be visited by other means
-		// so this has to be different
-		map_lump.wame = 0x50414D454C544954; // TITLEMAP
-		is_title_map = 1;
-		cache = 0;
-		// disable status bar
-		stbar_setup_empty();
-	}
-
-	// find map lump
-	map_lump_idx = W_CheckNumForName(map_lump.name);
-	map_format = check_map(map_lump_idx);
-	if(!map_format)
-		goto map_load_error;
-	doom_printf("[MAP] %s map format\n", map_format == MAP_FORMAT_DOOM ? "Doom" : "Hexen");
-
-	// setup level info
-	map_level_info = map_get_info(map_lump_idx);
-
-	// hack for original levels
-	// to keep 'A_BossDeath' working properly
-	if(map_level_info->levelhack)
-	{
-		if(map_level_info->levelhack & 0x80)
-		{
-			fake_game_mode = 1;
-			gameepisode = 1;
-			gamemap = map_level_info->levelhack & 0x7F;
-		} else
-		{
-			fake_game_mode = 0;
-			gameepisode = map_level_info->levelhack >> 4;
-			gamemap = map_level_info->levelhack & 15;
-		}
-	} else
-	{
-		gameepisode = 1;
-		gamemap = 1;
-	}
-
-	// music
-	start_music(map_level_info->music_level, 1);
-
-	// sky
-	skytexture = map_level_info->texture_sky[0];
-
-	// free old inventories
-	mobj_for_each(cb_free_inventory);
-
-	// reset netID
-	mobj_netid = 0;
-
-	// think_clear
-	thcap.prev = &thcap;
-	thcap.next = &thcap;
-
-	// apply game patches
-	if(demoplayback == DEMO_OLD)
-		utils_install_hooks(patch_old, 0);
-	else
-		utils_install_hooks(patch_new, 0);
-
-	if(map_format == MAP_FORMAT_DOOM)
-	{
-		map_start_id = 0;
-		map_start_facing = 0;
-		utils_install_hooks(patch_doom, 0);
-	} else
-		utils_install_hooks(patch_hexen, 0);
-
-	// clear player mobjs
-	for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		players[i].mo = NULL;
-
-	// load the level
-	P_SetupLevel();
-
-	// empty reject?
-	if(!W_LumpLength(map_lump_idx + ML_REJECT))
-	{
-		rejectmatrix = NULL;
-		utils_install_hooks(hook_reject_di, 1);
-	} else
-		utils_install_hooks(hook_reject_en, 1);
-
-	// reset some stuff
-	for(uint32_t i = 0; i < MAXPLATS; i++)
-		activeplats[i] = NULL;
-
-	for(uint32_t i = 0; i < MAXCEILINGS; i++)
-		activeceilings[i] = NULL;
-
-	clear_buttons();
-
-	if(cache)
-		R_PrecacheLevel();
-
-	// specials
-	if(!map_skip_stuff)
-	{
-		if(map_format == MAP_FORMAT_DOOM)
-		{
-			P_SpawnSpecials();
-			spawn_line_scroll();
-		}
-		// TODO: ZDoom specials
-
-		// check for player starts
-		for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		{
-			if(playeringame[i] && !players[i].mo)
-				goto map_load_error;
-		}
-
-		// colored light
-		render_setup_light_color(0);
-	}
-
-	// in the level
-	gamestate = GS_LEVEL;
-	usergame = !is_title_map && !demoplayback;
-	return 0;
-
-map_load_error:
-	map_skip_stuff = 0;
-	if(is_title_map)
-	{
-		// actually start title
-		gameaction = ga_nothing;
-		demosequence = -1;
-		advancedemo = 1;
-	} else
-		map_start_title();
-	wipegamestate = gamestate;
-	M_StartMessage("Requested map is invalid!", NULL, 0);
-	return 1;
-}
-
-//
-// hooks
+// map things
 
 static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 {
@@ -791,6 +511,630 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	if(hack == 9044 || hack == 9001)
 		mo->flags |= MF_NOGRAVITY;
 }
+
+//
+// extended nodes
+
+static inline fixed_t seg_offset(vertex_t *vs, vertex_t *vl)
+{
+	fixed_t xx, yy;
+
+	xx = vs->x - vl->x;
+	yy = vs->y - vl->y;
+
+	xx *= xx;
+	yy *= yy;
+
+	if(xx > yy)
+		return FixedMul(xx, 0xF5C3) + FixedMul(yy, 0x6667);
+	else
+		return FixedMul(yy, 0xF5C3) + FixedMul(xx, 0x6667);
+}
+
+static inline void prepare_nodes(int32_t map_lump)
+{
+	uint32_t tmp[3];
+
+	xnod_present = 0;
+	numvertexes = 0;
+
+	if(W_LumpLength(map_lump + ML_SEGS))
+		return;
+
+	wad_read_lump(&tmp, map_lump + ML_NODES, 3 * sizeof(uint32_t));
+	if(tmp[0] != 0x444F4E58) // XNOD
+		return;
+
+	numvertexes = tmp[1] + tmp[2];
+
+	// mark as present; do not load yet
+	xnod_present = 1;
+}
+
+static inline void load_nodes(int32_t map_lump)
+{
+	void *xnod_data;
+	void *xnod_ptr;
+	vertex_t *vtx;
+	uint32_t count;
+
+	if(!xnod_present)
+	{
+		P_LoadSubsectors(map_lump + ML_SSECTORS);
+		P_LoadNodes(map_lump + ML_NODES);
+		P_LoadSegs(map_lump + ML_SEGS);
+		return;
+	}
+
+	xnod_data = W_CacheLumpNum(map_lump + ML_NODES, PU_STATIC);
+	xnod_ptr = xnod_data + sizeof(uint32_t);
+
+	vtx = vertexes;
+	vtx += *((uint32_t*)xnod_ptr);
+	xnod_ptr += sizeof(uint32_t);
+
+	// vertexes
+	count = *((uint32_t*)xnod_ptr);
+	xnod_ptr += sizeof(uint32_t);
+	for(uint32_t i = 0; i < count; i++)
+	{
+		vtx->x = *((fixed_t*)xnod_ptr);
+		xnod_ptr += sizeof(fixed_t);
+		vtx->y = *((fixed_t*)xnod_ptr);
+		xnod_ptr += sizeof(fixed_t);
+		vtx++;
+	}
+
+	// ssectors
+	numsubsectors = *((uint32_t*)xnod_ptr);
+	xnod_ptr += sizeof(uint32_t);
+	subsectors = Z_Malloc(numsubsectors * sizeof(subsector_t), PU_LEVEL, NULL);
+	count = 0;
+	for(uint32_t i = 0; i < numsubsectors; i++)
+	{
+		subsector_t *ss = subsectors + i;
+		ss->numlines = *((uint32_t*)xnod_ptr);
+		ss->firstline = count;
+		count += ss->numlines;
+		xnod_ptr += sizeof(uint32_t);
+	}
+
+	// segs
+	numsegs = *((uint32_t*)xnod_ptr);
+	xnod_ptr += sizeof(uint32_t);
+	segs = Z_Malloc(numsegs * sizeof(seg_t), PU_LEVEL, NULL);
+	for(uint32_t i = 0; i < numsegs; i++)
+	{
+		seg_t *seg = segs + i;
+		line_t *line = lines;
+		uint8_t side;
+
+		seg->v1 = vertexes + *((uint32_t*)xnod_ptr);
+		xnod_ptr += sizeof(uint32_t);
+		seg->v2 = vertexes + *((uint32_t*)xnod_ptr);
+		xnod_ptr += sizeof(uint32_t);
+
+		line += *((uint16_t*)xnod_ptr);
+		xnod_ptr += sizeof(uint16_t);
+
+		side = *((uint8_t*)xnod_ptr);
+		xnod_ptr += sizeof(uint8_t);
+
+		seg->angle = R_PointToAngle2(seg->v1->x, seg->v1->y, seg->v2->x, seg->v2->y);
+		seg->offset = seg_offset(seg->v1, (side ? line->v2 : line->v1));
+
+		seg->linedef = line;
+		seg->sidedef = sides + line->sidenum[side];
+
+		seg->frontsector = sides[line->sidenum[side]].sector;
+		if(line->flags & ML_TWOSIDED)
+			seg->backsector = sides[line->sidenum[side^1]].sector;
+		else
+			seg->backsector = NULL;
+	}
+
+	// subsectors
+	numnodes = *((uint32_t*)xnod_ptr);
+	xnod_ptr += sizeof(uint32_t);
+	nodes = Z_Malloc(numnodes * sizeof(node_t), PU_LEVEL, NULL);
+	for(uint32_t i = 0; i < numnodes; i++)
+	{
+		node_t *node = nodes + i;
+		fixed_t *dst = &node->x;
+		uint32_t tmp;
+
+		for(uint32_t j = 0; j < 12; j++)
+		{
+			*dst++ = (fixed_t)*((int16_t*)xnod_ptr) << FRACBITS;
+			xnod_ptr += sizeof(int16_t);
+		}
+
+		tmp = *((uint32_t*)xnod_ptr);
+		xnod_ptr += sizeof(uint32_t);
+		node->children[0] = tmp | (tmp >> 16);
+
+		tmp = *((uint32_t*)xnod_ptr);
+		xnod_ptr += sizeof(uint32_t);
+		node->children[1] = tmp | (tmp >> 16);
+	}
+
+	Z_Free(xnod_data);
+}
+
+//
+// map loading
+
+static inline uint32_t check_map(int32_t lump)
+{
+	if(lump < 0)
+		return 0;
+
+	for(uint32_t i = ML_THINGS; i < ML_BEHAVIOR; i++)
+	{
+		lump++;
+		if(lump >= numlumps)
+			return 0;
+		if(lumpinfo[lump].wame != map_wame_check[i-1])
+			return 0;
+	}
+
+	lump++;
+
+	if(lump < numlumps && lumpinfo[lump].wame == map_wame_check[ML_BEHAVIOR-1])
+		return MAP_FORMAT_HEXEN;
+
+	return MAP_FORMAT_DOOM;
+}
+
+static inline void parse_sectors()
+{
+	sector_extra_t *se;
+
+	se = Z_Malloc(numsectors * sizeof(sector_extra_t), PU_LEVEL, NULL);
+
+	for(uint32_t i = 0; i < numsectors; i++, se++)
+	{
+		sector_t *sec = sectors + i;
+		uint32_t plink_count = 0;
+
+		sec->extra = se;
+		sec->exfloor = NULL;
+		sec->exceiling = NULL;
+		sec->sndseq = 255;
+		sec->ed3_multiple = 0;
+		sec->e3d_origin = 0;
+
+		if(sec->lightlevel >= 384)
+			sec->lightlevel = 383;
+		if(sec->lightlevel < 0)
+			sec->lightlevel = 0;
+
+		se->color = 0x0FFF;
+		se->fade = 0x0000;
+
+		M_ClearBox(se->bbox);
+		for(uint32_t j = 0; j < sec->linecount; j++)
+		{
+			line_t *li = sec->lines[j];
+
+			// should this be done in 'P_GroupLines'?
+			M_AddToBox(se->bbox, li->v1->x, li->v1->y);
+			M_AddToBox(se->bbox, li->v2->x, li->v2->y);
+
+			if(map_format != MAP_FORMAT_DOOM)
+			{
+				// check for plane links
+				if(	li->frontsector == sec &&
+					li->special == 51 // Sector_SetLink
+				){
+					if(li->arg0 || !li->arg1 || !li->arg3 || li->arg3 & 0xFC)
+						I_Error("[MAP] Invalid use of 'Sector_SetLink'!");
+
+					for(uint32_t k = 0; k < numsectors; k++)
+					{
+						if(sectors[k].tag == li->arg1)
+							plink_count++;
+					}
+				}
+			}
+		}
+
+		if(plink_count)
+		{
+			plane_link_t *plink;
+
+			plink_count++;
+			plink = Z_Malloc(plink_count * sizeof(plane_link_t), PU_LEVEL, NULL);
+			se->plink = plink;
+
+			for(uint32_t j = 0; j < sec->linecount; j++)
+			{
+				line_t *li = sec->lines[j];
+
+				if(	li->frontsector == sec &&
+					li->special == 51 // Sector_SetLink
+				){
+					for(uint32_t k = 0; k < numsectors; k++)
+					{
+						if(sectors[k].tag == li->arg1)
+						{
+							plink->target = sectors + k;
+							plink->use_ceiling = li->arg2 > 0;
+							plink->link_floor = li->arg3 & 1;
+							plink->link_ceiling = li->arg3 & 2;
+							plink++;
+						}
+					}
+					li->special = 0;
+					li->arg0 = 0;
+					li->args = 0;
+				}
+			}
+
+			plink->target = NULL;
+		} else
+			se->plink = NULL;
+	}
+}
+
+static inline void deathmatch_spawn()
+{
+	if(!deathmatch)
+		return;
+
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		if(playeringame[i])
+		{
+			players[i].mo = NULL;
+			G_DeathMatchSpawnPlayer(i);
+		}
+	}
+}
+
+static inline void P_LoadThings(int32_t lump)
+{
+	void *buff;
+	uint32_t count;
+
+	// spawn all things
+	if(map_format == MAP_FORMAT_DOOM)
+	{
+		mapthing_t *mt;
+
+		buff = W_CacheLumpNum(lump, PU_STATIC);
+		count = lumpinfo[lump].size / sizeof(mapthing_t);
+		mt = buff;
+
+		for(uint32_t i = 0; i < count; i++)
+			spawn_map_thing(NULL, mt + i);
+	} else
+	{
+		map_thinghex_t *mt;
+
+		buff = W_CacheLumpNum(lump, PU_STATIC);
+		count = lumpinfo[lump].size / sizeof(map_thinghex_t);
+		mt = buff;
+
+		for(uint32_t i = 0; i < count; i++)
+			spawn_map_thing(mt + i, NULL);
+	}
+
+	Z_Free(buff);
+}
+
+static inline void P_LoadLineDefs(int lump)
+{
+	int nl;
+	line_t *ln;
+	map_linehex_t *ml;
+	void *buff;
+
+	if(map_format == MAP_FORMAT_DOOM)
+	{
+		doom_LoadLineDefs(lump);
+		return;
+	}
+
+	nl = lumpinfo[lump].size / sizeof(map_linehex_t);
+	ln = Z_Malloc(nl * sizeof(line_t), PU_LEVEL, NULL);
+	buff = W_CacheLumpNum(lump, PU_STATIC);
+	ml = buff;
+
+	numlines = nl;
+	lines = ln;
+
+	for(uint32_t i = 0; i < nl; i++, ln++, ml++)
+	{
+		vertex_t *v1 = vertexes + ml->v1;
+		vertex_t *v2 = vertexes + ml->v2;
+
+		ln->v1 = v1;
+		ln->v2 = v2;
+		ln->dx = v2->x - v1->x;
+		ln->dy = v2->y - v1->y;
+		ln->flags = ml->flags;
+		ln->special = ml->special;
+		ln->iflags = 0;
+		ln->arg0 = ml->arg0;
+		ln->args = ml->args;
+		ln->sidenum[0] = ml->sidenum[0];
+		ln->sidenum[1] = ml->sidenum[1];
+		ln->validcount = 0;
+
+		if(ln->special == 121) // Line_SetIdentification
+		{
+			if(ln->arg1 & 32) // midtex3d
+				ln->iflags |= MLI_3D_MIDTEX;
+			ln->special = 0;
+			ln->id = ln->arg0;
+			ln->arg0 = 0;
+			ln->args = 0;
+		}
+
+		if(v1->x < v2->x)
+		{
+			ln->bbox[BOXLEFT] = v1->x;
+			ln->bbox[BOXRIGHT] = v2->x;
+		} else
+		{
+			ln->bbox[BOXLEFT] = v2->x;
+			ln->bbox[BOXRIGHT] = v1->x;
+		}
+		if(v1->y < v2->y)
+		{
+			ln->bbox[BOXBOTTOM] = v1->y;
+			ln->bbox[BOXTOP] = v2->y;
+		} else
+		{
+			ln->bbox[BOXBOTTOM] = v2->y;
+			ln->bbox[BOXTOP] = v1->y;
+		}
+
+		if(!ln->dx)
+			ln->slopetype = ST_VERTICAL;
+		else
+		if(!ln->dy)
+			ln->slopetype = ST_HORIZONTAL;
+		else
+		{
+			if(FixedDiv(ln->dy, ln->dx) > 0)
+				ln->slopetype = ST_POSITIVE;
+			else
+				ln->slopetype = ST_NEGATIVE;
+		}
+
+		if(ln->sidenum[0] != 0xFFFF)
+			ln->frontsector = sides[ln->sidenum[0]].sector;
+		else
+			ln->frontsector = NULL;
+
+		if(ln->sidenum[1] != 0xFFFF)
+			ln->backsector = sides[ln->sidenum[1]].sector;
+		else
+			ln->backsector = NULL;
+	}
+
+	Z_Free(buff);
+}
+
+static inline void P_LoadVertexes(int32_t lump)
+{
+	mapvertex_t *mv;
+	vertex_t *vtx;
+	void *data;
+
+	if(!numvertexes)
+		numvertexes = W_LumpLength(lump) / sizeof(mapvertex_t);
+
+	vertexes = Z_Malloc(numvertexes * sizeof(vertex_t), PU_LEVEL, NULL);
+	data = W_CacheLumpNum(lump, PU_STATIC);
+
+	mv = data;
+	vtx = vertexes;
+
+	for(uint32_t i = 0; i < numvertexes; i++)
+	{
+		vtx->x = (fixed_t)mv->x << FRACBITS;
+		vtx->y = (fixed_t)mv->y << FRACBITS;
+		vtx++;
+		mv++;
+	}
+
+	Z_Free(data);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t map_load_setup()
+{
+	uint32_t cache;
+
+	if(paused) 
+	{ 
+		paused = 0;
+		S_ResumeSound();
+	}
+
+	if(gameskill > sk_nightmare)
+		gameskill = sk_nightmare;
+
+	viewactive = 1;
+	automapactive = 0;
+	am_lastlevel = -1;
+	respawnmonsters = gameskill == sk_nightmare || respawnparm;
+
+	if(gameepisode)
+	{
+		is_title_map = 0;
+		cache = !demoplayback;
+	} else
+	{
+		// titlemap can be visited by other means
+		// so this has to be different
+		map_lump.wame = 0x50414D454C544954; // TITLEMAP
+		is_title_map = 1;
+		cache = 0;
+		// disable status bar
+		stbar_setup_empty();
+	}
+
+	// find map lump
+	map_lump_idx = W_CheckNumForName(map_lump.name);
+	map_format = check_map(map_lump_idx);
+	if(!map_format)
+		goto map_load_error;
+	doom_printf("[MAP] %s map format\n", map_format == MAP_FORMAT_DOOM ? "Doom" : "Hexen");
+
+	// setup level info
+	map_level_info = map_get_info(map_lump_idx);
+
+	// hack for original levels
+	// to keep 'A_BossDeath' working properly
+	if(map_level_info->levelhack)
+	{
+		if(map_level_info->levelhack & 0x80)
+		{
+			fake_game_mode = 1;
+			gameepisode = 1;
+			gamemap = map_level_info->levelhack & 0x7F;
+		} else
+		{
+			fake_game_mode = 0;
+			gameepisode = map_level_info->levelhack >> 4;
+			gamemap = map_level_info->levelhack & 15;
+		}
+	} else
+	{
+		gameepisode = 1;
+		gamemap = 1;
+	}
+
+	// music
+	start_music(map_level_info->music_level, 1);
+
+	// sky
+	skytexture = map_level_info->texture_sky[0];
+
+	// free old inventories
+	mobj_for_each(cb_free_inventory);
+
+	// reset netID
+	mobj_netid = 0;
+
+	// think_clear
+	P_InitThinkers();
+	thcap.prev = &thcap;
+	thcap.next = &thcap;
+
+	// apply game patches
+	if(demoplayback == DEMO_OLD)
+		utils_install_hooks(patch_old, 0);
+	else
+		utils_install_hooks(patch_new, 0);
+
+	if(map_format == MAP_FORMAT_DOOM)
+	{
+		map_start_id = 0;
+		map_start_facing = 0;
+		utils_install_hooks(patch_doom, 0);
+	} else
+		utils_install_hooks(patch_hexen, 0);
+
+	// clear player mobjs
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		players[i].mo = NULL;
+
+	// check for extended nodes
+	prepare_nodes(map_lump_idx);
+
+	// level
+	P_LoadBlockMap(map_lump_idx + ML_BLOCKMAP);
+	P_LoadVertexes(map_lump_idx + ML_VERTEXES);
+	P_LoadSectors(map_lump_idx + ML_SECTORS);
+	P_LoadSideDefs(map_lump_idx + ML_SIDEDEFS);
+	P_LoadLineDefs(map_lump_idx + ML_LINEDEFS);
+
+	// nodes
+	load_nodes(map_lump_idx);
+
+	// reject
+	if(W_LumpLength(map_lump_idx + ML_REJECT))
+		rejectmatrix = W_CacheLumpNum(map_lump_idx + ML_REJECT, PU_LEVEL);
+	else
+		rejectmatrix = NULL;
+
+	// finalize
+	P_GroupLines();
+
+	// extra hacks
+	parse_sectors();
+
+	// spawn extra floors
+	e3d_create();
+
+	// things
+	bodyqueslot = 0;
+	deathmatch_p = deathmatchstarts;
+	P_LoadThings(map_lump_idx + ML_THINGS);
+
+	// multiplayer
+	deathmatch_spawn();
+
+	// reset some stuff
+	for(uint32_t i = 0; i < MAXPLATS; i++)
+		activeplats[i] = NULL;
+
+	for(uint32_t i = 0; i < MAXCEILINGS; i++)
+		activeceilings[i] = NULL;
+
+	clear_buttons();
+
+	if(cache)
+		R_PrecacheLevel();
+
+	// specials
+	if(!map_skip_stuff)
+	{
+		if(map_format == MAP_FORMAT_DOOM)
+		{
+			P_SpawnSpecials();
+			spawn_line_scroll();
+		}
+		// TODO: ZDoom specials
+
+		// check for player starts
+		for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		{
+			if(playeringame[i] && !players[i].mo)
+				goto map_load_error;
+		}
+
+		// colored light
+		render_setup_light_color(0);
+	}
+
+	// in the level
+	gamestate = GS_LEVEL;
+	usergame = !is_title_map && !demoplayback;
+	return 0;
+
+map_load_error:
+	map_skip_stuff = 0;
+	if(is_title_map)
+	{
+		// actually start title
+		gameaction = ga_nothing;
+		demosequence = -1;
+		advancedemo = 1;
+	} else
+		map_start_title();
+	wipegamestate = gamestate;
+	M_StartMessage("Requested map is invalid!", NULL, 0);
+	return 1;
+}
+
+//
+// hooks
 
 __attribute((regparm(2),no_caller_saved_registers))
 static uint32_t check_door_key(line_t *line, mobj_t *mo)
@@ -1761,137 +2105,6 @@ static void cb_lockdefs(lumpinfo_t *li)
 }
 
 //
-// Hexen map format
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void map_LoadLineDefs(int lump)
-{
-	int nl;
-	line_t *ln;
-	map_linehex_t *ml;
-	void *buff;
-
-	nl = lumpinfo[lump].size / sizeof(map_linehex_t);
-	ln = Z_Malloc(nl * sizeof(line_t), PU_LEVEL, NULL);
-	buff = W_CacheLumpNum(lump, PU_STATIC);
-	ml = buff;
-
-	numlines = nl;
-	lines = ln;
-
-	for(uint32_t i = 0; i < nl; i++, ln++, ml++)
-	{
-		vertex_t *v1 = vertexes + ml->v1;
-		vertex_t *v2 = vertexes + ml->v2;
-
-		ln->v1 = v1;
-		ln->v2 = v2;
-		ln->dx = v2->x - v1->x;
-		ln->dy = v2->y - v1->y;
-		ln->flags = ml->flags;
-		ln->special = ml->special;
-		ln->iflags = 0;
-		ln->arg0 = ml->arg0;
-		ln->args = ml->args;
-		ln->sidenum[0] = ml->sidenum[0];
-		ln->sidenum[1] = ml->sidenum[1];
-		ln->validcount = 0;
-
-		if(ln->special == 121) // Line_SetIdentification
-		{
-			if(ln->arg1 & 32) // midtex3d
-				ln->iflags |= MLI_3D_MIDTEX;
-			ln->special = 0;
-			ln->id = ln->arg0;
-			ln->arg0 = 0;
-			ln->args = 0;
-		}
-
-		if(v1->x < v2->x)
-		{
-			ln->bbox[BOXLEFT] = v1->x;
-			ln->bbox[BOXRIGHT] = v2->x;
-		} else
-		{
-			ln->bbox[BOXLEFT] = v2->x;
-			ln->bbox[BOXRIGHT] = v1->x;
-		}
-		if(v1->y < v2->y)
-		{
-			ln->bbox[BOXBOTTOM] = v1->y;
-			ln->bbox[BOXTOP] = v2->y;
-		} else
-		{
-			ln->bbox[BOXBOTTOM] = v2->y;
-			ln->bbox[BOXTOP] = v1->y;
-		}
-
-		if(!ln->dx)
-			ln->slopetype = ST_VERTICAL;
-		else
-		if(!ln->dy)
-			ln->slopetype = ST_HORIZONTAL;
-		else
-		{
-			if(FixedDiv(ln->dy, ln->dx) > 0)
-				ln->slopetype = ST_POSITIVE;
-			else
-				ln->slopetype = ST_NEGATIVE;
-		}
-
-		if(ln->sidenum[0] != 0xFFFF)
-			ln->frontsector = sides[ln->sidenum[0]].sector;
-		else
-			ln->frontsector = NULL;
-
-		if(ln->sidenum[1] != 0xFFFF)
-			ln->backsector = sides[ln->sidenum[1]].sector;
-		else
-			ln->backsector = NULL;
-	}
-
-	Z_Free(buff);
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void map_LoadThings(int lump)
-{
-	void *buff;
-	uint32_t count;
-
-	// extra hacks
-	parse_sectors();
-
-	// spawn extra floors first
-	e3d_create();
-
-	// spawn all things
-	if(map_format == MAP_FORMAT_DOOM)
-	{
-		mapthing_t *mt;
-
-		buff = W_CacheLumpNum(lump, PU_STATIC);
-		count = lumpinfo[lump].size / sizeof(mapthing_t);
-		mt = buff;
-
-		for(uint32_t i = 0; i < count; i++)
-			spawn_map_thing(NULL, mt + i);
-	} else
-	{
-		map_thinghex_t *mt;
-
-		buff = W_CacheLumpNum(lump, PU_STATIC);
-		count = lumpinfo[lump].size / sizeof(map_thinghex_t);
-		mt = buff;
-
-		for(uint32_t i = 0; i < count; i++)
-			spawn_map_thing(mt + i, NULL);
-	}
-
-	Z_Free(buff);
-}
-
-//
 // API
 
 void init_map()
@@ -2400,22 +2613,8 @@ static void draw_entering()
 //
 // hooks
 
-static const hook_t hook_reject_en[] =
-{
-	// enable rejectmatrix
-	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x508B},
-};
-
-static const hook_t hook_reject_di[] =
-{
-	// disable rejectmatrix
-	{0x0002ed69, CODE_HOOK | HOOK_UINT16, 0x73EB},
-};
-
 static const hook_t patch_doom[] =
 {
-	// restore call to map format specific lump loading
-	{0x0002E8F2, CODE_HOOK | HOOK_CALL_DOOM, 0x0002E220},
 	// restore line special handlers
 	{0x0002B340, CODE_HOOK | HOOK_CALL_DOOM, 0x0002F500},
 	{0x00027286, CODE_HOOK | HOOK_CALL_DOOM, 0x00030710},
@@ -2428,8 +2627,6 @@ static const hook_t patch_doom[] =
 
 static const hook_t patch_hexen[] =
 {
-	// replace call to map format specific lump loading
-	{0x0002E8F2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadLineDefs},
 	// replace line special handlers
 	{0x0002B340, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_cross},
 	{0x00027286, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by monster
@@ -2523,12 +2720,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00032F88, CODE_HOOK | HOOK_UINT8, 0x74},
 	// replace call to 'P_SetupLevel' in 'G_DoLoadLevel'
 	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
-	// replace call to 'P_LoadThings' in 'P_SetupLevel'
-	{0x0002E93A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_LoadThings},
-	// disable 'commercial' check in 'P_LoadThings'
-	{0x0002E1B4, CODE_HOOK | HOOK_UINT16, 0x41EB},
-	// disable call to 'P_SpawnSpecials' and 'R_PrecacheLevel' in 'P_SetupLevel'
-	{0x0002E981, CODE_HOOK | HOOK_UINT16, 0x11EB},
 	// disable line scroller and stuff cleanup in 'P_SpawnSpecials'
 	{0x00030155, CODE_HOOK | HOOK_JMP_DOOM, 0x000301E1},
 	// replace 'P_AimLineAttack'
@@ -2544,10 +2735,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace calls to 'EV_DoLockedDoor'
 	{0x00030B0E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_obj_key},
 	{0x00030E55, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_obj_key},
-	// change map name variable in 'P_SetupLevel'
-	{0x0002E858, CODE_HOOK | HOOK_UINT16, 0x61EB},
-	{0x0002E8BB, CODE_HOOK | HOOK_UINT8, 0xB8},
-	{0x0002E8BC, CODE_HOOK | HOOK_UINT32, (uint32_t)&map_lump},
 	// disable 'no secret exit' check in 'G_SecretExitLevel'
 	{0x00020D61, CODE_HOOK | HOOK_UINT16, 0x1FEB},
 	// replace call to 'G_DoNewGame' in 'G_Ticker'

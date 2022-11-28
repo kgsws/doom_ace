@@ -759,6 +759,11 @@ typedef struct
 
 typedef struct
 {
+	int16_t x, y;
+} mapvertex_t;
+
+typedef struct
+{
 	fixed_t x, y;
 } vertex_t;
 
@@ -1074,6 +1079,14 @@ typedef struct mobj_s
 
 typedef struct
 {
+	fixed_t	x, y;
+	fixed_t	dx, dy;
+	fixed_t	bbox[2][4];
+	uint16_t children[2];
+} node_t;
+
+typedef struct
+{
 	vertex_t *v1, *v2;
 	fixed_t offset;
 	angle_t angle;
@@ -1328,6 +1341,7 @@ void F_StartCast() __attribute((regparm(2),no_caller_saved_registers));
 void G_DeferedInitNew(uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(2),no_caller_saved_registers));
 void G_CheckDemoStatus() __attribute((regparm(2),no_caller_saved_registers));
+void G_DeathMatchSpawnPlayer(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // i_video
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));
@@ -1413,7 +1427,14 @@ void P_BulletSlope(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_KillMobj(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_setup
-void P_SetupLevel() __attribute((regparm(2),no_caller_saved_registers));
+void P_GroupLines() __attribute((regparm(2),no_caller_saved_registers));
+void P_LoadBlockMap(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_LoadSectors(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_LoadSideDefs(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_LoadSubsectors(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_LoadNodes(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void P_LoadSegs(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+void doom_LoadLineDefs(int32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_spec
 void P_PlayerInSpecialSector(player_t*) __attribute((regparm(2),no_caller_saved_registers));
@@ -1425,6 +1446,7 @@ fixed_t P_FindHighestCeilingSurrounding(sector_t*) __attribute((regparm(2),no_ca
 fixed_t P_FindHighestFloorSurrounding(sector_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_tick
+void P_InitThinkers() __attribute((regparm(2),no_caller_saved_registers));
 void P_RunThinkers() __attribute((regparm(2),no_caller_saved_registers));
 void P_AddThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_RemoveThinker(thinker_t*) __attribute((regparm(2),no_caller_saved_registers));

@@ -74,9 +74,13 @@ extern uint32_t secretexit;
 extern uint32_t respawnmonsters;
 
 // game level
+extern uint32_t numvertexes;
 extern uint32_t numsides;
 extern uint32_t numlines;
 extern uint32_t numsectors;
+extern uint32_t numsubsectors;
+extern uint32_t numsegs;
+extern uint32_t numnodes;
 extern uint8_t *rejectmatrix;
 extern line_t *lines;
 extern vertex_t *vertexes;
@@ -84,12 +88,14 @@ extern side_t *sides;
 extern sector_t *sectors;
 extern subsector_t *subsectors;
 extern seg_t *segs;
+extern node_t *nodes;
 extern fixed_t bmaporgx;
 extern fixed_t bmaporgy;
 extern int32_t bmapwidth;
 extern int32_t bmapheight;
 extern uint16_t *blockmaplump;
 extern uint16_t *blockmap;
+extern uint32_t bodyqueslot;
 
 // map & maputl
 extern mobj_t *tmthing;

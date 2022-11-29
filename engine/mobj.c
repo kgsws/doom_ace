@@ -1973,8 +1973,6 @@ static void mobj_xy_move(mobj_t *mo)
 			return;
 		if(!(mo->flags & MF_MISSILE) && !(mo->iflags & MFI_MOBJONMOBJ))
 			return;
-if(mo->iflags & MFI_MOBJONMOBJ)
-doom_printf("ONMOBJ %u\n", leveltime);
 	}
 
 	// allow pushing monsters off ledges (and +PUSHABLE)

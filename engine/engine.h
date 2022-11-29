@@ -435,6 +435,7 @@ enum
 	ETYPE_NONE, // must be first
 	ETYPE_PLAYERPAWN,
 	ETYPE_SWITCHABLE,
+	ETYPE_RANDOMSPAWN,
 	ETYPE_HEALTH,
 	ETYPE_INV_SPECIAL,
 	ETYPE_INVENTORY,
@@ -683,6 +684,7 @@ typedef struct mobjinfo_s
 		ei_ammo_t ammo;
 		ei_armor_t armor;
 		ei_powerup_t powerup;
+		uint32_t random_weight;
 	};
 } mobjinfo_t;
 

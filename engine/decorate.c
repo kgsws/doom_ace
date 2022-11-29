@@ -763,6 +763,11 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 		.name = "SwitchableDecoration",
 		.def = &default_mobj
 	},
+	[ETYPE_RANDOMSPAWN] =
+	{
+		.name = "RandomSpawner",
+		.def = &default_mobj
+	},
 	[ETYPE_HEALTH] =
 	{
 		.name = "Health",
@@ -2693,6 +2698,10 @@ static void cb_parse_actors(lumpinfo_t *li)
 		extra_stuff_cur = NULL;
 		extra_stuff_next = NULL;
 
+		// no states yet
+		info->state_idx_first = num_states;
+		info->state_idx_limit = num_states;
+
 		// reset extra storage
 		dec_es_ptr = EXTRA_STORAGE_PTR;
 
@@ -3160,6 +3169,23 @@ void init_decorate()
 			// weapon slots
 			for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
 				info->player.wpn_slot[i] = dec_reloc_es(target, info->player.wpn_slot[i]);
+		}
+
+		// RandomSpawner
+		if(info->extra_type == ETYPE_RANDOMSPAWN)
+		{
+			// count randomization
+			uint32_t weight = 0;
+			for(mobj_dropitem_t *drop = info->dropitem.start; drop < (mobj_dropitem_t*)info->dropitem.end; drop++)
+			{
+				if(drop->amount)
+					weight += drop->amount;
+				else
+					weight += 1;
+			}
+			info->random_weight = weight;
+			if(!weight)
+				I_Error("[DECORATE] Empty RandomSpawner!");
 		}
 
 		// Inventory stuff

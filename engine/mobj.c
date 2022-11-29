@@ -771,12 +771,57 @@ void set_mobj_animation(mobj_t *mo, uint8_t anim)
 static __attribute((regparm(2),no_caller_saved_registers))
 mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 {
-	mobjinfo_t *info;
+	mobjinfo_t *info = mobjinfo + type;
+	uint32_t hack = 0;
 
-	if(mobjinfo[type].replacement)
-		type = mobjinfo[type].replacement;
+	// check for replacement
+	if(info->replacement)
+	{
+		type = info->replacement;
+		info = mobjinfo + type;
+	}
 
-	info = mobjinfo + type;
+	// check for random
+	if(info->extra_type == ETYPE_RANDOMSPAWN)
+	{
+		uint32_t weight = 0;
+		int32_t type = MOBJ_IDX_UNKNOWN;
+		uint32_t rnd = P_Random() % info->random_weight;
+		uint32_t chance;
+
+		for(mobj_dropitem_t *drop = info->dropitem.start; drop < (mobj_dropitem_t*)info->dropitem.end; drop++)
+		{
+			if(drop->amount)
+				weight += drop->amount;
+			else
+				weight += 1;
+
+			type = drop->type;
+			chance = drop->chance;
+
+			if(weight > rnd)
+				break;
+		}
+
+		if(chance < 255 && chance > P_Random())
+			type = MOBJ_IDX_UNKNOWN;
+
+		if(type == MOBJ_IDX_UNKNOWN)
+		{
+			// spawn invisible item that will remove itself instantly
+			type = MOBJ_IDX_ICE_CHUNK_HEAD;
+			hack = 1;
+		}
+
+		info = mobjinfo + type;
+
+		// one extra round of replacement
+		if(info->replacement)
+		{
+			type = info->replacement;
+			info = mobjinfo + type;
+		}
+	}
 
 	// clear memory
 	memset(mo, 0, sizeof(mobj_t));
@@ -794,6 +839,10 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 
 	// vertical speed
 	mo->momz = info->vspeed;
+
+	// random item hack
+	if(hack)
+		mo->render_style = RS_INVISIBLE;
 
 	// hack for fast projectiles in original attacks
 	if(info->flags & MF_MISSILE)

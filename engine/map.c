@@ -30,6 +30,7 @@
 
 #define WI_TITLEY	2
 #define	FB	0
+#define XNOD_SQRT_PRECISION	14
 
 enum
 {
@@ -517,18 +518,37 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 
 static inline fixed_t seg_offset(vertex_t *vs, vertex_t *vl)
 {
-	fixed_t xx, yy;
+	// TODO: optimize: horizontal / vertical / diagonal walls
+	uint32_t xx, yy;
+	uint32_t L, R;
 
-	xx = vs->x - vl->x;
-	yy = vs->y - vl->y;
+	if(vs == vl)
+		return 0;
+
+	xx = abs(vs->x - vl->x);
+	yy = abs(vs->y - vl->y);
+
+	xx >>= XNOD_SQRT_PRECISION;
+	yy >>= XNOD_SQRT_PRECISION;
 
 	xx *= xx;
 	yy *= yy;
 
-	if(xx > yy)
-		return FixedMul(xx, 0xF5C3) + FixedMul(yy, 0x6667);
-	else
-		return FixedMul(yy, 0xF5C3) + FixedMul(xx, 0x6667);
+	yy += xx;
+	R = yy + 1;
+	L = 0;
+
+	while(L != R - 1)
+	{
+		int32_t M = (L + R) / 2;
+
+		if(M * M <= yy)
+			L = M;
+		else
+			R = M;
+	}
+
+	return L << XNOD_SQRT_PRECISION;
 }
 
 static inline void prepare_nodes(int32_t map_lump)

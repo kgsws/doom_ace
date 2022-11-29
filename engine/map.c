@@ -30,7 +30,7 @@
 
 #define WI_TITLEY	2
 #define	FB	0
-#define XNOD_SQRT_PRECISION	14
+#define XNOD_SQRT_PRECISION	12	// smaller is better but slower
 
 enum
 {
@@ -540,7 +540,7 @@ static inline fixed_t seg_offset(vertex_t *vs, vertex_t *vl)
 
 	while(L != R - 1)
 	{
-		int32_t M = (L + R) / 2;
+		uint64_t M = (L + R) / 2;
 
 		if(M * M <= yy)
 			L = M;

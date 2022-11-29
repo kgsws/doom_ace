@@ -41,6 +41,8 @@ static fixed_t ts_offs_x;
 static fixed_t ts_offs_y;
 static fixed_t ts_offs_z;
 
+static sector_extra_t *sec_extra;
+
 fixed_t nearest_up;
 fixed_t nearest_dn;
 
@@ -1146,7 +1148,30 @@ static uint32_t do_TeleportOther()
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t PIT_TeleportInSector(mobj_t *mo)
 {
-//	value_offs = 1;
+	fixed_t r;
+
+	if(mo->validcount == validcount)
+		return 1;
+
+	mo->validcount = validcount;
+	r = mo->radius;
+
+	if(mo->x < sec_extra->bbox[BOXLEFT] - r)
+		return 1;
+
+	if(mo->x > sec_extra->bbox[BOXRIGHT] + r)
+		return 1;
+
+	if(mo->y < sec_extra->bbox[BOXBOTTOM] - r)
+		return 1;
+
+	if(mo->y > sec_extra->bbox[BOXTOP] + r)
+		return 1;
+
+	// don't attempt to teleport anything
+	// as this can't be done in block thing iterator
+	mo->iflags |= MFI_MARKED;
+
 	return 1;
 }
 
@@ -1179,6 +1204,7 @@ static uint32_t do_TeleportInSector()
 	else
 		ts_offs_z = ONFLOORZ;
 
+	validcount++;
 	value_offs = 0;
 
 	for(uint32_t i = 0; i < numsectors; i++)
@@ -1188,9 +1214,48 @@ static uint32_t do_TeleportInSector()
 		if(sec->tag != spec_arg[0])
 			continue;
 
+		sec_extra = sec->extra;
+
+		for(mobj_t *mo = sec->thinglist; mo; mo = mo->snext)
+			PIT_TeleportInSector(mo);
+
 		for(int32_t x = sec->blockbox[BOXLEFT]; x <= sec->blockbox[BOXRIGHT]; x++)
 			for(int32_t y = sec->blockbox[BOXBOTTOM]; y <= sec->blockbox[BOXTOP]; y++)
 				P_BlockThingsIterator(x, y, PIT_TeleportInSector);
+	}
+
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+	{
+		mobj_t *mo;
+		fixed_t x, y, z;
+		fixed_t r;
+		uint32_t flags;
+
+		if(th->function != (void*)0x00031490 + doom_code_segment)
+			continue;
+
+		mo = (mobj_t*)th;
+
+		if(!(mo->iflags & MFI_MARKED))
+			continue;
+
+		mo->iflags &= ~MFI_MARKED;
+
+		if(spec_arg[4] && mo->special.tid != spec_arg[4])
+			continue;
+
+		flags = 0;
+		x = mo->x + ts_offs_x;
+		y = mo->y + ts_offs_y;
+		z = mo->z + ts_offs_z;
+
+		if(ts_offs_z != ONFLOORZ)
+			flags |= TELEF_USE_Z;
+
+		if(spec_arg[3])
+			flags |= TELEF_USE_ANGLE | TELEF_FOG;
+
+		value_offs |= mobj_teleport(mo, x, y, z, 0, flags);
 	}
 
 	return value_offs;

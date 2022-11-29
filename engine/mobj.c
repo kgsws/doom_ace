@@ -1181,6 +1181,10 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 	return 1;
 
 blocked:
+	// ignore when teleporting
+	if(tmthing->iflags & MFI_TELEPORT)
+		return 1;
+
 	if(ld->special && numspecbump < MAXSPECIALBUMP)
 	{
 		specbump[numspecbump] = ld;

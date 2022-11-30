@@ -1758,6 +1758,11 @@ void R_Subsector(uint32_t num)
 		}
 	}
 
+	// polyobject segs
+	for(uint32_t i = 0; i < e_subsectors[num].poly.segcount; i++)
+		R_AddLine(e_subsectors[num].poly.segs[i]);
+
+	// map segs
 	while(count--)
 	{
 		// real line

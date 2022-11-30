@@ -289,6 +289,12 @@ typedef struct
 
 //
 
+typedef uint32_t (*line_func_t)(line_t*) __attribute((regparm(2),no_caller_saved_registers));
+
+//
+
+extern subsector_extra_t *e_subsectors;
+
 extern map_lump_name_t map_lump;
 extern int32_t map_lump_idx;
 extern uint_fast8_t map_format;
@@ -320,4 +326,7 @@ void map_setup_old(uint32_t skill, uint32_t episode, uint32_t level);
 
 // thinker
 void think_line_scroll(line_scroll_t *ls) __attribute((regparm(2),no_caller_saved_registers));
+
+// blockmap
+uint32_t P_BlockLinesIterator(int32_t x, int32_t y, line_func_t func) __attribute((regparm(3),no_caller_saved_registers)); // three!
 

@@ -4,9 +4,11 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "map.h"
 #include "hitscan.h"
 #include "extra3d.h"
 #include "render.h"
+#include "polyobj.h"
 #include "sight.h"
 
 static fixed_t sightzstart;
@@ -124,56 +126,43 @@ static uint32_t PTR_SightTraverse(intercept_t *in)
 	return 1;
 }
 
-static uint32_t P_SightBlockLinesIterator(uint32_t x, uint32_t y)
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t P_SightLineCheck(line_t *ld)
 {
-	uint16_t *list;
+	int32_t s1, s2;
+	divline_t dl;
 
-	list = blockmaplump + blockmap[y * bmapwidth + x];
-	list++; // apparently, first entry is always zero and does not represent line IDX
+	s1 = P_PointOnDivlineSide(ld->v1->x, ld->v1->y, &trace);
+	s2 = P_PointOnDivlineSide(ld->v2->x, ld->v2->y, &trace);
+	if(s1 == s2)
+		return 1;
 
-	for( ; *list != 0xFFFF; list++)
+	P_MakeDivline(ld, &dl);
+	s1 = P_PointOnDivlineSide(trace.x, trace.y, &dl);
+	s2 = P_PointOnDivlineSide(trace.x+trace.dx, trace.y+trace.dy, &dl);
+	if(s1 == s2)
+		return 1;
+
+	if(!ld->backsector)
+		return 0;
+
+	if(ld->flags & ML_BLOCK_ALL)
+		return 0;
+
+	if(ld->frontsector->exfloor || ld->backsector->exfloor)
+		P_LineOpening(ld);
+
+	if(sight_extra_3d_cover(ld->frontsector))
+		return 0;
+
+	if(sight_extra_3d_cover(ld->backsector))
+		return 0;
+
+	if(intercept_p < intercepts + MAXINTERCEPTS)
 	{
-		int32_t s1, s2;
-		divline_t dl;
-		line_t *ld = &lines[*list];
-
-		if(ld->validcount == validcount)
-			continue;
-
-		ld->validcount = validcount;
-
-		s1 = P_PointOnDivlineSide(ld->v1->x, ld->v1->y, &trace);
-		s2 = P_PointOnDivlineSide(ld->v2->x, ld->v2->y, &trace);
-		if(s1 == s2)
-			continue;
-
-		P_MakeDivline(ld, &dl);
-		s1 = P_PointOnDivlineSide(trace.x, trace.y, &dl);
-		s2 = P_PointOnDivlineSide(trace.x+trace.dx, trace.y+trace.dy, &dl);
-		if(s1 == s2)
-			continue;
-
-		if(!ld->backsector)
-			return 0;
-
-		if(ld->flags & ML_BLOCK_ALL)
-			return 0;
-
-		if(ld->frontsector->exfloor || ld->backsector->exfloor)
-			P_LineOpening(ld);
-
-		if(sight_extra_3d_cover(ld->frontsector))
-			return 0;
-
-		if(sight_extra_3d_cover(ld->backsector))
-			return 0;
-
-		if(intercept_p < intercepts + MAXINTERCEPTS)
-		{
-			intercept_p->d.line = ld;
-			intercept_p->isaline = s1; // store line side
-			intercept_p++;
-		}
+		intercept_p->d.line = ld;
+		intercept_p->isaline = s1; // store line side
+		intercept_p++;
 	}
 
 	return 1;
@@ -298,14 +287,14 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 		{
 			while(1)
 			{
-				if(!P_SightBlockLinesIterator(mapx, mapy))
+				if(!P_BlockLinesIterator(mapx, mapy, P_SightLineCheck))
 					return 0;
 
 				if(mapx == xt2 && mapy == yt2)
 					break;
 
-				if(	!P_SightBlockLinesIterator(mapx + mapxstep, mapy) ||
-					!P_SightBlockLinesIterator(mapx, mapy + mapystep)
+				if(	!P_BlockLinesIterator(mapx + mapxstep, mapy, P_SightLineCheck) ||
+					!P_BlockLinesIterator(mapx, mapy + mapystep, P_SightLineCheck)
 				)
 					return 0;
 
@@ -318,7 +307,7 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 
 	for(count = 0; count < 64; count++)
 	{
-		if(!P_SightBlockLinesIterator(mapx, mapy))
+		if(!P_BlockLinesIterator(mapx, mapy, P_SightLineCheck))
 			return 0;
 
 		if(mapx == xt2 && mapy == yt2)

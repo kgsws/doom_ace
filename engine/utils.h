@@ -13,12 +13,8 @@ enum
 	HOOK_UINT32,	// replace 32bit value
 	HOOK_UINT16,	// replace 16bit value
 	HOOK_UINT8,	// replace 8bit value
-	HOOK_CSTR_ACE,	// replace cstring from ACE segment
-	HOOK_CSTR_DOOM,	// replace cstring from Doom DATA segment
-	HOOK_BUF8_ACE,	// replace buffer from ACE segment
 	HOOK_ABSADDR_CODE, // replace 32bit pointer destination to Doom CODE segment
 	HOOK_ABSADDR_DATA, // replace 32bit pointer destination to Doom DATA segment
-	HOOK_MOVE_OFFSET, // move block by offset
 	HOOK_SET_NOPS, // memset with 0x90
 	// 'hooks' that modify ACE memory
 	HOOK_IMPORT,	// get address of any variable

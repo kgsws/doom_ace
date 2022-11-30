@@ -873,6 +873,15 @@ typedef struct
 	sector_t *sector;
 } __attribute__((packed)) side_t;
 
+typedef struct
+{ // this should be part of 'subsector_t'
+	struct
+	{
+		struct seg_s **segs;
+		uint8_t segcount;
+	} poly;
+} subsector_extra_t;
+
 typedef struct subsector_s
 {
 	sector_t *sector;
@@ -1087,7 +1096,7 @@ typedef struct
 	uint16_t children[2];
 } node_t;
 
-typedef struct
+typedef struct seg_s
 {
 	vertex_t *v1, *v2;
 	fixed_t offset;
@@ -1408,7 +1417,6 @@ void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registe
 void P_UnsetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_LineOpening(line_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_TraverseIntercepts(void*,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
-uint32_t P_BlockLinesIterator(int32_t,int32_t,void*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_BlockThingsIterator(int32_t,int32_t,void*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t P_InterceptVector(divline_t*,divline_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_PointOnDivlineSide(fixed_t,fixed_t,divline_t*) __attribute((regparm(2),no_caller_saved_registers));

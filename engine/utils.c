@@ -30,7 +30,7 @@ void utils_install_hooks(const hook_t *table, uint32_t count)
 		if(table->type & CODE_HOOK)
 			addr += doom_code_segment;
 
-		switch(table->type & 0xFFFF)
+		switch(table->type & 0xFF)
 		{
 			// these modify Doom memory
 			case HOOK_CALL_ACE:
@@ -62,37 +62,11 @@ reladdr_doom:
 			case HOOK_UINT32:
 				*((uint32_t*)addr) = table->value;
 			break;
-			case HOOK_CSTR_ACE:
-				strcpy((char*)addr, (char*)table->value);
-			break;
-			case HOOK_CSTR_DOOM:
-				strcpy((char*)addr, (char*)(table->value + doom_data_segment));
-			break;
-			case HOOK_BUF8_ACE:
-				memcpy((char*)addr, (char*)(table->value + 1), *((uint8_t*)table->value));
-			break;
 			case HOOK_ABSADDR_CODE:
 				*((uint32_t*)addr) = table->value + doom_code_segment;
 			break;
 			case HOOK_ABSADDR_DATA:
 				*((uint32_t*)addr) = table->value + doom_data_segment;
-			break;
-			case HOOK_MOVE_OFFSET:
-			{
-				uint16_t size = table->value >> 16;
-				int16_t offset = table->value & 0xFFFF;
-
-				if(offset > 0)
-				{
-					// must go from back
-					uint8_t *src = (uint8_t*)addr;
-					uint8_t *dst = (uint8_t*)addr + offset;
-					for(int32_t i = size-1; i >= 0; i--)
-						dst[i] = src[i];
-				} else
-					// just copy
-					memcpy((void*)addr + offset, (void*)addr, size);
-			}
 			break;
 			case HOOK_SET_NOPS:
 				memset((void*)addr, 0x90, table->value);

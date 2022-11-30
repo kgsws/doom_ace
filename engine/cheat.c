@@ -28,8 +28,6 @@ typedef struct
 
 cheat_buf_t *cheat_buf;
 
-static mobj_t *tmp_mo;
-
 // cheat list
 static void cf_noclip(player_t*,uint8_t*);
 static void cf_iddqd(player_t*,uint8_t*);
@@ -77,7 +75,7 @@ static uint32_t kill_mobj(mobj_t *mo)
 {
 	if(!(mo->flags1 & MF1_ISMONSTER))
 		return 0;
-	mobj_damage(mo, NULL, tmp_mo, 1000000, 0);
+	mobj_damage(mo, NULL, NULL, 1000000, 0);
 	return 0;
 }
 
@@ -273,10 +271,7 @@ static void cf_kill(player_t *pl, uint8_t *arg)
 	}
 
 	if(!strcmp(arg, "monsters"))
-	{
-		tmp_mo = pl->mo;
 		mobj_for_each(kill_mobj);
-	}
 }
 
 static void cf_resurrect(player_t *pl, uint8_t *arg)

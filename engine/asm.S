@@ -996,16 +996,6 @@ doom_P_AimLineAttack:
 	.4byte	0x0002BB80
 	pop	%ebx
 	ret
-////////////////////////////////// P_BlockLinesIterator
-.section .text.P_BlockLinesIterator
-.global P_BlockLinesIterator
-P_BlockLinesIterator:
-	push	%ebx
-	mov	8(%esp),%ebx
-	.byte	0xE8
-	.4byte	0x0002C520
-	pop	%ebx
-	ret
 ////////////////////////////////// P_BlockThingsIterator
 .section .text.P_BlockThingsIterator
 .global P_BlockThingsIterator

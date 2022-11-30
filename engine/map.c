@@ -21,6 +21,7 @@
 #include "stbar.h"
 #include "render.h"
 #include "draw.h"
+#include "polyobj.h"
 #include "extra3d.h"
 #include "ldr_flat.h"
 #include "ldr_texture.h"
@@ -66,6 +67,8 @@ typedef struct
 } map_attr_t;
 
 //
+
+subsector_extra_t *e_subsectors;
 
 map_lump_name_t map_lump;
 int32_t map_lump_idx;
@@ -355,6 +358,14 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		return;
 	}
 
+	// polyobjects
+	if(mt && mt->type >= 9300 && mt->type <= 9303)
+	{
+		poly_object(mt);
+		return;
+	}
+
+	// check for save/load
 	if(map_skip_stuff)
 	{
 		if(!mt)
@@ -584,7 +595,7 @@ static inline void load_nodes(int32_t map_lump)
 		P_LoadSubsectors(map_lump + ML_SSECTORS);
 		P_LoadNodes(map_lump + ML_NODES);
 		P_LoadSegs(map_lump + ML_SEGS);
-		return;
+		goto extra_ssec;
 	}
 
 	xnod_data = W_CacheLumpNum(map_lump + ML_NODES, PU_STATIC);
@@ -680,6 +691,12 @@ static inline void load_nodes(int32_t map_lump)
 	}
 
 	Z_Free(xnod_data);
+
+extra_ssec:
+	// allocate extra subsector info
+	// NOTE: this should be part of 'subsector_t' but extending struct size in EXE hack is ... tedious
+	e_subsectors = Z_Malloc(numsubsectors * sizeof(subsector_extra_t), PU_LEVEL, NULL);
+	memset(e_subsectors, 0, numsubsectors * sizeof(subsector_extra_t));
 }
 
 //
@@ -1042,10 +1059,13 @@ uint32_t map_load_setup()
 	// reset netID
 	mobj_netid = 0;
 
-	// think_clear
+	// think clear
 	P_InitThinkers();
 	thcap.prev = &thcap;
 	thcap.next = &thcap;
+
+	// poly clear
+	poly_reset();
 
 	// apply game patches
 	if(demoplayback == DEMO_OLD)
@@ -1097,6 +1117,10 @@ uint32_t map_load_setup()
 	bodyqueslot = 0;
 	deathmatch_p = deathmatchstarts;
 	P_LoadThings(map_lump_idx + ML_THINGS);
+
+	// polyobjects
+	if(map_format != MAP_FORMAT_DOOM)
+		poly_create();
 
 	// multiplayer
 	deathmatch_spawn();
@@ -2632,6 +2656,53 @@ static void draw_entering()
 }
 
 //
+// line iterator
+
+__attribute((regparm(3),no_caller_saved_registers)) // three!
+uint32_t P_BlockLinesIterator(int32_t x, int32_t y, line_func_t func)
+{
+	uint16_t *list;
+
+	if(x < 0)
+		return 1;
+
+	if(y < 0)
+		return 1;
+
+	if(x >= bmapwidth)
+		return 1;
+
+	if(y >= bmapheight)
+		return 1;
+
+	// go trough polyobjects
+	if(!poly_BlockLinesIterator(x, y, func))
+		return 0;
+
+	list = blockmaplump + blockmap[y * bmapwidth + x];
+
+	// apparently, first entry is always zero and does not represent line IDX
+	if(demoplayback == DEMO_OLD && !*list)
+		list++;
+
+	// go trough lines
+	for( ; *list != 0xFFFF; list++)
+	{
+		line_t *ld = lines + *list;
+
+		if(ld->validcount == validcount)
+			continue;
+
+		ld->validcount = validcount;
+
+		if(!func(ld))
+			return 0;
+	}
+
+	return 1;
+}
+
+//
 // hooks
 
 static const hook_t patch_doom[] =
@@ -2743,6 +2814,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
 	// disable line scroller and stuff cleanup in 'P_SpawnSpecials'
 	{0x00030155, CODE_HOOK | HOOK_JMP_DOOM, 0x000301E1},
+	// replace 'P_BlockLinesIterator'
+	{0x0002C520, CODE_HOOK | HOOK_UINT32, 0xD98951},
+	{0x0002C523, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_BlockLinesIterator},
+	{0x0002C528, CODE_HOOK | HOOK_UINT16, 0xC359},
 	// replace 'P_AimLineAttack'
 	{0x0002BB80, CODE_HOOK | HOOK_UINT32, 0xD98951},
 	{0x0002BB83, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_AimLineAttack},

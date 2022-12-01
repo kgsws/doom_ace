@@ -14,6 +14,7 @@
 #include "decorate.h"
 #include "animate.h"
 #include "generic.h"
+#include "polyobj.h"
 #include "special.h"
 
 enum
@@ -1431,6 +1432,9 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 
 	switch(spec_special)
 	{
+		case 8: // Polyobj_DoorSlide
+			spec_success = poly_door_slide(NULL);
+		break;
 		case 10: // Door_Close
 			spec_success = handle_tag(ln, spec_arg[0], act_Door_Close);
 		break;

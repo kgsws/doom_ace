@@ -2662,6 +2662,7 @@ __attribute((regparm(3),no_caller_saved_registers)) // three!
 uint32_t P_BlockLinesIterator(int32_t x, int32_t y, line_func_t func)
 {
 	uint16_t *list;
+	uint32_t idx;
 
 	if(x < 0)
 		return 1;
@@ -2675,11 +2676,13 @@ uint32_t P_BlockLinesIterator(int32_t x, int32_t y, line_func_t func)
 	if(y >= bmapheight)
 		return 1;
 
+	idx = y * bmapwidth + x;
+
 	// go trough polyobjects
-	if(!poly_BlockLinesIterator(x, y, func))
+	if(polybmap && polybmap[idx] && !poly_BlockLinesIterator(x, y, func))
 		return 0;
 
-	list = blockmaplump + blockmap[y * bmapwidth + x];
+	list = blockmaplump + blockmap[idx];
 
 	// apparently, first entry is always zero and does not represent line IDX
 	if(demoplayback == DEMO_OLD && !*list)

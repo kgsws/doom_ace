@@ -8,6 +8,9 @@
 #define SOUND_CHAN_BODY(mo)	((void*)(mo) + offsetof(mobj_t,sound_body) - sizeof(thinker_t))
 #define SOUND_CHAN_WEAPON(mo)	((void*)(mo) + offsetof(mobj_t,sound_weapon) - sizeof(thinker_t))
 
+// SNDSEQ
+#define	SEQ_IS_DOOR	0x8000
+
 enum
 {
 	SFX_QUAKE = NUMSFX,
@@ -41,6 +44,8 @@ uint16_t sfx_by_alias(uint64_t);
 uint16_t sfx_by_name(uint8_t*);
 
 sound_seq_t *snd_seq_by_sector(sector_t*, uint32_t);
+sound_seq_t *snd_seq_by_id(uint32_t id);
+sound_seq_t *snd_seq_by_name(const uint8_t *name);
 
 void S_StopSound(mobj_t*);
 

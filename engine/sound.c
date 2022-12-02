@@ -416,6 +416,39 @@ error_end:
 	I_Error("[SNDINFO] Incomplete definition!");
 }
 
+static uint32_t get_sfx_length(int32_t idx)
+{
+	sfxinfo_t *sfx;
+	struct
+	{
+		uint16_t format;
+		uint16_t samplerate;
+		uint32_t samplecount;
+	} head;
+
+	if(idx < 0)
+		return 0;
+
+	sfx = sfxinfo + idx;
+
+	if(sfx->lumpnum < 0)
+		return 0;
+
+	wad_read_lump(&head, sfx->lumpnum, sizeof(head));
+
+	if(head.format != 3)
+		return 0;
+
+	if(head.samplecount < 32)
+		return 0;
+
+	head.samplecount -= 32;
+	head.samplecount *= 35;
+	head.samplecount /= head.samplerate;
+
+	return head.samplecount;
+}
+
 static void cb_sndseq(lumpinfo_t *li)
 {
 	uint8_t *kw, *wk, *name;
@@ -430,6 +463,80 @@ static void cb_sndseq(lumpinfo_t *li)
 		if(!kw)
 			return;
 
+		if(kw[0] == '[')
+		{
+			name = tp_get_keyword();
+			if(!name)
+				goto error_end;
+
+			numsndseq++;
+			sndseq = ldr_realloc(sndseq, numsndseq * sizeof(sound_seq_t));
+			seq = sndseq + numsndseq - 1;
+			memset(seq, 0, sizeof(sound_seq_t));
+			seq->alias = tp_hash64(name);
+			seq->number = 256;
+
+			while(1)
+			{
+				wk = tp_get_keyword();
+				if(!wk)
+					goto error_end;
+
+				if(wk[0] == ']')
+					break;
+
+				kw = tp_get_keyword();
+				if(!kw)
+					goto error_end;
+
+				if(!strcmp(wk, "door"))
+				{
+					if(doom_sscanf(kw, "%u", &value) != 1 || value >= 255)
+						goto error_value;
+					seq->number = value | SEQ_IS_DOOR;
+				} else
+				if(!strcmp(wk, "platform"))
+				{
+					if(doom_sscanf(kw, "%u", &value) != 1 || value >= 255)
+						goto error_value;
+					seq->number = value;
+				} else
+				{
+					sound_seq_t *sss;
+					seq_sounds_t *dst;
+
+					if(doom_sscanf(wk, "%u", &value) != 1 || value > 3)
+					{
+						kw = wk;
+						goto error_value;
+					}
+
+					switch(value)
+					{
+						case 0:
+							dst = &seq->norm_open;
+						break;
+						case 1:
+							dst = &seq->norm_close;
+						break;
+						case 2:
+							dst = &seq->fast_open;
+						break;
+						default:
+							dst = &seq->fast_close;
+						break;
+					}
+
+					sss = snd_seq_by_name(kw);
+					if(!sss)
+						goto error_value;
+
+					*dst = sss->norm_open;
+				}
+			}
+			continue;
+		}
+
 		if(kw[0] != ':')
 			I_Error("[SNDSEQ] Unexpected '%s'!\n", kw);
 
@@ -442,7 +549,7 @@ static void cb_sndseq(lumpinfo_t *li)
 		seq = sndseq + numsndseq - 1;
 		memset(seq, 0, sizeof(sound_seq_t));
 		seq->alias = tp_hash64(name);
-		seq->number = 255;
+		seq->number = 256;
 
 		while(1)
 		{
@@ -452,8 +559,6 @@ static void cb_sndseq(lumpinfo_t *li)
 
 			if(!strcmp(wk, "end"))
 			{
-				if(seq->number == 255)
-					I_Error("[SNDSEQ] Sequence '%s' has no ID!", name);
 				seq->norm_close = seq->norm_open;
 				seq->fast_open = seq->norm_open;
 				seq->fast_close = seq->norm_open;
@@ -466,20 +571,20 @@ static void cb_sndseq(lumpinfo_t *li)
 
 			if(!strcmp(wk, "door"))
 			{
-				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value >= 255)
+				if(doom_sscanf(kw, "%u", &value) != 1 || value >= 255)
 					goto error_value;
-				seq->number = value | 0x8000;
+				seq->number = value | SEQ_IS_DOOR;
 			} else
 			if(!strcmp(wk, "platform"))
 			{
-				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value >= 255)
+				if(doom_sscanf(kw, "%u", &value) != 1 || value >= 255)
 					goto error_value;
 				seq->number = value;
 			} else
-			if(!strcmp(wk, "play"))
+			if(!strcmp(wk, "playuntildone"))
 			{
 				seq->norm_open.start = sfx_by_alias(tp_hash64(kw));
-				seq->norm_open.delay = 0;
+				seq->norm_open.delay = get_sfx_length(seq->norm_open.start);
 			} else
 			if(!strcmp(wk, "playtime"))
 			{
@@ -593,11 +698,37 @@ sound_seq_t *snd_seq_by_sector(sector_t *sec, uint32_t def_type)
 
 	magic = sec->sndseq;
 	if(def_type == SNDSEQ_DOOR)
-		magic |= 0x8000;
+		magic |= SEQ_IS_DOOR;
 
 	for(uint32_t i = numsndseq - 1; i >= NUMSNDSEQ; i--)
 	{
 		if(sndseq[i].number == magic)
+			return sndseq + i;
+	}
+
+	return NULL;
+}
+
+sound_seq_t *snd_seq_by_id(uint32_t id)
+{
+	for(uint32_t i = numsndseq - 1; i >= NUMSNDSEQ; i--)
+	{
+		if(sndseq[i].number == id)
+			return sndseq + i;
+	}
+
+	return NULL;
+}
+
+sound_seq_t *snd_seq_by_name(const uint8_t *name)
+{
+	uint64_t alias;
+
+	alias = tp_hash64(name);
+
+	for(uint32_t i = numsndseq - 1; i >= NUMSNDSEQ; i--)
+	{
+		if(sndseq[i].alias == alias)
 			return sndseq + i;
 	}
 

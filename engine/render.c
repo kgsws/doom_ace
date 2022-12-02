@@ -239,7 +239,7 @@ static void calculate_lightnum(int32_t lightlevel, seg_t *seg)
 
 	lightlevel &= 0x1FF;
 
-	if(seg)
+	if(seg && !(seg->linedef->iflags & MLI_IS_POLY))
 	{
 		if(seg->v1->y == seg->v2->y)
 			lightlevel -= 1 << LIGHTSEGSHIFT;

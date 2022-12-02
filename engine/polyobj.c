@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "map.h"
 #include "mobj.h"
+#include "sound.h"
 #include "think.h"
 #include "special.h"
 #include "polyobj.h"
@@ -21,13 +22,22 @@ typedef struct polyobj_s
 		subsector_t *subsec;
 	};
 	fixed_t x, y;
+	angle_t angle;
+	angle_t angle_old;
 	int32_t box[4];
 	uint32_t validcount;
-	uint8_t segcount;
-	uint8_t busy;
-	uint8_t type;
-	uint8_t id;
-	degenmobj_t soundorg;
+	union
+	{
+		struct
+		{
+			uint8_t segcount;
+			uint8_t busy;
+			uint8_t type;
+			uint8_t id;
+			uint8_t sndseq;
+		};
+		degenmobj_t soundorg;
+	};
 } polyobj_t;
 
 //
@@ -142,11 +152,14 @@ static void update_position(polyobj_t *poly)
 {
 	uint8_t *bm;
 	int32_t bw, bh, bs;
+	angle_t adiff = poly->angle - poly->angle_old;
+
+	poly->angle_old = poly->angle;
 
 	// remove from blockmap
 	bw = 1 + poly->box[BOXRIGHT] - poly->box[BOXLEFT];
 	bh = 1 + poly->box[BOXTOP] - poly->box[BOXBOTTOM];
-	bs = bw - bw;
+	bs = bmapwidth - bw;
 	bm = polybmap + poly->box[BOXLEFT] + poly->box[BOXBOTTOM] * bmapwidth;
 	for(int32_t y = 0; y < bh; y++)
 	{
@@ -165,14 +178,39 @@ static void update_position(polyobj_t *poly)
 	poly->box[BOXBOTTOM] = 0x7FFFFFFF;
 	poly->box[BOXTOP] = -0x7FFFFFFF;
 
-	// move vertextes
-	for(uint32_t i = 0; i < poly->segcount; i++)
+	// update vertexes
+	if(poly->angle)
 	{
-		seg_t *seg = poly->segs[i];
-		vertex_t *origin = poly->origin + i;
+		// rotate and move
+		fixed_t ss, cc;
+		angle_t aa = poly->angle >> ANGLETOFINESHIFT;
 
-		seg->v1->x = origin->x + poly->x;
-		seg->v1->y = origin->y + poly->y;
+		ss = finesine[aa];
+		cc = finecosine[aa];
+
+		for(uint32_t i = 0; i < poly->segcount; i++)
+		{
+			seg_t *seg = poly->segs[i];
+			vertex_t *origin = poly->origin + i;
+			fixed_t x, y;
+
+			x = FixedMul(origin->x, cc) - FixedMul(origin->y, ss);
+			y = FixedMul(origin->x, ss) + FixedMul(origin->y, cc);
+
+			seg->v1->x = x + poly->x;
+			seg->v1->y = y + poly->y;
+		}
+	} else
+	{
+		// only move
+		for(uint32_t i = 0; i < poly->segcount; i++)
+		{
+			seg_t *seg = poly->segs[i];
+			vertex_t *origin = poly->origin + i;
+
+			seg->v1->x = origin->x + poly->x;
+			seg->v1->y = origin->y + poly->y;
+		}
 	}
 
 	// fix linedefs, find bounding box
@@ -209,6 +247,26 @@ static void update_position(polyobj_t *poly)
 			poly->box[BOXRIGHT] = seg->v1->x;
 		if(seg->v1->y > poly->box[BOXTOP])
 			poly->box[BOXTOP] = seg->v1->y;
+
+		seg->angle += adiff;
+		if(adiff)
+		{
+			line->dx = line->v2->x - line->v1->x;
+			line->dy = line->v2->y - line->v1->y;
+
+			if(!line->dx)
+				line->slopetype = ST_VERTICAL;
+			else
+			if(!line->dy)
+				line->slopetype = ST_HORIZONTAL;
+			else
+			{
+				if(FixedDiv(line->dy, line->dx) > 0)
+					line->slopetype = ST_POSITIVE;
+				else
+					line->slopetype = ST_NEGATIVE;
+			}
+		}
 	}
 
 	// update sound origin
@@ -236,7 +294,7 @@ static void update_position(polyobj_t *poly)
 	// add to blockmap
 	bw = 1 + poly->box[BOXRIGHT] - poly->box[BOXLEFT];
 	bh = 1 + poly->box[BOXTOP] - poly->box[BOXBOTTOM];
-	bs = bw - bw;
+	bs = bmapwidth - bw;
 	bm = polybmap + poly->box[BOXLEFT] + poly->box[BOXBOTTOM] * bmapwidth;
 	for(int32_t y = 0; y < bh; y++)
 	{
@@ -302,6 +360,7 @@ void poly_create()
 			poly = find_poly(id, 0);
 			if(!poly)
 				I_Error("[POLY] Bad polyobject %u!", id);
+			poly->sndseq = seg->linedef->arg2;
 			seg->linedef->special = 0;
 			seg->linedef->arg0 = 0;
 
@@ -337,6 +396,8 @@ void poly_create()
 				if(s->linedef->backsector)
 					s->linedef->backsector = poly->subsec->sector;
 
+				s->linedef->iflags |= MLI_IS_POLY;
+
 				remove_from_subsector(s);
 			}
 
@@ -346,6 +407,7 @@ void poly_create()
 			se->poly.segcount = segcount;
 
 			// reset position
+			poly->angle = 0;
 			poly->box[0] = 0;
 			poly->box[1] = 0;
 			poly->box[2] = 0;
@@ -453,7 +515,7 @@ uint32_t check_blocking(mobj_t *mo)
 }
 
 //
-// thinker
+// poly move
 
 __attribute((regparm(2),no_caller_saved_registers))
 void think_poly_move(poly_move_t *pm)
@@ -462,10 +524,21 @@ void think_poly_move(poly_move_t *pm)
 	polyobj_t *poly = pm->poly;
 	uint32_t finished = 0;
 
+	if(pm->sndwait)
+		pm->sndwait--;
+
 	if(pm->wait)
 	{
 		pm->wait--;
-		if(pm->wait)
+		if(!pm->wait)
+		{
+			if(pm->dn_seq)
+			{
+				if(pm->dn_seq->start)
+					S_StartSound((mobj_t*)&poly->soundorg, pm->dn_seq->start);
+				pm->sndwait = pm->dn_seq->delay;
+			}
+		} else
 			return;
 	}
 
@@ -506,6 +579,19 @@ void think_poly_move(poly_move_t *pm)
 	{
 		poly->x = pm->dst_x;
 		poly->y = pm->dst_y;
+	} else
+	if(!pm->sndwait)
+	{
+		seq_sounds_t *seq;
+		if(pm->dst_x == pm->org_x && pm->dst_y == pm->org_y)
+			seq = pm->dn_seq;
+		else
+			seq = pm->up_seq;
+		if(seq && seq->move)
+		{
+			S_StartSound((mobj_t*)&poly->soundorg, seq->move);
+			pm->sndwait = seq->repeat;
+		}
 	}
 
 	update_position(poly);
@@ -528,6 +614,19 @@ void think_poly_move(poly_move_t *pm)
 
 	if(finished)
 	{
+		if(pm->delay != 1)
+		{
+			seq_sounds_t *seq;
+
+			if(pm->dst_x == pm->org_x && pm->dst_y == pm->org_y)
+				seq = pm->dn_seq;
+			else
+				seq = pm->up_seq;
+
+			if(seq && seq->stop)
+				S_StartSound((mobj_t*)&poly->soundorg, seq->stop);
+		}
+
 		if(pm->delay)
 		{
 			pm->wait = pm->delay;
@@ -545,6 +644,7 @@ void think_poly_move(poly_move_t *pm)
 static poly_move_t *poly_mover(polyobj_t *poly)
 {
 	poly_move_t *pm;
+	sound_seq_t *seq;
 
 	pm = Z_Malloc(sizeof(poly_move_t), PU_LEVELSPEC, NULL);
 	memset(pm, 0, sizeof(poly_move_t));
@@ -552,7 +652,146 @@ static poly_move_t *poly_mover(polyobj_t *poly)
 	pm->poly = poly;
 	think_add(&pm->thinker);
 
+	seq = snd_seq_by_id(poly->sndseq | SEQ_IS_DOOR);
+	if(seq)
+	{
+		pm->up_seq = &seq->norm_open;
+		pm->dn_seq = &seq->norm_close;
+		if(pm->up_seq->start && !map_skip_stuff)
+			S_StartSound((mobj_t*)&poly->soundorg, pm->up_seq->start);
+		pm->sndwait = pm->up_seq->delay;
+	}
+
 	return pm;
+}
+
+//
+// poly rotate
+
+__attribute((regparm(2),no_caller_saved_registers))
+void think_poly_rotate(poly_rotate_t *pr)
+{
+	int32_t oa;
+	polyobj_t *poly = pr->poly;
+	uint32_t finished = 0;
+
+	if(pr->sndwait)
+		pr->sndwait--;
+
+	if(pr->wait)
+	{
+		pr->wait--;
+		if(!pr->wait)
+		{
+			if(pr->dn_seq)
+			{
+				if(pr->dn_seq->start)
+					S_StartSound((mobj_t*)&poly->soundorg, pr->dn_seq->start);
+				pr->sndwait = pr->dn_seq->delay;
+			}
+		} else
+			return;
+	}
+
+	oa = pr->now;
+	pr->now += pr->spd;
+
+	if(pr->dst > 0)
+	{
+		if(pr->now <= 0)
+		{
+			pr->now = 0;
+			finished = 1;
+		} else
+		if(pr->now >= pr->dst)
+		{
+			pr->now = pr->dst;
+			finished = 1;
+		}
+	} else
+	{
+		if(pr->now >= 0)
+		{
+			pr->now = 0;
+			finished = 1;
+		} else
+		if(pr->now <= pr->dst)
+		{
+			pr->now = pr->dst;
+			finished = 1;
+		}
+	}
+
+	poly->angle = pr->org + (pr->now << 18);
+
+	update_position(poly);
+
+	poly_blocked = 0;
+	poly_check = poly;
+	poly_thrust = pr->thrust;
+
+	for(uint32_t y = poly->box[BOXBOTTOM]; y <= poly->box[BOXTOP] && !poly_blocked; y++)
+		for(uint32_t x = poly->box[BOXLEFT]; x <= poly->box[BOXRIGHT] && !poly_blocked; x++)
+			P_BlockThingsIterator(x, y, check_blocking);
+
+	if(poly_blocked)
+	{
+		pr->now = oa;
+		poly->angle = pr->org + (pr->now << 18);
+		update_position(poly);
+		return;
+	}
+
+	if(finished)
+	{
+		if(pr->delay != 1)
+		{
+			seq_sounds_t *seq;
+
+			if(pr->spd < 0)
+				seq = pr->dn_seq;
+			else
+				seq = pr->up_seq;
+
+			if(seq && seq->stop)
+				S_StartSound((mobj_t*)&poly->soundorg, seq->stop);
+		}
+
+		if(pr->delay)
+		{
+			pr->wait = pr->delay;
+			pr->spd = -pr->spd;
+			pr->delay = 0;
+			return;
+		}
+
+		poly->busy = 0;
+		pr->thinker.function = (void*)-1;
+	}
+}
+
+static poly_rotate_t *poly_rotater(polyobj_t *poly)
+{
+	poly_rotate_t *pr;
+	sound_seq_t *seq;
+
+	pr = Z_Malloc(sizeof(poly_rotate_t), PU_LEVELSPEC, NULL);
+	memset(pr, 0, sizeof(poly_rotate_t));
+	pr->thinker.function = think_poly_rotate;
+	pr->poly = poly;
+	think_add(&pr->thinker);
+
+	seq = snd_seq_by_id(poly->sndseq | SEQ_IS_DOOR);
+	if(seq)
+	{
+		pr->up_seq = &seq->norm_open;
+		pr->dn_seq = &seq->norm_close;
+		if(pr->up_seq->start && !map_skip_stuff)
+			S_StartSound((mobj_t*)&poly->soundorg, pr->up_seq->start);
+		pr->sndwait = pr->up_seq->delay;
+	}
+
+	return pr;
 }
 
 //
@@ -633,14 +872,58 @@ uint32_t poly_door_slide(polyobj_t *mirror)
 	pm->delay = spec_arg[4] + 1;
 
 	pm->thrust = spec_arg[1] << 10;
-	if(pm->thrust < (1 << 16))
-		pm->thrust = 1 << 16;
+	if(pm->thrust < (1 << FRACBITS))
+		pm->thrust = 1 << FRACBITS;
 	else
-	if(pm->thrust > (4 << 16))
-		pm->thrust = 4 << 16;
+	if(pm->thrust > (4 << FRACBITS))
+		pm->thrust = 4 << FRACBITS;
 
 	if(!mirror && poly->mirror)
 		poly_door_slide(poly->mirror);
+
+	return 0;
+}
+
+uint32_t poly_door_swing(polyobj_t *mirror)
+{
+	polyobj_t *poly;
+	poly_rotate_t *pr;
+
+	if(!mirror)
+	{
+		poly = find_poly(spec_arg[0], 0);
+		if(!poly)
+			return 0;
+	} else
+		poly = mirror;
+
+	if(poly->busy)
+		return 0;
+
+	poly->busy = 1;
+
+	pr = poly_rotater(poly);
+
+	pr->delay = spec_arg[3] + 1;
+
+	pr->spd = spec_arg[1] << 3;
+	pr->dst = spec_arg[2] << 6;
+
+	pr->thrust = spec_arg[1] << 15;
+	if(pr->thrust < (1 << FRACBITS))
+		pr->thrust = 1 << FRACBITS;
+	else
+	if(pr->thrust > (4 << FRACBITS))
+		pr->thrust = 4 << FRACBITS;
+
+	if(mirror)
+	{
+		pr->dst = -pr->dst;
+		pr->spd = -pr->spd;
+	}
+
+	if(!mirror && poly->mirror)
+		poly_door_swing(poly->mirror);
 
 	return 0;
 }

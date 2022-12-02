@@ -1143,7 +1143,7 @@ static uint32_t do_TeleportOther()
 	if(spec_arg[2])
 		flags |= TELEF_USE_ANGLE | TELEF_FOG;
 
-	return mobj_teleport(mo, target->x, target->y, target->z, mo->angle, flags);
+	return mobj_teleport(mo, target->x, target->y, target->z, target->angle, flags);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1432,6 +1432,9 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 
 	switch(spec_special)
 	{
+		case 7: // Polyobj_DoorSwing
+			spec_success = poly_door_swing(NULL);
+		break;
 		case 8: // Polyobj_DoorSlide
 			spec_success = poly_door_slide(NULL);
 		break;

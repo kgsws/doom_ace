@@ -452,7 +452,7 @@ static inline void prepare_save_slot(int fd, uint32_t idx)
 	if(tmp != sizeof(save_info_t))
 		return;
 
-	if(info.title.magic != 0xB1E32A5D)
+	if(info.title.magic != SAVE_MAGIC)
 		return;
 
 	// create entry
@@ -814,10 +814,10 @@ static inline void sv_put_linedefs_hexen(int32_t lump)
 		uint32_t flags = 0;
 
 		flags |= ((line->flags & ~ML_MAPPED) != (ml[i].flags & ~ML_MAPPED)) << SF_LINE_FLAGS;
-		flags |= (line->special != ml[i].special) << SF_LINE_SPECIAL; // this also stores hexflags
+		flags |= (line->special != ml[i].special) << SF_LINE_SPECIAL;
 		flags |= (!!line->id) << SF_LINE_TAG;
-		flags |= (line->arg0 != ml->arg0) << SF_LINE_TAG;
-		flags |= (line->args != ml->args) << SF_LINE_ARGS;
+		flags |= (line->arg0 != ml[i].arg0) << SF_LINE_TAG;
+		flags |= (line->args != ml[i].args) << SF_LINE_ARGS;
 
 		if(flags)
 		{

@@ -22,6 +22,7 @@
 #include "generic.h"
 #include "render.h"
 #include "draw.h"
+#include "polyobj.h"
 #include "extra3d.h"
 #include "saveload.h"
 
@@ -33,7 +34,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFB0	// increment with updates
+#define SAVE_VERSION	0xE58BAFB1	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -100,6 +101,8 @@ enum
 	STH_ACE_CEILING,
 	STH_ACE_FLOOR,
 	STH_ACE_LIGHT,
+	STH_ACE_POLY_MOV,
+	STH_ACE_POLY_ROT,
 };
 
 //
@@ -152,6 +155,14 @@ typedef struct
 	uint32_t secret;
 	uint32_t rng;
 } save_info_t;
+
+//
+
+typedef struct
+{
+	fixed_t x, y;
+	angle_t angle;
+} save_poly_t;
 
 //
 
@@ -389,6 +400,33 @@ typedef struct
 	uint8_t flags;
 	uint8_t direction;
 } save_generic_light_t;
+
+typedef struct
+{ // STH_ACE_POLY_MOV
+	fixed_t spd_x, spd_y;
+	fixed_t dst_x, dst_y;
+	fixed_t org_x, org_y;
+	fixed_t thrust;
+	uint8_t dir;
+	uint8_t id;
+	uint16_t wait;
+	uint16_t delay;
+	uint16_t sndwait;
+} save_poly_move_t;
+
+typedef struct
+{ // STH_ACE_POLY_ROT
+	int32_t now;
+	int32_t dst;
+	int32_t spd;
+	angle_t org;
+	fixed_t thrust;
+	uint8_t dir;
+	uint8_t id;
+	uint16_t wait;
+	uint16_t delay;
+	uint16_t sndwait;
+} save_poly_rotate_t;
 
 //
 
@@ -839,6 +877,26 @@ static inline void sv_put_linedefs_hexen(int32_t lump)
 	writer_add_u16(0);
 }
 
+static inline void sv_put_polyobj()
+{
+	save_poly_t sp;
+
+	for(uint32_t i = 0; i < poly_count; i++)
+	{
+		polyobj_t *poly = polyobj + i;
+
+		writer_add_u16(poly->id);
+
+		sp.x = poly->x;
+		sp.y = poly->y;
+		sp.angle = poly->angle;
+
+		writer_add(&sp, sizeof(sp));
+	}
+
+	writer_add_u16(0);
+}
+
 static inline void sv_put_buttons()
 {
 	save_switch_t sw;
@@ -908,6 +966,48 @@ static inline void sv_put_thinkers()
 			sav.delay_bot = gl->delay_bot;
 			sav.flags = gl->flags;
 			sav.direction = gl->direction;
+
+			writer_add(&sav, sizeof(sav));
+		} else
+		if(th->function == think_poly_move)
+		{
+			save_poly_move_t sav;
+			poly_move_t *pm = (poly_move_t*)th;
+
+			writer_add_u16(STH_ACE_POLY_MOV);
+
+			sav.spd_x = pm->spd_x;
+			sav.spd_y = pm->spd_y;
+			sav.dst_x = pm->dst_x;
+			sav.dst_y = pm->dst_y;
+			sav.org_x = pm->org_x;
+			sav.org_y = pm->org_y;
+			sav.thrust = pm->thrust;
+			sav.dir = pm->dir;
+			sav.id = pm->poly->id;
+			sav.wait = pm->wait;
+			sav.delay = pm->delay;
+			sav.sndwait = pm->sndwait;
+
+			writer_add(&sav, sizeof(sav));
+		} else
+		if(th->function == think_poly_rotate)
+		{
+			save_poly_rotate_t sav;
+			poly_rotate_t *pr = (poly_rotate_t*)th;
+
+			writer_add_u16(STH_ACE_POLY_ROT);
+
+			sav.now = pr->now;
+			sav.dst = pr->dst;
+			sav.spd = pr->spd;
+			sav.org = pr->org;
+			sav.thrust = pr->thrust;
+			sav.dir = pr->dir;
+			sav.id = pr->poly->id;
+			sav.wait = pr->wait;
+			sav.delay = pr->delay;
+			sav.sndwait = pr->sndwait;
 
 			writer_add(&sav, sizeof(sav));
 		}
@@ -1388,6 +1488,10 @@ void do_save()
 		sv_put_linedefs_hexen(map_lump_idx + ML_LINEDEFS);
 	writer_add_u32(SAVE_VERSION);
 
+	// polyobjects
+	sv_put_polyobj();
+	writer_add_u32(SAVE_VERSION);
+
 	// specials
 	sv_put_buttons();
 	sv_put_thinkers();
@@ -1656,6 +1760,39 @@ static inline uint32_t ld_get_linedefs()
 	return reader_get_u32(&version) || version != SAVE_VERSION;
 }
 
+static inline uint32_t ld_get_polyobj()
+{
+	while(1)
+	{
+		uint16_t idx;
+		save_poly_t sp;
+		polyobj_t *poly;
+
+		if(reader_get_u16(&idx))
+			return 1;
+
+		if(!idx)
+			break;
+
+		if(reader_get(&sp, sizeof(sp)))
+			return 1;
+
+		poly = poly_find(idx, 0);
+		if(!poly)
+			return 1;
+
+		poly->x = sp.x;
+		poly->y = sp.y;
+		poly->angle = sp.angle;
+
+		poly_update_position(poly);
+	}
+
+	// version check
+	uint32_t version;
+	return reader_get_u32(&version) || version != SAVE_VERSION;
+}
+
 static inline uint32_t ld_get_specials()
 {
 	while(1)
@@ -1795,6 +1932,71 @@ static inline uint32_t ld_get_specials()
 				gl->delay_bot = sav.delay_bot;
 				gl->flags = sav.flags;
 				gl->direction = sav.direction;
+			}
+			break;
+			case STH_ACE_POLY_MOV:
+			{
+				save_poly_move_t sav;
+				poly_move_t *pm;
+				polyobj_t *poly;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				poly = poly_find(sav.id, 0);
+				if(!poly)
+					return 1;
+
+				if(sav.dir > 1)
+					return 1;
+
+				pm = poly_mover(poly);
+				if(!pm)
+					return 1;
+
+				pm->spd_x = sav.spd_x;
+				pm->spd_y = sav.spd_y;
+				pm->dst_x = sav.dst_x;
+				pm->dst_y = sav.dst_y;
+				pm->org_x = sav.org_x;
+				pm->org_y = sav.org_y;
+				pm->thrust = sav.thrust;
+				pm->dir = sav.dir;
+				pm->wait = sav.wait;
+				pm->delay = sav.delay;
+				pm->sndwait = sav.sndwait;
+			}
+			break;
+			case STH_ACE_POLY_ROT:
+			{
+				save_poly_rotate_t sav;
+				poly_rotate_t *pr;
+				polyobj_t *poly;
+
+				if(reader_get(&sav, sizeof(sav)))
+					return 1;
+
+				poly = poly_find(sav.id, 0);
+				if(!poly)
+					return 1;
+
+				if(sav.dir > 1)
+					return 1;
+
+				pr = poly_rotater(poly);
+				if(!pr)
+					return 1;
+
+				pr->now = sav.now;
+				pr->dst = sav.dst;
+				pr->spd = sav.spd;
+				pr->org = sav.org;
+				pr->thrust = sav.thrust;
+				pr->dir = sav.dir;
+				pr->poly->id = sav.id;
+				pr->wait = sav.wait;
+				pr->delay = sav.delay;
+				pr->sndwait = sav.sndwait;
 			}
 			break;
 			// old thinkers
@@ -2415,6 +2617,10 @@ void do_load()
 
 	// linedefs
 	if(ld_get_linedefs())
+		goto error_fail;
+
+	// polyobjects
+	if(ld_get_polyobj())
 		goto error_fail;
 
 	// specials

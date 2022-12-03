@@ -1021,7 +1021,7 @@ static void act_Thing_ChangeTID(mobj_t *th)
 
 static void act_Thing_Damage(mobj_t *th)
 {
-	mobj_damage(th, NULL, NULL, spec_arg[1], NULL);
+	mobj_damage(th, NULL, activator, spec_arg[1], NULL);
 }
 
 static void act_Thing_Spawn(mobj_t *th)
@@ -1095,7 +1095,7 @@ static void act_Thing_Destroy(mobj_t *th)
 	if(!spec_arg[0] && !(th->flags1 & MF1_ISMONSTER))
 		return;
 
-	mobj_damage(th, NULL, NULL, spec_arg[1] ? 1000000 : 1000001, NULL);
+	mobj_damage(th, NULL, activator, spec_arg[1] ? 1000000 : 1000001, NULL);
 }
 
 //

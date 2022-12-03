@@ -1432,11 +1432,20 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 
 	switch(spec_special)
 	{
+		case 2: // Polyobj_RotateLeft
+			spec_success = poly_rotate(NULL, 0);
+		break;
+		case 3: // Polyobj_RotateRight
+			spec_success = poly_rotate(NULL, 1);
+		break;
+		case 4: // Polyobj_Move
+			spec_success = poly_move(NULL, 0);
+		break;
 		case 7: // Polyobj_DoorSwing
-			spec_success = poly_door_swing(NULL);
+			spec_success = poly_rotate(NULL, 2);
 		break;
 		case 8: // Polyobj_DoorSlide
-			spec_success = poly_door_slide(NULL);
+			spec_success = poly_move(NULL, 1);
 		break;
 		case 10: // Door_Close
 			spec_success = handle_tag(ln, spec_arg[0], act_Door_Close);

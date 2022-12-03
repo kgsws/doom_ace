@@ -46,6 +46,6 @@ void poly_create();
 
 uint32_t poly_BlockLinesIterator(int32_t x, int32_t y, line_func_t func);
 
-uint32_t poly_door_slide(struct polyobj_s *mirror);
-uint32_t poly_door_swing(struct polyobj_s *mirror);
+uint32_t poly_move(struct polyobj_s *mirror, uint32_t door);
+uint32_t poly_rotate(struct polyobj_s *mirror, uint32_t type);
 

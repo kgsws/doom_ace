@@ -14,6 +14,7 @@ uint8_t *tp_text_ptr;
 uint_fast8_t tp_is_string;
 
 uint_fast8_t tp_enable_math;
+uint_fast8_t tp_enable_script;
 uint_fast8_t tp_enable_newline;
 
 static uint8_t script_char[2];
@@ -25,26 +26,29 @@ static uint8_t *pushed_kw;
 
 static uint32_t is_script_char(uint8_t in)
 {
-	if(in == '(')
-		return 1;
-	if(in == ')')
-		return 1;
-	if(in == '{')
-		return 1;
-	if(in == '}')
-		return 1;
-	if(in == '[')
-		return 1;
-	if(in == ']')
-		return 1;
-	if(in == '#')
-		return 1;
-	if(in == ',')
-		return 1;
-	if(in == ';')
-		return 1;
-	if(in == ':')
-		return 1;
+	if(tp_enable_script)
+	{
+		if(in == '(')
+			return 1;
+		if(in == ')')
+			return 1;
+		if(in == '{')
+			return 1;
+		if(in == '}')
+			return 1;
+		if(in == '[')
+			return 1;
+		if(in == ']')
+			return 1;
+		if(in == '#')
+			return 1;
+		if(in == ',')
+			return 1;
+		if(in == ';')
+			return 1;
+		if(in == ':')
+			return 1;
+	}
 	if(tp_enable_math)
 	{
 		if(in == '+')
@@ -443,6 +447,7 @@ void tp_load_lump(lumpinfo_t *li)
 	backup_char = 0;
 	pushed_kw = 0;
 
+	tp_enable_script = 1;
 	tp_enable_math = 0;
 	tp_enable_newline = 0;
 }
@@ -471,6 +476,7 @@ uint32_t tp_load_file(const uint8_t *path)
 	backup_char = 0;
 	pushed_kw = 0;
 
+	tp_enable_script = 1;
 	tp_enable_math = 0;
 	tp_enable_newline = 0;
 
@@ -487,6 +493,7 @@ void tp_use_text(uint8_t *ptr)
 	backup_char = 0;
 	pushed_kw = 0;
 
+	tp_enable_script = 1;
 	tp_enable_math = 0;
 	tp_enable_newline = 0;
 }

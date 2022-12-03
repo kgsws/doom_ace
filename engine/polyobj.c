@@ -641,7 +641,7 @@ void think_poly_move(poly_move_t *pm)
 	}
 }
 
-static poly_move_t *poly_mover(polyobj_t *poly)
+static poly_move_t *poly_mover(polyobj_t *poly, uint32_t is_door)
 {
 	poly_move_t *pm;
 	sound_seq_t *seq;
@@ -652,7 +652,10 @@ static poly_move_t *poly_mover(polyobj_t *poly)
 	pm->poly = poly;
 	think_add(&pm->thinker);
 
-	seq = snd_seq_by_id(poly->sndseq | SEQ_IS_DOOR);
+	if(is_door)
+		is_door = SEQ_IS_DOOR;
+
+	seq = snd_seq_by_id(poly->sndseq | is_door);
 	if(seq)
 	{
 		pm->up_seq = &seq->norm_open;
@@ -797,7 +800,7 @@ static poly_rotate_t *poly_rotater(polyobj_t *poly)
 //
 // line actions
 
-uint32_t poly_door_slide(polyobj_t *mirror)
+uint32_t poly_move(polyobj_t *mirror, uint32_t is_door)
 {
 	polyobj_t *poly;
 	poly_move_t *pm;
@@ -851,7 +854,7 @@ uint32_t poly_door_slide(polyobj_t *mirror)
 
 	dist = spec_arg[3];
 
-	pm = poly_mover(poly);
+	pm = poly_mover(poly, is_door);
 
 	pm->org_x = poly->x;
 	pm->org_y = poly->y;
@@ -869,7 +872,8 @@ uint32_t poly_door_slide(polyobj_t *mirror)
 	else
 		pm->spd_y = abs((vector[1] * spec_arg[1]) / 8);
 
-	pm->delay = spec_arg[4] + 1;
+	if(is_door)
+		pm->delay = spec_arg[4] + 1;
 
 	pm->thrust = spec_arg[1] << 10;
 	if(pm->thrust < (1 << FRACBITS))
@@ -879,15 +883,16 @@ uint32_t poly_door_slide(polyobj_t *mirror)
 		pm->thrust = 4 << FRACBITS;
 
 	if(!mirror && poly->mirror)
-		poly_door_slide(poly->mirror);
+		poly_move(poly->mirror, is_door);
 
 	return 0;
 }
 
-uint32_t poly_door_swing(polyobj_t *mirror)
+uint32_t poly_rotate(polyobj_t *mirror, uint32_t type)
 {
 	polyobj_t *poly;
 	poly_rotate_t *pr;
+	uint32_t reflect;
 
 	if(!mirror)
 	{
@@ -904,7 +909,8 @@ uint32_t poly_door_swing(polyobj_t *mirror)
 
 	pr = poly_rotater(poly);
 
-	pr->delay = spec_arg[3] + 1;
+	if(type > 1)
+		pr->delay = spec_arg[3] + 1;
 
 	pr->spd = spec_arg[1] << 3;
 	pr->dst = spec_arg[2] << 6;
@@ -916,14 +922,17 @@ uint32_t poly_door_swing(polyobj_t *mirror)
 	if(pr->thrust > (4 << FRACBITS))
 		pr->thrust = 4 << FRACBITS;
 
-	if(mirror)
+	reflect = !!mirror;
+	reflect ^= type == 1;
+
+	if(reflect)
 	{
 		pr->dst = -pr->dst;
 		pr->spd = -pr->spd;
 	}
 
 	if(!mirror && poly->mirror)
-		poly_door_swing(poly->mirror);
+		poly_rotate(poly->mirror, type);
 
 	return 0;
 }

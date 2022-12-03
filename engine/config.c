@@ -169,7 +169,7 @@ static uint32_t parse_value(config_entry_t *conf_def)
 		kv = tp_get_keyword_lc();
 		if(!kv)
 			break;
-
+doom_printf("parse %s\n", kw);
 		conf = conf_def;
 		while(conf->name)
 		{
@@ -190,6 +190,7 @@ static uint32_t parse_value(config_entry_t *conf_def)
 							*conf->s32 = value;
 					break;
 					case TYPE_STRING_ALLOC:
+doom_printf("alloc for %s\n", kv);
 						value = strlen(kv) + 1;
 						kw = ldr_malloc(value);
 						strcpy(kw, kv);
@@ -226,6 +227,7 @@ void init_config()
 	if(!tp_load_file(ACE_CONFIG_FILE))
 	{
 		doom_printf("[ACE] loading game config ...\n");
+		tp_enable_script = 0;
 		while(parse_value(config_game));
 	} else
 	{
@@ -244,6 +246,7 @@ void init_config()
 	{
 		doom_printf("[ACE] loading mod config ...\n");
 		tp_load_lump(lumpinfo + lump);
+		tp_enable_script = 0;
 		while(parse_value(config_mod));
 	}
 

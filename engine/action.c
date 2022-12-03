@@ -1947,6 +1947,10 @@ static const dec_action_t mobj_action[] =
 
 static const dec_linespec_t special_action[] =
 {
+	{2, "polyobj_rotateleft"},
+	{3, "polyobj_rotateright"},
+	{4, "polyobj_move"},
+	{7, "polyobj_doorswing"},
 	{8, "polyobj_doorslide"},
 	{10, "door_close"},
 	{12, "door_raise"},

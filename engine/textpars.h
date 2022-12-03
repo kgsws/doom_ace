@@ -10,6 +10,7 @@ extern uint8_t *tp_text_ptr;
 extern uint_fast8_t tp_is_string;
 
 extern uint_fast8_t tp_enable_math;
+extern uint_fast8_t tp_enable_script;
 extern uint_fast8_t tp_enable_newline;
 
 //

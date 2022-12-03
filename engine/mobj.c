@@ -2370,7 +2370,6 @@ uint32_t PIT_StompThing(mobj_t *thing)
 
 uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angle, uint32_t flags)
 {
-	// TODO: failed teleport should not explode projectiles
 	fixed_t xx, yy, zz, fz, cz, ff;
 	uint32_t blocked;
 

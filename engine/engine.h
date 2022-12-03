@@ -1020,7 +1020,7 @@ typedef struct mobj_s
 	angle_t angle;
 	uint16_t sprite;
 	uint16_t frame;
-	fixed_t gravity;
+	uint32_t flags1;	// offset must be < 128 (EV_Teleport patch)
 	struct mobj_s *bnext;
 	struct mobj_s *bprev;
 	struct subsector_s *subsector;
@@ -1050,9 +1050,10 @@ typedef struct mobj_s
 	// new pointer
 	struct mobj_s *master;
 	// more flags
-	uint32_t flags1;
 	uint32_t flags2;
 	uint32_t iflags;
+	// more stuff
+	fixed_t gravity;
 	// render
 	uint8_t render_style;
 	uint8_t render_alpha;

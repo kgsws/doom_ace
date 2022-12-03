@@ -362,7 +362,7 @@ typedef struct
 typedef struct
 { // STH_ACE_LINE_SCROLL
 	uint16_t line;
-	int8_t x, y;
+	int16_t x, y;
 } save_line_scroll_t;
 
 typedef struct

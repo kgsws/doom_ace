@@ -236,7 +236,7 @@ typedef struct
 {
 	thinker_t thinker;
 	line_t *line;
-	int8_t x, y;
+	int16_t x, y;
 } line_scroll_t;
 
 //

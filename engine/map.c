@@ -236,8 +236,8 @@ __attribute((regparm(2),no_caller_saved_registers))
 void think_line_scroll(line_scroll_t *ls)
 {
 	side_t *side = sides + ls->line->sidenum[0];
-	side->textureoffset += (fixed_t)ls->x * FRACUNIT;
-	side->rowoffset += (fixed_t)ls->y * FRACUNIT;
+	side->textureoffset += (fixed_t)ls->x * (FRACUNIT / 64);
+	side->rowoffset += (fixed_t)ls->y * (FRACUNIT / 64);
 }
 
 static inline void spawn_line_scroll()
@@ -245,15 +245,44 @@ static inline void spawn_line_scroll()
 	for(uint32_t i = 0; i < numlines; i++)
 	{
 		line_t *ln = lines + i;
+		int16_t x = 0;
+		int16_t y = 0;
 
-		if(ln->special == 48)
+		if(map_format == MAP_FORMAT_DOOM)
+		{
+			if(ln->special == 48)
+				x = 64;
+		} else
+		switch(ln->special)
+		{
+			case 100: // Scroll_Texture_Left
+				x = ln->arg0;
+			break;
+			case 101: // Scroll_Texture_Right
+				x = -(int16_t)ln->arg0;
+			break;
+			case 102: // Scroll_Texture_Up
+				y = ln->arg0;
+			break;
+			case 103: // Scroll_Texture_Down
+				y = -(int16_t)ln->arg0;
+			break;
+			case 225: // Scroll_Texture_Offsets
+				x = -sides[ln->sidenum[0]].textureoffset >> 10;
+				y = sides[ln->sidenum[0]].rowoffset >> 10;
+			break;
+		}
+
+		if(x || y)
 		{
 			line_scroll_t *ls;
 
+			ln->special = 0;
+
 			ls = Z_Malloc(sizeof(line_scroll_t), PU_LEVEL, NULL);
 			ls->line = ln;
-			ls->x = 1;
-			ls->y = 0;
+			ls->x = x;
+			ls->y = y;
 			ls->thinker.function = think_line_scroll;
 			think_add(&ls->thinker);
 		}
@@ -1141,11 +1170,11 @@ uint32_t map_load_setup()
 	if(!map_skip_stuff)
 	{
 		if(map_format == MAP_FORMAT_DOOM)
-		{
 			P_SpawnSpecials();
-			spawn_line_scroll();
-		}
 		// TODO: ZDoom specials
+
+		// texture scrollers
+		spawn_line_scroll();
 
 		// check for player starts
 		for(uint32_t i = 0; i < MAXPLAYERS; i++)

@@ -1475,8 +1475,6 @@ static uint32_t get_custom_damage(const uint8_t *name)
 {
 	for(uint32_t i = 0; i < NUM_DAMAGE_TYPES; i++)
 	{
-if(damage_type_name[i])
-doom_printf("DT[%u]: %s\n", i, damage_type_name[i]);
 		if(damage_type_name[i] && !strcmp(damage_type_name[i], name))
 			return i;
 	}

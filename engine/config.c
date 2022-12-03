@@ -169,7 +169,7 @@ static uint32_t parse_value(config_entry_t *conf_def)
 		kv = tp_get_keyword_lc();
 		if(!kv)
 			break;
-doom_printf("parse %s\n", kw);
+
 		conf = conf_def;
 		while(conf->name)
 		{
@@ -190,7 +190,6 @@ doom_printf("parse %s\n", kw);
 							*conf->s32 = value;
 					break;
 					case TYPE_STRING_ALLOC:
-doom_printf("alloc for %s\n", kv);
 						value = strlen(kv) + 1;
 						kw = ldr_malloc(value);
 						strcpy(kw, kv);

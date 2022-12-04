@@ -56,7 +56,7 @@ typedef struct
 typedef struct
 {
 	uint8_t special; // so far u8 is enough but ZDoom has types > 255
-	const uint8_t *name;
+	uint64_t alias;
 } __attribute__((packed)) dec_linespec_t; // 'packed' for DOS use only
 
 //
@@ -1738,10 +1738,11 @@ uint8_t *action_parser(uint8_t *name)
 	{
 		// try line specials
 		const dec_linespec_t *spec = special_action;
+		uint64_t alias = tp_hash64(name);
 
 		while(spec->special)
 		{
-			if(!strcmp(spec->name, name))
+			if(spec->alias == alias)
 				break;
 			spec++;
 		}
@@ -1776,7 +1777,7 @@ uint8_t *action_parser(uint8_t *name)
 					return NULL;
 
 				if(idx >= 5)
-					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", spec->name, parse_actor_name);
+					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 
 				// check for 'args'
 				if(!strcmp(kw, "args"))
@@ -1790,7 +1791,7 @@ uint8_t *action_parser(uint8_t *name)
 						return NULL;
 
 					if(doom_sscanf(kw, "%d", &value) != 1 || value < 0 || value > 4)
-						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, spec->name, parse_actor_name);
+						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
 
 					kw = tp_get_keyword();
 					if(!kw || kw[0] != ']')
@@ -1801,7 +1802,7 @@ uint8_t *action_parser(uint8_t *name)
 				{
 					// parse numeric value
 					if(doom_sscanf(kw, "%d", &value) != 1 || value < -32000 || value > 32000)
-						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, spec->name, parse_actor_name);
+						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
 				}
 
 				arg->arg[idx++] = value;
@@ -1847,12 +1848,12 @@ uint8_t *action_parser(uint8_t *name)
 		else
 			memset(parse_action_arg, 0, act->args->size);
 
-		action_name = act->name;
+		action_name = name;
 
 		if(kw[0] != '(')
 		{
 			if(!arg->optional)
-				I_Error("[DECORATE] Missing argument '%s' for action '%s' in '%s'!", arg->name, act->name, parse_actor_name);
+				I_Error("[DECORATE] Missing argument '%s' for action '%s' in '%s'!", arg->name, name, parse_actor_name);
 		} else
 		{
 			while(arg->name)
@@ -1865,7 +1866,7 @@ uint8_t *action_parser(uint8_t *name)
 				{
 args_end:
 					if(arg->name && !arg->optional)
-						I_Error("[DECORATE] Missing argument '%s' for action '%s' in '%s'!", arg->name, act->name, parse_actor_name);
+						I_Error("[DECORATE] Missing argument '%s' for action '%s' in '%s'!", arg->name, name, parse_actor_name);
 					// check validity
 					if(act->check)
 						act->check(parse_action_arg);
@@ -1875,7 +1876,7 @@ args_end:
 
 				kw = arg->handler(kw, arg);
 				if(!kw || (kw[0] != ',' && kw[0] != ')'))
-					I_Error("[DECORATE] Failed to parse arguments for action '%s' in '%s'!", act->name, parse_actor_name);
+					I_Error("[DECORATE] Failed to parse arguments for action '%s' in '%s'!", name, parse_actor_name);
 
 				arg++;
 
@@ -1883,7 +1884,7 @@ args_end:
 					goto args_end;
 
 				if(!arg->name)
-					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", act->name, parse_actor_name);
+					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 			}
 		}
 	}
@@ -1947,71 +1948,71 @@ static const dec_action_t mobj_action[] =
 
 static const dec_linespec_t special_action[] =
 {
-	{2, "polyobj_rotateleft"},
-	{3, "polyobj_rotateright"},
-	{4, "polyobj_move"},
-	{7, "polyobj_doorswing"},
-	{8, "polyobj_doorslide"},
-	{10, "door_close"},
-	{12, "door_raise"},
-	{13, "door_lockedraise"},
-	{19, "thing_stop"},
-	{20, "floor_lowerbyvalue"},
-	{23, "floor_raisebyvalue"},
-	{26, "stairs_builddown"},
-	{27, "stairs_buildup"},
-	{28, "floor_raiseandcrush"},
-	{31, "stairs_builddownsync"},
-	{32, "stairs_buildupsync"},
-	{35, "floor_raisebyvaluetimes8"},
-	{36, "floor_lowerbyvaluetimes8"},
-	{40, "ceiling_lowerbyvalue"},
-	{41, "ceiling_raisebyvalue"},
-	{44, "ceiling_crushstop"},
-	{62, "plat_downwaitupstay"},
-	{64, "plat_upwaitdownstay"},
-	{70, "teleport"},
-	{71, "teleport_nofog"},
-	{72, "thrustthing"},
-	{73, "damagething"},
-	{74, "teleport_newmap"},
-	{76, "teleportother"},
-	{97, "ceiling_lowerandcrushdist"},
-	{99, "floor_raiseandcrushdoom"},
-	{110, "light_raisebyvalue"},
-	{111, "light_lowerbyvalue"},
-	{112, "light_changetovalue"},
-	{113, "light_fade"},
-	{114, "light_glow"},
-	{116, "light_strobe"},
-	{117, "light_stop"},
-	{119, "thing_damage"},
-	{127, "thing_setspecial"},
-	{128, "thrustthingz"},
-	{130, "thing_activate"},
-	{131, "thing_deactivate"},
-	{132, "thing_remove"},
-	{133, "thing_destroy"},
-	{134, "thing_projectile"},
-	{135, "thing_spawn"},
-	{136, "thing_projectilegravity"},
-	{137, "thing_spawnnofog"},
-	{139, "thing_spawnfacing"},
-	{172, "plat_upnearestwaitdownstay"},
-	{176, "thing_changetid"},
-	{179, "changeskill"},
-	{195, "ceiling_crushraiseandstaya"},
-	{196, "ceiling_crushandraisea"},
-	{198, "ceiling_raisebyvaluetimes8"},
-	{199, "ceiling_lowerbyvaluetimes8"},
-	{200, "generic_floor"},
-	{201, "generic_ceiling"},
-	{206, "plat_downwaitupstaylip"},
-	{212, "sector_setcolor"},
-	{213, "sector_setfade"},
-	{239, "floor_raisebyvaluetxty"},
-	{243, "exit_normal"},
-	{244, "exit_secret"},
+	{2, 0x4BF2738E392FBF77}, // polyobj_rotateleft
+	{3, 0x4BF1348F08CFBF77}, // polyobj_rotateright
+	{4, 0x6BED7EA8AFE6CB67}, // polyobj_move
+	{7, 0xFBE47E8F157B383A}, // polyobj_doorswing
+	{8, 0xFBE47E8D3D7DF83A}, // polyobj_doorslide
+	{10, 0x0973BEC8DFCAFBE4}, // door_close
+	{12, 0x0973A61C9FCAFBE4}, // door_raise
+	{13, 0x496B8EFB88F09A2E}, // door_lockedraise
+	{19, 0x0C2FD337E7BA9A34}, // thing_stop
+	{20, 0x2977B7B240A342AD}, // floor_lowerbyvalue
+	{23, 0x5CE98E5240A342AC}, // floor_raisebyvalue
+	{26, 0xCA7589FC49DDF9A1}, // stairs_builddown
+	{27, 0xCA7589FCF2AA28A1}, // stairs_buildup
+	{28, 0x5CEB0BD23887D5A0}, // floor_raiseandcrush
+	{31, 0xCAFB678F49DDF9A1}, // stairs_builddownsync
+	{32, 0xCA758112159A28A1}, // stairs_buildupsync
+	{35, 0x314ECE5240A3A195}, // floor_raisebyvaluetimes8
+	{36, 0x44D0F7B240A3A194}, // floor_lowerbyvaluetimes8
+	{40, 0x7B7B255A722A2BF4}, // ceiling_lowerbyvalue
+	{41, 0x98E5255A722A3CAD}, // ceiling_raisebyvalue
+	{44, 0x5CA37E4B16FE71AC}, // ceiling_crushstop
+	{62, 0x1DED468DD0DF6F96}, // plat_downwaitupstay
+	{64, 0x4A624779913FF4A3}, // plat_upwaitdownstay
+	{70, 0x0000D32BF096C974}, // teleport
+	{71, 0xFB9FD32BF09F26EE}, // teleport_nofog
+	{72, 0x7BA9A34D33D72A36}, // thrustthing
+	{73, 0x7BA9A3496786D866}, // damagething
+	{74, 0x5B9FD32BF39EA4AA}, // teleport_newmap
+	{76, 0x8D2FD32BF096FBE2}, // teleportother
+	{97, 0x532322D83B6E256D}, // ceiling_lowerandcrushdist
+	{99, 0xB37B0BD23887D77B}, // floor_raiseandcrushdoom
+	{110, 0x5CE98E5246BFC3E6}, // light_raisebyvalue
+	{111, 0x2977B7B246BFC3E7}, // light_lowerbyvalue
+	{112, 0x7BA3FF5B73C98EFA}, // light_changetovalue
+	{113, 0x09648667F4A27A6C}, // light_fade
+	{114, 0x0DEFB277F4A27A6C}, // light_glow
+	{116, 0x2BF2D337F4A27AFA}, // light_strobe
+	{117, 0x0C2FD337F4A27A6C}, // light_stop
+	{119, 0x786D8647E7BA9AA2}, // thing_damage
+	{127, 0x0CF4973755A0F9A3}, // thing_setspecial
+	{128, 0x7BA9A34D33D72ADE}, // thrustthingz
+	{130, 0x6A748E17E7B3EEB3}, // thing_activate
+	{131, 0x48E1964770F2EC93}, // thing_deactivate
+	{132, 0x6BED9727E7BA9AA3}, // thing_remove
+	{133, 0x2D339647E7BAA38B}, // thing_destroy
+	{134, 0x5AAFCB077170EEBA}, // thing_projectile
+	{135, 0xEDE1C337E7BA9A36}, // thing_spawn
+	{136, 0x7375D7A07170ED27}, // thing_projectilegravity
+	{137, 0xEDE1C3377943358E}, // thing_spawnnofog
+	{139, 0xEDE1C3105D227BAE}, // thing_spawnfacing
+	{172, 0x9FDBF624D6CEFB9C}, // plat_upnearestwaitdownstay
+	{176, 0x7BA1A237E5F0EEA2}, // thing_changetid
+	{179, 0xCB29AF3967BA1A21}, // changeskill
+	{195, 0xB819670807D7B6E0}, // ceiling_crushraiseandstaya
+	{196, 0x396DE6093B5AF1A4}, // ceiling_crushandraisea
+	{198, 0xECE5255A7C19AA77}, // ceiling_raisebyvaluetimes8
+	{199, 0x0F7B255A7C19BD2E}, // ceiling_lowerbyvaluetimes8
+	{200, 0xFB267E3A7296DBD9}, // generic_floor
+	{201, 0x99637E3A70ED40D5}, // generic_ceiling
+	{206, 0x345D468DD0DF6F9A}, // plat_downwaitupstaylip
+	{212, 0x3D25CDFCACF9D5CD}, // sector_setcolor
+	{213, 0x6D25CDFCAFDB5DF5}, // sector_setfade
+	{239, 0x280ACE5240A342A2}, // floor_raisebyvaluetxty
+	{243, 0xC86DCAFB9FD29E27}, // exit_normal
+	{244, 0x49728E5CDFD29E26}, // exit_secret
 	// terminator
 	{0}
 };

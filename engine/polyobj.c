@@ -389,6 +389,8 @@ void poly_create()
 			// check mirror
 			if(seg->linedef->arg1)
 				poly->mirror = poly_find(seg->linedef->arg1, 0);
+			else
+				poly->mirror = NULL;
 		}
 	}
 }

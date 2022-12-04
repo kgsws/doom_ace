@@ -1025,6 +1025,7 @@ uint32_t map_load_setup()
 	if(gameskill > sk_nightmare)
 		gameskill = sk_nightmare;
 
+	leveltime = 0;
 	viewactive = 1;
 	automapactive = 0;
 	am_lastlevel = -1;

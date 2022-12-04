@@ -316,6 +316,15 @@ enum
 
 enum
 {
+	PROP_FROZEN,
+	PROP_NOTARGET,
+	PROP_INSTANTWEAPONSWITCH, // not used
+	PROP_FLY,
+	PROP_TOTALLYFROZEN,
+};
+
+enum
+{
 	pw_invulnerability,
 	pw_strength,
 	pw_invisibility,
@@ -334,7 +343,8 @@ enum
 typedef struct player_s
 { // this structure has been changed
 	struct mobj_s *mo;
-	uint32_t playerstate;
+	uint16_t state;
+	uint16_t prop;
 	ticcmd_t cmd;
 	fixed_t viewz;
 	fixed_t viewheight;

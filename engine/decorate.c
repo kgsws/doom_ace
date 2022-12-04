@@ -1162,6 +1162,7 @@ static const doom_invspec_t doom_invspec[] =
 // doom code pointers
 static const doom_codeptr_t doom_codeptr[] =
 {
+	{(void*)0x000276C0, A_Look, NULL},
 	{(void*)0x0002D490, A_Lower, &def_LowerRaise},
 	{(void*)0x0002D4D0, A_Raise, &def_LowerRaise},
 	{(void*)0x0002D2F0, A_WeaponReady, NULL},

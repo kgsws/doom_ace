@@ -37,6 +37,8 @@ static void cf_idclev(player_t*,uint8_t*);
 static void cf_iddt(player_t*,uint8_t*);
 static void cf_map(player_t*,uint8_t*);
 static void cf_buddha(player_t*,uint8_t*);
+static void cf_notarget(player_t*,uint8_t*);
+static void cf_fly(player_t*,uint8_t*);
 static void cf_mdk(player_t*,uint8_t*);
 static void cf_kill(player_t*,uint8_t*);
 static void cf_resurrect(player_t*,uint8_t*);
@@ -56,6 +58,8 @@ static const cheat_func_t cheat_func[] =
 	{"map", cf_map},
 	{"noclip", cf_noclip},
 	{"buddha", cf_buddha},
+	{"notarget", cf_notarget},
+	{"fly", cf_fly},
 	{"mdk", cf_mdk},
 	{"kill", cf_kill},
 	{"resurrect", cf_resurrect},
@@ -247,6 +251,28 @@ static void cf_buddha(player_t *pl, uint8_t *arg)
 	}
 }
 
+static void cf_notarget(player_t *pl, uint8_t *arg)
+{
+	mobj_t *mo = pl->mo;
+
+	mo->flags1 ^= MF1_NOTARGET;
+	if(mo->flags1 & MF1_NOTARGET)
+		pl->message = "Notarget mode ON";
+	else
+		pl->message = "Notarget mode OFF";
+}
+
+static void cf_fly(player_t *pl, uint8_t *arg)
+{
+	mobj_t *mo = pl->mo;
+
+	mo->flags ^= MF_NOGRAVITY;
+	if(mo->flags & MF_NOGRAVITY)
+		pl->message = "Flight ON";
+	else
+		pl->message = "Flight OFF";
+}
+
 static void cf_mdk(player_t *pl, uint8_t *arg)
 {
 	fixed_t slope;
@@ -279,7 +305,7 @@ static void cf_resurrect(player_t *pl, uint8_t *arg)
 	mobjinfo_t *info = pl->mo->info;
 	mobj_t *mo = pl->mo;
 
-	if(pl->playerstate != PST_DEAD && pl->health > 0)
+	if(pl->state != PST_DEAD && pl->health > 0)
 		return;
 
 	if(pl->flags & PF_NO_BODY)
@@ -289,7 +315,7 @@ static void cf_resurrect(player_t *pl, uint8_t *arg)
 	}
 
 	pl->health = info->spawnhealth;
-	pl->playerstate = PST_LIVE;
+	pl->state = PST_LIVE;
 
 	mo->health = info->spawnhealth;
 	mo->height = info->height;

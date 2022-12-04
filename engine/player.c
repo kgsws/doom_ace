@@ -304,11 +304,15 @@ void P_CalcHeight(player_t *player)
 	fixed_t bob;
 	fixed_t viewheight = player->mo->info->player.view_height;
 
-	player->bob = FixedMul(player->mo->momx, player->mo->momx) + FixedMul(player->mo->momy,player->mo->momy);
-	player->bob >>= 2;
+	if(onground || !(player->mo->flags & MF_NOGRAVITY))
+	{
+		player->bob = FixedMul(player->mo->momx, player->mo->momx) + FixedMul(player->mo->momy,player->mo->momy);
+		player->bob >>= 2;
 
-	if(player->bob > MAXBOB)
-		player->bob = MAXBOB;
+		if(player->bob > MAXBOB)
+			player->bob = MAXBOB;
+	} else
+		player->bob = 0;
 
 	if((player->cheats & CF_NOMOMENTUM) || !onground)
 	{
@@ -324,7 +328,7 @@ void P_CalcHeight(player_t *player)
 	angle = (FINEANGLES / 20 * leveltime) & FINEMASK;
 	bob = FixedMul(player->bob / 2, finesine[angle]);
 
-	if(player->playerstate == PST_LIVE)
+	if(player->state == PST_LIVE)
 	{
 		player->viewheight += player->deltaviewheight;
 
@@ -380,6 +384,19 @@ void player_think(player_t *pl)
 
 	cheat_char(idx, cmd->chatchar);
 
+	if(pl->prop & ((1 << PROP_FROZEN) | (1 << PROP_TOTALLYFROZEN)))
+	{
+		cmd->forwardmove = 0;
+		cmd->sidemove = 0;
+	}
+	if(pl->prop & (1 << PROP_TOTALLYFROZEN))
+	{
+		cmd->angleturn = 0;
+		cmd->pitchturn = 0;
+		if(!(cmd->buttons & BT_SPECIAL))
+			cmd->buttons &= ~(BT_ATTACK|BT_ALTACK|BT_ACTIONMASK);
+	}
+
 	if(pl->damagecount < 0)
 		pl->damagecount = 0;
 	if(pl->bonuscount < 0)
@@ -388,7 +405,7 @@ void player_think(player_t *pl)
 	if(pl->bonuscount) // this is NOT done in 'P_DeathThink'
 		pl->bonuscount--;
 
-	if(pl->playerstate == PST_DEAD)
+	if(pl->state == PST_DEAD)
 	{
 		if(	pl->info_flags & PLF_MOUSE_LOOK &&
 			!(map_level_info->flags & MAP_FLAG_NO_FREELOOK) &&
@@ -453,13 +470,36 @@ void player_think(player_t *pl)
 			}
 		} else
 		{
-			int32_t scale = onground ? 2048 : 8;
+			int32_t scale;
 
-			if(cmd->forwardmove)
+			if(pl->mo->flags & MF_NOGRAVITY)
 			{
-				fixed_t power = cmd->forwardmove * scale;
-				pl->mo->momx += FixedMul(power, finecosine[angle]);
-				pl->mo->momy += FixedMul(power, finesine[angle]);
+				scale = 2048;
+
+				if(cmd->forwardmove)
+				{
+					fixed_t power = cmd->forwardmove * scale;
+
+					if(pl->mo->pitch)
+					{
+						angle_t pitch = pl->mo->pitch >> ANGLETOFINESHIFT;
+						pl->mo->momz += FixedMul(power, finesine[pitch]);
+						power = FixedMul(power, finecosine[pitch]);
+					}
+
+					pl->mo->momx += FixedMul(power, finecosine[angle]);
+					pl->mo->momy += FixedMul(power, finesine[angle]);
+				}
+			} else
+			{
+				scale = onground ? 2048 : 8;
+
+				if(cmd->forwardmove)
+				{
+					fixed_t power = cmd->forwardmove * scale;
+					pl->mo->momx += FixedMul(power, finecosine[angle]);
+					pl->mo->momy += FixedMul(power, finesine[angle]);
+				}
 			}
 
 			if(cmd->sidemove)

@@ -395,7 +395,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	uint32_t left, given;
 	fixed_t diff;
 
-	if(!toucher->player || toucher->player->playerstate != PST_LIVE)
+	if(!toucher->player || toucher->player->state != PST_LIVE)
 		return;
 
 	diff = mo->z - toucher->z;
@@ -612,7 +612,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	mo->angle = angle;
 
 	// check for reset
-	if(pl->playerstate == PST_REBORN || map_level_info->flags & MAP_FLAG_RESET_INVENTORY)
+	if(pl->state == PST_REBORN || map_level_info->flags & MAP_FLAG_RESET_INVENTORY)
 	{
 		// cleanup
 		uint32_t killcount;
@@ -650,7 +650,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 
 		pl->usedown = 1;
 		pl->attackdown = 1;
-		pl->playerstate = PST_LIVE;
+		pl->state = PST_LIVE;
 
 		if(info == mobjinfo)
 			pl->health = dehacked.start_health;
@@ -723,7 +723,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	mo->health = pl->health;
 
 	pl->mo = mo;
-	pl->playerstate = PST_LIVE;
+	pl->state = PST_LIVE;
 	pl->refire = 0;
 	pl->message = NULL;
 	pl->damagecount = 0;
@@ -2140,7 +2140,7 @@ static void mobj_xy_move(mobj_t *mo)
 		// no friction for projectiles
 		return;
 
-	if(mo->z > mo->floorz)
+	if(mo->z > mo->floorz && (!pl || !(mo->flags & MF_NOGRAVITY)))
 		// no friction in air
 		return;
 
@@ -2172,6 +2172,15 @@ static void mobj_xy_move(mobj_t *mo)
 		// friction
 		mo->momx = FixedMul(mo->momx, FRICTION);
 		mo->momy = FixedMul(mo->momy, FRICTION);
+	}
+
+	// flight friction
+	if(pl && mo->flags & MF_NOGRAVITY)
+	{
+		if(mo->momz > -STOPSPEED && mo->momz < STOPSPEED)
+			mo->momz = 0;
+		else
+			mo->momz = FixedMul(mo->momz, FRICTION);
 	}
 }
 

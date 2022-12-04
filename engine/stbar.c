@@ -714,7 +714,7 @@ void stbar_draw(player_t *pl)
 		return;
 
 	// not if dead
-	if(pl->playerstate != PST_LIVE)
+	if(pl->state != PST_LIVE)
 	{
 		if(screenblocks < 11 && invbar_was_on)
 		{

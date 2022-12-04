@@ -1350,7 +1350,7 @@ void map_start_title()
 
 	consoleplayer = 0;
 	memset(players, 0, sizeof(player_t) * MAXPLAYERS);
-	players[0].playerstate = PST_REBORN;
+	players[0].state = PST_REBORN;
 
 	memset(playeringame, 0, sizeof(uint32_t) * MAXPLAYERS);
 	playeringame[0] = 1;
@@ -2374,7 +2374,7 @@ static void do_new_game()
 
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
-		players[i].playerstate = PST_REBORN;
+		players[i].state = PST_REBORN;
 		playeringame[i] = 0;
 	}
 	playeringame[0] = 1;
@@ -2394,7 +2394,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 static void do_autostart_game()
 {
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		players[i].playerstate = PST_REBORN;
+		players[i].state = PST_REBORN;
 
 	if(startepisode)
 	{

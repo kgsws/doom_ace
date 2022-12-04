@@ -341,8 +341,9 @@ uint32_t P_CheckSight(mobj_t *t1, mobj_t *t2)
 {
 	extraplane_t *pl;
 
-	if(t2->render_style >= RS_INVISIBLE && t1->flags1 & MF1_ISMONSTER && !(t1->flags & MF_CORPSE))
+	if((t2->render_style >= RS_INVISIBLE || t2->flags1 & MF1_NOTARGET) && t1->flags1 & MF1_ISMONSTER && !(t1->flags & MF_CORPSE))
 		// HACK: 'INVISIBLE' check should be in A_Chase
+		// HACK: 'NOTARGET' check should be in A_Chase and A_Look
 		return 0;
 
 	if(rejectmatrix)

@@ -1332,6 +1332,82 @@ static uint32_t do_TeleportInSector()
 }
 
 //
+// misc
+
+static inline uint32_t do_NoiseAlert()
+{
+	mobj_t *emmiter, *target;
+
+	if(spec_arg[0])
+		target = mobj_by_tid_first(spec_arg[0]);
+	else
+		target = activator;
+
+	if(spec_arg[1])
+		emmiter = mobj_by_tid_first(spec_arg[1]);
+	else
+		emmiter = activator;
+
+	if(!target)
+		return 0;
+
+	P_NoiseAlert(target, emmiter);
+
+	return 1;
+}
+
+static inline uint32_t do_SetPlayerProperty()
+{
+	uint32_t idx, top;
+
+	if(!spec_arg[0])
+	{
+		if(!activator)
+			return 0;
+
+		if(!activator->player)
+			return 0;
+
+		idx = activator->player - players;
+		top = idx + 1;
+	} else
+	{
+		idx = 0;
+		top = MAXPLAYERS;
+	}
+
+	for( ; idx < top; idx++)
+	{
+		player_t *pl = players + idx;
+
+		switch(spec_arg[2])
+		{
+			case PROP_NOTARGET:
+				if(spec_arg[1])
+					pl->mo->flags1 |= MF1_NOTARGET;
+				else
+					pl->mo->flags1 &= ~MF1_NOTARGET;
+			break;
+			case PROP_FLY:
+				if(spec_arg[1])
+					pl->mo->flags |= MF_NOGRAVITY;
+				else
+					pl->mo->flags &= ~MF_NOGRAVITY;
+			break;
+			case PROP_FROZEN:
+			case PROP_TOTALLYFROZEN:
+				if(spec_arg[1])
+					pl->prop |= 1 << spec_arg[2];
+				else
+					pl->prop &= ~(1 << spec_arg[2]);
+			break;
+		}
+	}
+
+	return 1;
+}
+
+//
 // tag handler
 
 static uint32_t handle_tag(line_t *ln, uint32_t tag, uint32_t (*cb)(sector_t*,line_t*))
@@ -1735,6 +1811,9 @@ thing_spawn:
 			value_mult = 1;
 			spec_success = handle_tag(ln, spec_arg[0], act_Plat_Bidir);
 		break;
+		case 173: // NoiseAlert
+			spec_success = do_NoiseAlert();
+		break;
 		case 176: // Thing_ChangeTID
 			if(!spec_arg[1] || spec_arg[0] != spec_arg[1])
 				handle_tid(ln, spec_arg[0], act_Thing_ChangeTID);
@@ -1748,6 +1827,9 @@ thing_spawn:
 			else
 				gameskill = spec_arg[0];
 			spec_success = 1;
+		break;
+		case 191: // SetPlayerProperty
+			spec_success = do_SetPlayerProperty();
 		break;
 		case 195: // Ceiling_CrushRaiseAndStayA
 			value_mult = 0;

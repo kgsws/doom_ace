@@ -759,7 +759,7 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	pl->psprites[0].sy = WEAPONBOTTOM;
 
-	if(pl->playerstate == PST_DEAD)
+	if(pl->state == PST_DEAD)
 	{
 		if(pl->readyweapon->st_weapon.deadlow)
 			stfunc(mo, pl->readyweapon->st_weapon.deadlow);
@@ -1124,10 +1124,18 @@ void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_Look
 
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void A_Look(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	mobj_t *th = mo->subsector->sector->soundtarget;
+
+	// workaround for self-targetting and NOTARGET
+	if(th == mo || (th && th->flags1 & MF1_NOTARGET))
+		mo->subsector->sector->soundtarget = NULL;
+
 	doom_A_Look(mo);
+
+	mo->subsector->sector->soundtarget = th;
 }
 
 //
@@ -1137,6 +1145,9 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	fixed_t speed;
+
+	if(mo->target == mo || (mo && mo->target->flags1 & MF1_NOTARGET))
+		mo->target = NULL;
 
 	if(mo->info->fast_speed && fastparm || gameskill == sk_nightmare)
 		speed = mo->info->fast_speed;
@@ -1999,8 +2010,10 @@ static const dec_linespec_t special_action[] =
 	{137, 0xEDE1C3377943358E}, // thing_spawnnofog
 	{139, 0xEDE1C3105D227BAE}, // thing_spawnfacing
 	{172, 0x9FDBF624D6CEFB9C}, // plat_upnearestwaitdownstay
+	{173, 0x0D3296C865CE9BEE}, // noisealert
 	{176, 0x7BA1A237E5F0EEA2}, // thing_changetid
 	{179, 0xCB29AF3967BA1A21}, // changeskill
+	{191, 0x2C3297A1BFEA39CC}, // setplayerproperty
 	{195, 0xB819670807D7B6E0}, // ceiling_crushraiseandstaya
 	{196, 0x396DE6093B5AF1A4}, // ceiling_crushandraisea
 	{198, 0xECE5255A7C19AA77}, // ceiling_raisebyvaluetimes8

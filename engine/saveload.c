@@ -1354,7 +1354,7 @@ static inline void sv_put_players()
 		plr.usedown = pl->usedown;
 		plr.attackdown = pl->attackdown;
 		plr.backpack = pl->backpack;
-		plr.state = pl->playerstate;
+		plr.state = pl->state;
 		plr.didsecret = pl->didsecret;
 
 		plr.inv_sel = pl->inv_sel ? pl->inv_sel->type : 0;
@@ -2482,7 +2482,7 @@ static inline uint32_t ld_get_players()
 		pl->usedown = plr.usedown;
 		pl->attackdown = plr.attackdown;
 		pl->backpack = plr.backpack;
-		pl->playerstate = plr.state;
+		pl->state = plr.state;
 		pl->didsecret = plr.didsecret;
 
 		pl->inv_sel = inventory_find(pl->mo, plr.inv_sel);

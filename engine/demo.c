@@ -103,7 +103,7 @@ static void do_play_demo()
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
 		playeringame[i] = header.playeringame[i];
-		players[i].playerstate = PST_REBORN;
+		players[i].state = PST_REBORN;
 	}
 
 	if(playeringame[1])

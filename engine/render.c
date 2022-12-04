@@ -45,6 +45,8 @@ static fixed_t cy_look;
 
 static fixed_t mlook_pitch;
 
+static player_t fake_player;
+
 static visplane_t *ptr_visplanes;
 static vissprite_t *ptr_vissprites;
 static drawseg_t *ptr_drawsegs;
@@ -2561,6 +2563,17 @@ void render_player_view(player_t *pl)
 		I_WaitVBL(2);
 	}
 #endif
+	// camera hack
+	if(consoleplayer == displayplayer && pl->mo != pl->camera)
+	{
+		if(!pl->camera->player)
+		{
+			fake_player.mo = pl->camera;
+			fake_player.viewz = pl->camera->z;
+			pl = &fake_player;
+		} else
+			pl = pl->camera->player;
+	}
 	// cleanup new stuff
 	e3d_reset();
 	// solid drawing

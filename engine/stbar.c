@@ -256,6 +256,9 @@ static inline void draw_full_stbar(player_t *pl)
 	if(screenblocks > 12)
 		return;
 
+	if(consoleplayer == displayplayer && !pl->camera->player)
+		return;
+
 	// keys overlay
 	draw_keybar(pl);
 
@@ -404,7 +407,7 @@ void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 
 	if(is_title_map)
 	{
-		V_MarkRect(0, 168, 320, 32);
+		memset(screen_buffer + 53760, r_color_black, 10240);
 		return;
 	}
 
@@ -755,11 +758,6 @@ void stbar_draw(player_t *pl)
 		}
 		stbar_draw_number_r(SCREENWIDTH - 2, 2, fps_value, 3, shortnum);
 	}
-}
-
-void stbar_setup_empty()
-{
-	memset(screen_buffer + 53760, r_color_black, 10240);
 }
 
 //

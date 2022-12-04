@@ -321,6 +321,8 @@ enum
 	PROP_INSTANTWEAPONSWITCH, // not used
 	PROP_FLY,
 	PROP_TOTALLYFROZEN,
+	// custom
+	PROP_CAMERA_MOVE,
 };
 
 enum
@@ -365,7 +367,8 @@ typedef struct player_s
 	uint32_t info_flags;
 	uint8_t power_color[NUMPOWERS];
 	uint32_t flags;
-	uint32_t __unused[4+2];
+	struct mobj_s *camera;
+	uint32_t __unused[4+1];
 	angle_t angle;
 	angle_t pitch;
 	uint16_t attackdown;

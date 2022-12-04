@@ -83,6 +83,7 @@ static const linespec_t special_action[] =
 	{206, "plat_downwaitupstaylip"},
 	{212, "sector_setcolor"},
 	{213, "sector_setfade"},
+	{237, "changecamera"},
 	{239, "floor_raisebyvaluetxty"},
 	{243, "exit_normal"},
 	{244, "exit_secret"},

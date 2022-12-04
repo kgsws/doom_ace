@@ -397,6 +397,12 @@ void player_think(player_t *pl)
 			cmd->buttons &= ~(BT_ATTACK|BT_ALTACK|BT_ACTIONMASK);
 	}
 
+	if(pl->camera != pl->mo && pl->prop & (1 << PROP_CAMERA_MOVE) && (cmd->forwardmove || cmd->sidemove))
+	{
+		pl->prop &= ~(1 << PROP_CAMERA_MOVE);
+		pl->camera = pl->mo;
+	}
+
 	if(pl->damagecount < 0)
 		pl->damagecount = 0;
 	if(pl->bonuscount < 0)

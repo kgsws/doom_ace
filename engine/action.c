@@ -2023,6 +2023,7 @@ static const dec_linespec_t special_action[] =
 	{206, 0x345D468DD0DF6F9A}, // plat_downwaitupstaylip
 	{212, 0x3D25CDFCACF9D5CD}, // sector_setcolor
 	{213, 0x6D25CDFCAFDB5DF5}, // sector_setfade
+	{237, 0x296D863967BA1AA4}, // changecamera
 	{239, 0x280ACE5240A342A2}, // floor_raisebyvaluetxty
 	{243, 0xC86DCAFB9FD29E27}, // exit_normal
 	{244, 0x49728E5CDFD29E26}, // exit_secret

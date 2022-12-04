@@ -723,6 +723,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	mo->health = pl->health;
 
 	pl->mo = mo;
+	pl->camera = mo;
 	pl->state = PST_LIVE;
 	pl->refire = 0;
 	pl->message = NULL;

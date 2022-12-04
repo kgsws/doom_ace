@@ -1042,8 +1042,6 @@ uint32_t map_load_setup()
 		map_lump.wame = 0x50414D454C544954; // TITLEMAP
 		is_title_map = 1;
 		cache = 0;
-		// disable status bar
-		stbar_setup_empty();
 	}
 
 	// find map lump

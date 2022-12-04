@@ -1407,6 +1407,52 @@ static inline uint32_t do_SetPlayerProperty()
 	return 1;
 }
 
+static inline uint32_t do_ChangeCamera()
+{
+	uint32_t idx, top;
+	mobj_t *cam;
+
+	if(spec_arg[0])
+	{
+		cam = mobj_by_tid_first(spec_arg[0]);
+		if(!cam)
+			return 0;
+	}
+
+	if(!spec_arg[1])
+	{
+		if(!activator)
+			return 0;
+
+		if(!activator->player)
+			return 0;
+
+		idx = activator->player - players;
+		top = idx + 1;
+	} else
+	{
+		idx = 0;
+		top = MAXPLAYERS;
+	}
+
+	for( ; idx < top; idx++)
+	{
+		player_t *pl = players + idx;
+
+		if(spec_arg[2])
+			pl->prop |= (1 << PROP_CAMERA_MOVE);
+		else
+			pl->prop &= ~(1 << PROP_CAMERA_MOVE);
+
+		if(spec_arg[0])
+			pl->camera = cam;
+		else
+			pl->camera = pl->mo;
+	}
+
+	return 1;
+}
+
 //
 // tag handler
 
@@ -1863,6 +1909,9 @@ thing_spawn:
 		break;
 		case 213: // Sector_SetFade
 			spec_success = handle_tag(ln, spec_arg[0], act_SetFade);
+		break;
+		case 237: // ChangeCamera
+			spec_success = do_ChangeCamera();
 		break;
 		case 239: // Floor_RaiseByValueTxTy
 			value_mult = 1;

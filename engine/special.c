@@ -723,6 +723,75 @@ static uint32_t act_Plat_Bidir(sector_t *sec, line_t *ln)
 }
 
 //
+// stairs
+
+static uint32_t act_Stairs_Build(sector_t *sec, line_t *ln)
+{
+	generic_mover_t *gm;
+	uint32_t success = 0;
+	uint32_t secspec = sec->special;
+	fixed_t speed = spec_arg[1] * (FRACUNIT/8);
+	fixed_t height = sec->floorheight;
+
+	if(secspec != 26 && secspec != 27)
+		secspec = 0;
+
+	while(1)
+	{
+		if(sec->specialactive & ACT_FLOOR)
+			break;
+
+		gm = generic_floor(sec, value_mult < 0 ? DIR_DOWN : DIR_UP, SNDSEQ_FLOOR, 0);
+		gm->flags = MVF_BLOCK_STAY;
+		gm->speed_now = speed;
+
+		if(value_mult < 0)
+		{
+			height -= (fixed_t)spec_arg[2] * FRACUNIT;
+			gm->bot_height = height;
+		} else
+		{
+			height += (fixed_t)spec_arg[2] * FRACUNIT;
+			gm->top_height = height;
+		}
+
+		success = 1;
+
+		if(!secspec)
+			break;
+		secspec ^= 1;
+
+		if(value_offs)
+			speed += spec_arg[1] * (FRACUNIT/8);
+
+		for(uint32_t i = 0; i < sec->linecount; i++)
+		{
+			line_t *li = sec->lines[i];
+			sector_t *sss;
+
+			if(li->frontsector == sec)
+				sss = li->backsector;
+			else
+				sss = li->frontsector;
+
+			if(!sss)
+				continue;
+
+			if(sss->specialactive & ACT_FLOOR)
+				continue;
+
+			if(sss->special == secspec)
+			{
+				sec = sss;
+				break;
+			}
+		}
+	}
+
+	return success;
+}
+
+//
 // colors
 
 static uint32_t act_SetColor(sector_t *sec, line_t *ln)
@@ -1483,9 +1552,29 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			value_mult = 1;
 			spec_success = handle_tag(ln, spec_arg[0], act_Floor_ByValue);
 		break;
+		case 26: // Stairs_BuildDown
+			value_mult = -1;
+			value_offs = 0;
+			spec_success = handle_tag(ln, spec_arg[0], act_Stairs_Build);
+		break;
+		case 27: // Stairs_BuildUp
+			value_mult = 1;
+			value_offs = 0;
+			spec_success = handle_tag(ln, spec_arg[0], act_Stairs_Build);
+		break;
 		case 28: // Floor_RaiseAndCrush
 			value_mult = 0;
 			spec_success = handle_tag(ln, spec_arg[0], act_Floor_Crush);
+		break;
+		case 31: // Stairs_BuildDownSync
+			value_mult = -1;
+			value_offs = 1;
+			spec_success = handle_tag(ln, spec_arg[0], act_Stairs_Build);
+		break;
+		case 32: // Stairs_BuildUpSync
+			value_mult = 1;
+			value_offs = 1;
+			spec_success = handle_tag(ln, spec_arg[0], act_Stairs_Build);
 		break;
 		case 35: // Floor_RaiseByValueTimes8
 			value_mult = 8;

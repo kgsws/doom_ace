@@ -1343,13 +1343,15 @@ static inline uint32_t do_NoiseAlert()
 	else
 		target = activator;
 
+	if(!target)
+		return 0;
+
+	if(spec_arg[1] == spec_arg[0])
+		emmiter = target;
 	if(spec_arg[1])
 		emmiter = mobj_by_tid_first(spec_arg[1]);
 	else
 		emmiter = activator;
-
-	if(!target)
-		return 0;
 
 	P_NoiseAlert(target, emmiter);
 

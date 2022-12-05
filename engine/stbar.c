@@ -256,9 +256,6 @@ static inline void draw_full_stbar(player_t *pl)
 	if(screenblocks > 12)
 		return;
 
-	if(consoleplayer == displayplayer && !pl->camera->player)
-		return;
-
 	// keys overlay
 	draw_keybar(pl);
 
@@ -729,14 +726,17 @@ void stbar_draw(player_t *pl)
 
 	if(!automapactive)
 	{
-		// status bar
-		draw_full_stbar(pl);
+		if(consoleplayer != displayplayer || pl->camera->player)
+		{
+			// status bar
+			draw_full_stbar(pl);
 
-		// inventory bar
-		draw_invbar(pl);
+			// inventory bar
+			draw_invbar(pl);
 
-		// draw crosshair
-		draw_crosshair(pl);
+			// draw crosshair
+			draw_crosshair(pl);
+		}
 	} else
 		// inventory bar
 		draw_invbar(pl);

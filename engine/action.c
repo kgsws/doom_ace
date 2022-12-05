@@ -1707,11 +1707,16 @@ void A_IceSetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // activate line special
 
-static int32_t parse_arg_value(mobj_t *mo, int32_t value)
+static int32_t parse_arg_value(mobj_t *mo, const arg_special_t *value)
 {
-	if(value <= 32000)
-		return value;
-	return mo->special.arg[value - 32001];
+	int32_t ret;
+
+	ret = value->value;
+
+	if(value->info >= 1 && value->info <= 5)
+		ret += (int32_t)mo->special.arg[value->info - 1];
+
+	return ret;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -1720,11 +1725,11 @@ void A_LineSpecial(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	const args_lineSpecial_t *arg = st->arg;
 
 	spec_special = arg->special;
-	spec_arg[0] = parse_arg_value(mo, arg->arg[0]);
-	spec_arg[1] = parse_arg_value(mo, arg->arg[1]);
-	spec_arg[2] = parse_arg_value(mo, arg->arg[2]);
-	spec_arg[3] = parse_arg_value(mo, arg->arg[3]);
-	spec_arg[4] = parse_arg_value(mo, arg->arg[4]);
+	spec_arg[0] = parse_arg_value(mo, arg->arg + 0);
+	spec_arg[1] = parse_arg_value(mo, arg->arg + 1);
+	spec_arg[2] = parse_arg_value(mo, arg->arg + 2);
+	spec_arg[3] = parse_arg_value(mo, arg->arg + 3);
+	spec_arg[4] = parse_arg_value(mo, arg->arg + 4);
 
 	spec_activate(NULL, mo, 0);
 }
@@ -1766,11 +1771,11 @@ uint8_t *action_parser(uint8_t *name)
 			// set defaults
 			arg = dec_es_alloc(sizeof(args_lineSpecial_t));
 			arg->special = spec->special;
-			arg->arg[0] = 0;
-			arg->arg[1] = 0;
-			arg->arg[2] = 0;
-			arg->arg[3] = 0;
-			arg->arg[4] = 0;
+			arg->arg[0].w = 0;
+			arg->arg[1].w = 0;
+			arg->arg[2].w = 0;
+			arg->arg[3].w = 0;
+			arg->arg[4].w = 0;
 
 			// enter function
 			kw = tp_get_keyword();
@@ -1780,7 +1785,9 @@ uint8_t *action_parser(uint8_t *name)
 			// parse
 			while(1)
 			{
-				int32_t value;
+				uint32_t value = 0;
+				uint32_t tmp = 0;
+				uint_fast8_t flags = 0;
 
 				// get value
 				kw = tp_get_keyword();
@@ -1801,22 +1808,56 @@ uint8_t *action_parser(uint8_t *name)
 					if(!kw)
 						return NULL;
 
-					if(doom_sscanf(kw, "%d", &value) != 1 || value < 0 || value > 4)
+					if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 4)
 						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
 
 					kw = tp_get_keyword();
 					if(!kw || kw[0] != ']')
 						return NULL;
 
-					value += 32001;
-				} else
+					// convert to arg[x]
+					tmp++;
+
+					// value is optional now
+					flags = 8;
+
+					// sign or number
+					kw = tp_get_keyword();
+					if(!kw)
+						return NULL;
+				}
+
+				if(kw[0] == '-')
+					flags = 1 | 2 | 4;
+				else
+				if(kw[0] == '+')
+					flags = 2 | 4;
+				else
+				if(flags & 8)
+					tp_push_keyword(kw);
+				else
+					flags = 4;
+
+				if(flags & 2)
+				{
+					// number
+					kw = tp_get_keyword();
+					if(!kw)
+						return NULL;
+				}
+
+				if(flags & 4)
 				{
 					// parse numeric value
-					if(doom_sscanf(kw, "%d", &value) != 1 || value < -32000 || value > 32000)
+					if(doom_sscanf(kw, "%u", &value) != 1 || value > 0x7FFF)
 						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
 				}
 
-				arg->arg[idx++] = value;
+				arg->arg[idx].value = value;
+				if(flags & 1)
+					arg->arg[idx].value = arg->arg[idx].value;
+				arg->arg[idx].info = tmp;
+				idx++;
 
 				// get comma or end
 				kw = tp_get_keyword();

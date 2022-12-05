@@ -6,6 +6,19 @@ extern void *parse_action_arg;
 
 //
 
+typedef union
+{
+	struct
+	{
+		int16_t value;
+		uint8_t reserved;
+		uint8_t info;
+	};
+	uint32_t w;
+} arg_special_t;
+
+//
+
 typedef struct
 {
 	fixed_t value;
@@ -24,7 +37,7 @@ typedef struct
 typedef struct
 {
 	uint16_t special;
-	int16_t arg[5];
+	arg_special_t arg[5];
 } args_lineSpecial_t;
 
 //

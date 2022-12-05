@@ -34,7 +34,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFB1	// increment with updates
+#define SAVE_VERSION	0xE58BAFB2	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -228,6 +228,7 @@ typedef struct
 typedef struct
 {
 	uint32_t mobj;
+	uint32_t camj;
 	fixed_t viewz;
 	fixed_t viewheight;
 	fixed_t deltaviewheight;
@@ -261,6 +262,7 @@ typedef struct
 	uint8_t didsecret;
 	//
 	uint16_t inv_sel;
+	uint16_t prop;
 } save_player_t;
 
 typedef struct
@@ -1318,6 +1320,7 @@ static inline void sv_put_players()
 		writer_add_u16(i + 1);
 
 		plr.mobj = pl->mo->netid;
+		plr.camj = pl->camera->netid;
 		plr.viewz = pl->viewz;
 		plr.viewheight = pl->viewheight;
 		plr.deltaviewheight = pl->deltaviewheight;
@@ -1358,6 +1361,8 @@ static inline void sv_put_players()
 		plr.didsecret = pl->didsecret;
 
 		plr.inv_sel = pl->inv_sel ? pl->inv_sel->type : 0;
+
+		plr.prop = pl->prop;
 
 		writer_add(&plr, sizeof(plr));
 	}
@@ -2444,6 +2449,10 @@ static inline uint32_t ld_get_players()
 		if(!pl->mo)
 			return 1;
 
+		pl->camera = mobj_by_netid(plr.camj);
+		if(!pl->mo)
+			return 1;
+
 		playeringame[idx] = 1;
 
 		pl->viewz = plr.viewz;
@@ -2486,6 +2495,8 @@ static inline uint32_t ld_get_players()
 		pl->didsecret = plr.didsecret;
 
 		pl->inv_sel = inventory_find(pl->mo, plr.inv_sel);
+
+		pl->prop = plr.prop;
 	}
 
 	// version check

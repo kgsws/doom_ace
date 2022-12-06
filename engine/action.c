@@ -50,7 +50,7 @@ typedef struct
 	const uint8_t *name;
 	void *func;
 	const dec_args_t *args;
-	void (*check)(const void*);
+//	void (*check)(const void*);
 } dec_action_t;
 
 typedef struct
@@ -1400,19 +1400,12 @@ static const dec_args_t args_FireBullets =
 	}
 };
 
-void check_FireBullets(const void *ptr)
-{
-	const args_BulletAttack_t *arg = ptr;
-	if(arg->damage & DAMAGE_IS_CUSTOM && !(arg->flags & FBF_NORANDOM))
-		I_Error("[DECORATE] A_FireBullets: missing 'FBF_NORANDOM' in '%s'.", parse_actor_name);
-}
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
 	const args_BulletAttack_t *arg = st->arg;
-	uint32_t spread, count;
+	uint32_t spread, count, damage;
 	angle_t angle;
 	fixed_t slope;
 
@@ -1454,14 +1447,31 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!player_aim(pl, &angle, &slope, 0))
 		slope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
 
+	damage = arg->damage;
+	if(damage & DAMAGE_IS_CUSTOM)
+	{
+		uint32_t lo = damage & 511;
+		uint32_t hi = (damage >> 9) & 511;
+		uint32_t add = (damage >> 18) & 511;
+		uint32_t mul = ((damage >> 27) & 15) + 1;
+
+		damage = lo;
+		if(lo != hi)
+			damage += P_Random() % ((hi - lo) + 1);
+		damage *= mul;
+		damage += add;
+	}
+
 	for(uint32_t i = 0; i < count; i++)
 	{
 		angle_t aaa;
 		fixed_t sss;
-		uint32_t damage = arg->damage;
+		uint32_t dmg;
 
 		if(!(arg->flags & FBF_NORANDOM))
-			damage *= (P_Random() % 3) + 1;
+			dmg = damage * (P_Random() % 3) + 1;
+		else
+			dmg = damage;
 
 		aaa = angle;
 		sss = slope;
@@ -1920,8 +1930,8 @@ args_end:
 					if(arg->name && !arg->optional)
 						I_Error("[DECORATE] Missing argument '%s' for action '%s' in '%s'!", arg->name, name, parse_actor_name);
 					// check validity
-					if(act->check)
-						act->check(parse_action_arg);
+//					if(act->check)
+//						act->check(parse_action_arg);
 					// return next keyword
 					return tp_get_keyword();
 				}
@@ -1976,7 +1986,7 @@ static const dec_action_t mobj_action[] =
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
-	{"a_firebullets", A_FireBullets, &args_FireBullets, check_FireBullets},
+	{"a_firebullets", A_FireBullets, &args_FireBullets},
 	// chunks
 	{"a_burst", A_Burst, &args_SingleMobjtype},
 	{"a_skullpop", A_SkullPop, &args_SingleMobjtype},

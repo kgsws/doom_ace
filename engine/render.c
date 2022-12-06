@@ -2568,8 +2568,22 @@ void render_player_view(player_t *pl)
 	{
 		if(!pl->camera->player)
 		{
-			fake_player.mo = pl->camera;
-			fake_player.viewz = pl->camera->z;
+			mobj_t *cam = pl->camera;
+
+			fake_player.mo = cam;
+			fake_player.viewz = cam->z;
+
+			if(cam->info->camera_height != -1)
+				fake_player.viewz += cam->info->camera_height;
+			else
+				fake_player.viewz += cam->height / 2;
+
+			if(fake_player.viewz > cam->ceilingz - 4 * FRACUNIT)
+				fake_player.viewz = cam->ceilingz - 4 * FRACUNIT;
+
+			if(fake_player.viewz < cam->floorz + 8 * FRACUNIT)
+				fake_player.viewz = cam->floorz + 8 * FRACUNIT;
+
 			pl = &fake_player;
 		} else
 			pl = pl->camera->player;

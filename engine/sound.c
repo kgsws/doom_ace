@@ -927,6 +927,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003F4D9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_sound_adjust},
 	// sound listener is player->camera
 	{0x0001D5FA, CODE_HOOK | HOOK_UINT32, (uint32_t)&players->camera},
+	{0x0003F1F2, CODE_HOOK | HOOK_UINT32, (uint32_t)&players->camera},
 	// custom sound ID check and translation
 	// invalid sounds are skipped instead of causing error
 	{0x0003F13E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_start_check},

@@ -624,6 +624,7 @@ typedef struct mobjinfo_s
 	uint32_t eflags;
 	fixed_t vspeed;
 	fixed_t step_height;
+	fixed_t camera_height;
 	fixed_t dropoff;
 	fixed_t gravity;
 	uint8_t *translation;

@@ -1090,7 +1090,13 @@ static void act_Thing_ChangeTID(mobj_t *th)
 
 static void act_Thing_Damage(mobj_t *th)
 {
-	mobj_damage(th, NULL, activator, spec_arg[1], NULL);
+	if(!spec_arg[1])
+		return;
+
+	if(spec_arg[1] > 0)
+		mobj_damage(th, NULL, activator, spec_arg[1], NULL);
+	else
+		mobj_give_health(activator, -spec_arg[1], 0);
 }
 
 static void act_Thing_Spawn(mobj_t *th)
@@ -1748,10 +1754,15 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 73: // DamageThing
 			if(activator)
 			{
-				uint32_t damage = spec_arg[0];
-				if(!damage)
-					damage = 1000000;
-				mobj_damage(activator, NULL, NULL, damage, NULL);
+				if(spec_arg[0] >= 0)
+				{
+					int32_t damage = spec_arg[0];
+					if(!damage)
+						damage = 1000000;
+					else
+						mobj_damage(activator, NULL, NULL, damage, NULL);
+				} else
+					mobj_give_health(activator, -spec_arg[0], 0);
 				spec_success = 1;
 			}
 		break;

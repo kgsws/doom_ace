@@ -86,6 +86,10 @@ typedef struct
 #define FBF_NORANDOM	4
 #define FBF_NORANDOMPUFFZ	8
 
+#define CBAF_AIMFACING	1
+#define CBAF_NORANDOM	2
+#define CBAF_NORANDOMPUFFZ	4
+
 typedef struct
 {
 	uint16_t pufftype;

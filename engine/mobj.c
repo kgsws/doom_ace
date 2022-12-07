@@ -211,12 +211,10 @@ static uint32_t give_ammo(mobj_t *mo, uint16_t type, uint16_t count, uint32_t dr
 	return left < count;
 }
 
-static uint32_t give_health(mobj_t *mo, uint32_t count, uint32_t max_count)
+uint32_t mobj_give_health(mobj_t *mo, uint32_t count, uint32_t maxhp)
 {
-	uint32_t maxhp;
-
-	if(max_count)
-		maxhp = max_count;
+	if(maxhp)
+		maxhp = maxhp;
 	else
 		maxhp = mo->info->spawnhealth;
 
@@ -344,7 +342,7 @@ static uint32_t give_special(mobj_t *mo, mobjinfo_t *info)
 		break;
 		case 3:
 			// berserk
-			give_health(mo, 100, 0);
+			mobj_give_health(mo, 100, 0);
 			mo->player->powers[pw_strength] = 1;
 			if(mo->player->readyweapon != mobjinfo + MOBJ_IDX_FIST && inventory_check(mo, MOBJ_IDX_FIST))
 				mo->player->pendingweapon = mobjinfo + MOBJ_IDX_FIST;
@@ -439,7 +437,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	{
 		case ETYPE_HEALTH:
 			// health pickup
-			if(!give_health(toucher, info->inventory.count, info->inventory.max_count) && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
+			if(!mobj_give_health(toucher, info->inventory.count, info->inventory.max_count) && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
 				// can't pickup
 				return;
 		break;
@@ -539,7 +537,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			given = 0;
 			// autoactivate
 			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
-				given = give_health(toucher, info->spawnhealth, toucher->info->spawnhealth);
+				given = mobj_give_health(toucher, info->spawnhealth, toucher->info->spawnhealth);
 			// give as item
 			if(!given)
 				given = inventory_give(toucher, mo->type, info->inventory.count) < info->inventory.count;
@@ -1477,7 +1475,7 @@ void mobj_use_item(mobj_t *mo, inventory_t *item)
 				return;
 		break;
 		case ETYPE_HEALTH_PICKUP:
-			if(!give_health(mo, info->spawnhealth, mo->info->spawnhealth))
+			if(!mobj_give_health(mo, info->spawnhealth, mo->info->spawnhealth))
 				return;
 		break;
 	}
@@ -1496,7 +1494,7 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 	switch(info->extra_type)
 	{
 		case ETYPE_HEALTH:
-			return give_health(mo, (uint32_t)count * (uint32_t)info->inventory.count, info->inventory.max_count);
+			return mobj_give_health(mo, (uint32_t)count * (uint32_t)info->inventory.count, info->inventory.max_count);
 		case ETYPE_INV_SPECIAL:
 			return give_special(mo, info);
 		case ETYPE_INVENTORY:
@@ -1566,7 +1564,7 @@ uint32_t mobj_give_inventory(mobj_t *mo, uint16_t type, uint16_t count)
 			// autoactivate
 			if(info->eflags & MFE_INVENTORY_AUTOACTIVATE)
 			{
-				given = give_health(mo, info->spawnhealth, mo->info->spawnhealth);
+				given = mobj_give_health(mo, info->spawnhealth, mo->info->spawnhealth);
 				if(given)
 					count--;
 			}
@@ -1701,6 +1699,22 @@ void explode_missile(mobj_t *mo)
 	S_StartSound(mo, mo->info->deathsound);
 }
 
+uint32_t mobj_calc_damage(uint32_t damage)
+{
+	uint32_t lo = damage & 511;
+	uint32_t hi = (damage >> 9) & 511;
+	uint32_t add = (damage >> 18) & 511;
+	uint32_t mul = ((damage >> 27) & 15) + 1;
+
+	damage = lo;
+	if(lo != hi)
+		damage += P_Random() % ((hi - lo) + 1);
+	damage *= mul;
+	damage += add;
+
+	return damage;
+}
+
 void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t damage, mobjinfo_t *pufftype)
 {
 	// target = what is damaged
@@ -1754,18 +1768,8 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	}
 
 	if(damage & DAMAGE_IS_CUSTOM)
-	{
-		uint32_t lo = damage & 511;
-		uint32_t hi = (damage >> 9) & 511;
-		uint32_t add = (damage >> 18) & 511;
-		uint32_t mul = ((damage >> 27) & 15) + 1;
-
-		damage = lo;
-		if(lo != hi)
-			damage += P_Random() % ((hi - lo) + 1);
-		damage *= mul;
-		damage += add;
-	} else
+		damage = mobj_calc_damage(damage);
+	else
 	switch(damage & DAMAGE_TYPE_CHECK)
 	{
 		case DAMAGE_IS_PROJECTILE:
@@ -2529,7 +2533,7 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 
 	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, mo_puff_type);
 
-	if(!(mo_puff_flags & FBF_NORANDOMPUFFZ))
+	if(!(mo_puff_flags & 1))
 	{
 		mo->z += ((P_Random() - P_Random()) << 10);
 		if(mo->z > mo->ceilingz - mo->height)

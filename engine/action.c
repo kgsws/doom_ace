@@ -1281,6 +1281,113 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_CustomBulletAttack
+
+static const dec_arg_flag_t flags_CustomBulletAttack[] =
+{
+	MAKE_FLAG(CBAF_AIMFACING),
+	MAKE_FLAG(CBAF_NORANDOM),
+	MAKE_FLAG(CBAF_NORANDOMPUFFZ),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_CustomBulletAttack =
+{
+	.size = sizeof(args_BulletAttack_t),
+	.arg =
+	{
+		{"spread_horz", handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
+		{"spread_vert", handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
+		{"numbullets", handle_s8, offsetof(args_BulletAttack_t, blt_count)},
+		{"damage", handle_damage, offsetof(args_BulletAttack_t, damage)},
+		{"pufftype", handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
+		{"range", handle_fixed, offsetof(args_BulletAttack_t, range), 1},
+		{"flags", handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_CustomBulletAttack},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	uint32_t damage;
+	angle_t angle;
+	fixed_t slope;
+	fixed_t range;
+	const args_BulletAttack_t *arg = st->arg;
+
+	if(!mo->target)
+		return;
+
+	if(arg->blt_count <= 0)
+		return;
+
+	if(arg->flags & CBAF_AIMFACING)
+		angle = mo->angle;
+	else
+		angle = R_PointToAngle2(mo->x, mo->y, mo->target->x, mo->target->y);
+
+	if(arg->pufftype)
+		mo_puff_type = arg->pufftype;
+
+	if(mobjinfo[mo_puff_type].replacement)
+		mo_puff_type = mobjinfo[mo_puff_type].replacement;
+	else
+		mo_puff_type = mo_puff_type;
+
+	mo_puff_flags = !!(arg->flags & CBAF_NORANDOMPUFFZ);
+
+	damage = arg->damage;
+	if(damage & DAMAGE_IS_CUSTOM)
+		damage = mobj_calc_damage(damage);
+
+	if(!arg->range)
+		range = 2048 * FRACUNIT;
+	else
+		range = arg->range;
+
+	slope = P_AimLineAttack(mo, angle, range);
+
+	S_StartSound(SOUND_CHAN_WEAPON(mo), mo->info->attacksound);
+
+	for(uint32_t i = 0; i < arg->blt_count; i++)
+	{
+		angle_t aaa;
+		fixed_t sss;
+		uint32_t dmg;
+
+		if(!(arg->flags & CBAF_NORANDOM))
+			dmg = damage * (P_Random() % 3) + 1;
+		else
+			dmg = damage;
+
+		aaa = angle;
+		sss = slope;
+
+		if(arg->spread_hor)
+		{
+			aaa -= arg->spread_hor;
+			aaa += (arg->spread_hor >> 7) * P_Random();
+		}
+		if(arg->spread_ver)
+		{
+			fixed_t tmp;
+			tmp = -arg->spread_ver;
+			tmp += (arg->spread_ver >> 7) * P_Random();
+			sss += tmp >> 8;
+		}
+
+		P_LineAttack(mo, aaa, range, sss, damage);
+	}
+
+	// must restore original puff!
+	mo_puff_type = 37;
+	mo_puff_flags = 0;
+}
+
+//
 // A_FireProjectile
 
 static const dec_arg_flag_t flags_FireProjectile[] =
@@ -1422,7 +1529,7 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mo_puff_type = mobjinfo[arg->pufftype].replacement;
 	else
 		mo_puff_type = arg->pufftype;
-	mo_puff_flags = arg->flags;
+	mo_puff_flags = !!(arg->flags & FBF_NORANDOMPUFFZ);
 
 	if(arg->blt_count < 0)
 	{
@@ -1449,18 +1556,7 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	damage = arg->damage;
 	if(damage & DAMAGE_IS_CUSTOM)
-	{
-		uint32_t lo = damage & 511;
-		uint32_t hi = (damage >> 9) & 511;
-		uint32_t add = (damage >> 18) & 511;
-		uint32_t mul = ((damage >> 27) & 15) + 1;
-
-		damage = lo;
-		if(lo != hi)
-			damage += P_Random() % ((hi - lo) + 1);
-		damage *= mul;
-		damage += add;
-	}
+		damage = mobj_calc_damage(damage);
 
 	for(uint32_t i = 0; i < count; i++)
 	{
@@ -1485,8 +1581,10 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			}
 			if(arg->spread_ver)
 			{
-				sss -= arg->spread_ver;
-				sss += (arg->spread_ver >> 7) * P_Random();
+				fixed_t tmp;
+				tmp = -arg->spread_ver;
+				tmp += (arg->spread_ver >> 7) * P_Random();
+				sss += tmp >> 14;
 			}
 		}
 
@@ -1984,6 +2082,7 @@ static const dec_action_t mobj_action[] =
 	{"a_chase", A_Chase},
 	// enemy attack
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
+	{"a_custombulletattack", A_CustomBulletAttack, &args_CustomBulletAttack},
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	{"a_firebullets", A_FireBullets, &args_FireBullets},

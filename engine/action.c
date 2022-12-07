@@ -1158,6 +1158,12 @@ void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mo->info->speed = (speed + (FRACUNIT / 2)) >> FRACBITS;
 	doom_A_Chase(mo);
 	mo->info->speed = speed;
+
+	// HACK - move other sound slots
+	mo->sound_body.x = mo->x;
+	mo->sound_body.y = mo->y;
+	mo->sound_weapon.x = mo->x;
+	mo->sound_weapon.y = mo->y;
 }
 
 //
@@ -1376,7 +1382,7 @@ void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			fixed_t tmp;
 			tmp = -arg->spread_ver;
 			tmp += (arg->spread_ver >> 7) * P_Random();
-			sss += tmp >> 8;
+			sss += tmp >> 14;
 		}
 
 		P_LineAttack(mo, aaa, range, sss, damage);

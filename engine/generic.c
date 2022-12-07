@@ -212,10 +212,12 @@ void think_ceiling(generic_mover_t *gm)
 			if(gm->lighttag)
 				light_effect(gm->lighttag, 0x10000);
 
-			if(gm->up_seq && gm->up_seq->stop)
-				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
-			else
+			if(!gm->up_seq || !gm->up_seq->stop)
+			{
+				gm->sndwait = 0;
 				S_StopSound((mobj_t*)&gm->sector->soundorg);
+			} else
+				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
 
 			if(gm->speed_dn)
 			{
@@ -271,10 +273,12 @@ void think_ceiling(generic_mover_t *gm)
 			if(gm->lighttag)
 				light_effect(gm->lighttag, 0);
 
-			if(gm->dn_seq && gm->dn_seq->stop)
-				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
-			else
+			if(!gm->dn_seq || !gm->dn_seq->stop)
+			{
+				gm->sndwait = 0;
 				S_StopSound((mobj_t*)&gm->sector->soundorg);
+			} else
+				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
 
 			if(gm->speed_up)
 			{
@@ -382,10 +386,12 @@ void think_floor(generic_mover_t *gm)
 			if(sec->e3d_origin)
 				e3d_update_bot(sec);
 
-			if(gm->up_seq && gm->up_seq->stop)
-				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
-			else
+			if(!gm->up_seq || !gm->up_seq->stop)
+			{
+				gm->sndwait = 0;
 				S_StopSound((mobj_t*)&gm->sector->soundorg);
+			} else
+				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
 
 			if(gm->speed_dn)
 			{
@@ -437,10 +443,12 @@ void think_floor(generic_mover_t *gm)
 			if(sec->e3d_origin)
 				e3d_update_bot(sec);
 
-			if(gm->dn_seq && gm->dn_seq->stop)
-				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
-			else
+			if(!gm->dn_seq || !gm->dn_seq->stop)
+			{
+				gm->sndwait = 0;
 				S_StopSound((mobj_t*)&gm->sector->soundorg);
+			} else
+				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
 
 			if(gm->speed_up)
 			{

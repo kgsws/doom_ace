@@ -153,7 +153,7 @@ void weapon_move_pspr(player_t *pl)
 		}
 	}
 
-	if(demoplayback != DEMO_OLD && pl->weapon_ready)
+	if(pl->weapon_ready)
 	{
 		// do weapon bob here for smooth chainsaw
 		angle = (128 * leveltime) & FINEMASK;
@@ -241,7 +241,7 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 	if(extra_config.center_weapon != 2)
 		pl->weapon_ready = 0;
 
-	if(demoplayback != DEMO_OLD && extra_config.center_weapon == 1)
+	if(extra_config.center_weapon == 1)
 	{
 		pl->psprites[0].sx = FRACUNIT;
 		pl->psprites[0].sy = WEAPONTOP;

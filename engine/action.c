@@ -621,12 +621,6 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	inventory_take(mo, ammo, count);
 
-	if(demoplayback == DEMO_OLD)
-	{
-		P_SpawnPlayerMissile(mo, proj);
-		return;
-	}
-
 	pitch = 0;
 	angle = mo->angle;
 
@@ -694,12 +688,8 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	angle = mo->angle;
 
-	if(demoplayback != DEMO_OLD)
-	{
-		if(!player_aim(pl, &angle, &bulletslope, 0))
-			bulletslope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
-	} else
-		P_BulletSlope(mo);
+	if(!player_aim(pl, &angle, &bulletslope, 0))
+		bulletslope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
 
 	for(uint32_t i = 0; i < count; i++)
 	{
@@ -910,9 +900,8 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(pl->pendingweapon || !pl->health)
 	{
 		stfunc(mo, pl->readyweapon->st_weapon.lower);
-		if(demoplayback != DEMO_OLD)
-			// this has to be set regardless of weapon mode, for (new) demo compatibility
-			pl->psprites[0].sy = WEAPONTOP;
+		// this has to be set regardless of weapon mode, for demo/netgame compatibility
+		pl->psprites[0].sy = WEAPONTOP;
 		return;
 	}
 
@@ -935,15 +924,6 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	// enable bob
 	pl->weapon_ready = 1;
-
-	// weapon bob, for old demo
-	if(demoplayback == DEMO_OLD)
-	{
-		angle_t angle = (128 * leveltime) & FINEMASK;
-		pl->psprites[0].sx = FRACUNIT + FixedMul(pl->bob, finecosine[angle]);
-		angle &= FINEANGLES / 2 - 1;
-		pl->psprites[0].sy = WEAPONTOP + FixedMul(pl->bob, finesine[angle]);
-	}
 }
 
 __attribute((regparm(2),no_caller_saved_registers))

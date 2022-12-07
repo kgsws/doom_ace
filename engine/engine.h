@@ -1442,7 +1442,6 @@ uint32_t P_BoxOnLineSide(fixed_t*,line_t*) __attribute((regparm(2),no_caller_sav
 // p_mobj
 mobj_t *P_SpawnMobj(fixed_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_SpawnPlayerMissile(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
-void P_XYMovement(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_plat
 void P_AddActivePlat(plat_t*) __attribute((regparm(2),no_caller_saved_registers));

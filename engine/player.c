@@ -450,6 +450,7 @@ void player_think(player_t *pl)
 	if(!pl->mo->reactiontime)
 	{
 		ticcmd_t *cmd = &pl->cmd;
+		int32_t scale;
 		angle_t angle;
 
 		pl->mo->angle += (cmd->angleturn << 16);
@@ -458,62 +459,41 @@ void player_think(player_t *pl)
 
 		onground = (pl->mo->z <= pl->mo->floorz);
 
-		if(demoplayback == DEMO_OLD)
+		if(pl->mo->flags & MF_NOGRAVITY)
 		{
-			if(cmd->forwardmove && onground)
-			{
-				fixed_t power = cmd->forwardmove * 2048;
-				pl->mo->momx += FixedMul(power, finecosine[angle]);
-				pl->mo->momy += FixedMul(power, finesine[angle]);
-			}
+			scale = 2048;
 
-			if(cmd->sidemove && onground)
+			if(cmd->forwardmove)
 			{
-				fixed_t power = cmd->sidemove * 2048;
-				angle = pl->mo->angle - ANG90;
+				fixed_t power = cmd->forwardmove * scale;
+
+				if(pl->mo->pitch)
+				{
+					angle_t pitch = pl->mo->pitch >> ANGLETOFINESHIFT;
+					pl->mo->momz += FixedMul(power, finesine[pitch]);
+					power = FixedMul(power, finecosine[pitch]);
+				}
+
 				pl->mo->momx += FixedMul(power, finecosine[angle]);
 				pl->mo->momy += FixedMul(power, finesine[angle]);
 			}
 		} else
 		{
-			int32_t scale;
+			scale = onground ? 2048 : 8;
 
-			if(pl->mo->flags & MF_NOGRAVITY)
+			if(cmd->forwardmove)
 			{
-				scale = 2048;
-
-				if(cmd->forwardmove)
-				{
-					fixed_t power = cmd->forwardmove * scale;
-
-					if(pl->mo->pitch)
-					{
-						angle_t pitch = pl->mo->pitch >> ANGLETOFINESHIFT;
-						pl->mo->momz += FixedMul(power, finesine[pitch]);
-						power = FixedMul(power, finecosine[pitch]);
-					}
-
-					pl->mo->momx += FixedMul(power, finecosine[angle]);
-					pl->mo->momy += FixedMul(power, finesine[angle]);
-				}
-			} else
-			{
-				scale = onground ? 2048 : 8;
-
-				if(cmd->forwardmove)
-				{
-					fixed_t power = cmd->forwardmove * scale;
-					pl->mo->momx += FixedMul(power, finecosine[angle]);
-					pl->mo->momy += FixedMul(power, finesine[angle]);
-				}
+				fixed_t power = cmd->forwardmove * scale;
+				pl->mo->momx += FixedMul(power, finecosine[angle]);
+				pl->mo->momy += FixedMul(power, finesine[angle]);
 			}
+		}
 
-			if(cmd->sidemove)
-			{
-				fixed_t power = cmd->sidemove * scale;
-				pl->mo->momx += FixedMul(power, finesine[angle]);
-				pl->mo->momy -= FixedMul(power, finecosine[angle]);
-			}
+		if(cmd->sidemove)
+		{
+			fixed_t power = cmd->sidemove * scale;
+			pl->mo->momx += FixedMul(power, finesine[angle]);
+			pl->mo->momy -= FixedMul(power, finecosine[angle]);
 		}
 
 		if((cmd->forwardmove || cmd->sidemove) && pl->mo->animation == ANIM_SPAWN)
@@ -783,10 +763,7 @@ uint32_t spawn_player(mapthing_t *mt)
 	uint32_t idx = mt->type - 1;
 	player_t *pl = players + idx;
 
-	if(demoplayback == DEMO_OLD)
-		ANG45 * (mt->angle / 45);
-	else
-		angle = (ANG45 / 45) * mt->angle;
+	angle = (ANG45 / 45) * mt->angle;
 
 	if(pl->mo)
 	{

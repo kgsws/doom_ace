@@ -217,8 +217,6 @@ static const uint8_t skillbits[] = {1, 1, 2, 4, 4};
 //
 static const hook_t patch_doom[];
 static const hook_t patch_hexen[];
-static const hook_t patch_new[];
-static const hook_t patch_old[];
 
 //
 // callbacks
@@ -1094,12 +1092,6 @@ uint32_t map_load_setup()
 
 	// poly clear
 	poly_reset();
-
-	// apply game patches
-	if(demoplayback == DEMO_OLD)
-		utils_install_hooks(patch_old, 0);
-	else
-		utils_install_hooks(patch_new, 0);
 
 	if(map_format == MAP_FORMAT_DOOM)
 	{
@@ -2713,7 +2705,7 @@ uint32_t P_BlockLinesIterator(int32_t x, int32_t y, line_func_t func)
 	list = blockmaplump + blockmap[idx];
 
 	// apparently, first entry is always zero and does not represent line IDX
-	if(demoplayback == DEMO_OLD && !*list)
+	if(!*list)
 		list++;
 
 	// go trough lines
@@ -2756,41 +2748,6 @@ static const hook_t patch_hexen[] =
 	{0x0002BCFE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by player
 	// disable snap-to-floor in 'P_Move'
 	{0x000272BD, CODE_HOOK | HOOK_UINT16, 0x09EB},
-	// terminator
-	{0}
-};
-
-static const hook_t patch_new[] =
-{
-	// fix 'A_Tracer' - make it leveltime based
-	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80},
-	// replace 'P_CheckSight' on multiple places
-	{0x0002708A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x000270AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x000275D8, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x000276F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x00027907, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x00027B82, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x00027BC2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x000282B6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x0002838C, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	{0x0002BDC6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
-	// replace 'P_PathTraverse' on multiple places
-	{0x0002B5F6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
-	{0x0002B616, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
-	{0x0002B636, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
-	{0x0002BC89, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_LineAttack
-	{0x0002BD55, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_UseLines
-	// replace pointers to 'PTR_SlideTraverse' in 'P_SlideMove'
-	{0x0002B5DD, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
-	{0x0002B5FC, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
-	{0x0002B61C, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
-	// replace pointers to 'PTR_ShootTraverse' in 'P_SlideMove'
-	{0x0002BC52, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_shoot_traverse},
-	// enable sliding on things
-	{0x0002B5EA, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
-	{0x0002B60F, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
-	{0x0002B62C, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
 	// terminator
 	{0}
 };
@@ -2918,7 +2875,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000288FA, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	{0x000289A1, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	// replace 'commercial' check in 'R_FillBackScreen'
-	{0x00034ED2, CODE_HOOK | HOOK_UINT32, (uint32_t)&demo_map_mode},
+	{0x00034ED2, CODE_HOOK | HOOK_UINT32, (uint32_t)&old_game_mode},
 	// replace EP1 end pic in 'F_Drawer'
 	{0x0001CFD8, CODE_HOOK | HOOK_UINT8, 0xA1},
 	{0x0001CFD9, CODE_HOOK | HOOK_UINT32, (uint32_t)&victory_patch},
@@ -2930,5 +2887,34 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003E308, CODE_HOOK | HOOK_UINT16, 0x08EB},
 	// automap is fullscreen
 	{0x00012C64, DATA_HOOK | HOOK_UINT32, SCREENHEIGHT},
+	// fix 'A_Tracer' - make it leveltime based
+	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80},
+	// replace 'P_CheckSight' on multiple places
+	{0x0002708A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x000270AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x000275D8, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x000276F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x00027907, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x00027B82, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x00027BC2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x000282B6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x0002838C, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	{0x0002BDC6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
+	// replace 'P_PathTraverse' on multiple places
+	{0x0002B5F6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
+	{0x0002B616, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
+	{0x0002B636, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_SlideMove
+	{0x0002BC89, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_LineAttack
+	{0x0002BD55, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_path_traverse}, // P_UseLines
+	// replace pointers to 'PTR_SlideTraverse' in 'P_SlideMove'
+	{0x0002B5DD, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
+	{0x0002B5FC, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
+	{0x0002B61C, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_slide_traverse},
+	// replace pointers to 'PTR_ShootTraverse' in 'P_SlideMove'
+	{0x0002BC52, CODE_HOOK | HOOK_UINT32, (uint32_t)hs_shoot_traverse},
+	// enable sliding on things
+	{0x0002B5EA, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
+	{0x0002B60F, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
+	{0x0002B62C, CODE_HOOK | HOOK_UINT8, PT_ADDLINES | PT_ADDTHINGS},
 };
 

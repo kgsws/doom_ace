@@ -480,7 +480,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			{
 				pl->stbar_update |= STU_WEAPON_NEW; // evil grin
 				// auto-weapon-switch optional
-				if(demoplayback == DEMO_OLD || pl->info_flags & PLF_AUTO_SWITCH)
+				if(pl->info_flags & PLF_AUTO_SWITCH)
 					pl->pendingweapon = info;
 				if(!pl->psprites[0].state)
 					// fix 'no weapon' state
@@ -1258,7 +1258,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 		{
 			thing->flags1 |= MF1_DONTGIB;
 
-			if(!(thing->flags & MF_NOBLOOD) || demoplayback == DEMO_OLD)
+			if(!(thing->flags & MF_NOBLOOD))
 			{
 				uint32_t state;
 
@@ -1298,7 +1298,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 	{
 		mobj_damage(thing, NULL, NULL, crushchange & 0x8000 ? crushchange & 0x7FFF : 10, NULL); // 'crushchange' sould contain damage value directly
 
-		if(!(thing->flags & MF_NOBLOOD) || demoplayback == DEMO_OLD)
+		if(!(thing->flags & MF_NOBLOOD))
 		{
 			mobj_t *mo;
 
@@ -1817,15 +1817,11 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		angle = R_PointToAngle2(inflictor->x, inflictor->y, target->x, target->y);
 		thrust = damage > 10000 ? 10000 : damage;
 
-		if(demoplayback != DEMO_OLD)
-		{
-			thrust = (thrust * (FRACUNIT >> 5) * 100 / target->info->mass);
-			if(thrust > (30 * FRACUNIT) >> 2)
-				thrust = 30 * FRACUNIT;
-			else
-				thrust <<= 2;
-		} else
-			thrust = thrust * (FRACUNIT >> 3) * 100 / target->info->mass;
+		thrust = (thrust * (FRACUNIT >> 5) * 100 / target->info->mass);
+		if(thrust > (30 * FRACUNIT) >> 2)
+			thrust = 30 * FRACUNIT;
+		else
+			thrust <<= 2;
 
 		if(kickback != 100)
 			thrust = (thrust * kickback) / 100;
@@ -2027,8 +2023,6 @@ static void mobj_xy_move(mobj_t *mo)
 			mo->momz = 0;
 			mobj_set_animation(mo, ANIM_SPAWN);
 		}
-		if(demoplayback == DEMO_OLD)
-			return;
 		if(!(mo->flags & MF_MISSILE) && !(mo->iflags & MFI_MOBJONMOBJ))
 			return;
 	}
@@ -2037,7 +2031,6 @@ static void mobj_xy_move(mobj_t *mo)
 	dropoff = (mo->flags ^ MF_DROPOFF) & MF_DROPOFF;
 	mo->flags |= MF_DROPOFF;
 
-	if(demoplayback != DEMO_OLD)
 	{
 		// new, better movement code
 		// split movement based on half of radius
@@ -2104,17 +2097,10 @@ static void mobj_xy_move(mobj_t *mo)
 				{
 					if(!(mo->flags1 & MF1_SKYEXPLODE) && ceilingline && ceilingline->backsector)
 					{
-						if(demoplayback == DEMO_OLD)
-						{
-							if(ceilingline->backsector->ceilingpic == skyflatnum)
-								mobj_remove(mo);
-						} else
-						{
-							if(	(ceilingline->backsector->ceilingpic == skyflatnum && mo->z + mo->height >= ceilingline->backsector->ceilingheight) ||
-								(ceilingline->frontsector->ceilingpic == skyflatnum && mo->z + mo->height >= ceilingline->frontsector->ceilingheight)
-							)
-								mobj_remove(mo);
-						}
+						if(	(ceilingline->backsector->ceilingpic == skyflatnum && mo->z + mo->height >= ceilingline->backsector->ceilingheight) ||
+							(ceilingline->frontsector->ceilingpic == skyflatnum && mo->z + mo->height >= ceilingline->frontsector->ceilingheight)
+						)
+							mobj_remove(mo);
 					}
 					// TODO: floorline check
 
@@ -2128,9 +2114,7 @@ static void mobj_xy_move(mobj_t *mo)
 				break;
 			}
 		} while(--count);
-	} else
-		// use old movement code
-		P_XYMovement(mo);
+	}
 
 	// restore +DROPOFF
 	mo->flags ^= dropoff;
@@ -2260,8 +2244,7 @@ static void mobj_z_move(mobj_t *mo)
 		mo->z = mo->floorz;
 		if((mo->flags & MF_MISSILE) && !(mo->flags & MF_NOCLIP))
 		{
-			if(	demoplayback == DEMO_OLD ||
-				mo->flags1 & MF1_SKYEXPLODE ||
+			if(	mo->flags1 & MF1_SKYEXPLODE ||
 				!mo->subsector ||
 				!mo->subsector->sector ||
 				mo->subsector->sector->floorheight < mo->z ||
@@ -2315,12 +2298,7 @@ static void mobj_z_move(mobj_t *mo)
 	} else
 	if(!(mo->flags & MF_NOGRAVITY))
 	{
-		if(	mo->momz == 0 &&
-			(
-				(oldfloorz > mo->floorz && mo->z == oldfloorz) ||
-				demoplayback == DEMO_OLD
-			)
-		)
+		if(mo->momz == 0 && (oldfloorz > mo->floorz && mo->z == oldfloorz))
 			mo->momz = mo->gravity * -2;
 		else
 			mo->momz -= mo->gravity;
@@ -2336,8 +2314,7 @@ static void mobj_z_move(mobj_t *mo)
 
 		if((mo->flags & MF_MISSILE) && !(mo->flags & MF_NOCLIP))
 		{
-			if(	demoplayback == DEMO_OLD ||
-				mo->flags1 & MF1_SKYEXPLODE ||
+			if(	mo->flags1 & MF1_SKYEXPLODE ||
 				!mo->subsector ||
 				!mo->subsector->sector ||
 				mo->subsector->sector->ceilingheight > mo->z + mo->height ||
@@ -2682,9 +2659,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000281E3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_VileChase
 	{0x000281FF, CODE_HOOK | HOOK_UINT32, 0x909000B2 | (ANIM_RAISE << 8)}, // A_VileChase
 	{0x00028202, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_VileChase
-	// skip some stuff in 'P_XYMovement'
-	{0x00030F6B, CODE_HOOK | HOOK_UINT16, 0x3BEB}, // disable 'MF_SKULLFLY'
-	{0x000310B7, CODE_HOOK | HOOK_UINT16, 0x14EB}, // after-move checks
 	// replace call to 'P_XYMovement' in 'P_MobjThinker'; call always
 	{0x00031496, CODE_HOOK | HOOK_UINT16, 0x12EB},
 	{0x000314AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_xy_move},

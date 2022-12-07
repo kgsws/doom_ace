@@ -47,6 +47,7 @@ static uint8_t *ace_wad_name;
 static uint32_t ace_wad_type;
 
 uint8_t *screen_buffer;
+uint32_t old_game_mode;
 
 static gfx_loading_t *loading;
 
@@ -341,7 +342,7 @@ uint32_t ace_main()
 	utils_install_hooks(restore_loader + 0, 1);
 
 	// disable shareware
-	demo_map_mode = gamemode;
+	old_game_mode = gamemode;
 	gamemode = 1;
 	gamemode_sw = 0;
 	gamemode_reg = 0;

@@ -678,12 +678,6 @@ P_SetThingPosition:
 P_UnsetThingPosition:
 	.byte	0xE9
 	.4byte	0x0002C3B0
-////////////////////////////////// P_XYMovement
-.section .text.P_XYMovement
-.global P_XYMovement
-P_XYMovement:
-	.byte	0xE9
-	.4byte	0x00030F60
 ////////////////////////////////// P_SlideMove
 .section .text.P_SlideMove
 .global P_SlideMove

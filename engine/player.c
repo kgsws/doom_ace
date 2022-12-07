@@ -314,7 +314,7 @@ void P_CalcHeight(player_t *player)
 	} else
 		player->bob = 0;
 
-	if((player->cheats & CF_NOMOMENTUM) || !onground)
+	if(player->cheats & CF_NOMOMENTUM || (!onground && !(player->mo->flags & MF_NOGRAVITY)))
 	{
 		player->viewz = player->mo->z + viewheight;
 

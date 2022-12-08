@@ -1114,11 +1114,6 @@ static void act_Thing_Spawn(mobj_t *th)
 		return;
 	}
 
-	if(mo->flags & MF_COUNTKILL)
-		totalkills++;
-	if(mo->flags & MF_COUNTITEM)
-		totalitems++;
-
 	if(value_mult)
 	{
 		mo->angle = spec_arg[2] << 24;
@@ -1152,13 +1147,6 @@ static void act_Thing_Remove(mobj_t *th)
 {
 	if(th->player)
 		return;
-
-	if(th->flags & MF_COUNTKILL)
-		totalkills--;
-
-	if(th->flags & MF_COUNTITEM)
-		totalitems--;
-
 	mobj_remove(th);
 }
 

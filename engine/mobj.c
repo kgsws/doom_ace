@@ -553,7 +553,10 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 
 	// count
 	if(mo->flags & MF_COUNTITEM)
+	{
 		pl->itemcount++;
+		mo->flags &= ~MF_COUNTITEM;
+	}
 
 	// activate special
 	if(mo->special.special)
@@ -876,6 +879,12 @@ uint32_t finish_mobj(mobj_t *mo)
 		mo->floorz = tmextrafloor;
 		mo->ceilingz = tmextraceiling;
 	}
+
+	// counters
+	if(mo->flags & MF_COUNTKILL)
+		totalkills++;
+	if(mo->flags & MF_COUNTITEM)
+		totalitems++;
 
 	// HACK - other sound slots
 	mo->sound_body.x = mo->x;
@@ -1657,6 +1666,12 @@ void mobj_remove(mobj_t *mo)
 		if(om->master == mo)
 			om->master = NULL;
 	}
+
+	if(mo->flags & MF_COUNTKILL)
+		totalkills--;
+	if(mo->flags & MF_COUNTITEM)
+		totalitems--;
+
 	inventory_destroy(mo->inventory);
 	P_UnsetThingPosition(mo);
 	S_StopSound(mo);

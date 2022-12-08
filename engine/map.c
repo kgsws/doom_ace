@@ -533,12 +533,6 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	if(!(mo->flags1 & MF1_SYNCHRONIZED) && mo->tics > 0)
 		mo->tics = 1 + (P_Random() % mo->tics);
 
-	if(mo->flags & MF_COUNTKILL)
-		totalkills++;
-
-	if(mo->flags & MF_COUNTITEM)
-		totalitems++;
-
 	mo->special.special = mt->special;
 	mo->special.arg[0] = mt->arg[0];
 	mo->special.arg[1] = mt->arg[1];
@@ -1022,6 +1016,17 @@ uint32_t map_load_setup()
 
 	if(gameskill > sk_nightmare)
 		gameskill = sk_nightmare;
+
+	totalkills = 0;
+	totalitems = 0;
+	totalsecret = 0;
+
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		players[i].killcount = 0;
+		players[i].itemcount = 0;
+		players[i].secretcount = 0;
+	}
 
 	leveltime = 0;
 	viewactive = 1;

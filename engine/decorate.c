@@ -1838,6 +1838,9 @@ static int32_t check_add_sprite(uint8_t *text)
 		len++;
 	}
 
+	if(sprname.u32 == 0x2D2D2D2D)
+		return 0xFFFF;
+
 	return spr_add_name(sprname.u32);
 }
 

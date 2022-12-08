@@ -34,7 +34,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFB2	// increment with updates
+#define SAVE_VERSION	0xE58BAFB3	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -243,16 +243,16 @@ typedef struct
 	uint32_t cheats;
 	uint32_t refire;
 	//
-	int32_t killcount;
-	int32_t itemcount;
-	int32_t secretcount;
-	//
 	int32_t damagecount;
 	int32_t bonuscount;
 	//
 	fixed_t	pspx;
 	fixed_t	pspy;
 	save_pspr_t pspr[NUMPSPRITES];
+	//
+	int16_t killcount;
+	uint16_t itemcount;
+	uint16_t secretcount;
 	//
 	uint8_t extralight;
 	uint8_t usedown;

@@ -1809,6 +1809,14 @@ static int32_t parse_arg_value(mobj_t *mo, const arg_special_t *value)
 
 	if(value->info >= 1 && value->info <= 5)
 		ret += (int32_t)mo->special.arg[value->info - 1];
+	else
+	if(value->info == 5)
+	{
+		if(mo->player)
+			ret += mo->player - players;
+		else
+			ret--;
+	}
 
 	return ret;
 }
@@ -1884,14 +1892,14 @@ uint8_t *action_parser(uint8_t *name)
 				uint_fast8_t flags = 0;
 
 				// get value
-				kw = tp_get_keyword();
+				kw = tp_get_keyword_lc();
 				if(!kw)
 					return NULL;
 
 				if(idx >= 5)
 					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 
-				// check for 'args'
+				// check for 'args' and 'PlayerNumber'
 				if(!strcmp(kw, "args"))
 				{
 					kw = tp_get_keyword();
@@ -1914,6 +1922,26 @@ uint8_t *action_parser(uint8_t *name)
 
 					// value is optional now
 					flags = 8;
+
+					// sign or number
+					kw = tp_get_keyword();
+					if(!kw)
+						return NULL;
+				} else
+				if(!strcmp(kw, "playernumber"))
+				{
+					kw = tp_get_keyword();
+					if(!kw || kw[0] != '(')
+						return NULL;
+					kw = tp_get_keyword();
+					if(!kw || kw[0] != ')')
+						return NULL;
+
+					// value is optional now
+					flags = 8;
+
+					// special value
+					tmp = 5;
 
 					// sign or number
 					kw = tp_get_keyword();

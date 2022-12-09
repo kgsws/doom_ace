@@ -2,6 +2,7 @@
 ////
 
 extern uint16_t *sprite_lump;
+extern uint32_t sprite_tnt1;
 
 //
 

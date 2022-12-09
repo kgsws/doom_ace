@@ -1737,7 +1737,8 @@ void R_Subsector(uint32_t num)
 		frontsector->validcount = validcount;
 		for(mobj_t *mo = frontsector->thinglist; mo; mo = mo->snext)
 		{
-			if(	mo->player != viewplayer &&
+			if(	mo != viewplayer->mo &&
+				mo->sprite != sprite_tnt1 &&
 				mo->render_style < RS_INVISIBLE &&
 				(mo->render_alpha || (mo->render_style != RS_TRANSLUCENT && mo->render_style != RS_ADDITIVE))
 			){

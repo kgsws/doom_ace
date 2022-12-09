@@ -322,6 +322,8 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 {
 	const dec_arg_flag_t *flag;
 
+	*((uint32_t*)(parse_action_arg + arg->offset)) = 0;
+
 	while(1)
 	{
 		if(kw[0] != '0')
@@ -1456,7 +1458,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
-//  
+// A_FireBullets
 
 static const args_BulletAttack_t def_FireBullets =
 {
@@ -1583,6 +1585,92 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_CustomPunch
+
+static const args_PunchAttack_t def_CustomPunch =
+{
+	.pufftype = 37,
+	.flags = CPF_USEAMMO,
+	.range = 64 * FRACUNIT,
+};
+
+static const dec_arg_flag_t flags_CustomPunch[] =
+{
+	MAKE_FLAG(CPF_USEAMMO),
+	MAKE_FLAG(CPF_PULLIN),
+	MAKE_FLAG(CPF_NORANDOMPUFFZ),
+	MAKE_FLAG(CPF_NOTURN),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_CustomPunch =
+{
+	.size = sizeof(args_PunchAttack_t),
+	.def = &def_CustomPunch,
+	.arg =
+	{
+		{"damage", handle_damage, offsetof(args_PunchAttack_t, damage)},
+		{"norandom", handle_bool, offsetof(args_PunchAttack_t, norandom), 1},
+		{"flags", handle_flags, offsetof(args_PunchAttack_t, flags), 1, flags_CustomPunch},
+		{"pufftype", handle_mobjtype, offsetof(args_PunchAttack_t, pufftype), 1},
+		{"range", handle_fixed, offsetof(args_PunchAttack_t, range), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_CustomPunch(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	player_t *pl = mo->player;
+	const args_PunchAttack_t *arg = st->arg;
+	uint32_t damage;
+	angle_t angle;
+	fixed_t slope;
+
+	if(!pl)
+		return;
+
+	if(	!mo->custom_inventory &&
+		arg->flags & CPF_USEAMMO &&
+		!weapon_has_ammo(mo, pl->readyweapon, pl->attackdown)
+	)
+		return;
+
+	if(mobjinfo[arg->pufftype].replacement)
+		mo_puff_type = mobjinfo[arg->pufftype].replacement;
+	else
+		mo_puff_type = arg->pufftype;
+	mo_puff_flags = !!(arg->flags & CPF_NORANDOMPUFFZ);
+
+	angle = mo->angle;
+	if(!player_aim(pl, &angle, &slope, 0))
+		slope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
+
+	damage = arg->damage;
+	if(damage & DAMAGE_IS_CUSTOM)
+		damage = mobj_calc_damage(damage);
+
+	P_LineAttack(mo, angle, arg->range, slope, damage);
+
+	if(linetarget)
+	{
+		if(arg->flags & CPF_PULLIN)
+			mo->flags |= MF_JUSTATTACKED;
+		if(!(arg->flags & CPF_NOTURN))
+			mo->angle = R_PointToAngle2(mo->x, mo->y, linetarget->x, linetarget->y);
+		if(!mo->custom_inventory && arg->flags & CPF_USEAMMO)
+			remove_ammo(mo);
+		S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->attacksound);
+	}
+
+	// must restore original puff!
+	mo_puff_type = 37;
+	mo_puff_flags = 0;
+}
+
+//
 // A_GiveInventory
 
 static const dec_args_t args_GiveInventory =
@@ -1661,6 +1749,39 @@ void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	const args_SetAngle_t *arg = st->arg;
 	mo->angle = arg->angle;
 }
+
+//
+// A_DamageTarget
+
+static const dec_args_t args_DamageTarget =
+{
+	.size = sizeof(args_singleDamage_t),
+	.arg =
+	{
+		{"amount", handle_damage, offsetof(args_singleDamage_t, damage)},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleDamage_t *arg = st->arg;
+	uint32_t damage;
+
+	if(!mo->target)
+		return;
+
+	damage = arg->damage;
+	if(damage & DAMAGE_IS_CUSTOM)
+		damage = mobj_calc_damage(damage);
+
+	mo_dmg_skip_armor = 1;
+	mobj_damage(mo->target, mo, mo, damage, 0);
+	mo_dmg_skip_armor = 0;
+}
+
 
 //
 // chunks
@@ -2100,6 +2221,7 @@ static const dec_action_t mobj_action[] =
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	{"a_firebullets", A_FireBullets, &args_FireBullets},
+	{"a_custompunch", A_CustomPunch, &args_CustomPunch},
 	// chunks
 	{"a_burst", A_Burst, &args_SingleMobjtype},
 	{"a_skullpop", A_SkullPop, &args_SingleMobjtype},
@@ -2112,6 +2234,8 @@ static const dec_action_t mobj_action[] =
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_setangle", A_SetAngle, &args_SetAngle},
+	// damage
+	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	// inventory
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	// terminator

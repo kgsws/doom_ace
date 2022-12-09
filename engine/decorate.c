@@ -7,6 +7,7 @@
 #include "wadfile.h"
 #include "dehacked.h"
 #include "decorate.h"
+#include "ldr_sprite.h"
 #include "inventory.h"
 #include "action.h"
 #include "weapon.h"
@@ -607,6 +608,7 @@ static const dec_flag_t mobj_flags2[] =
 	{"spawnsoundsource", MF2_SPAWNSOUNDSOURCE},
 	{"donttranslate", MF2_DONTTRANSLATE},
 	{"notautoaimed", MF2_NOTAUTOAIMED},
+	{"puffgetsowner", MF2_PUFFGETSOWNER},
 	// terminator
 	{NULL}
 };
@@ -642,6 +644,9 @@ static const dec_flag_t weapon_flags[] =
 	{"weapon.primary_uses_both", MFE_WEAPON_PRIMARY_USES_BOTH},
 	{"weapon.alt_uses_both", MFE_WEAPON_ALT_USES_BOTH},
 	{"weapon.noautoaim", MFE_WEAPON_NOAUTOAIM},
+	// dummy
+	{"weapon.wimpy_weapon", 0},
+	{"weapon.meleeweapon", 0},
 	// terminator
 	{NULL}
 };
@@ -2027,7 +2032,7 @@ static uint32_t parse_player_sounds()
 	uint8_t text[PLAYER_SOUND_CLASS_LEN + PLAYER_SOUND_SLOT_LEN];
 	uint8_t *kw;
 
-	kw = tp_get_keyword();
+	kw = tp_get_keyword_lc();
 	if(!kw)
 		return 1;
 
@@ -2962,7 +2967,7 @@ void init_decorate()
 	numsprites = NUMSPRITES;
 	for(uint32_t i = 0; i < NUMSPRITES; i++)
 		sprite_table[i] = *spr_names[i];
-	spr_add_name(0x31544E54); // 'TNT1'
+	sprite_tnt1 = spr_add_name(0x31544E54); // 'TNT1'
 	spr_add_name(0x54534950); // 'PIST'
 	spr_add_name(0x43454349); // 'ICEC'
 

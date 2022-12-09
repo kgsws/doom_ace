@@ -20,6 +20,8 @@ extern uint32_t mobj_netid;
 extern uint32_t mo_puff_type;
 extern uint32_t mo_puff_flags;
 
+extern uint_fast8_t mo_dmg_skip_armor;
+
 extern uint_fast8_t reborn_inventory_hack;
 
 //

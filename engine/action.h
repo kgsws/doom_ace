@@ -36,6 +36,11 @@ typedef struct
 
 typedef struct
 {
+	uint32_t damage;
+} args_singleDamage_t;
+
+typedef struct
+{
 	uint16_t special;
 	arg_special_t arg[5];
 } args_lineSpecial_t;
@@ -101,6 +106,22 @@ typedef struct
 	uint32_t flags;
 	fixed_t range;
 } args_BulletAttack_t;
+
+//
+
+#define CPF_USEAMMO	1
+#define CPF_PULLIN	2
+#define CPF_NORANDOMPUFFZ	4
+#define CPF_NOTURN	8
+
+typedef struct
+{
+	uint16_t pufftype;
+	uint32_t damage;
+	uint32_t flags;
+	fixed_t range;
+	uint8_t norandom;
+} args_PunchAttack_t;
 
 //
 

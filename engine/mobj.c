@@ -35,6 +35,8 @@ static uint32_t numspecbump;
 uint32_t mo_puff_type = 37;
 uint32_t mo_puff_flags;
 
+uint_fast8_t mo_dmg_skip_armor;
+
 uint_fast8_t reborn_inventory_hack;
 
 uint32_t mobj_netid;
@@ -1667,6 +1669,22 @@ void mobj_remove(mobj_t *mo)
 			om->master = NULL;
 	}
 
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		player_t *pl;
+
+		if(!playeringame[i])
+			continue;
+
+		pl = players + i;
+
+		if(pl->attacker == mo)
+			pl->attacker = NULL;
+
+		if(pl->camera == mo)
+			pl->camera = pl->mo;
+	}
+
 	if(mo->flags & MF_COUNTKILL)
 		totalkills--;
 	if(mo->flags & MF_COUNTITEM)
@@ -1873,7 +1891,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			player->armorpoints = 0;
 		}
 
-		if(player->armortype)
+		if(player->armortype && !mo_dmg_skip_armor)
 		{
 			uint32_t saved;
 
@@ -2524,6 +2542,9 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 		return;
 
 	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, mo_puff_type);
+
+	if(mo->flags2 & MF2_PUFFGETSOWNER)
+		mo->target = shootthing;
 
 	if(!(mo_puff_flags & 1))
 	{

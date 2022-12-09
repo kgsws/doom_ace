@@ -13,6 +13,7 @@
 #include "ldr_sprite.h"
 
 uint16_t *sprite_lump;
+uint32_t sprite_tnt1;
 
 static uint32_t tmp_count;
 
@@ -26,8 +27,9 @@ static void install_sprites(uint32_t sprite_count)
 	// process all sprites
 	for(uint32_t i = 0; i < numsprites; i++)
 	{
-		if(sprite_table[i] == 0x31544E54)
+		if(i == sprite_tnt1)
 		{
+doom_printf("SKIP TNT1\n");
 			// ignore 'TNT1'
 			sprites[i].numframes = 0;
 			continue;

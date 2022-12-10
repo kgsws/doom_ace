@@ -599,6 +599,9 @@ const dec_flag_t mobj_flags2[] =
 	{"donttranslate", MF2_DONTTRANSLATE},
 	{"notautoaimed", MF2_NOTAUTOAIMED},
 	{"puffgetsowner", MF2_PUFFGETSOWNER},
+	{"hittarget", MF2_HITTARGET},
+	{"hitmaster", MF2_HITMASTER},
+	{"hittracer", MF2_HITTRACER},
 	// terminator
 	{NULL}
 };

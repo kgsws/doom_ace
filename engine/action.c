@@ -263,6 +263,51 @@ static uint8_t *handle_angle(uint8_t *kw, const dec_arg_t *arg)
 	return kw;
 }
 
+static uint8_t *handle_angle_rel(uint8_t *kw, const dec_arg_t *arg)
+{
+	uint32_t flags = 0;
+
+	if(!strcasecmp(kw, "angle"))
+	{
+		flags = 1;
+
+		kw = tp_get_keyword(kw, arg);
+		if(!kw)
+			return NULL;
+
+		if(kw[0] == ',')
+		{
+			*((fixed_t*)(parse_action_arg + arg->offset)) = 0x80000000;
+			return kw;
+		}
+
+		if(kw[0] == '-')
+			flags |= 2;
+		else
+		if(kw[0] != '+')
+		{
+			kw = tp_get_keyword(kw, arg);
+			if(!kw)
+				return NULL;
+		}
+	}
+
+	kw = handle_fixed(kw, arg);
+	if(kw)
+	{
+		fixed_t value = *((fixed_t*)(parse_action_arg + arg->offset));
+		value = (11930464 * (int64_t)value) >> 16;
+		if(flags & 2)
+			value = -value;
+		value >>= 1;
+		if(flags & 1)
+			value |= 0x80000000;
+		*((fixed_t*)(parse_action_arg + arg->offset)) = value;
+	}
+
+	return kw;
+}
+
 static uint8_t *handle_pointer(uint8_t *kw, const dec_arg_t *arg)
 {
 	strlwr(kw);
@@ -1972,7 +2017,7 @@ static const dec_args_t args_SetAngle =
 	.size = sizeof(args_SetAngle_t),
 	.arg =
 	{
-		{handle_angle, offsetof(args_SetAngle_t, angle)},
+		{handle_angle_rel, offsetof(args_SetAngle_t, angle)},
 		{handle_flags, offsetof(args_SetAngle_t, sacrifice), 1}, // ignored
 		{handle_pointer, offsetof(args_SetAngle_t, ptr), 1},
 		// terminator
@@ -1984,10 +2029,16 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_SetAngle_t *arg = st->arg;
+	angle_t angle = arg->angle << 1;
+
+	if(arg->angle & 0x80000000)
+		angle += mo->angle;
+
 	mo = resolve_ptr(mo, arg->ptr);
 	if(!mo)
 		return;
-	mo->angle = arg->angle;
+
+	mo->angle = angle;
 }
 
 //
@@ -2037,6 +2088,67 @@ void A_ChangeFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_ChangeVelocity
+
+static const dec_arg_flag_t flags_ChangeVelocity[] =
+{
+	MAKE_FLAG(CVF_RELATIVE),
+	MAKE_FLAG(CVF_REPLACE),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_ChangeVelocity =
+{
+	.size = sizeof(args_ChangeVelocity_t),
+	.arg =
+	{
+		{handle_fixed, offsetof(args_ChangeVelocity_t, x), 1},
+		{handle_fixed, offsetof(args_ChangeVelocity_t, y), 1},
+		{handle_fixed, offsetof(args_ChangeVelocity_t, z), 1},
+		{handle_flags, offsetof(args_ChangeVelocity_t, flags), 1, flags_ChangeVelocity},
+		{handle_pointer, offsetof(args_ChangeVelocity_t, ptr), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_ChangeVelocity_t *arg = st->arg;
+	fixed_t x, y;
+
+	mo = resolve_ptr(mo, arg->ptr);
+	if(!mo)
+		return;
+
+	if(arg->flags & CVF_REPLACE)
+	{
+		mo->momx = 0;
+		mo->momy = 0;
+		mo->momz = 0;
+	}
+
+	if(arg->flags & CVF_RELATIVE)
+	{
+		angle_t a = mo->angle >> ANGLETOFINESHIFT;
+		x = FixedMul(arg->x, finecosine[a]);
+		x -= FixedMul(arg->y, finesine[a]);
+		y = FixedMul(arg->x, finesine[a]);
+		y += FixedMul(arg->y, finecosine[a]);
+	} else
+	{
+		x = arg->x;
+		y = arg->y;
+	}
+
+	mo->momx += x;
+	mo->momy += y;
+	mo->momz += arg->z;
+}
+
+//
 // A_DamageTarget
 
 static const dec_args_t args_DamageTarget =
@@ -2079,23 +2191,24 @@ static const dec_args_t args_JumpIfInventory =
 		{handle_mobjtype, offsetof(args_JumpIfInventory_t, type)},
 		{handle_u16, offsetof(args_JumpIfInventory_t, amount)},
 		{handle_state, offsetof(args_JumpIfInventory_t, state)},
-		{handle_pointer, offsetof(args_SpawnProjectile_t, ptr), 1},
+		{handle_pointer, offsetof(args_JumpIfInventory_t, ptr), 1},
 		// terminator
 		{NULL}
 	}
 };
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
+void A_JumpIfInventory(mobj_t *moo, state_t *st, stfunc_t stfunc)
 {
 	const args_JumpIfInventory_t *arg = st->arg;
-	uint32_t now, check, limit;
 	mobjinfo_t *info = mobjinfo + arg->type;
+	uint32_t now, check, limit;
+	mobj_t *mo;
 
 	if(!inventory_is_valid(info))
 		return;
 
-	mo = resolve_ptr(mo, arg->ptr);
+	mo = resolve_ptr(moo, arg->ptr);
 	if(!mo)
 		return;
 
@@ -2115,7 +2228,38 @@ void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		check = limit;
 
 	if(now >= check || check > limit)
-		stfunc(mo, arg->state);
+		stfunc(moo, arg->state);
+}
+
+//
+// A_JumpIfHealthLower
+
+static const dec_args_t args_JumpIfHealthLower =
+{
+	.size = sizeof(args_JumpIfHealthLower_t),
+	.arg =
+	{
+		{handle_u16, offsetof(args_JumpIfHealthLower_t, amount)},
+		{handle_state, offsetof(args_JumpIfHealthLower_t, state)},
+		{handle_pointer, offsetof(args_JumpIfHealthLower_t, ptr), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIfHealthLower(mobj_t *moo, state_t *st, stfunc_t stfunc)
+{
+	const args_JumpIfHealthLower_t *arg = st->arg;
+	uint32_t now, check, limit;
+	mobj_t *mo;
+
+	mo = resolve_ptr(moo, arg->ptr);
+	if(!mo)
+		return;
+
+	if(mo->health < arg->amount)
+		stfunc(moo, arg->state);
 }
 
 //
@@ -2570,6 +2714,7 @@ static const dec_action_t mobj_action[] =
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_setangle", A_SetAngle, &args_SetAngle},
 	{"a_changeflag", A_ChangeFlag, &args_ChangeFlag},
+	{"a_changevelocity", A_ChangeVelocity, &args_ChangeVelocity},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	// inventory
@@ -2577,6 +2722,7 @@ static const dec_action_t mobj_action[] =
 	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},
 	// jumps
 	{"a_jumpifinventory", A_JumpIfInventory, &args_JumpIfInventory},
+	{"a_jumpifhealthlower", A_JumpIfHealthLower, &args_JumpIfHealthLower},
 	// terminator
 	{NULL}
 };

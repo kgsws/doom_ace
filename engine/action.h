@@ -168,6 +168,18 @@ typedef struct
 
 //
 
+#define CVF_RELATIVE	1
+#define CVF_REPLACE	2
+
+typedef struct
+{
+	fixed_t x, y, z;
+	uint16_t flags;
+	uint8_t ptr;
+} args_ChangeVelocity_t;
+
+//
+
 typedef struct
 {
 	uint32_t bits;
@@ -185,6 +197,13 @@ typedef struct
 	uint32_t state;
 	uint8_t ptr;
 } args_JumpIfInventory_t;
+
+typedef struct
+{
+	uint32_t state;
+	uint16_t amount;
+	uint8_t ptr;
+} args_JumpIfHealthLower_t;
 
 //
 

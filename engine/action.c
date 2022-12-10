@@ -23,6 +23,21 @@
 
 #define MAKE_FLAG(x)	{.name = #x, .bits = x}
 
+enum
+{
+	AAPTR_DEFAULT,
+	AAPTR_TARGET,
+	AAPTR_TRACER,
+	AAPTR_MASTER,
+	AAPTR_PLAYER1,
+	AAPTR_PLAYER2,
+	AAPTR_PLAYER3,
+	AAPTR_PLAYER4,
+	AAPTR_NULL,
+	//
+	NUM_AAPTRS
+};
+
 typedef struct
 {
 	const uint8_t *name;
@@ -31,7 +46,6 @@ typedef struct
 
 typedef struct dec_arg_s
 {
-	const uint8_t *name;
 	uint8_t *(*handler)(uint8_t*,const struct dec_arg_s*);
 	uint16_t offset;
 	uint16_t optional;
@@ -69,14 +83,59 @@ void *parse_action_arg;
 static const dec_action_t mobj_action[];
 static const dec_linespec_t special_action[];
 
-//
-// common
-
-static const dec_arg_flag_t flags_empty[] =
+// pointers
+static const uint8_t *pointer_name[NUM_AAPTRS] =
 {
-	// just terminator, these flags are not supported
-	{NULL}
+	[AAPTR_DEFAULT] = "aaptr_default",
+	[AAPTR_TARGET] = "aaptr_target",
+	[AAPTR_TRACER] = "aaptr_tracer",
+	[AAPTR_MASTER] = "aaptr_master",
+	[AAPTR_NULL] = "aaptr_null",
+	[AAPTR_PLAYER1] = "aaptr_player1",
+	[AAPTR_PLAYER2] = "aaptr_player2",
+	[AAPTR_PLAYER3] = "aaptr_player3",
+	[AAPTR_PLAYER4] = "aaptr_player4",
 };
+
+//
+// stuff
+
+const dec_flag_t *find_mobj_flag(uint8_t *name, const dec_flag_t *flag)
+{
+	while(flag->name)
+	{
+		if(!strcmp(flag->name, name))
+			return flag;
+		flag++;
+	}
+
+	return NULL;
+}
+
+mobj_t *resolve_ptr(mobj_t *mo, uint32_t ptr)
+{
+	switch(ptr)
+	{
+		case AAPTR_DEFAULT:
+			return mo;
+		case AAPTR_TARGET:
+			return mo->target;
+		case AAPTR_TRACER:
+			return mo->tracer;
+		case AAPTR_MASTER:
+			return mo->master;
+		case AAPTR_PLAYER1:
+			return players[0].mo;
+		case AAPTR_PLAYER2:
+			return players[1].mo;
+		case AAPTR_PLAYER3:
+			return players[2].mo;
+		case AAPTR_PLAYER4:
+			return players[3].mo;
+		default:
+			return NULL;
+	}
+}
 
 //
 // argument parsers
@@ -111,7 +170,7 @@ static uint8_t *handle_bool(uint8_t *kw, const dec_arg_t *arg)
 		tmp = 0;
 	else
 	if(doom_sscanf(kw, "%d", &tmp) != 1)
-		I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+		return NULL;
 
 	*((uint8_t*)(parse_action_arg + arg->offset)) = !!tmp;
 
@@ -143,7 +202,7 @@ static uint8_t *handle_s8(uint8_t *kw, const dec_arg_t *arg)
 		negate = 0;
 
 	if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 127)
-		I_Error("[DECORATE] Unable to parse integer '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+		return NULL;
 
 	if(negate)
 		tmp = -tmp;
@@ -158,7 +217,7 @@ static uint8_t *handle_u16(uint8_t *kw, const dec_arg_t *arg)
 	uint32_t tmp;
 
 	if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 65535)
-		I_Error("[DECORATE] Unable to parse integer '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+		return NULL;
 
 	*((uint16_t*)(parse_action_arg + arg->offset)) = tmp;
 
@@ -180,7 +239,7 @@ static uint8_t *handle_fixed(uint8_t *kw, const dec_arg_t *arg)
 		negate = 0;
 
 	if(tp_parse_fixed(kw, &value))
-		I_Error("[DECORATE] Unable to parse fixed_t '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+		return NULL;
 
 	if(negate)
 		value = -value;
@@ -204,10 +263,96 @@ static uint8_t *handle_angle(uint8_t *kw, const dec_arg_t *arg)
 	return kw;
 }
 
+static uint8_t *handle_pointer(uint8_t *kw, const dec_arg_t *arg)
+{
+	strlwr(kw);
+
+	for(uint32_t i = 0; i < NUM_AAPTRS; i++)
+	{
+		if(!strcmp(kw, pointer_name[i]))
+		{
+			*((uint8_t*)(parse_action_arg + arg->offset)) = i;
+			return tp_get_keyword();
+		}
+	}
+
+	return NULL;
+}
+
+static uint8_t *handle_state(uint8_t *kw, const dec_arg_t *arg)
+{
+	uint32_t *dst = (uint32_t*)(parse_action_arg + arg->offset);
+
+	if(tp_is_string)
+	{
+		const dec_anim_t *anim;
+		uint32_t aidx;
+
+		strlwr(kw);
+
+		anim = dec_find_animation(kw);
+		if(!anim)
+		{
+			aidx = dec_get_custom_state(kw, -1);
+			aidx = STATE_TEMPORARY_CUSTOM(aidx, 0);
+			dec_register_state_remap(dst);
+		} else
+			aidx = STATE_SET_ANIMATION(anim->idx, 0);
+
+		*dst = aidx;
+	} else
+	{
+		uint32_t tmp;
+
+		if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 65535)
+			return NULL;
+
+		*dst = 0xC0000000 | tmp;
+	}
+
+	return tp_get_keyword();
+}
+
 static uint8_t *handle_translation(uint8_t *kw, const dec_arg_t *arg)
 {
 	void *ptr = r_translation_by_name(strlwr(kw));
 	*((void**)(parse_action_arg + arg->offset)) = ptr;
+	return tp_get_keyword();
+}
+
+static uint8_t *handle_mobj_flag(uint8_t *kw, const dec_arg_t *arg)
+{
+	args_ChangeFlag_t *arf;
+	const dec_flag_t *flag;
+	uint32_t offset;
+	uint32_t more = 0;
+
+	strlwr(kw);
+
+	offset = offsetof(mobj_t, flags);
+	flag = find_mobj_flag(kw, mobj_flags0);
+	if(!flag)
+	{
+		offset = offsetof(mobj_t, flags1);
+		flag = find_mobj_flag(kw, mobj_flags1);
+		if(!flag)
+		{
+			offset = offsetof(mobj_t, flags2);
+			flag = find_mobj_flag(kw, mobj_flags2);
+			if(!flag)
+				return NULL;
+		}
+	} else
+	{
+		if(flag->bits & (MF_NOSECTOR | MF_NOBLOCKMAP))
+			more = 1;
+	}
+
+	arf = parse_action_arg;
+	arf->bits = flag->bits;
+	arf->offset = offset;
+	arf->more = more;
+
 	return tp_get_keyword();
 }
 
@@ -309,7 +454,7 @@ static uint8_t *handle_damage(uint8_t *kw, const dec_arg_t *arg)
 	{
 		// direct value
 		if(doom_sscanf(kw, "%u", &add) != 1 || add > 1000000)
-			I_Error("[DECORATE] Unable to parse integer '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+			return NULL;
 		kw = tp_get_keyword();
 	}
 
@@ -322,7 +467,7 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 {
 	const dec_arg_flag_t *flag;
 
-	*((uint32_t*)(parse_action_arg + arg->offset)) = 0;
+	*((uint16_t*)(parse_action_arg + arg->offset)) = 0;
 
 	while(1)
 	{
@@ -339,7 +484,7 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 			if(!flag->name)
 				I_Error("[DECORATE] Unknown flag '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
 
-			*((uint32_t*)(parse_action_arg + arg->offset)) |= flag->bits;
+			*((uint16_t*)(parse_action_arg + arg->offset)) |= flag->bits;
 		}
 
 		kw = tp_get_keyword(kw, arg);
@@ -585,7 +730,7 @@ static const dec_args_t args_SingleMobjtype =
 	.size = sizeof(args_singleType_t),
 	.arg =
 	{
-		{"type", handle_mobjtype, offsetof(args_singleType_t, type)},
+		{handle_mobjtype, offsetof(args_singleType_t, type)},
 		// terminator
 		{NULL}
 	}
@@ -725,7 +870,7 @@ static const dec_args_t args_LowerRaise =
 	.def = &def_LowerRaise,
 	.arg =
 	{
-		{"speed", handle_fixed, offsetof(args_singleFixed_t, value), 1},
+		{handle_fixed, offsetof(args_singleFixed_t, value), 1},
 		// terminator
 		{NULL}
 	}
@@ -802,11 +947,34 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	stfunc(mo, pl->readyweapon->st_weapon.ready);
 }
 
+//
+// A_GunFlash
+
+static const dec_arg_flag_t flags_GunFlash[] =
+{
+	MAKE_FLAG(GFF_NOEXTCHANGE),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_GunFlash =
+{
+	.size = sizeof(args_GunFlash_t),
+	.arg =
+	{
+		{handle_state, offsetof(args_GunFlash_t, state), 1},
+		{handle_flags, offsetof(args_GunFlash_t, flags), 1, flags_GunFlash},
+		// terminator
+		{NULL}
+	}
+};
+
 __attribute((regparm(2),no_caller_saved_registers))
 void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	uint32_t state;
+	const args_GunFlash_t *arg = st->arg;
 	player_t *pl = mo->player;
+	uint32_t state;
 
 	if(!pl)
 		return;
@@ -815,9 +983,12 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 
 	// mobj to 'missile' animation
-	if(mo->animation != ANIM_MISSILE && mo->info->state_missile)
+	if(!(arg->flags & GFF_NOEXTCHANGE) && mo->animation != ANIM_MISSILE && mo->info->state_missile)
 		mobj_set_animation(mo, ANIM_MISSILE);
 
+	if(arg->state)
+		state = arg->state;
+	else
 	if(pl->attackdown > 1)
 		state = pl->readyweapon->st_weapon.flash_alt;
 	else
@@ -871,9 +1042,33 @@ void A_Light2(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // weapon (attack)
 
+static const dec_arg_flag_t flags_WeaponReady[] =
+{
+	MAKE_FLAG(WRF_NOBOB),
+	MAKE_FLAG(WRF_NOFIRE),
+	MAKE_FLAG(WRF_NOSWITCH),
+	MAKE_FLAG(WRF_DISABLESWITCH),
+	MAKE_FLAG(WRF_NOPRIMARY),
+	MAKE_FLAG(WRF_NOSECONDARY),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_WeaponReady =
+{
+	.size = sizeof(args_singleFlags_t),
+	.arg =
+	{
+		{handle_flags, offsetof(args_singleFlags_t, flags), 1, flags_WeaponReady},
+		// terminator
+		{NULL}
+	}
+};
+
 __attribute((regparm(2),no_caller_saved_registers))
 void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	const args_singleFlags_t *arg = st->arg;
 	player_t *pl = mo->player;
 	pspdef_t *psp;
 
@@ -892,14 +1087,12 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->animation == ANIM_MELEE || mo->animation == ANIM_MISSILE)
 		mobj_set_animation(mo, ANIM_SPAWN);
 
-	// sound
-	if(	pl->readyweapon->weapon.sound_ready &&
-		st == states + pl->readyweapon->st_weapon.ready
-	)
-		S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->weapon.sound_ready);
+	// disable switch
+	if(arg->flags & WRF_DISABLESWITCH)
+		pl->pendingweapon = NULL;
 
 	// new selection
-	if(pl->pendingweapon || !pl->health)
+	if((pl->pendingweapon && !(arg->flags & WRF_NOSWITCH)) || !pl->health)
 	{
 		stfunc(mo, pl->readyweapon->st_weapon.lower);
 		// this has to be set regardless of weapon mode, for demo/netgame compatibility
@@ -907,15 +1100,21 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 	}
 
+	// sound
+	if(	pl->readyweapon->weapon.sound_ready &&
+		st == states + pl->readyweapon->st_weapon.ready
+	)
+		S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->weapon.sound_ready);
+
 	// primary attack
-	if(pl->cmd.buttons & BT_ATTACK)
+	if(pl->cmd.buttons & BT_ATTACK && !(arg->flags & WRF_NOPRIMARY))
 	{
 		if(weapon_fire(pl, 1, 0))
 			return;
 	}
 
 	// secondary attack
-	if(pl->cmd.buttons & BT_ALTACK)
+	if(pl->cmd.buttons & BT_ALTACK && !(arg->flags & WRF_NOSECONDARY))
 	{
 		if(weapon_fire(pl, 2, 0))
 			return;
@@ -925,7 +1124,8 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl->attackdown = 0;
 
 	// enable bob
-	pl->weapon_ready = 1;
+	if(!(arg->flags & WRF_NOBOB))
+		pl->weapon_ready = 1;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1029,8 +1229,8 @@ static const dec_args_t args_StartSound =
 	.size = sizeof(args_StartSound_t),
 	.arg =
 	{
-		{"sound", handle_sound, offsetof(args_StartSound_t, sound)},
-		{"slot", handle_flags, offsetof(args_StartSound_t, slot), 1, flags_StartSound},
+		{handle_sound, offsetof(args_StartSound_t, sound)},
+		{handle_flags, offsetof(args_StartSound_t, slot), 1, flags_StartSound},
 		// terminator
 		{NULL}
 	}
@@ -1153,7 +1353,8 @@ void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 static const args_SpawnProjectile_t def_SpawnProjectile =
 {
-	.spawnheight = 32 * FRACUNIT
+	.spawnheight = 32 * FRACUNIT,
+	.ptr = AAPTR_TARGET,
 };
 
 static const dec_arg_flag_t flags_SpawnProjectile[] =
@@ -1176,13 +1377,13 @@ static const dec_args_t args_SpawnProjectile =
 	.def = &def_SpawnProjectile,
 	.arg =
 	{
-		{"missiletype", handle_mobjtype, offsetof(args_SpawnProjectile_t, missiletype)},
-		{"spawnheight", handle_fixed, offsetof(args_SpawnProjectile_t, spawnheight), 1},
-		{"spawnofs_xy", handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
-		{"angle", handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
-		{"flags", handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_SpawnProjectile},
-		{"pitch", handle_angle, offsetof(args_SpawnProjectile_t, pitch), 1},
-//		{"ptr", handle_pointer, offsetof(args_SpawnProjectile_t, ptr), 1},
+		{handle_mobjtype, offsetof(args_SpawnProjectile_t, missiletype)},
+		{handle_fixed, offsetof(args_SpawnProjectile_t, spawnheight), 1},
+		{handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
+		{handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
+		{handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_SpawnProjectile},
+		{handle_angle, offsetof(args_SpawnProjectile_t, pitch), 1},
+		{handle_pointer, offsetof(args_SpawnProjectile_t, ptr), 1},
 		// terminator
 		{NULL}
 	}
@@ -1213,7 +1414,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		target = NULL;
 	else
 	{
-		target = mo->target; // TODO: flags
+		target = resolve_ptr(mo, arg->ptr);
 		if(!target)
 			return;
 	}
@@ -1285,13 +1486,13 @@ static const dec_args_t args_CustomBulletAttack =
 	.size = sizeof(args_BulletAttack_t),
 	.arg =
 	{
-		{"spread_horz", handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
-		{"spread_vert", handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
-		{"numbullets", handle_s8, offsetof(args_BulletAttack_t, blt_count)},
-		{"damage", handle_damage, offsetof(args_BulletAttack_t, damage)},
-		{"pufftype", handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
-		{"range", handle_fixed, offsetof(args_BulletAttack_t, range), 1},
-		{"flags", handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_CustomBulletAttack},
+		{handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
+		{handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
+		{handle_s8, offsetof(args_BulletAttack_t, blt_count)},
+		{handle_damage, offsetof(args_BulletAttack_t, damage)},
+		{handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
+		{handle_fixed, offsetof(args_BulletAttack_t, range), 1},
+		{handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_CustomBulletAttack},
 		// terminator
 		{NULL}
 	}
@@ -1392,13 +1593,13 @@ static const dec_args_t args_FireProjectile =
 	.size = sizeof(args_SpawnProjectile_t),
 	.arg =
 	{
-		{"missiletype", handle_mobjtype, offsetof(args_SpawnProjectile_t, missiletype)},
-		{"angle", handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
-		{"useammo", handle_bool_invert, offsetof(args_SpawnProjectile_t, noammo), 1},
-		{"spawnofs_xy", handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
-		{"spawnheight", handle_fixed, offsetof(args_SpawnProjectile_t, spawnheight), 1},
-		{"flags", handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_FireProjectile},
-		{"pitch", handle_angle, offsetof(args_SpawnProjectile_t, pitch), 1},
+		{handle_mobjtype, offsetof(args_SpawnProjectile_t, missiletype)},
+		{handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
+		{handle_bool_invert, offsetof(args_SpawnProjectile_t, noammo), 1},
+		{handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
+		{handle_fixed, offsetof(args_SpawnProjectile_t, spawnheight), 1},
+		{handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_FireProjectile},
+		{handle_angle, offsetof(args_SpawnProjectile_t, pitch), 1},
 		// terminator
 		{NULL}
 	}
@@ -1483,13 +1684,13 @@ static const dec_args_t args_FireBullets =
 	.def = &def_FireBullets,
 	.arg =
 	{
-		{"spread_horz", handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
-		{"spread_vert", handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
-		{"numbullets", handle_s8, offsetof(args_BulletAttack_t, blt_count)},
-		{"damage", handle_damage, offsetof(args_BulletAttack_t, damage)},
-		{"pufftype", handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
-		{"flags", handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_FireBullets},
-		{"range", handle_fixed, offsetof(args_BulletAttack_t, range), 1},
+		{handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
+		{handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
+		{handle_s8, offsetof(args_BulletAttack_t, blt_count)},
+		{handle_damage, offsetof(args_BulletAttack_t, damage)},
+		{handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
+		{handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_FireBullets},
+		{handle_fixed, offsetof(args_BulletAttack_t, range), 1},
 		// terminator
 		{NULL}
 	}
@@ -1610,11 +1811,11 @@ static const dec_args_t args_CustomPunch =
 	.def = &def_CustomPunch,
 	.arg =
 	{
-		{"damage", handle_damage, offsetof(args_PunchAttack_t, damage)},
-		{"norandom", handle_bool, offsetof(args_PunchAttack_t, norandom), 1},
-		{"flags", handle_flags, offsetof(args_PunchAttack_t, flags), 1, flags_CustomPunch},
-		{"pufftype", handle_mobjtype, offsetof(args_PunchAttack_t, pufftype), 1},
-		{"range", handle_fixed, offsetof(args_PunchAttack_t, range), 1},
+		{handle_damage, offsetof(args_PunchAttack_t, damage)},
+		{handle_bool, offsetof(args_PunchAttack_t, norandom), 1},
+		{handle_flags, offsetof(args_PunchAttack_t, flags), 1, flags_CustomPunch},
+		{handle_mobjtype, offsetof(args_PunchAttack_t, pufftype), 1},
+		{handle_fixed, offsetof(args_PunchAttack_t, range), 1},
 		// terminator
 		{NULL}
 	}
@@ -1678,9 +1879,9 @@ static const dec_args_t args_GiveInventory =
 	.size = sizeof(args_GiveInventory_t),
 	.arg =
 	{
-		{"type", handle_mobjtype, offsetof(args_GiveInventory_t, type)},
-		{"amount", handle_u16, offsetof(args_GiveInventory_t, amount), 1},
-//		{"ptr", handle_pointer, offsetof(args_GiveInventory_t, ptr), 1},
+		{handle_mobjtype, offsetof(args_GiveInventory_t, type)},
+		{handle_u16, offsetof(args_GiveInventory_t, amount), 1},
+		{handle_pointer, offsetof(args_GiveInventory_t, ptr), 1},
 		// terminator
 		{NULL}
 	}
@@ -1690,7 +1891,43 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_GiveInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_GiveInventory_t *arg = st->arg;
-	mobj_give_inventory(mo, arg->type, arg->amount);
+	uint32_t count = arg->amount;
+	mo = resolve_ptr(mo, arg->ptr);
+	if(!mo)
+		return;
+	if(!count)
+		count++;
+	mobj_give_inventory(mo, arg->type, count);
+}
+
+//
+// A_TakeInventory
+
+static const dec_args_t args_TakeInventory =
+{
+	.size = sizeof(args_GiveInventory_t),
+	.arg =
+	{
+		{handle_mobjtype, offsetof(args_GiveInventory_t, type)},
+		{handle_u16, offsetof(args_GiveInventory_t, amount), 1},
+		{handle_s8, offsetof(args_GiveInventory_t, sacrifice), 1}, // ignored
+		{handle_pointer, offsetof(args_GiveInventory_t, ptr), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_TakeInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_GiveInventory_t *arg = st->arg;
+	uint32_t count = arg->amount;
+	mo = resolve_ptr(mo, arg->ptr);
+	if(!mo)
+		return;
+	if(!count)
+		count = INV_MAX_COUNT;
+	inventory_take(mo, arg->type, count);
 }
 
 //
@@ -1701,7 +1938,7 @@ static const dec_args_t args_SetTranslation =
 	.size = sizeof(args_singlePointer_t),
 	.arg =
 	{
-		{"translation", handle_translation, offsetof(args_singlePointer_t, value)},
+		{handle_translation, offsetof(args_singlePointer_t, value)},
 		// terminator
 		{NULL}
 	}
@@ -1735,9 +1972,9 @@ static const dec_args_t args_SetAngle =
 	.size = sizeof(args_SetAngle_t),
 	.arg =
 	{
-		{"angle", handle_angle, offsetof(args_SetAngle_t, angle)},
-		{"flags", handle_flags, offsetof(args_SetAngle_t, flags), 1, flags_empty},
-//		{"ptr", handle_pointer, offsetof(args_SetAngle_t, ptr), 1},
+		{handle_angle, offsetof(args_SetAngle_t, angle)},
+		{handle_flags, offsetof(args_SetAngle_t, sacrifice), 1}, // ignored
+		{handle_pointer, offsetof(args_SetAngle_t, ptr), 1},
 		// terminator
 		{NULL}
 	}
@@ -1747,7 +1984,56 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_SetAngle_t *arg = st->arg;
+	mo = resolve_ptr(mo, arg->ptr);
+	if(!mo)
+		return;
 	mo->angle = arg->angle;
+}
+
+//
+// A_ChangeFlag
+
+static const dec_args_t args_ChangeFlag =
+{
+	.size = sizeof(args_ChangeFlag_t),
+	.arg =
+	{
+		{handle_mobj_flag, 0},
+		{handle_bool, offsetof(args_ChangeFlag_t, set)},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_ChangeFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_ChangeFlag_t *arg = st->arg;
+
+	if(arg->more)
+	{
+		uint32_t value;
+
+		if(arg->set)
+			value = mo->flags | arg->bits;
+		else
+			value = mo->flags & ~arg->bits;
+
+		if((mo->flags ^ value) & (MF_NOSECTOR | MF_NOBLOCKMAP))
+		{
+			P_UnsetThingPosition(mo);
+			mo->flags = value;
+			P_SetThingPosition(mo);
+		}
+	} else
+	{
+		uint32_t *fs;
+		fs = (void*)mo + arg->offset;
+		if(arg->set)
+			*fs = *fs | arg->bits;
+		else
+			*fs = *fs & ~arg->bits;
+	}
 }
 
 //
@@ -1758,7 +2044,7 @@ static const dec_args_t args_DamageTarget =
 	.size = sizeof(args_singleDamage_t),
 	.arg =
 	{
-		{"amount", handle_damage, offsetof(args_singleDamage_t, damage)},
+		{handle_damage, offsetof(args_singleDamage_t, damage)},
 		// terminator
 		{NULL}
 	}
@@ -1777,11 +2063,60 @@ void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(damage & DAMAGE_IS_CUSTOM)
 		damage = mobj_calc_damage(damage);
 
-	mo_dmg_skip_armor = 1;
+	mo_dmg_skip_armor = 1; // technically, in rare cases, this is broken
 	mobj_damage(mo->target, mo, mo, damage, 0);
 	mo_dmg_skip_armor = 0;
 }
 
+//
+// A_JumpIfInventory
+
+static const dec_args_t args_JumpIfInventory =
+{
+	.size = sizeof(args_JumpIfInventory_t),
+	.arg =
+	{
+		{handle_mobjtype, offsetof(args_JumpIfInventory_t, type)},
+		{handle_u16, offsetof(args_JumpIfInventory_t, amount)},
+		{handle_state, offsetof(args_JumpIfInventory_t, state)},
+		{handle_pointer, offsetof(args_SpawnProjectile_t, ptr), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_JumpIfInventory_t *arg = st->arg;
+	uint32_t now, check, limit;
+	mobjinfo_t *info = mobjinfo + arg->type;
+
+	if(!inventory_is_valid(info))
+		return;
+
+	mo = resolve_ptr(mo, arg->ptr);
+	if(!mo)
+		return;
+
+	now = inventory_check(mo, arg->type);
+
+	if(	info->extra_type == ETYPE_AMMO &&
+		mo->player &&
+		mo->player->backpack
+	)
+		limit = info->ammo.max_count;
+	else
+		limit = info->inventory.max_count;
+
+	if(arg->amount)
+		check = arg->amount;
+	else
+		check = limit;
+
+	if(now >= check || check > limit)
+		stfunc(mo, arg->state);
+}
 
 //
 // chunks
@@ -2148,10 +2483,10 @@ uint8_t *action_parser(uint8_t *name)
 		if(kw[0] != '(')
 		{
 			if(!arg->optional)
-				I_Error("[DECORATE] Missing argument '%s' for action '%s' in '%s'!", arg->name, name, parse_actor_name);
+				I_Error("[DECORATE] Missing arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
 		} else
 		{
-			while(arg->name)
+			while(arg->handler)
 			{
 				kw = tp_get_keyword();
 				if(!kw)
@@ -2160,8 +2495,8 @@ uint8_t *action_parser(uint8_t *name)
 				if(kw[0] == ')')
 				{
 args_end:
-					if(arg->name && !arg->optional)
-						I_Error("[DECORATE] Missing argument '%s' for action '%s' in '%s'!", arg->name, name, parse_actor_name);
+					if(arg->handler && !arg->optional)
+						I_Error("[DECORATE] Missing arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
 					// check validity
 //					if(act->check)
 //						act->check(parse_action_arg);
@@ -2171,14 +2506,14 @@ args_end:
 
 				kw = arg->handler(kw, arg);
 				if(!kw || (kw[0] != ',' && kw[0] != ')'))
-					I_Error("[DECORATE] Failed to parse arguments for action '%s' in '%s'!", name, parse_actor_name);
+					I_Error("[DECORATE] Failed to parse arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
 
 				arg++;
 
 				if(kw[0] == ')')
 					goto args_end;
 
-				if(!arg->name)
+				if(!arg->handler)
 					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 			}
 		}
@@ -2195,12 +2530,12 @@ static const dec_action_t mobj_action[] =
 	// weapon
 	{"a_lower", A_Lower, &args_LowerRaise},
 	{"a_raise", A_Raise, &args_LowerRaise},
-	{"a_gunflash", A_GunFlash},
+	{"a_gunflash", A_GunFlash, &args_GunFlash},
 	{"a_checkreload", A_CheckReload},
 	{"a_light0", A_Light0},
 	{"a_light1", A_Light1},
 	{"a_light2", A_Light2},
-	{"a_weaponready", A_WeaponReady},
+	{"a_weaponready", A_WeaponReady, &args_WeaponReady},
 	{"a_refire", A_ReFire},
 	// sound
 	{"a_pain", A_Pain},
@@ -2234,10 +2569,14 @@ static const dec_action_t mobj_action[] =
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_setangle", A_SetAngle, &args_SetAngle},
+	{"a_changeflag", A_ChangeFlag, &args_ChangeFlag},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	// inventory
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
+	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},
+	// jumps
+	{"a_jumpifinventory", A_JumpIfInventory, &args_JumpIfInventory},
 	// terminator
 	{NULL}
 };

@@ -80,15 +80,19 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 			uint16_t offset;
 
 			offset = state & 0xFFFF;
-			mo->animation = (state >> 16) & 0xFF;
+			if(!(state & 0x40000000))
+			{
+				mo->animation = (state >> 16) & 0xFF;
 
-			if(mo->animation < LAST_MOBJ_STATE_HACK)
-				state = *((uint16_t*)((void*)mo->info + base_anim_offs[mo->animation]));
-			else
-			if(mo->animation < NUM_MOBJ_ANIMS)
-				state = mo->info->new_states[mo->animation - LAST_MOBJ_STATE_HACK];
-			else
-				state = mo->info->extra_states[mo->animation - NUM_MOBJ_ANIMS];
+				if(mo->animation < LAST_MOBJ_STATE_HACK)
+					state = *((uint16_t*)((void*)mo->info + base_anim_offs[mo->animation]));
+				else
+				if(mo->animation < NUM_MOBJ_ANIMS)
+					state = mo->info->new_states[mo->animation - LAST_MOBJ_STATE_HACK];
+				else
+					state = mo->info->extra_states[mo->animation - NUM_MOBJ_ANIMS];
+			} else
+				state = mo->state - states;
 
 			if(state)
 				state += offset;
@@ -1678,6 +1682,9 @@ void mobj_remove(mobj_t *mo)
 
 		pl = players + i;
 
+		if(pl->mo == mo)
+			pl->mo = NULL;
+
 		if(pl->attacker == mo)
 			pl->attacker = NULL;
 
@@ -1716,6 +1723,13 @@ void explode_missile(mobj_t *mo)
 			if(mo->info->state_xdeath)
 				animation = ANIM_XDEATH;
 		}
+
+		if(mo->flags2 & MF2_HITTARGET)
+			mo->target = hit_thing;
+		if(mo->flags2 & MF2_HITMASTER)
+			mo->master = hit_thing;
+		if(mo->flags2 & MF2_HITTRACER)
+			mo->tracer = hit_thing;
 	}
 
 	mobj_set_animation(mo, animation);
@@ -2542,6 +2556,13 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 		return;
 
 	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, mo_puff_type);
+
+	if(mo->flags2 & MF2_HITTARGET)
+		mo->target = target;
+	if(mo->flags2 & MF2_HITMASTER)
+		mo->master = target;
+	if(mo->flags2 & MF2_HITTRACER)
+		mo->tracer = target;
 
 	if(mo->flags2 & MF2_PUFFGETSOWNER)
 		mo->target = shootthing;

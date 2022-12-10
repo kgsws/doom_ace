@@ -27,7 +27,10 @@
 #define NUM_STATE_HOOKS	1
 
 #define CUSTOM_STATE_STORAGE	((custom_state_t*)d_visplanes)
-#define MAX_CUSTOM_STATES	2048
+#define MAX_CUSTOM_STATES	1024
+
+#define CUSTOM_STATE_REMAP	((uint32_t**)(CUSTOM_STATE_STORAGE + MAX_CUSTOM_STATES))
+#define MAX_CUSTOM_REMAPS	512
 
 enum
 {
@@ -72,20 +75,6 @@ typedef struct
 	uint16_t type;
 	uint16_t offset;
 } dec_attr_t;
-
-typedef struct
-{
-	const uint8_t *name;
-	uint32_t bits;
-} dec_flag_t;
-
-typedef struct
-{
-	const uint8_t *name;
-	uint8_t idx;
-	uint8_t type;
-	uint16_t offset;
-} dec_anim_t;
 
 typedef struct
 {
@@ -194,6 +183,7 @@ static hook_t hook_states[NUM_STATE_HOOKS];
 
 void *dec_es_ptr;
 static uint32_t num_custom_states;
+static uint32_t num_custom_remaps;
 
 uint8_t *parse_actor_name;
 
@@ -530,7 +520,7 @@ static const dec_attr_t attr_mobj[] =
 };
 
 // mobj flags
-static const dec_flag_t mobj_flags0[] =
+const dec_flag_t mobj_flags0[] =
 {
 	// ignored flags
 	{"floorclip", 0},
@@ -564,7 +554,7 @@ static const dec_flag_t mobj_flags0[] =
 	// terminator
 	{NULL}
 };
-static const dec_flag_t mobj_flags1[] =
+const dec_flag_t mobj_flags1[] =
 {
 	{"ismonster", MF1_ISMONSTER},
 	{"noteleport", MF1_NOTELEPORT},
@@ -601,7 +591,7 @@ static const dec_flag_t mobj_flags1[] =
 	// terminator
 	{NULL}
 };
-static const dec_flag_t mobj_flags2[] =
+const dec_flag_t mobj_flags2[] =
 {
 	{"noicedeath", MF2_NOICEDEATH},
 	{"icecorpse", MF2_ICECORPSE},
@@ -1251,6 +1241,25 @@ void *dec_es_alloc(uint32_t size)
 }
 
 //
+// animation search
+
+const dec_anim_t *dec_find_animation(const uint8_t *name)
+{
+	const dec_anim_t *anim = mobj_anim;
+
+	while(anim->name)
+	{
+		if(	(anim->type == ETYPE_NONE || parse_mobj_info->extra_type == anim->type) &&
+			!strcmp(name, anim->name)
+		)
+			return anim;
+		anim++;
+	}
+
+	return NULL;
+}
+
+//
 // custom states
 
 custom_damage_state_t *dec_get_damage_animation(custom_damage_state_t *cst, uint32_t type)
@@ -1309,6 +1318,14 @@ static void update_custom_state(uint32_t *ptr, uint32_t limit)
 		I_Error("[DECORATE] Invalid custom jump '%s' + %u in '%s'!", CUSTOM_STATE_STORAGE[idx].name, offs, parse_actor_name);
 
 	*ptr = idx;
+}
+
+void dec_register_state_remap(uint32_t *ptr)
+{
+	if(num_custom_remaps == MAX_CUSTOM_REMAPS)
+		I_Error("[DECORATE] Too many custom states!");
+	CUSTOM_STATE_REMAP[num_custom_remaps] = ptr;
+	num_custom_remaps++;
 }
 
 //
@@ -2256,6 +2273,7 @@ static uint32_t parse_states()
 	parse_next_state = NULL;
 	unfinished = 0;
 	num_custom_states = 0;
+	num_custom_remaps = 0;
 
 	while(1)
 	{
@@ -2315,16 +2333,8 @@ have_keyword:
 				return 1;
 
 			// find animation
-			anim = mobj_anim;
-			while(anim->name)
-			{
-				if(	(anim->type == ETYPE_NONE || parse_mobj_info->extra_type == anim->type) &&
-					!strcmp(kw, anim->name)
-				)
-					break;
-				anim++;
-			}
-			if(!anim->name)
+			anim = dec_find_animation(kw);
+			if(!anim)
 			{
 				if(parse_mobj_info->extra_type == ETYPE_WEAPON && !strcmp(kw, "lightdone"))
 				{
@@ -2347,7 +2357,7 @@ have_keyword:
 			if(kw[0] == '+')
 			{
 				// get offset
-				kw = tp_get_keyword_lc();
+				kw = tp_get_keyword();
 				if(!kw)
 					return 1;
 
@@ -2806,6 +2816,8 @@ static void cb_parse_actors(lumpinfo_t *li)
 			if(st->nextstate & 0x40000000)
 				update_custom_state(&st->nextstate, num_states);
 		}
+		for(uint32_t i = 0; i < num_custom_remaps; i++)
+			update_custom_state(CUSTOM_STATE_REMAP[i], num_states);
 
 		// find damage type animations
 		{

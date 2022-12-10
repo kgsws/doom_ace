@@ -48,6 +48,8 @@ static uint32_t is_script_char(uint8_t in)
 			return 1;
 		if(in == ':')
 			return 1;
+		if(in == '|')
+			return 1;
 	}
 	if(tp_enable_math)
 	{

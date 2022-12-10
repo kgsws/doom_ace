@@ -36,6 +36,11 @@ typedef struct
 
 typedef struct
 {
+	uint16_t flags;
+} args_singleFlags_t;
+
+typedef struct
+{
 	uint32_t damage;
 } args_singleDamage_t;
 
@@ -44,6 +49,16 @@ typedef struct
 	uint16_t special;
 	arg_special_t arg[5];
 } args_lineSpecial_t;
+
+//
+
+#define GFF_NOEXTCHANGE	1
+
+typedef struct
+{
+	uint32_t state;
+	uint16_t flags;
+} args_GunFlash_t;
 
 //
 
@@ -56,6 +71,15 @@ typedef struct
 	uint16_t sound;
 	uint32_t slot;
 } args_StartSound_t;
+
+//
+
+#define WRF_NOBOB	1
+#define WRF_NOFIRE	(WRF_NOPRIMARY | WRF_NOSECONDARY)
+#define WRF_NOSWITCH	2
+#define WRF_DISABLESWITCH	4
+#define WRF_NOPRIMARY	8
+#define WRF_NOSECONDARY	16
 
 //
 
@@ -80,8 +104,8 @@ typedef struct
 	fixed_t spawnheight;
 	fixed_t spawnofs_xy;
 	angle_t angle;
-	uint32_t flags;
 	fixed_t pitch;
+	uint16_t flags;
 } args_SpawnProjectile_t;
 
 //
@@ -103,8 +127,8 @@ typedef struct
 	angle_t spread_hor;
 	angle_t spread_ver;
 	uint32_t damage;
-	uint32_t flags;
 	fixed_t range;
+	uint16_t flags;
 } args_BulletAttack_t;
 
 //
@@ -117,8 +141,8 @@ typedef struct
 typedef struct
 {
 	uint16_t pufftype;
+	uint16_t flags;
 	uint32_t damage;
-	uint32_t flags;
 	fixed_t range;
 	uint8_t norandom;
 } args_PunchAttack_t;
@@ -130,6 +154,7 @@ typedef struct
 	uint16_t type;
 	uint16_t amount;
 	uint8_t ptr;
+	uint8_t sacrifice;
 } args_GiveInventory_t;
 
 //
@@ -138,8 +163,28 @@ typedef struct
 {
 	angle_t angle;
 	uint8_t ptr;
-	uint32_t flags;
+	uint8_t sacrifice;
 } args_SetAngle_t;
+
+//
+
+typedef struct
+{
+	uint32_t bits;
+	uint16_t offset;
+	uint8_t more;
+	uint8_t set;
+} args_ChangeFlag_t;
+
+//
+
+typedef struct
+{
+	uint16_t type;
+	uint16_t amount;
+	uint32_t state;
+	uint8_t ptr;
+} args_JumpIfInventory_t;
 
 //
 

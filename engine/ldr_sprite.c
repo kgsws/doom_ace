@@ -29,7 +29,6 @@ static void install_sprites(uint32_t sprite_count)
 	{
 		if(i == sprite_tnt1)
 		{
-doom_printf("SKIP TNT1\n");
 			// ignore 'TNT1'
 			sprites[i].numframes = 0;
 			continue;

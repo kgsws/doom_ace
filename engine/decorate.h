@@ -42,6 +42,20 @@ enum
 	SPR_ICEC,
 };
 
+typedef struct
+{
+	const uint8_t *name;
+	uint32_t bits;
+} dec_flag_t;
+
+typedef struct
+{
+	const uint8_t *name;
+	uint8_t idx;
+	uint8_t type;
+	uint16_t offset;
+} dec_anim_t;
+
 //
 
 extern uint32_t num_spr_names;
@@ -63,6 +77,11 @@ extern uint8_t *damage_type_name[NUM_DAMAGE_TYPES];
 extern void *dec_es_ptr;
 
 //
+extern const dec_flag_t mobj_flags0[];
+extern const dec_flag_t mobj_flags1[];
+extern const dec_flag_t mobj_flags2[];
+
+//
 
 void init_decorate();
 
@@ -71,6 +90,11 @@ int32_t mobj_by_spawnid(uint32_t id);
 
 void *dec_es_alloc(uint32_t size);
 void *dec_reloc_es(void *target, void *ptr);
+
+const dec_anim_t *dec_find_animation(const uint8_t *name);
+
+uint32_t dec_get_custom_state(const uint8_t *name, int32_t idx);
+void dec_register_state_remap(uint32_t *ptr);
 
 custom_damage_state_t *dec_get_damage_animation(custom_damage_state_t *cst, uint32_t type);
 

@@ -1511,6 +1511,7 @@ void R_DrawSprite(vissprite_t*) __attribute((regparm(2),no_caller_saved_register
 void R_SortVisSprites() __attribute((regparm(2),no_caller_saved_registers));
 
 // s_sound.c
+void S_Start() __attribute((regparm(2),no_caller_saved_registers));
 void S_StartSound(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void doom_S_StopSound(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void S_ResumeSound() __attribute((regparm(2),no_caller_saved_registers));

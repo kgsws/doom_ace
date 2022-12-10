@@ -1047,6 +1047,9 @@ uint32_t map_load_setup()
 		cache = 0;
 	}
 
+	// stop sounds
+	S_Start();
+
 	// find map lump
 	map_lump_idx = W_CheckNumForName(map_lump.name);
 	map_format = check_map(map_lump_idx);

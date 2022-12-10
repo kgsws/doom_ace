@@ -606,6 +606,12 @@ F_StartCast:
 WI_Start:
 	.byte	0xE9
 	.4byte	0x0003EB70
+////////////////////////////////// S_Start
+.section .text.S_Start
+.global S_Start
+S_Start:
+	.byte	0xE9
+	.4byte	0x0003F600
 ////////////////////////////////// S_StartSound
 .section .text.S_StartSound
 .global S_StartSound

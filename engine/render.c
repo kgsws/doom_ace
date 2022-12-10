@@ -2380,7 +2380,7 @@ void init_render()
 	//
 	// PASS 1
 
-	translation_alias = ldr_malloc(sizeof(uint64_t));
+	translation_alias = ldr_malloc(sizeof(uint64_t) * NUM_EXTRA_TRANSLATIONS);
 	wad_handle_lump("TRNSLATE", cb_count_translations);
 
 	//

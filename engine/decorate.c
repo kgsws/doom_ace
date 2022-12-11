@@ -1193,7 +1193,7 @@ static const doom_codeptr_t doom_codeptr[] =
 	{(void*)0x0002D460, A_CheckReload, NULL},
 	{(void*)0x00028A80, wpn_sound, (void*)5}, // A_OpenShotgun2
 	{(void*)0x00028A90, wpn_sound, (void*)7}, // A_LoadShotgun2
-	{(void*)0x00028AA0, wpn_sound, (void*)6}, // A_CloseShotgun2
+	{(void*)0x00028AA0, wpn_sound, NULL}, // A_CloseShotgun2
 	{(void*)0x0002DC20, wpn_sound, (void*)9}, // A_BFGSound
 };
 #define NUM_CODEPTR_MODS	(sizeof(doom_codeptr) / sizeof(doom_codeptr_t))
@@ -2731,6 +2731,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		// reset stuff
 		extra_stuff_cur = NULL;
 		extra_stuff_next = NULL;
+		num_custom_remaps = 0;
 
 		// no states yet
 		info->state_idx_first = num_states;

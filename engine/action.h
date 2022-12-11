@@ -46,6 +46,11 @@ typedef struct
 
 typedef struct
 {
+	uint32_t state;
+} args_singleState_t;
+
+typedef struct
+{
 	uint16_t special;
 	arg_special_t arg[5];
 } args_lineSpecial_t;

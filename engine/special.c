@@ -1747,8 +1747,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 					int32_t damage = spec_arg[0];
 					if(!damage)
 						damage = 1000000;
-					else
-						mobj_damage(activator, NULL, NULL, damage, NULL);
+					mobj_damage(activator, NULL, NULL, damage, NULL);
 				} else
 					mobj_give_health(activator, -spec_arg[0], 0);
 				spec_success = 1;

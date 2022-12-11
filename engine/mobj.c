@@ -141,6 +141,7 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 {
 	// state set by custom inventory
 	state_t *st;
+	uint32_t oldstate = 0;
 
 	mo->custom_state = 0;
 
@@ -154,12 +155,16 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 			uint8_t anim;
 
 			offset = state & 0xFFFF;
-			anim = (state >> 16) & 0xFF;
+			if(!(state & 0x40000000))
+			{
+				anim = (state >> 16) & 0xFF;
 
-			if(anim < NUM_MOBJ_ANIMS)
-				state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
-			else
-				state = info->extra_states[anim - NUM_MOBJ_ANIMS];
+				if(anim < NUM_MOBJ_ANIMS)
+					state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
+				else
+					state = info->extra_states[anim - NUM_MOBJ_ANIMS];
+			} else
+				state = oldstate;
 
 			if(state)
 				state += offset;
@@ -174,6 +179,7 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 			return !state;
 		}
 
+		oldstate = state;
 		st = states + state;
 		state = st->nextstate;
 

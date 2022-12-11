@@ -915,7 +915,7 @@ static const dec_args_t args_LowerRaise =
 	.def = &def_LowerRaise,
 	.arg =
 	{
-		{handle_fixed, offsetof(args_singleFixed_t, value), 1},
+		{handle_fixed, offsetof(args_singleFixed_t, value), 2},
 		// terminator
 		{NULL}
 	}
@@ -925,7 +925,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	const args_singleFixed_t *arg = st->arg;
+	fixed_t value;
 
 	if(!pl)
 		return;
@@ -933,8 +933,15 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->custom_inventory)
 		return;
 
+	if(st->arg)
+	{
+		const args_singleFixed_t *arg = st->arg;
+		value = arg->value;
+	} else
+		value = def_LowerRaise.value;
+
 	pl->weapon_ready = 0;
-	pl->psprites[0].sy += arg->value;
+	pl->psprites[0].sy += value;
 
 	if(pl->psprites[0].sy < WEAPONBOTTOM)
 		return;
@@ -973,7 +980,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	const args_singleFixed_t *arg = st->arg;
+	fixed_t value;
 
 	if(!pl)
 		return;
@@ -981,8 +988,15 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->custom_inventory)
 		return;
 
+	if(st->arg)
+	{
+		const args_singleFixed_t *arg = st->arg;
+		value = arg->value;
+	} else
+		value = def_LowerRaise.value;
+
 	pl->weapon_ready = 0;
-	pl->psprites[0].sy -= arg->value;
+	pl->psprites[0].sy -= value;
 
 	if(pl->psprites[0].sy > WEAPONTOP)
 		return;
@@ -1007,7 +1021,7 @@ static const dec_args_t args_GunFlash =
 	.size = sizeof(args_GunFlash_t),
 	.arg =
 	{
-		{handle_state, offsetof(args_GunFlash_t, state), 1},
+		{handle_state, offsetof(args_GunFlash_t, state), 2},
 		{handle_flags, offsetof(args_GunFlash_t, flags), 1, flags_GunFlash},
 		// terminator
 		{NULL}
@@ -1017,9 +1031,9 @@ static const dec_args_t args_GunFlash =
 __attribute((regparm(2),no_caller_saved_registers))
 void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_GunFlash_t *arg = st->arg;
 	player_t *pl = mo->player;
 	uint32_t state;
+	uint32_t flags;
 
 	if(!pl)
 		return;
@@ -1027,17 +1041,28 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->custom_inventory)
 		return;
 
+	if(st->arg)
+	{
+		const args_GunFlash_t *arg = st->arg;
+		state = arg->state;
+		flags = arg->flags;
+	} else
+	{
+		state = 0;
+		flags = 0;
+	}
+
 	// mobj to 'missile' animation
-	if(!(arg->flags & GFF_NOEXTCHANGE) && mo->animation != ANIM_MISSILE && mo->info->state_missile)
+	if(!(flags & GFF_NOEXTCHANGE) && mo->animation != ANIM_MISSILE && mo->info->state_missile)
 		mobj_set_animation(mo, ANIM_MISSILE);
 
-	if(arg->state)
-		state = arg->state;
-	else
-	if(pl->attackdown > 1)
-		state = pl->readyweapon->st_weapon.flash_alt;
-	else
-		state = pl->readyweapon->st_weapon.flash;
+	if(!state)
+	{
+		if(pl->attackdown > 1)
+			state = pl->readyweapon->st_weapon.flash_alt;
+		else
+			state = pl->readyweapon->st_weapon.flash;
+	}
 
 	if(!state)
 		return;
@@ -1104,7 +1129,7 @@ static const dec_args_t args_WeaponReady =
 	.size = sizeof(args_singleFlags_t),
 	.arg =
 	{
-		{handle_flags, offsetof(args_singleFlags_t, flags), 1, flags_WeaponReady},
+		{handle_flags, offsetof(args_singleFlags_t, flags), 2, flags_WeaponReady},
 		// terminator
 		{NULL}
 	}
@@ -1113,15 +1138,22 @@ static const dec_args_t args_WeaponReady =
 __attribute((regparm(2),no_caller_saved_registers))
 void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleFlags_t *arg = st->arg;
 	player_t *pl = mo->player;
 	pspdef_t *psp;
+	uint32_t flags;
 
 	if(!pl)
 		return;
 
 	if(mo->custom_inventory)
 		return;
+
+	if(st->arg)
+	{
+		const args_singleFlags_t *arg = st->arg;
+		flags = arg->flags;
+	} else
+		flags = 0;
 
 	if(extra_config.center_weapon != 2)
 		pl->weapon_ready = 0;
@@ -1133,11 +1165,11 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mobj_set_animation(mo, ANIM_SPAWN);
 
 	// disable switch
-	if(arg->flags & WRF_DISABLESWITCH)
+	if(flags & WRF_DISABLESWITCH)
 		pl->pendingweapon = NULL;
 
 	// new selection
-	if((pl->pendingweapon && !(arg->flags & WRF_NOSWITCH)) || !pl->health)
+	if((pl->pendingweapon && !(flags & WRF_NOSWITCH)) || !pl->health)
 	{
 		stfunc(mo, pl->readyweapon->st_weapon.lower);
 		// this has to be set regardless of weapon mode, for demo/netgame compatibility
@@ -1152,14 +1184,14 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->weapon.sound_ready);
 
 	// primary attack
-	if(pl->cmd.buttons & BT_ATTACK && !(arg->flags & WRF_NOPRIMARY))
+	if(pl->cmd.buttons & BT_ATTACK && !(flags & WRF_NOPRIMARY))
 	{
 		if(weapon_fire(pl, 1, 0))
 			return;
 	}
 
 	// secondary attack
-	if(pl->cmd.buttons & BT_ALTACK && !(arg->flags & WRF_NOSECONDARY))
+	if(pl->cmd.buttons & BT_ALTACK && !(flags & WRF_NOSECONDARY))
 	{
 		if(weapon_fire(pl, 2, 0))
 			return;
@@ -1169,21 +1201,42 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl->attackdown = 0;
 
 	// enable bob
-	if(!(arg->flags & WRF_NOBOB))
+	if(!(flags & WRF_NOBOB))
 		pl->weapon_ready = 1;
 }
+
+//
+// A_Refire
+
+static const dec_args_t args_ReFire =
+{
+	.size = sizeof(args_singleState_t),
+	.arg =
+	{
+		{handle_state, offsetof(args_singleState_t, state), 2},
+		// terminator
+		{NULL}
+	}
+};
 
 __attribute((regparm(2),no_caller_saved_registers))
 void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	uint32_t btn;
+	uint32_t btn, state;
 
 	if(!pl)
 		return;
 
 	if(mo->custom_inventory)
 		return;
+
+	if(st->arg)
+	{
+		const args_singleState_t *arg = st->arg;
+		state = arg->state;
+	} else
+		state = 0;
 
 	if(pl->attackdown > 1)
 		btn = BT_ALTACK;
@@ -1195,7 +1248,10 @@ void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		pl->health
 	) {
 		pl->refire++;
-		weapon_fire(pl, pl->attackdown, 1);
+		if(state)
+			weapon_fire(pl, state, 2);
+		else
+			weapon_fire(pl, pl->attackdown, 1);
 		return;
 	}
 
@@ -1319,6 +1375,32 @@ void A_FaceTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mo->angle += (P_Random() - P_Random()) << 21;
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_FaceTracer(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(!mo->tracer)
+		return;
+
+	mo->flags &= ~MF_AMBUSH;
+	mo->angle = R_PointToAngle2(mo->x, mo->y, mo->tracer->x, mo->tracer->y);
+
+	if(mo->tracer->flags & MF_SHADOW)
+		mo->angle += (P_Random() - P_Random()) << 21;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_FaceMaster(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(!mo->master)
+		return;
+
+	mo->flags &= ~MF_AMBUSH;
+	mo->angle = R_PointToAngle2(mo->x, mo->y, mo->master->x, mo->master->y);
+
+	if(mo->master->flags & MF_SHADOW)
+		mo->angle += (P_Random() - P_Random()) << 21;
+}
+
 //
 // A_NoBlocking
 
@@ -1342,9 +1424,9 @@ void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), drop->type);
 		item->flags |= MF_DROPPED;
 		item->angle = P_Random() << 24;
-		item->momx = 2*FRACUNIT - (P_Random() << 9);
-		item->momy = 2*FRACUNIT - (P_Random() << 9);
-		item->momz = (3 << 15) + (P_Random() << 10);
+		item->momx = FRACUNIT - (P_Random() << 9);
+		item->momy = FRACUNIT - (P_Random() << 9);
+		item->momz = (4 << 16) + (P_Random() << 10);
 	}
 }
 
@@ -1773,16 +1855,18 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	{
 		count = arg->blt_count;
 		if(!count)
+		{
 			spread = 0;
-		else
+			count = 1;
+		} else
 		if(count > 1)
 			spread = 1;
 		else
 			spread = pl->refire;
 	}
 
-	if(!(arg->flags & FBF_NOFLASH))
-		A_GunFlash(mo, NULL, NULL);
+	if(!(arg->flags & FBF_NOFLASH) && mo->info->state_missile)
+		mobj_set_animation(mo, ANIM_MISSILE);
 
 	angle = mo->angle;
 	if(!player_aim(pl, &angle, &slope, 0))
@@ -1791,6 +1875,8 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	damage = arg->damage;
 	if(damage & DAMAGE_IS_CUSTOM)
 		damage = mobj_calc_damage(damage);
+
+	S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->attacksound);
 
 	for(uint32_t i = 0; i < count; i++)
 	{
@@ -2007,6 +2093,28 @@ void A_CheckPlayerDone(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	mo->tics = 1;
 	mobj_remove(mo);
+}
+
+//
+// A_AlertMonsters
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_AlertMonsters(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(mo->player)
+	{
+		// assuming use from weapon or custom inventory
+		P_NoiseAlert(mo, mo);
+		return;
+	}
+
+	if(!mo->target)
+		return;
+
+	if(!mo->target->player)
+		return;
+
+	P_NoiseAlert(mo->target, mo);
 }
 
 //
@@ -2627,7 +2735,12 @@ uint8_t *action_parser(uint8_t *name)
 		if(kw[0] != '(')
 		{
 			if(!arg->optional)
-				I_Error("[DECORATE] Missing arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
+				I_Error("[DECORATE] Missing arg[%d] for action '%s' in '%s'!", 0, name, parse_actor_name);
+			if(arg->optional > 1)
+			{
+				parse_action_arg = NULL;
+				dec_es_ptr -= act->args->size;
+			}
 		} else
 		{
 			while(arg->handler)
@@ -2680,7 +2793,7 @@ static const dec_action_t mobj_action[] =
 	{"a_light1", A_Light1},
 	{"a_light2", A_Light2},
 	{"a_weaponready", A_WeaponReady, &args_WeaponReady},
-	{"a_refire", A_ReFire},
+	{"a_refire", A_ReFire, &args_ReFire},
 	// sound
 	{"a_pain", A_Pain},
 	{"a_scream", A_Scream},
@@ -2690,6 +2803,8 @@ static const dec_action_t mobj_action[] =
 	{"a_startsound", A_StartSound, &args_StartSound},
 	// basic control
 	{"a_facetarget", A_FaceTarget},
+	{"a_facetracer", A_FaceTracer},
+	{"a_facemaster", A_FaceMaster},
 	{"a_noblocking", A_NoBlocking},
 	// "AI"
 	{"a_look", A_Look},
@@ -2712,6 +2827,7 @@ static const dec_action_t mobj_action[] =
 	{"a_settranslation", A_SetTranslation, &args_SetTranslation},
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
+	{"a_alertmonsters", A_AlertMonsters},
 	{"a_setangle", A_SetAngle, &args_SetAngle},
 	{"a_changeflag", A_ChangeFlag, &args_ChangeFlag},
 	{"a_changevelocity", A_ChangeVelocity, &args_ChangeVelocity},

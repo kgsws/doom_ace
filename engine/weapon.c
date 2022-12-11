@@ -44,6 +44,7 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 	state_t *st;
 	pspdef_t *psp;
 	void *func;
+	uint32_t oldstate = 0;
 
 	psp = pl->psprites + idx;
 	if(idx)
@@ -60,12 +61,16 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 			uint8_t anim;
 
 			offset = state & 0xFFFF;
-			anim = (state >> 16) & 0xFF;
+			if(!(state & 0x40000000))
+			{
+				anim = (state >> 16) & 0xFF;
 
-			if(anim < NUM_MOBJ_ANIMS)
-				state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
-			else
-				state = info->extra_states[anim - NUM_MOBJ_ANIMS];
+				if(anim < NUM_MOBJ_ANIMS)
+					state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
+				else
+					state = info->extra_states[anim - NUM_MOBJ_ANIMS];
+			} else
+				state = oldstate;
 
 			if(state)
 				state += offset;
@@ -83,6 +88,7 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 		st = states + state;
 		psp->state = st;
 		psp->tics = st->tics;
+		oldstate = state;
 		state = st->nextstate;
 
 		if(pl->powers[pw_attack_speed] && psp->tics > 1)
@@ -142,8 +148,12 @@ void weapon_move_pspr(player_t *pl)
 			continue;
 
 		if(!psp->tics)
+		{
 			// special case for deferred gun flash
 			weapon_set_state(pl, i, pl->readyweapon, psp->state - states);
+			if(psp->tics > 0)
+				psp->tics++;
+		}
 
 		if(psp->tics > 0)
 		{
@@ -208,24 +218,28 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 	mobjinfo_t *info = pl->readyweapon;
 	uint32_t state = 0;
 
-	if(secondary > 1)
+	if(refire < 2)
 	{
-		if(refire)
-			state = info->st_weapon.hold_alt;
+		if(secondary > 1)
+		{
+			if(refire)
+				state = info->st_weapon.hold_alt;
+			if(!state)
+				state = info->st_weapon.fire_alt;
+		} else
+		{
+			if(refire)
+				state = info->st_weapon.hold;
+			if(!state)
+				state = info->st_weapon.fire;
+		}
+
 		if(!state)
-			state = info->st_weapon.fire_alt;
+			return 0;
+
+		pl->attackdown = secondary;
 	} else
-	{
-		if(refire)
-			state = info->st_weapon.hold;
-		if(!state)
-			state = info->st_weapon.fire;
-	}
-
-	if(!state)
-		return 0;
-
-	pl->attackdown = secondary;
+		state = secondary;
 
 	// ammo check
 	if(!weapon_check_ammo(pl))
@@ -363,6 +377,8 @@ void wpn_sound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	// code pointer hack for orignal weapon sounds
 	uint16_t snd = (uint32_t)st->arg;
+	if(!snd)
+		snd = 6;
 	S_StartSound(SOUND_CHAN_WEAPON(mo), snd);
 	if(snd == 6)
 		A_ReFire(mo, st, stfunc);

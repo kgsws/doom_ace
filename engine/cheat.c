@@ -146,7 +146,7 @@ static void cf_idfa(player_t *pl, uint8_t *arg)
 			uint16_t type = *ptr++;
 			mobjinfo_t *info = mobjinfo + type;
 
-			inventory_give(mo, type, INV_MAX_COUNT);
+			inventory_give(mo, type, 1);
 
 			if(info->weapon.ammo_type[0])
 				inventory_give(mo, info->weapon.ammo_type[0], INV_MAX_COUNT);

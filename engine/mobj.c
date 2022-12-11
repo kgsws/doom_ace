@@ -730,7 +730,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		}
 	}
 
-	// TODO: translation - player color
+	// TODO: translation - player color; not if MF2_DONTTRANSLATE is set
 
 	mo->player = pl;
 	mo->health = pl->health;
@@ -2412,6 +2412,27 @@ uint32_t PIT_StompThing(mobj_t *thing)
 	return 1;
 }
 
+void mobj_telestomp(mobj_t *mo, fixed_t x, fixed_t y)
+{
+	int32_t xl, xh, yl, yh;
+
+	tmbbox[BOXTOP] = y + tmthing->radius;
+	tmbbox[BOXBOTTOM] = y - tmthing->radius;
+	tmbbox[BOXRIGHT] = x + tmthing->radius;
+	tmbbox[BOXLEFT] = x - tmthing->radius;
+
+	xl = (tmbbox[BOXLEFT] - bmaporgx - MAXRADIUS) >> MAPBLOCKSHIFT;
+	xh = (tmbbox[BOXRIGHT] - bmaporgx + MAXRADIUS) >> MAPBLOCKSHIFT;
+	yl = (tmbbox[BOXBOTTOM] - bmaporgy - MAXRADIUS) >> MAPBLOCKSHIFT;
+	yh = (tmbbox[BOXTOP] - bmaporgy + MAXRADIUS) >> MAPBLOCKSHIFT;
+
+	tmthing = mo;
+
+	for(int32_t bx = xl; bx <= xh; bx++)
+		for(int32_t by = yl; by <= yh; by++)
+			P_BlockThingsIterator(bx, by, PIT_StompThing);
+}
+
 uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angle, uint32_t flags)
 {
 	fixed_t xx, yy, zz, fz, cz, ff;
@@ -2451,29 +2472,13 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 	mo->iflags &= ~MFI_TELEPORT;
 	if(blocked)
 	{
-		int32_t xl, xh, yl, yh;
-
 		if(flags & TELEF_NO_KILL)
 			goto revert;
 
 		if(!(mo->flags1 & MF1_TELESTOMP))
 			goto revert;
 
-		tmbbox[BOXTOP] = y + tmthing->radius;
-		tmbbox[BOXBOTTOM] = y - tmthing->radius;
-		tmbbox[BOXRIGHT] = x + tmthing->radius;
-		tmbbox[BOXLEFT] = x - tmthing->radius;
-
-		xl = (tmbbox[BOXLEFT] - bmaporgx - MAXRADIUS) >> MAPBLOCKSHIFT;
-		xh = (tmbbox[BOXRIGHT] - bmaporgx + MAXRADIUS) >> MAPBLOCKSHIFT;
-		yl = (tmbbox[BOXBOTTOM] - bmaporgy - MAXRADIUS) >> MAPBLOCKSHIFT;
-		yh = (tmbbox[BOXTOP] - bmaporgy + MAXRADIUS) >> MAPBLOCKSHIFT;
-
-		tmthing = mo;
-
-		for(int32_t bx = xl; bx <= xh; bx++)
-			for(int32_t by = yl; by <= yh; by++)
-				P_BlockThingsIterator(bx, by, PIT_StompThing);
+		mobj_telestomp(mo, x, y);
 	}
 
 	if(flags & TELEF_USE_ANGLE)

@@ -314,7 +314,7 @@ static const mobjinfo_t default_weapon =
 	.flags = MF_SPECIAL,
 	.weapon.inventory.count = 1,
 	.weapon.inventory.max_count = 1,
-	.weapon.inventory.hub_count = 1,
+	.weapon.inventory.hub_count = INV_MAX_COUNT,
 	.weapon.inventory.sound_pickup = 33,
 	.weapon.kickback = 100,
 };
@@ -602,6 +602,7 @@ const dec_flag_t mobj_flags2[] =
 	{"hittarget", MF2_HITTARGET},
 	{"hitmaster", MF2_HITMASTER},
 	{"hittracer", MF2_HITTRACER},
+	{"movewithsector", MF2_MOVEWITHSECTOR},
 	// terminator
 	{NULL}
 };
@@ -990,6 +991,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 	{
 		// Pistol
 		.alias = 0x0000000B2FD33A50,
+		.doomednum = 5010,
 		.spawnhealth = 1000,
 		.reactiontime = 8,
 		.radius = 20 << FRACBITS,

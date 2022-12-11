@@ -79,13 +79,20 @@ static void install_sprites(uint32_t sprite_count)
 
 static void cb_s_load(lumpinfo_t *li)
 {
-	patch_t patch;
+	union
+	{
+		patch_t p;
+		uint64_t c;
+	} patch;
 
 	wad_read_lump(&patch, li - lumpinfo, sizeof(patch_t));
 
-	spritewidth[tmp_count] = (uint32_t)patch.width << FRACBITS;
-	spriteoffset[tmp_count] = (uint32_t)patch.x << FRACBITS;
-	spritetopoffset[tmp_count] = (uint32_t)patch.y << FRACBITS;
+	if(patch.c == 0xA1A0A0D474E5089)
+		I_Error("[ACE] Sprite '%.8s' is PNG!", li->name);
+
+	spritewidth[tmp_count] = (fixed_t)patch.p.width << FRACBITS;
+	spriteoffset[tmp_count] = (fixed_t)patch.p.x << FRACBITS;
+	spritetopoffset[tmp_count] = (fixed_t)patch.p.y << FRACBITS;
 
 	gfx_progress(1);
 

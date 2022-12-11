@@ -511,8 +511,15 @@ static uint8_t *handle_damage(uint8_t *kw, const dec_arg_t *arg)
 static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 {
 	const dec_arg_flag_t *flag;
+	uint32_t is_16bit = !(arg->flags->bits & 0xFFFF0000);
+	num32_t *value;
 
-	*((uint16_t*)(parse_action_arg + arg->offset)) = 0;
+	value = parse_action_arg + arg->offset;
+
+	if(is_16bit)
+		value->u16[0] = 0;
+	else
+		value->u32 = 0;
 
 	while(1)
 	{
@@ -529,7 +536,10 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 			if(!flag->name)
 				I_Error("[DECORATE] Unknown flag '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
 
-			*((uint16_t*)(parse_action_arg + arg->offset)) |= flag->bits;
+			if(is_16bit)
+				value->u16[0] |= flag->bits;
+			else
+				value->u32 |= flag->bits;
 		}
 
 		kw = tp_get_keyword(kw, arg);
@@ -666,35 +676,39 @@ static uint32_t remove_ammo(mobj_t *mo)
 
 void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, angle_t pitch, fixed_t slope)
 {
-	fixed_t speed;
-
-	if(mo->info->fast_speed && (fastparm || gameskill == sk_nightmare))
-		speed = mo->info->fast_speed;
-	else
-		speed = mo->info->speed;
-
 	if(source && mo->flags2 & MF2_SPAWNSOUNDSOURCE)
 		S_StartSound(SOUND_CHAN_WEAPON(source), mo->info->seesound);
 	else
 		S_StartSound(mo, mo->info->seesound);
 
-	mo->target = source;
-	if(mo->flags1 & MF1_SEEKERMISSILE)
-		mo->tracer = target;
-	mo->angle = angle;
-
-	if(slope || pitch)
+	if(!(mo->iflags & MFI_MARKED))
 	{
-		if(slope)
-			pitch += slope_to_angle(slope);
-		pitch >>= ANGLETOFINESHIFT;
-		mo->momz = FixedMul(speed, finesine[pitch]);
-		speed = FixedMul(speed, finecosine[pitch]);
-	}
+		fixed_t speed;
 
-	angle >>= ANGLETOFINESHIFT;
-	mo->momx = FixedMul(speed, finecosine[angle]);
-	mo->momy = FixedMul(speed, finesine[angle]);
+		if(mo->info->fast_speed && (fastparm || gameskill == sk_nightmare))
+			speed = mo->info->fast_speed;
+		else
+			speed = mo->info->speed;
+
+		mo->target = source;
+		if(mo->flags1 & MF1_SEEKERMISSILE)
+			mo->tracer = target;
+		mo->angle = angle;
+
+		if(slope || pitch)
+		{
+			if(slope)
+				pitch += slope_to_angle(slope);
+			pitch >>= ANGLETOFINESHIFT;
+			mo->momz = FixedMul(speed, finesine[pitch]);
+			speed = FixedMul(speed, finecosine[pitch]);
+		}
+
+		angle >>= ANGLETOFINESHIFT;
+		mo->momx = FixedMul(speed, finecosine[angle]);
+		mo->momy = FixedMul(speed, finesine[angle]);
+	} else
+		mo->iflags &= ~MFI_MARKED;
 
 	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
 	{
@@ -1640,10 +1654,12 @@ void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(arg->blt_count <= 0)
 		return;
 
-	if(arg->flags & CBAF_AIMFACING)
-		angle = mo->angle;
-	else
+	if(!(arg->flags & CBAF_AIMFACING))
+	{
 		angle = R_PointToAngle2(mo->x, mo->y, mo->target->x, mo->target->y);
+		mo->angle = angle;
+	} else
+		angle = mo->angle;
 
 	if(arg->pufftype)
 		mo_puff_type = arg->pufftype;
@@ -2003,6 +2019,192 @@ void A_CustomPunch(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_SpawnItemEx
+
+static const dec_arg_flag_t flags_SpawnItemEx[] =
+{
+	MAKE_FLAG(SXF_ISTRACER), // first flag must be > 65535 to indicate 32bits
+	MAKE_FLAG(SXF_ISMASTER),
+	MAKE_FLAG(SXF_ISTARGET),
+	MAKE_FLAG(SXF_ORIGINATOR),
+	MAKE_FLAG(SXF_NOPOINTERS),
+	MAKE_FLAG(SXF_SETTRACER),
+	MAKE_FLAG(SXF_SETTARGET),
+	MAKE_FLAG(SXF_CLEARCALLERTID),
+	MAKE_FLAG(SXF_USEBLOODCOLOR),
+	MAKE_FLAG(SXF_TRANSFERPOINTERS),
+	MAKE_FLAG(SXF_TRANSFERPITCH),
+	MAKE_FLAG(SXF_TRANSFERAMBUSHFLAG),
+	MAKE_FLAG(SXF_TELEFRAG),
+	MAKE_FLAG(SXF_NOCHECKPOSITION),
+	MAKE_FLAG(SXF_SETMASTER),
+	MAKE_FLAG(SXF_ABSOLUTEVELOCITY),
+	MAKE_FLAG(SXF_ABSOLUTEANGLE),
+	MAKE_FLAG(SXF_ABSOLUTEPOSITION),
+	MAKE_FLAG(SXF_TRANSFERTRANSLATION),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_SpawnItemEx =
+{
+	.size = sizeof(args_SpawnItemEx_t),
+	.arg =
+	{
+		{handle_mobjtype, offsetof(args_SpawnItemEx_t, type), 1},
+		{handle_fixed, offsetof(args_SpawnItemEx_t, ox), 1},
+		{handle_fixed, offsetof(args_SpawnItemEx_t, oy), 1},
+		{handle_fixed, offsetof(args_SpawnItemEx_t, oz), 1},
+		{handle_fixed, offsetof(args_SpawnItemEx_t, vx), 1},
+		{handle_fixed, offsetof(args_SpawnItemEx_t, vy), 1},
+		{handle_fixed, offsetof(args_SpawnItemEx_t, vz), 1},
+		{handle_angle, offsetof(args_SpawnItemEx_t, angle), 1},
+		{handle_flags, offsetof(args_SpawnItemEx_t, flags), 1, flags_SpawnItemEx},
+		{handle_u16, offsetof(args_SpawnItemEx_t, fail), 1},
+		{handle_u16, offsetof(args_SpawnItemEx_t, tid), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	player_t *pl = mo->player;
+	const args_SpawnItemEx_t *arg = st->arg;
+	mobj_t *th, *origin;
+	angle_t angle;
+	fixed_t ss, cc;
+	fixed_t x, y;
+	fixed_t mx, my;
+
+	if(arg->fail && P_Random() < arg->fail)
+		return;
+
+	angle = arg->angle;
+
+	if(!(arg->flags & SXF_ABSOLUTEANGLE))
+		angle += mo->angle;
+
+	ss = finesine[angle >> ANGLETOFINESHIFT];
+	cc = finecosine[angle >> ANGLETOFINESHIFT];
+
+	if(arg->flags & SXF_ABSOLUTEPOSITION)
+	{
+		x = mo->x + arg->ox;
+		y = mo->y + arg->oy;
+	} else
+	{
+		x = FixedMul(arg->ox, cc);
+		x += FixedMul(arg->oy, ss);
+		y = FixedMul(arg->ox, ss);
+		y -= FixedMul(arg->oy, cc);
+		x += mo->x;
+		y += mo->y;
+	}
+
+	if(!(arg->flags & SXF_ABSOLUTEVELOCITY))
+	{
+		mx = FixedMul(arg->vx, cc);
+		mx += FixedMul(arg->vy, ss);
+		my = FixedMul(arg->vx, ss);
+		my -= FixedMul(arg->vy, cc);
+	} else
+	{
+		mx = arg->vx;
+		my = arg->vy;
+	}
+
+	th = P_SpawnMobj(x, y, mo->z + arg->oz, arg->type);
+	th->momx = mx;
+	th->momy = my;
+	th->momz = arg->vz;
+	th->angle = mo->angle;
+	th->special.tid = arg->tid;
+
+	if(arg->flags & SXF_TRANSFERPITCH)
+		th->pitch = mo->pitch;
+
+	if(!(th->flags2 & MF2_DONTTRANSLATE))
+	{
+		if(arg->flags & SXF_TRANSFERTRANSLATION)
+			th->translation = mo->translation;
+		else
+		if(arg->flags & SXF_USEBLOODCOLOR)
+			th->translation = mo->info->blood_trns;
+	}
+
+	if(arg->flags & SXF_TRANSFERPOINTERS)
+	{
+		th->target = mo->target;
+		th->master = mo->master;
+		th->tracer = mo->tracer;
+	}
+
+	origin = mo;
+	if(!(arg->flags & SXF_ORIGINATOR))
+	{
+		while(origin && (origin->flags & MF_MISSILE || origin->info->flags & MF_MISSILE))
+			origin = origin->target;
+	}
+
+	if(arg->flags & SXF_TELEFRAG)
+		mobj_telestomp(th, x, y);
+
+	if(th->flags1 & MF1_ISMONSTER)
+	{
+		if(!(arg->flags & (SXF_NOCHECKPOSITION | SXF_TELEFRAG)) && !P_CheckPosition(th, x, y))
+		{
+			mobj_remove(th);
+			return;
+		}
+		// TODO: friendly monster stuff should be here
+	} else
+	if(!(arg->flags & SXF_TRANSFERPOINTERS))
+		th->target = origin ? origin : mo;
+
+	if(arg->flags & SXF_NOPOINTERS)
+	{
+		th->target = NULL;
+		th->master = NULL;
+		th->tracer = NULL;
+	}
+
+	if(arg->flags & SXF_SETMASTER)
+		th->master = origin;
+
+	if(arg->flags & SXF_SETTARGET)
+		th->target = origin;
+
+	if(arg->flags & SXF_SETTRACER)
+		th->tracer = origin;
+
+	if(arg->flags & SXF_TRANSFERAMBUSHFLAG)
+	{
+		th->flags &= ~MF_AMBUSH;
+		th->flags |= mo->flags & MF_AMBUSH;
+	}
+
+	if(arg->flags & SXF_CLEARCALLERTID)
+		mo->special.tid = 0;
+
+	if(arg->flags & SXF_ISTARGET)
+		mo->target = th;
+
+	if(arg->flags & SXF_ISMASTER)
+		mo->master = th;
+
+	if(arg->flags & SXF_ISTRACER)
+		mo->tracer = th;
+
+	if(th->flags & MF_MISSILE)
+	{
+		th->iflags |= MFI_MARKED; // skip most of missile stuff
+		missile_stuff(th, mo, NULL, angle, 0, 0);
+	}
+}
+
+//
 // A_GiveInventory
 
 static const dec_args_t args_GiveInventory =
@@ -2126,7 +2328,7 @@ static const dec_args_t args_SetAngle =
 	.arg =
 	{
 		{handle_angle_rel, offsetof(args_SetAngle_t, angle)},
-		{handle_flags, offsetof(args_SetAngle_t, sacrifice), 1}, // ignored
+		{handle_s8, offsetof(args_SetAngle_t, sacrifice), 1}, // ignored
 		{handle_pointer, offsetof(args_SetAngle_t, ptr), 1},
 		// terminator
 		{NULL}
@@ -2286,6 +2488,46 @@ void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mo_dmg_skip_armor = 1; // technically, in rare cases, this is broken
 	mobj_damage(mo->target, mo, mo, damage, 0);
 	mo_dmg_skip_armor = 0;
+}
+
+//
+// A_Jump
+
+static const dec_args_t args_Jump =
+{
+	.size = sizeof(args_Jump_t),
+	.arg =
+	{
+		{handle_u16, offsetof(args_Jump_t, chance)},
+		{handle_state, offsetof(args_Jump_t, state0)},
+		{handle_state, offsetof(args_Jump_t, state1), 1},
+		{handle_state, offsetof(args_Jump_t, state2), 1},
+		{handle_state, offsetof(args_Jump_t, state3), 1},
+		{handle_state, offsetof(args_Jump_t, state4), 1},
+		{handle_state, offsetof(args_Jump_t, state5), 1},
+		{handle_state, offsetof(args_Jump_t, state6), 1},
+		{handle_state, offsetof(args_Jump_t, state7), 1},
+		{handle_state, offsetof(args_Jump_t, state8), 1},
+		{handle_state, offsetof(args_Jump_t, state9), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_Jump(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_Jump_t *arg = st->arg;
+	uint32_t idx;
+
+	if(!arg->chance)
+		return;
+
+	if(arg->chance < 256 && P_Random() >= arg->chance)
+		return;
+
+	idx = P_Random() % arg->count;
+	stfunc(mo, arg->states[idx]);
 }
 
 //
@@ -2725,6 +2967,7 @@ uint8_t *action_parser(uint8_t *name)
 		const dec_arg_t *arg = act->args->arg;
 
 		parse_action_arg = dec_es_alloc(act->args->size);
+
 		if(act->args->def)
 			memcpy(parse_action_arg, act->args->def, act->args->size);
 		else
@@ -2754,9 +2997,21 @@ uint8_t *action_parser(uint8_t *name)
 args_end:
 					if(arg->handler && !arg->optional)
 						I_Error("[DECORATE] Missing arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
-					// check validity
-//					if(act->check)
-//						act->check(parse_action_arg);
+					// extra stuff
+					if(parse_action_func == A_Jump)
+					{
+						// this is very specific handling for A_Jump
+						args_Jump_t *aaa = parse_action_arg;
+						uint32_t count = 0;
+						for(uint32_t i = 1; i < 10; i++)
+						{
+							if(aaa->states[i])
+								count = i;
+						}
+						count++;
+						aaa->count = count;
+						dec_es_ptr -= sizeof(uint32_t) * (10 - count);
+					}
 					// return next keyword
 					return tp_get_keyword();
 				}
@@ -2816,6 +3071,8 @@ static const dec_action_t mobj_action[] =
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	{"a_firebullets", A_FireBullets, &args_FireBullets},
 	{"a_custompunch", A_CustomPunch, &args_CustomPunch},
+	// spawn
+	{"a_spawnitemex", A_SpawnItemEx, &args_SpawnItemEx},
 	// chunks
 	{"a_burst", A_Burst, &args_SingleMobjtype},
 	{"a_skullpop", A_SkullPop, &args_SingleMobjtype},
@@ -2837,6 +3094,7 @@ static const dec_action_t mobj_action[] =
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},
 	// jumps
+	{"a_jump", A_Jump, &args_Jump},
 	{"a_jumpifinventory", A_JumpIfInventory, &args_JumpIfInventory},
 	{"a_jumpifhealthlower", A_JumpIfHealthLower, &args_JumpIfHealthLower},
 	// terminator

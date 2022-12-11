@@ -154,6 +154,39 @@ typedef struct
 
 //
 
+#define SXF_TRANSFERTRANSLATION	0x0001
+#define SXF_ABSOLUTEPOSITION	0x0002
+#define SXF_ABSOLUTEANGLE	0x0004
+#define SXF_ABSOLUTEVELOCITY	0x0008
+#define SXF_SETMASTER	0x0010
+#define SXF_NOCHECKPOSITION	0x0020
+#define SXF_TELEFRAG	0x0040
+#define SXF_TRANSFERAMBUSHFLAG	0x0080
+#define SXF_TRANSFERPITCH	0x0100
+#define SXF_TRANSFERPOINTERS	0x0200
+#define SXF_USEBLOODCOLOR	0x0400
+#define SXF_CLEARCALLERTID	0x0800
+#define SXF_SETTARGET	0x1000
+#define SXF_SETTRACER	0x2000
+#define SXF_NOPOINTERS	0x4000
+#define SXF_ORIGINATOR	0x8000
+#define SXF_ISTARGET	0x10000
+#define SXF_ISMASTER	0x20000
+#define SXF_ISTRACER	0x40000
+
+typedef struct
+{
+	uint16_t type;
+	uint16_t tid;
+	fixed_t ox, oy, oz;
+	fixed_t vx, vy, vz;
+	angle_t angle;
+	uint32_t flags;
+	uint16_t fail;
+} args_SpawnItemEx_t;
+
+//
+
 typedef struct
 {
 	uint16_t type;
@@ -194,6 +227,29 @@ typedef struct
 } args_ChangeFlag_t;
 
 //
+
+typedef struct
+{
+	uint16_t chance;
+	uint16_t count;
+	union
+	{
+		struct
+		{
+			uint32_t state0;
+			uint32_t state1;
+			uint32_t state2;
+			uint32_t state3;
+			uint32_t state4;
+			uint32_t state5;
+			uint32_t state6;
+			uint32_t state7;
+			uint32_t state8;
+			uint32_t state9;
+		};
+		uint32_t states[10];
+	};
+} args_Jump_t;
 
 typedef struct
 {

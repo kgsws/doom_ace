@@ -50,6 +50,7 @@ uint8_t *mobj_check_keylock(mobj_t *mo, uint32_t lockdef, uint32_t is_remote);
 uint32_t mobj_give_health(mobj_t *mo, uint32_t count, uint32_t maxhp);
 
 // teleport
+void mobj_telestomp(mobj_t *mo, fixed_t x, fixed_t y);
 uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angle, uint32_t flags);
 
 // helpers

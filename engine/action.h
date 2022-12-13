@@ -270,6 +270,8 @@ typedef struct
 
 extern const args_singleFixed_t def_LowerRaise;
 
+extern uint32_t act_cc_tick;
+
 //
 
 angle_t slope_to_angle(fixed_t slope);

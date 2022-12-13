@@ -23,6 +23,7 @@
 #include "draw.h"
 #include "polyobj.h"
 #include "extra3d.h"
+#include "action.h"
 #include "ldr_flat.h"
 #include "ldr_texture.h"
 #include "textpars.h"
@@ -1046,6 +1047,9 @@ uint32_t map_load_setup()
 		is_title_map = 1;
 		cache = 0;
 	}
+
+	// reset player aim cache
+	act_cc_tick = 0xFFFFFFFF;
 
 	// stop sounds
 	S_Start();

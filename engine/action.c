@@ -80,6 +80,8 @@ static const uint8_t *action_name;
 void *parse_action_func;
 void *parse_action_arg;
 
+uint32_t act_cc_tick;
+
 static const dec_action_t mobj_action[];
 static const dec_linespec_t special_action[];
 
@@ -596,10 +598,34 @@ angle_t slope_to_angle(fixed_t slope)
 
 static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_t seeker)
 {
-	// TODO: cache result for same-tick attacks?
+	static player_t *cc_player;
+	static angle_t cc_angle;
+	static angle_t cr_angle;
+	static mobj_t *cr_target;
+	static fixed_t cr_slope;
+	static uint32_t cr_res;
 	mobj_t *mo = pl->mo;
 	fixed_t sl;
 	angle_t an = *angle;
+
+	if(	act_cc_tick == leveltime &&
+		cc_player == pl &&
+		cc_angle == *angle
+	)
+	{
+		linetarget = cr_target;
+		*slope = cr_slope;
+		if(cr_res)
+		{
+			*angle = cr_angle;
+			return 1;
+		} else
+			return 0;
+	}
+
+	act_cc_tick = leveltime;
+	cc_player = pl;
+	cc_angle = *angle;
 
 	if(pl->info_flags & PLF_AUTO_AIM || map_level_info->flags & MAP_FLAG_NO_FREELOOK)
 	{
@@ -618,13 +644,16 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 				if(!linetarget)
 				{
 					*slope = 0;
-					return 0;
+					cr_res = 0;
+					goto done;
 				}
 			}
 		}
 		*slope = sl;
 		*angle = an;
-		return 1;
+
+		cr_res = 1;
+		goto done;
 	} else
 	{
 		// autoaim disabled
@@ -633,8 +662,16 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 		linetarget = NULL;
 		if(seeker)
 			P_AimLineAttack(mo, an, AIMRANGE);
-		return 0;
+
+		cr_res = 0;
+		goto done;
 	}
+
+done:
+	cr_target = linetarget;
+	cr_slope = *slope;
+	cr_angle = *angle;
+	return cr_res;
 }
 
 //
@@ -2000,6 +2037,7 @@ void A_CustomPunch(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(damage & DAMAGE_IS_CUSTOM)
 		damage = mobj_calc_damage(damage);
 
+	linetarget = NULL;
 	P_LineAttack(mo, angle, arg->range, slope, damage);
 
 	if(linetarget)

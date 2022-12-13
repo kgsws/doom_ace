@@ -998,6 +998,7 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 
 	pl->psprites[0].sy = WEAPONBOTTOM;
+	pl->psprites[1].state = NULL;
 
 	if(pl->state == PST_DEAD)
 	{
@@ -1234,22 +1235,25 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	)
 		S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->weapon.sound_ready);
 
-	// primary attack
-	if(pl->cmd.buttons & BT_ATTACK && !(flags & WRF_NOPRIMARY))
+	if(!(pl->readyweapon->eflags & MFE_WEAPON_NOAUTOFIRE) || !pl->attackdown)
 	{
-		if(weapon_fire(pl, 1, 0))
-			return;
-	}
+		// primary attack
+		if(pl->cmd.buttons & BT_ATTACK && !(flags & WRF_NOPRIMARY))
+		{
+			if(weapon_fire(pl, 1, 0))
+				return;
+		}
 
-	// secondary attack
-	if(pl->cmd.buttons & BT_ALTACK && !(flags & WRF_NOSECONDARY))
-	{
-		if(weapon_fire(pl, 2, 0))
-			return;
-	}
-
-	// not shooting
-	pl->attackdown = 0;
+		// secondary attack
+		if(pl->cmd.buttons & BT_ALTACK && !(flags & WRF_NOSECONDARY))
+		{
+			if(weapon_fire(pl, 2, 0))
+				return;
+		}
+	} else
+	if(!(pl->cmd.buttons & (BT_ATTACK | BT_ALTACK)))
+		// not shooting
+		pl->attackdown = 0;
 
 	// enable bob
 	if(!(flags & WRF_NOBOB))

@@ -218,6 +218,22 @@ typedef struct
 
 //
 
+#define XF_HURTSOURCE	1
+#define XF_NOTMISSILE	2
+#define XF_THRUSTZ	4
+#define XF_NOSPLASH	8 // not used
+
+typedef struct
+{
+	uint32_t damage;
+	fixed_t distance;
+	fixed_t fistance;
+	uint16_t flags;
+	uint8_t alert;
+} args_Explode_t;
+
+//
+
 typedef struct
 {
 	uint32_t bits;

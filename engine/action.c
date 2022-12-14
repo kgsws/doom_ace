@@ -17,6 +17,7 @@
 #include "map.h"
 #include "special.h"
 #include "demo.h"
+#include "sight.h"
 #include "render.h"
 #include "config.h"
 #include "textpars.h"
@@ -81,6 +82,10 @@ void *parse_action_func;
 void *parse_action_arg;
 
 uint32_t act_cc_tick;
+
+static uint32_t bombflags;
+static fixed_t bombdist;
+static fixed_t bombfist;
 
 static const dec_action_t mobj_action[];
 static const dec_linespec_t special_action[];
@@ -2533,6 +2538,162 @@ void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_Explode
+
+const args_Explode_t def_Explode =
+{
+	.flags = XF_HURTSOURCE,
+};
+
+static const dec_arg_flag_t flags_Explode[] =
+{
+	MAKE_FLAG(XF_HURTSOURCE),
+	MAKE_FLAG(XF_NOTMISSILE),
+	MAKE_FLAG(XF_THRUSTZ),
+	MAKE_FLAG(XF_NOSPLASH),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_Explode =
+{
+	.size = sizeof(args_Explode_t),
+	.def = &def_Explode,
+	.arg =
+	{
+		{handle_damage, offsetof(args_Explode_t, damage)},
+		{handle_fixed, offsetof(args_Explode_t, distance)},
+		{handle_flags, offsetof(args_Explode_t, flags), 1, flags_Explode},
+		{handle_bool, offsetof(args_Explode_t, alert), 1},
+		{handle_fixed, offsetof(args_Explode_t, fistance), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t PIT_Explode(mobj_t *thing)
+{
+	fixed_t dx, dy, dz;
+	fixed_t dist;
+
+	if(!(thing->flags & MF_SHOOTABLE))
+		return 1;
+
+	if(thing->flags1 & MF1_NORADIUSDMG)
+		return 1;
+
+	if(thing == bombsource && !(bombflags & XF_HURTSOURCE))
+		return 1;
+
+	dx = abs(thing->x - bombspot->x);
+	dy = abs(thing->y - bombspot->y);
+
+	dist = dx > dy ? dx : dy;
+
+	dz = thing->z + thing->height;
+
+	if(	!(thing->flags2 & MF2_OLDRADIUSDMG) &&
+		!(bombsource->flags2 & MF2_OLDRADIUSDMG) &&
+		(bombspot->z < thing->z || bombspot->z >= dz)
+	){
+		if(bombspot->z > thing->z)
+			dz = bombspot->z - dz;
+		else
+			dz = thing->z - bombspot->z;
+
+		if(dz > dist)
+			dist = dz;
+	}
+
+	if(dist > bombdist)
+		return 1;
+
+	if(!P_CheckSight(bombspot, thing))
+		return 1;
+
+	dist -= thing->radius;
+	if(dist < 0)
+		dist = 0;
+
+	if(dist)
+	{
+		if(bombfist)
+		{
+			if(dist > bombfist)
+			{
+				dist -= bombfist;
+				dist = FixedDiv(dist, (bombdist - bombfist));
+			} else
+				dist = 0;
+		} else
+			dist = FixedDiv(dist, bombdist);
+
+		dist = bombdamage - ((dist * bombdamage) >> FRACBITS);
+	} else
+		dist = bombdamage;
+
+	mobj_damage(thing, bombspot, bombsource, dist, NULL);
+
+	if(!(bombflags & XF_THRUSTZ))
+		return 1;
+
+	if(thing->flags1 & MF1_DONTTHRUST)
+		return 1;
+
+	dist = (dist * 50) / thing->info->mass;
+	dz = (thing->z + thing->height / 2) - bombspot->z;
+	dz = FixedMul(dz, dist * 655);
+
+	if(thing == bombsource)
+		dz = FixedMul(dz, 0xCB00);
+	else
+		dz /= 2;
+
+	thing->momz += dz;
+
+	return 1;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_Explode(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_Explode_t *arg = st->arg;
+	int32_t xl, xh, yl, yh;
+	fixed_t	dist;
+
+	bombflags = arg->flags;
+
+	dist = arg->distance + MAXRADIUS;
+	yh = (mo->y + dist - bmaporgy) >> MAPBLOCKSHIFT;
+	yl = (mo->y - dist - bmaporgy) >> MAPBLOCKSHIFT;
+	xh = (mo->x + dist - bmaporgx) >> MAPBLOCKSHIFT;
+	xl = (mo->x - dist - bmaporgx) >> MAPBLOCKSHIFT;
+
+	bombspot = mo;
+	bombdist = arg->distance;
+	bombfist = arg->fistance;
+	if(bombfist > bombdist)
+		bombfist = bombdist;
+
+	bombdamage = arg->damage;
+	if(bombdamage & DAMAGE_IS_CUSTOM)
+		bombdamage = mobj_calc_damage(bombdamage);
+
+	if(bombflags & XF_NOTMISSILE)
+		bombsource = mo;
+	else
+		bombsource = mo->target;
+
+	for(int32_t y = yl; y <= yh; y++)
+		for(int32_t x = xl; x <= xh; x++)
+			P_BlockThingsIterator(x, y, PIT_Explode);
+
+	if(arg->alert && bombsource && bombsource->player)
+		P_NoiseAlert(bombsource, mo);
+}
+
+//
 // A_Jump
 
 static const dec_args_t args_Jump =
@@ -3132,6 +3293,7 @@ static const dec_action_t mobj_action[] =
 	{"a_changevelocity", A_ChangeVelocity, &args_ChangeVelocity},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
+	{"a_explode", A_Explode, &args_Explode},
 	// inventory
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},

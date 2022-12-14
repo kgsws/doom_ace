@@ -128,6 +128,9 @@ extern fixed_t topslope;
 extern mobj_t *shootthing;
 extern fixed_t attackrange;
 extern fixed_t tmbbox[4];
+extern mobj_t *bombspot;
+extern mobj_t *bombsource;
+extern uint32_t bombdamage; 
 
 // player
 extern uint32_t playeringame[];

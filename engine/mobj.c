@@ -1749,7 +1749,7 @@ void explode_missile(mobj_t *mo)
 
 	mo->flags &= ~MF_MISSILE;
 
-	S_StartSound(mo, mo->info->deathsound);
+	S_StartSound(mo->flags2 & MF2_FULLVOLDEATH ? NULL : mo, mo->info->deathsound);
 }
 
 uint32_t mobj_calc_damage(uint32_t damage)

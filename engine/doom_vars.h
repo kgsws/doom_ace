@@ -357,6 +357,7 @@ extern uint32_t snd_SfxVolume;
 // random
 extern uint8_t rndtable[256];
 extern uint32_t prndindex;
+extern uint8_t rng_table[128*16*4]; // was zlight
 
 // fi, wi
 extern wbstartstruct_t wminfo;

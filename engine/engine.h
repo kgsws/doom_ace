@@ -1339,6 +1339,7 @@ void hook_path_traverse();
 void hook_sound_adjust();
 void hook_masked_range_draw();
 void skip_message_cancel() __attribute((noreturn));
+void rng_asm_code();
 
 // extra
 void I_FinishUpdate();

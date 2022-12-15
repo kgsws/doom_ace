@@ -10,6 +10,8 @@ typedef struct
 	uint8_t enable_decorate;
 	uint8_t enable_dehacked;
 	uint8_t wipe_type;
+	// ZDoom compat
+	uint8_t color_fullbright;
 } mod_config_t;
 
 typedef struct

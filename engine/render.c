@@ -72,6 +72,7 @@ sector_light_t sector_light[MAX_SECTOR_COLORS];
 static uint_fast8_t sector_light_warning;
 
 pal_col_t r_palette[256];
+static uint32_t fullbright_map[256/4];
 
 #ifdef RENDER_DEMO
 static uint_fast8_t render_demo;
@@ -2053,15 +2054,16 @@ static void generate_sector_light(uint8_t *dest, uint16_t color, uint16_t fade)
 			uint8_t rr, gg, bb;
 			uint32_t fg = 32 - level;
 			uint32_t bg = level * 17;
+			uint32_t fullbright = fullbright_map[i / 32] & (1 << (i & 31));
 
-			if(color & 0xF000)
+			if(color & 0xF000 && !fullbright)
 			{
 				// desaturate
 				rr = ((uint32_t)pal->l * (color & 0x000F)) / 15;
 				gg = ((uint32_t)pal->l * ((color & 0x00F0) >> 4)) / 15;
 				bb = ((uint32_t)pal->l * ((color & 0x0F00) >> 8)) / 15;
 			} else
-			if(color != 0x0FFF)
+			if(color != 0x0FFF && !fullbright)
 			{
 				// multiply
 				rr = ((uint32_t)pal->r * (color & 0x000F)) / 15;
@@ -2075,17 +2077,36 @@ static void generate_sector_light(uint8_t *dest, uint16_t color, uint16_t fade)
 				bb = pal->b;
 			}
 
-			rr = ((uint32_t)rr * fg) / 32;
-			rr += ((uint32_t)(fade & 0x000F) * bg) / 32;
+			if(!fullbright || fade != 0x0000)
+			{
+				rr = ((uint32_t)rr * fg) / 32;
+				rr += ((uint32_t)(fade & 0x000F) * bg) / 32;
 
-			gg = ((uint32_t)gg * fg) / 32;
-			gg += ((uint32_t)((fade >> 4) & 0x000F) * bg) / 32;
+				gg = ((uint32_t)gg * fg) / 32;
+				gg += ((uint32_t)((fade >> 4) & 0x000F) * bg) / 32;
 
-			bb = ((uint32_t)bb * fg) / 32;
-			bb += ((uint32_t)(fade >> 8) * bg) / 32;
+				bb = ((uint32_t)bb * fg) / 32;
+				bb += ((uint32_t)(fade >> 8) * bg) / 32;
+			}
 
 			*dest++ = r_find_color(rr, gg, bb);
 		}
+	}
+}
+
+static void render_parse_colormap()
+{
+	// detect fullbright colors
+	if(!mod_config.color_fullbright)
+		return;
+
+	uint8_t *p0 = colormaps;
+	uint8_t *p1 = colormaps + 256 * 31;
+
+	for(uint32_t i = 0; i < 256; i++, p0++, p1++)
+	{
+		if(*p0 == *p1)
+			fullbright_map[i / 32] |= 1 << (i & 31);
 	}
 }
 
@@ -2412,6 +2433,8 @@ void init_render()
 	// load original colormap - only 33 levels
 	colormaps = ptr;
 	wad_read_lump(ptr, wad_get_lump(dtxt_colormap), COLORMAP_SIZE);
+
+	render_parse_colormap();
 
 	// new tables
 	render_tables = ptr + COLORMAP_SIZE;
@@ -2761,6 +2784,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003616E, CODE_HOOK | HOOK_UINT8, 0x44},
 	{0x00036171, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_plane_light},
 	{0x00036176, CODE_HOOK | HOOK_UINT16, 0x11EB},
+	// disable call to 'R_InitLightTables'
+	{0x00035DE2, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// allow screen size over 11
 	{0x00035A8A, CODE_HOOK | HOOK_UINT8, 0x7C},
 	{0x00022D2A, CODE_HOOK | HOOK_UINT8, 10},

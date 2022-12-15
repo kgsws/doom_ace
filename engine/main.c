@@ -14,6 +14,7 @@
 #include "menu.h"
 #include "stbar.h"
 #include "config.h"
+#include "rng.h"
 #include "demo.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
@@ -295,6 +296,9 @@ uint32_t ace_main()
 
 	//
 	// LOADING
+
+	// random
+	init_rng();
 
 	// config
 	init_config();

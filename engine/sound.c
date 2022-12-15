@@ -138,7 +138,7 @@ static const sound_seq_t def_sndseq[NUMSNDSEQ] =
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t sound_start_check(void *mo, uint32_t idx)
+uint32_t sound_start_check(void **mo, uint32_t idx)
 {
 	sfxinfo_t *sfx;
 	uint32_t count = 0;
@@ -169,6 +169,10 @@ uint32_t sound_start_check(void *mo, uint32_t idx)
 
 	if(sfx->lumpnum < 0)
 		return 0;
+
+	if(!*mo)
+		// each full volume sound has its own slot
+		*mo = sfxinfo + idx;
 
 	return idx;
 }
@@ -838,11 +842,17 @@ uint32_t sound_adjust(mobj_t *listener, mobj_t *source, int32_t *vol, int32_t *s
 	fixed_t adx;
 	fixed_t ady;
 	angle_t angle;
-	void *end = sectors + numsectors;
+
+	if(!listener)
+		goto full_volume;
+
+	// check for full volume sound
+	if((void*)source >= (void*)sfxinfo && (void*)source < (void*)(sfxinfo + numsfx))
+		goto full_volume;
 
 	// check for sector sound
 	// place sector sounds closest to the camera
-	if((void*)source >= (void*)sectors && (void*)source < end)
+	if((void*)source >= (void*)sectors && (void*)source < (void*)(sectors + numsectors))
 	{
 		sector_t *sec;
 		fixed_t tmp;
@@ -875,11 +885,7 @@ uint32_t sound_adjust(mobj_t *listener, mobj_t *source, int32_t *vol, int32_t *s
 	approx_dist = adx + ady - ((adx < ady ? adx : ady) >> 1);
 
 	if(!approx_dist)
-	{
-		*vol = volume_val;
-		*sep = 128;
-		return 1;
-	}
+		goto full_volume;
 
 	if(approx_dist > S_CLIPPING_DIST)
 		return 0;
@@ -899,6 +905,11 @@ uint32_t sound_adjust(mobj_t *listener, mobj_t *source, int32_t *vol, int32_t *s
 		*vol = (volume_val * ((S_CLIPPING_DIST - approx_dist) >> FRACBITS)) / S_ATTENUATOR;
 
 	return (*vol > 0);
+
+full_volume:
+	*vol = volume_val;
+	*sep = 128;
+	return 1;
 }
 
 //
@@ -930,15 +941,19 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003F1F2, CODE_HOOK | HOOK_UINT32, (uint32_t)&players->camera},
 	// custom sound ID check and translation
 	// invalid sounds are skipped instead of causing error
-	{0x0003F13E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_start_check},
-	{0x0003F143, CODE_HOOK | HOOK_UINT16, 0xC085},
-	{0x0003F146, CODE_HOOK | HOOK_JMP_DOOM, 0x0003F365},
-	{0x0003F145, CODE_HOOK | HOOK_UINT16, 0x840F},
-	{0x0003F14B, CODE_HOOK | HOOK_UINT16, 0xC789},
-	{0x0003F14D, CODE_HOOK | HOOK_SET_NOPS, 9},
+	{0x0003F13C, CODE_HOOK | HOOK_UINT32, 0xE08950},
+	{0x0003F13F, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sound_start_check},
+	{0x0003F144, CODE_HOOK | HOOK_UINT32, 0xC0855D},
+	{0x0003F148, CODE_HOOK | HOOK_JMP_DOOM, 0x0003F365},
+	{0x0003F147, CODE_HOOK | HOOK_UINT16, 0x840F},
+	{0x0003F14D, CODE_HOOK | HOOK_UINT32, 0x00EBC789},
+	{0x0003F151, CODE_HOOK | HOOK_SET_NOPS, 5},
+	{0x0003F1FD, CODE_HOOK | HOOK_UINT16, 0x49EB},
 	// disable sfx->link
 	{0x0003F171, CODE_HOOK | HOOK_UINT8, 0xEB},
 	{0x0003F493, CODE_HOOK | HOOK_UINT8, 0xEB},
+	// disable some M_Random calls
+	{0x0003F248, CODE_HOOK | HOOK_UINT16, 0x78EB},
 	// A_Saw, CHAN_WEAPON
 	{0x0002D666, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)start_weapon_sound},
 	{0x0002D677, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)start_weapon_sound},

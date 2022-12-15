@@ -764,19 +764,37 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 	// that creates nested 'P_TryMove' call
 	// which breaks basicaly everything
 	// so let's avoid that
-	if(source->custom_inventory)
-		return;
-
-	mo->x += mo->momx >> 1;
-	mo->y += mo->momy >> 1;
-	mo->z += mo->momz >> 1;
-
-	if(!P_TryMove(mo, mo->x, mo->y))
+	if(!source->custom_inventory)
 	{
-		if(mo->flags & MF_SHOOTABLE)
-			mobj_damage(mo, NULL, NULL, 100000, 0);
-		else
-			explode_missile(mo);
+		fixed_t x, y, z;
+
+		P_UnsetThingPosition(mo);
+
+		x = mo->momx >> 1;
+		y = mo->momy >> 1;
+		z = mo->momz >> 1;
+
+		// extra check for faster projectiles
+		while(abs(x) > 14 * FRACUNIT || abs(y) > 14 * FRACUNIT)
+		{
+			x >>= 1;
+			y >>= 1;
+			z >>= 1;
+		}
+
+		mo->x += x;
+		mo->y += y;
+		mo->z += z;
+
+		P_SetThingPosition(mo);
+
+		if(!P_TryMove(mo, mo->x, mo->y))
+		{
+			if(mo->flags & MF_SHOOTABLE)
+				mobj_damage(mo, NULL, NULL, 100000, 0);
+			else
+				explode_missile(mo);
+		}
 	}
 }
 

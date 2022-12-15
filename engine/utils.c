@@ -71,6 +71,9 @@ reladdr_doom:
 			case HOOK_SET_NOPS:
 				memset((void*)addr, 0x90, table->value);
 			break;
+			case HOOK_MEM_COPY:
+				memcpy((void*)addr, (void*)table->value, (table->type >> 16) & 0x0FFF);
+			break;
 			// these modify ACE memory
 			case HOOK_IMPORT:
 				*((uint32_t*)(table->value)) = addr;

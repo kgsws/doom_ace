@@ -59,6 +59,7 @@ mod_config_t mod_config =
 	.enable_decorate = 1,
 	.enable_dehacked = 1,
 	.wipe_type = 255, // = use user preference
+	.color_fullbright = 1, // = use fullbright in colored light
 };
 
 //
@@ -135,6 +136,7 @@ static config_entry_t config_mod[] =
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
 	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
+	{"zdoom.light.fullbright", &mod_config.color_fullbright, TYPE_U8},
 	// custom damage types
 	{"damage[0].name", &damage_type_name[DAMAGE_CUSTOM_0], TYPE_STRING_ALLOC},
 	{"damage[1].name", &damage_type_name[DAMAGE_CUSTOM_1], TYPE_STRING_ALLOC},

@@ -242,6 +242,20 @@ V_CopyRect:
 	ret
 
 //
+// new RNG
+.global rng_asm_code
+rng_asm_code:
+	mov	prndindex,%eax
+	inc	%eax
+	cmp	rng_max,%eax
+	jl	rng_skip
+	xor	%eax,%eax
+rng_skip:
+	mov	%eax,prndindex
+	movzb	rng_table(%eax),%eax
+	ret
+
+//
 // Relocation table for functions with 0, 1 or 2 arguments.
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012

@@ -363,7 +363,7 @@ DOOM_VAR 0x0003230C, viewwidth
 DOOM_VAR 0x00032310, viewwindowx
 DOOM_VAR 0x00032314, viewwindowy
 
-DOOM_VAR 0x000323E0, zlight
+DOOM_VAR 0x000323E0, rng_table
 
 DOOM_VAR 0x000343E0, scalelight
 

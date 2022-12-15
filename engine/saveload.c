@@ -18,6 +18,7 @@
 #include "stbar.h"
 #include "think.h"
 #include "menu.h"
+#include "rng.h"
 #include "demo.h"
 #include "generic.h"
 #include "render.h"
@@ -2676,6 +2677,9 @@ void do_load()
 
 	// DONE
 	prndindex = info.rng;
+	if(prndindex >= rng_max)
+		goto error_fail;
+
 	map_skip_stuff = 0;
 	reader_close();
 

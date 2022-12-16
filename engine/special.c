@@ -1961,6 +1961,36 @@ uint32_t spec_line_use(mobj_t *mo, line_t *ln)
 	return spec_success;
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t EV_Teleport(line_t *ln, uint32_t side)
+{
+	register mobj_t *mo asm("ebx"); // hack to extract 3rd argument
+
+	if(side)
+		return 0;
+
+	if(mo->flags1 & MF1_NOTELEPORT)
+		return 0;
+
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+	{
+		mobj_t *target;
+
+		if(th->function != (void*)0x00031490 + doom_code_segment)
+			continue;
+
+		target = (mobj_t*)th;
+
+		if(target->type != 41) // MT_TELEPORTMAN
+			continue;
+
+		if(target->subsector->sector->tag == ln->tag)
+			return mobj_teleport(mo, target->x, target->y, target->z, target->angle, TELEF_USE_ANGLE | TELEF_FOG);
+	}
+
+	return 0;
+}
+
 //
 // hooks
 
@@ -1969,5 +1999,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// 'PTR_UseTraverse' checks for ln->special (8bit)
 	{0x0002BCA9, CODE_HOOK | HOOK_UINT32, 0x00127B80},
 	{0x0002BCAD, CODE_HOOK | HOOK_UINT8, 0x90},
+	// replace 'EV_Teleport'
+	{0x00031E40, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)EV_Teleport},
 };
 

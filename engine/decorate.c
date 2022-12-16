@@ -3414,12 +3414,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B27E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_step_height},
 	{0x0002B283, CODE_HOOK | HOOK_UINT16, 0xC085},
 	{0x0002B285, CODE_HOOK | HOOK_UINT32, 0x1FEB2B74},
-	// use 'MF1_NOTELEPORT' in 'EV_Teleport'
-	{0x00031E4D, CODE_HOOK | HOOK_UINT8, offsetof(mobj_t, flags1)},
-	{0x00031E4E, CODE_HOOK | HOOK_UINT8, MF1_NOTELEPORT},
 	// disable teleport sounds
-	{0x00031F54, CODE_HOOK | HOOK_UINT16, 0x08EB}, // EV_Teleport
-	{0x00031FAE, CODE_HOOK | HOOK_UINT16, 0x08EB}, // EV_Teleport
 	{0x00020BA2, CODE_HOOK | HOOK_UINT16, 0x0AEB}, // G_CheckSpot
 	{0x000313D7, CODE_HOOK | HOOK_UINT16, 0x08EB}, // P_NightmareRespawn
 	{0x000313FC, CODE_HOOK | HOOK_UINT16, 0x08EB}, // P_NightmareRespawn

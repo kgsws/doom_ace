@@ -1425,8 +1425,8 @@ fixed_t doom_P_AimLineAttack(mobj_t*,angle_t,fixed_t) __attribute((regparm(2),no
 void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_SlideMove(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_CheckPosition(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
-uint32_t P_ChangeSector(sector_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_TeleportMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t PIT_ChangeSector(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

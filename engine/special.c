@@ -123,7 +123,7 @@ static uint32_t act_Door_Close(sector_t *sec, line_t *ln)
 	if(sec->ceilingheight < sec->floorheight)
 	{
 		sec->ceilingheight = sec->floorheight;
-		P_ChangeSector(sec, 0);
+		mobj_change_sector(sec, 0);
 		return 1;
 	}
 

@@ -9,6 +9,7 @@
 #include "map.h"
 #include "extra3d.h"
 #include "think.h"
+#include "mobj.h"
 #include "generic.h"
 
 //
@@ -73,7 +74,7 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 	if(what_plane & 2)
 		sec->floorheight += dist;
 
-	blocked = P_ChangeSector(sec, crush);
+	blocked = mobj_change_sector(sec, crush);
 
 	if(sec->extra->plink)
 	{
@@ -90,7 +91,7 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 				if(plink->link_floor)
 					ss->floorheight += dist;
 
-				blocked |= P_ChangeSector(ss, crush);
+				blocked |= mobj_change_sector(ss, crush);
 			}
 
 			plink++;
@@ -105,7 +106,7 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 				sec->ceilingheight -= dist;
 			if(what_plane & 2)
 				sec->floorheight -= dist;
-			P_ChangeSector(sec, 0);
+			mobj_change_sector(sec, 0);
 
 			if(sec->extra->plink)
 			{
@@ -122,7 +123,7 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 						if(plink->link_floor)
 							ss->floorheight -= dist;
 
-						P_ChangeSector(ss, 0);
+						mobj_change_sector(ss, 0);
 					}
 
 					plink++;

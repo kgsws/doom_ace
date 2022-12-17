@@ -1989,6 +1989,9 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 				P_KillMobj(source, target);
 				target->flags &= ~MF_COUNTKILL;
 
+				if(player)
+					player->extralight = 0;
+
 				if(!target->momz)
 					// fake some Z movement for crash states
 					target->momz = -1;
@@ -2645,6 +2648,46 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
 	mo->angle = shootthing->angle;
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t mobj_change_sector(sector_t *sec, uint32_t crush)
+{
+	// sector based
+	for(mobj_t *mo = sec->thinglist; mo; mo = mo->snext)
+	{
+		uint32_t of, oc;
+
+		if(!(mo->flags2 & MF2_MOVEWITHSECTOR))
+			continue;
+
+		if(!(mo->flags & MF_NOBLOCKMAP))
+			continue;
+
+		of = mo->z <= mo->floorz;
+		oc = mo->z + mo->height >= mo->ceilingz;
+
+		P_CheckPosition(mo, mo->x, mo->y);
+
+		mo->floorz = tmfloorz;
+		mo->ceilingz = tmceilingz;
+
+		if(of)
+			mo->z = mo->floorz;
+		else
+		if(oc)
+			mo->z = mo->ceilingz - mo->height;
+	}
+
+	// blockmap
+	nofit = 0;
+	crushchange = crush;
+
+	for(int32_t x = sec->blockbox[BOXLEFT]; x <= sec->blockbox[BOXRIGHT]; x++)
+		for(int32_t y = sec->blockbox[BOXBOTTOM]; y <= sec->blockbox[BOXTOP]; y++)
+			P_BlockThingsIterator(x, y, PIT_ChangeSector);
+
+	return nofit;
+}
+
 //
 // hooks
 
@@ -2692,6 +2735,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002A3CF, CODE_HOOK | HOOK_JMP_DOOM, 0x0002A40D},
 	// replace 'P_ExplodeMissile'
 	{0x00030F00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)explode_missile},
+	// replace 'P_ChangeSector'
+	{0x0002BF90, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_change_sector},
 	// change 'mobj_t' size
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
 	// fix 'P_SpawnMobj'; disable old 'frame'

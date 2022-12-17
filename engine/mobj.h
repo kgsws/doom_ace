@@ -58,3 +58,6 @@ uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*));
 mobj_t *mobj_by_tid_first(uint32_t tid);
 mobj_t *mobj_by_netid(uint32_t netid);
 
+// replacements
+uint32_t mobj_change_sector(sector_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+

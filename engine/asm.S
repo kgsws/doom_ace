@@ -704,12 +704,12 @@ P_UnsetThingPosition:
 P_SlideMove:
 	.byte	0xE9
 	.4byte	0x0002B560
-////////////////////////////////// P_ChangeSector
-.section .text.P_ChangeSector
-.global P_ChangeSector
-P_ChangeSector:
+////////////////////////////////// PIT_ChangeSector
+.section .text.PIT_ChangeSector
+.global PIT_ChangeSector
+PIT_ChangeSector:
 	.byte	0xE9
-	.4byte	0x0002BF90
+	.4byte	0x0002BEA0
 ////////////////////////////////// P_KillMobj
 .section .text.P_KillMobj
 .global P_KillMobj

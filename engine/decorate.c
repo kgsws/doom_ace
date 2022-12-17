@@ -1019,8 +1019,9 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.mass = 5,
 		.blood_type = 38,
 		.gravity = (FRACUNIT * 128) / 1000,
-		.flags = MF_DROPOFF, // NOBLOCKMAP should be set, but we don't have MOVEWITHSECTOR
+		.flags = MF_DROPOFF | MF_NOBLOCKMAP,
 		.flags1 = MF1_NOTELEPORT | MF1_CANNOTPUSH,
+		.flags2 = MF2_MOVEWITHSECTOR,
 		.state_spawn = STATE_ICE_CHUNK_0,
 		.state_idx_limit = NEW_NUMSTATES,
 	},

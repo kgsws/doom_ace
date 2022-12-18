@@ -20,6 +20,8 @@
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
 
+//#define DEBUG_CRASH
+
 #define LDR_ENGINE_COUNT	7	// dehacked, sndinfo, decorate, texure-init, flat-init, sprite-init, other-text
 
 typedef struct
@@ -51,6 +53,8 @@ uint8_t *screen_buffer;
 uint32_t old_game_mode;
 
 static gfx_loading_t *loading;
+
+static uint_fast8_t dev_mode;
 
 //
 static const hook_t restore_loader[];
@@ -160,6 +164,8 @@ void gfx_progress(int32_t step)
 	{
 		V_DrawPatchDirect(0, 0, loading->gfx_loader_bg);
 		I_FinishUpdate();
+		if(!dev_mode)
+			_hack_update();
 		// reset
 		loading->gfx_current = 0;
 		return;
@@ -186,6 +192,8 @@ void gfx_progress(int32_t step)
 	V_DrawPatchDirect(0, 0, loading->gfx_loader_bar);
 
 	I_FinishUpdate();
+	if(!dev_mode)
+		_hack_update();
 }
 
 static void init_gfx()
@@ -252,7 +260,9 @@ uint32_t ace_main()
 	I_InitGraphics();
 
 	// disable 'printf'
-	if(!M_CheckParm("-dev"))
+	if(M_CheckParm("-dev"))
+		dev_mode = 1;
+	else
 		*((uint8_t*)0x0003FE40 + doom_code_segment) = 0xC3;
 
 	// start loading
@@ -355,6 +365,23 @@ uint32_t ace_main()
 }
 
 //
+// DEBUG
+
+#ifdef DEBUG_CRASH
+static void debug_func()
+{
+	uint32_t *ptr;
+
+	ptr = (uint32_t*)&ptr;
+
+	for(uint32_t i = 0; i < 64; i++)
+		doom_printf("[%02u] 0x%08X\n", i, ptr[i]);
+
+	dos_exit(1);
+}
+#endif
+
+//
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -399,5 +426,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},
+	// DEBUG
+#ifdef DEBUG_CRASH
+	{0x00014650, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)debug_func},
+//	{0x00014650, CODE_HOOK | HOOK_UINT16, 0x0B0F},
+#endif
 };
 

@@ -28,31 +28,6 @@ static int16_t fuzzoffset[FUZZTABLE] =
 // column drawers
 
 __attribute((regparm(2),no_caller_saved_registers))
-void R_DrawColumn()
-{
-	int32_t count;
-	uint8_t *dest;
-	fixed_t frac;
-	fixed_t step;
-
-	count = dc_yh - dc_yl;
-
-	if(count < 0)
-		return;
-
-	dest = ylookup[dc_yl] + columnofs[dc_x];
-	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale;
-
-	do
-	{
-		*dest = dc_colormap[dc_source[(frac >> FRACBITS)&127]];
-		dest += SCREENWIDTH;
-		frac += step;
-	} while(count--);
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
 void R_DrawColumnTint0()
 {
 	int32_t count;

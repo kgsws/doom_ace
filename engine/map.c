@@ -1207,6 +1207,7 @@ map_load_error:
 		map_start_title();
 	wipegamestate = gamestate;
 	M_StartMessage("Requested map is invalid!", NULL, 0);
+	doom_printf("[Bad map] %s\n", map_lump.name);
 	return 1;
 }
 
@@ -2398,7 +2399,7 @@ static void do_autostart_game()
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 		players[i].state = PST_REBORN;
 
-	if(startepisode)
+	if(!old_game_mode)
 	{
 		if(startmap > 9)
 			startmap = 1;

@@ -2667,14 +2667,11 @@ uint32_t mobj_change_sector(sector_t *sec, uint32_t crush)
 
 		P_CheckPosition(mo, mo->x, mo->y);
 
-		mo->floorz = tmfloorz;
-		mo->ceilingz = tmceilingz;
-
 		if(of)
-			mo->z = mo->floorz;
+			mo->z = tmfloorz;
 		else
 		if(oc)
-			mo->z = mo->ceilingz - mo->height;
+			mo->z = tmceilingz - mo->height;
 	}
 
 	// blockmap

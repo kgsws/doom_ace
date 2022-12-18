@@ -33,7 +33,6 @@ static void cf_noclip(player_t*,uint8_t*);
 static void cf_iddqd(player_t*,uint8_t*);
 static void cf_idfa(player_t*,uint8_t*);
 static void cf_idkfa(player_t*,uint8_t*);
-static void cf_idclev(player_t*,uint8_t*);
 static void cf_iddt(player_t*,uint8_t*);
 static void cf_map(player_t*,uint8_t*);
 static void cf_buddha(player_t*,uint8_t*);
@@ -52,7 +51,6 @@ static const cheat_func_t cheat_func[] =
 	{"iddqd", cf_iddqd},
 	{"idfa", cf_idfa},
 	{"idkfa", cf_idkfa},
-	{"idclev", cf_idclev},
 	{"iddt", cf_iddt},
 	// new
 	{"map", cf_map},
@@ -182,31 +180,6 @@ static void cf_idkfa(player_t *pl, uint8_t *arg)
 	}
 
 	pl->message = dtxt_STSTR_KFAADDED;
-}
-
-static void cf_idclev(player_t *pl, uint8_t *arg)
-{
-	uint32_t map, epi;
-
-	if(gamemode)
-	{
-		// map only
-		if(doom_sscanf(arg, "%u", &map) == 1)
-		{
-			G_DeferedInitNew(gameskill, 1, map);
-			return;
-		}
-	} else
-	{
-		// episode and map
-		if(doom_sscanf(arg, "%u %u", &epi, &map) == 2)
-		{
-			G_DeferedInitNew(gameskill, epi, map);
-			return;
-		}
-	}
-
-	pl->message = "Wrong level!";
 }
 
 static void cf_iddt(player_t *pl, uint8_t *arg)

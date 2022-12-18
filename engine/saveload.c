@@ -2594,6 +2594,7 @@ void do_load()
 
 	// load map
 	map_skip_stuff = 1;
+	gameepisode = 1;
 	gameskill = info.flags >> 13;
 	fastparm = info.flags & 1;
 	respawnparm = !!(info.flags & 2);

@@ -332,6 +332,12 @@ doom_fopen:
 doom_fclose:
 	.byte	0xE9
 	.4byte	0x0004043A
+////////////////////////////////// _hack_update
+.section .text._hack_update
+.global _hack_update
+_hack_update:
+	.byte	0xE9
+	.4byte	0x0001D50A
 ////////////////////////////////// FixedDiv
 .section .text.FixedDiv
 .global FixedDiv

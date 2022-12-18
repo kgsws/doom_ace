@@ -948,7 +948,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003F147, CODE_HOOK | HOOK_UINT16, 0x840F},
 	{0x0003F14D, CODE_HOOK | HOOK_UINT32, 0x00EBC789},
 	{0x0003F151, CODE_HOOK | HOOK_SET_NOPS, 5},
-	{0x0003F1FD, CODE_HOOK | HOOK_UINT16, 0x49EB},
+	{0x0003F205, CODE_HOOK | HOOK_UINT16, 0x2FEB},
 	// disable sfx->link
 	{0x0003F171, CODE_HOOK | HOOK_UINT8, 0xEB},
 	{0x0003F493, CODE_HOOK | HOOK_UINT8, 0xEB},

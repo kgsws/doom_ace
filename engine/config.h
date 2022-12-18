@@ -12,6 +12,18 @@ typedef struct
 	uint8_t wipe_type;
 	// ZDoom compat
 	uint8_t color_fullbright;
+	// status bar
+	union
+	{
+		struct
+		{
+			uint64_t ammo_bullet;
+			uint64_t ammo_shell;
+			uint64_t ammo_cell;
+			uint64_t ammo_rocket;
+		};
+		uint64_t ammo_type[4];
+	};
 } mod_config_t;
 
 typedef struct

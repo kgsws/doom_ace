@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "config.h"
 #include "decorate.h"
 #include "inventory.h"
 #include "stbar.h"
@@ -11,7 +12,7 @@
 //
 // funcs
 
-static inline void inv_check_player(mobj_t *mo, mobjinfo_t *info, inventory_t *item, uint32_t take)
+static inline void inv_check_player(mobj_t *mo, mobjinfo_t *info, inventory_t *item, uint32_t flags)
 {
 	// update player status bar
 	// update player inventory bar
@@ -23,6 +24,23 @@ static inline void inv_check_player(mobj_t *mo, mobjinfo_t *info, inventory_t *i
 	if(info->extra_type == ETYPE_WEAPON)
 	{
 		pl->stbar_update |= STU_WEAPON;
+		return;
+	}
+
+	if(info->extra_type == ETYPE_AMMO)
+	{
+		uint32_t type = info - mobjinfo;
+
+		if(	flags && // only 'take' or 'fresh'
+			(
+				type == (uint32_t)mod_config.ammo_bullet ||
+				type == (uint32_t)mod_config.ammo_shell ||
+				type == (uint32_t)mod_config.ammo_rocket ||
+				type == (uint32_t)mod_config.ammo_cell
+			)
+		)
+			pl->stbar_update |= STU_AMMO;
+
 		return;
 	}
 
@@ -39,7 +57,7 @@ static inline void inv_check_player(mobj_t *mo, mobjinfo_t *info, inventory_t *i
 		// this also filters out ammo
 		return;
 
-	if(take)
+	if(flags & 1)
 	{
 		if(pl->inv_sel != item)
 			return;
@@ -179,7 +197,10 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 
 		item->count = newcount;
 
-		goto finished;
+		// player update
+		inv_check_player(mo, info, item, 0);
+
+		return ret;
 	}
 
 	// not found; create new
@@ -206,9 +227,8 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 
 	mo->inventory = item;
 
-finished:
 	// player update
-	inv_check_player(mo, info, item, 0);
+	inv_check_player(mo, info, item, 2);
 
 	// done
 	return ret;

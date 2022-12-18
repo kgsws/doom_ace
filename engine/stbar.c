@@ -60,6 +60,8 @@ static uint32_t fps_value;
 static uint32_t fps_diff;
 static uint32_t last_gt;
 
+static uint16_t ammo_dispmax[NUMAMMO] = {666};
+
 static const uint8_t keyboxlock[] = {2, 3, 1, 5, 6, 4};
 
 //
@@ -192,6 +194,24 @@ void stbar_init()
 	lump = W_CheckNumForName("XHAIR");
 	if(lump >= 0)
 		xhair_custom = W_CacheLumpNum(lump, PU_STATIC);
+
+	// old status bar ammo
+	for(uint32_t i = 0; i < 4; i++)
+	{
+		lump = mobj_check_type(mod_config.ammo_type[i]);
+		if(lump < 0)
+			goto ammo_error;
+		mod_config.ammo_type[i] = lump;
+		if(mobjinfo[mod_config.ammo_type[i]].extra_type != ETYPE_AMMO)
+			goto ammo_error;
+	}
+
+	//
+	return;
+
+ammo_error:
+	I_Error("[STBAR] Invalid ammo type.");
+	return;
 }
 
 //
@@ -411,7 +431,7 @@ void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 	if(automapactive)
 		return;
 
-	refresh |= stbar_refresh_force;
+	refresh |= stbar_refresh_force | menuactive;
 	stbar_refresh_force = 0;
 
 	ST_Drawer(fullscreen, refresh);
@@ -419,6 +439,36 @@ void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 
 //
 // update
+
+static void update_ammo(player_t *pl)
+{
+	static uint16_t zero;
+	inventory_t *item;
+
+	item = inventory_find(pl->mo, mod_config.ammo_bullet); // Clip
+	if(item)
+		w_ammo[0].num = &item->count;
+	else
+		w_ammo[0].num = &zero;
+
+	item = inventory_find(pl->mo, mod_config.ammo_shell); // Shell
+	if(item)
+		w_ammo[1].num = &item->count;
+	else
+		w_ammo[1].num = &zero;
+
+	item = inventory_find(pl->mo, mod_config.ammo_rocket); // RocketAmmo
+	if(item)
+		w_ammo[3].num = &item->count;
+	else
+		w_ammo[3].num = &zero;
+
+	item = inventory_find(pl->mo, mod_config.ammo_cell); // Cell
+	if(item)
+		w_ammo[2].num = &item->count;
+	else
+		w_ammo[2].num = &zero;
+}
 
 static void update_weapon(player_t *pl)
 {
@@ -485,15 +535,20 @@ static void update_keys(player_t *pl)
 
 static void update_backpack(player_t *pl)
 {
-	uint32_t mult;
-	static uint16_t dispmax[NUMAMMO];
-
-	mult = pl->backpack ? 2 : 1;
-
-	for(uint32_t i = 0; i < NUMAMMO; i++)
+	if(pl->backpack)
 	{
-		w_maxammo[i].num = dispmax + i;
-		dispmax[i] = maxammo[i] * mult;
+		for(uint32_t i = 0; i < 4; i++)
+		{
+			w_maxammo[i].num = ammo_dispmax + i;
+			ammo_dispmax[i] = mobjinfo[mod_config.ammo_type[i]].ammo.max_count;
+		}
+	} else
+	{
+		for(uint32_t i = 0; i < 4; i++)
+		{
+			w_maxammo[i].num = ammo_dispmax + i;
+			ammo_dispmax[i] = mobjinfo[mod_config.ammo_type[i]].inventory.max_count;
+		}
 	}
 }
 
@@ -647,6 +702,9 @@ void stbar_set_xhair()
 
 void stbar_update(player_t *pl)
 {
+	if(pl->stbar_update & STU_AMMO)
+		update_ammo(pl);
+
 	if(pl->stbar_update & STU_WEAPON)
 		update_weapon(pl);
 
@@ -667,8 +725,6 @@ void stbar_update(player_t *pl)
 
 void stbar_start(player_t *pl)
 {
-	inventory_t *item;
-
 	// reset FPS counter
 	fps_value = 0;
 	fps_diff = 0;
@@ -677,19 +733,8 @@ void stbar_start(player_t *pl)
 	// original status bar
 	ST_Start();
 
-	// setup (original) ammo
-	item = inventory_find(pl->mo, 63); // Clip
-	if(item)
-		w_ammo[0].num = &item->count;
-	item = inventory_find(pl->mo, 69); // Shell
-	if(item)
-		w_ammo[1].num = &item->count;
-	item = inventory_find(pl->mo, 67); // RocketAmmo
-	if(item)
-		w_ammo[2].num = &item->count;
-	item = inventory_find(pl->mo, 65); // Cell
-	if(item)
-		w_ammo[3].num = &item->count;
+	// update (original) ammo
+	update_ammo(pl);
 
 	// update weapon slots
 	update_weapon(pl);

@@ -21,6 +21,7 @@ enum
 	TYPE_U8,
 	TYPE_U16,
 	TYPE_S32,
+	TYPE_ALIAS,
 	TYPE_STRING_ALLOC,
 };
 
@@ -34,6 +35,7 @@ typedef struct
 		uint8_t *u8;
 		uint16_t *u16;
 		int32_t *s32;
+		uint64_t *u64;
 	};
 	uint8_t type;
 	uint8_t relocate;
@@ -60,6 +62,10 @@ mod_config_t mod_config =
 	.enable_dehacked = 1,
 	.wipe_type = 255, // = use user preference
 	.color_fullbright = 1, // = use fullbright in colored light
+	.ammo_bullet = 0x0000000000C29B03, // Clip
+	.ammo_shell = 0x000000002CB25A13, // Shell
+	.ammo_rocket = 0x0BEDB41D25AE3BD2, // RocketAmmo
+	.ammo_cell = 0x0000000000B2C943, // Cell
 };
 
 //
@@ -137,6 +143,11 @@ static config_entry_t config_mod[] =
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
 	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
 	{"zdoom.light.fullbright", &mod_config.color_fullbright, TYPE_U8},
+	// status bar ammo
+	{"stbar.ammo[0].type", &mod_config.ammo_bullet, TYPE_ALIAS},
+	{"stbar.ammo[1].type", &mod_config.ammo_shell, TYPE_ALIAS},
+	{"stbar.ammo[2].type", &mod_config.ammo_rocket, TYPE_ALIAS},
+	{"stbar.ammo[3].type", &mod_config.ammo_cell, TYPE_ALIAS},
 	// custom damage types
 	{"damage[0].name", &damage_type_name[DAMAGE_CUSTOM_0], TYPE_STRING_ALLOC},
 	{"damage[1].name", &damage_type_name[DAMAGE_CUSTOM_1], TYPE_STRING_ALLOC},
@@ -168,7 +179,7 @@ static uint32_t parse_value(config_entry_t *conf_def)
 		if(!kw)
 			break;
 
-		kv = tp_get_keyword_lc();
+		kv = tp_get_keyword();
 		if(!kv)
 			break;
 
@@ -190,6 +201,9 @@ static uint32_t parse_value(config_entry_t *conf_def)
 					case TYPE_S32:
 						if(doom_sscanf(kv, "%d", &value) == 1)
 							*conf->s32 = value;
+					break;
+					case TYPE_ALIAS:
+						*conf->u64 = tp_hash64(kv);
 					break;
 					case TYPE_STRING_ALLOC:
 						value = strlen(kv) + 1;

@@ -1273,6 +1273,9 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			if(weapon_fire(pl, 2, 0))
 				return;
 		}
+
+		// not shooting
+		pl->attackdown = 0;
 	} else
 	if(!(pl->cmd.buttons & (BT_ATTACK | BT_ALTACK)))
 		// not shooting

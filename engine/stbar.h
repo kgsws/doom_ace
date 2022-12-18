@@ -2,9 +2,10 @@
 ////
 
 #define STU_WEAPON	1
-#define STU_KEYS	2
-#define STU_BACKPACK	4
-#define STU_WEAPON_NOW	8
+#define STU_AMMO	2
+#define STU_KEYS	4
+#define STU_BACKPACK	8
+#define STU_WEAPON_NOW	16
 
 #define STU_WEAPON_NEW	0x8000 // evil grin
 

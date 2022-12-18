@@ -420,6 +420,8 @@ static inline void draw_crosshair(player_t *pl)
 static __attribute((regparm(2),no_caller_saved_registers))
 void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 {
+	static uint_fast8_t was_in_menu;
+
 	ST_doPaletteStuff();
 
 	if(is_title_map)
@@ -431,10 +433,12 @@ void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 	if(automapactive)
 		return;
 
-	refresh |= stbar_refresh_force | menuactive;
+	refresh |= stbar_refresh_force | menuactive | was_in_menu;
 	stbar_refresh_force = 0;
 
 	ST_Drawer(fullscreen, refresh);
+
+	was_in_menu = menuactive;
 }
 
 //

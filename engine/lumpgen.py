@@ -39,6 +39,8 @@ while True:
 	code = code + reloc[0:4]
 	rel_count += 1
 	reloc = reloc[8:]
+	if len(reloc) == 0:
+		break
 
 # relocation terminator
 code = code + b"\x00\x00\x00\x00"

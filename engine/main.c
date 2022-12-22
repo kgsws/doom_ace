@@ -21,6 +21,8 @@
 #include "ldr_sprite.h"
 
 //#define DEBUG_CRASH
+//#define DUMP_VRAM
+//#define RAM_DEBUG
 
 #define LDR_ENGINE_COUNT	7	// dehacked, sndinfo, decorate, texure-init, flat-init, sprite-init, other-text
 
@@ -227,11 +229,29 @@ static void init_gfx()
 
 uint32_t ace_main()
 {
+	// DEBUG
+#ifdef DUMP_VRAM
+	{
+		int32_t fd;
+		fd = doom_open_WR("vram.bin");
+		if(fd > 0)
+		{
+			doom_write(fd, (void*)0xA0000, 128*1024);
+			doom_close(fd);
+		}
+	}
+#endif
+
 	// title
 	doom_printf("                          -= ACE Engine by kgsws =-\n[ACE] CODE: 0x%08X DATA: 0x%08X ACE: 0x%08X+0x1004\n", doom_code_segment, doom_data_segment, ace_segment);
 
 	// install hooks
 	utils_init();
+
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
 
 	// WAD file
 	// - check if ACE is IWAD of PWAD
@@ -247,17 +267,32 @@ uint32_t ace_main()
 		wadfiles[1] = ace_wad_name;
 	}
 
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
+
 	// new video code
 	init_draw();
 
 	// load WAD files
 	wad_init();
 
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
+
 	// load graphics
 	init_gfx();
 
 	// init graphics mode
 	I_InitGraphics();
+
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
 
 	// disable 'printf'
 	if(M_CheckParm("-dev"))
@@ -307,6 +342,11 @@ uint32_t ace_main()
 	//
 	// LOADING
 
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
+
 	// random
 	init_rng();
 
@@ -320,28 +360,63 @@ uint32_t ace_main()
 	init_dehacked();
 	gfx_progress(-1);
 
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
+
 	// sound
 	init_sound();
 	gfx_progress(-1);
+
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
 
 	// decorate
 	init_decorate();
 	gfx_progress(-1);
 
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
+
 	// textures
 	init_textures(loading->count_texture);
 	gfx_progress(-1);
+
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
 
 	// flats
 	init_flats();
 	gfx_progress(-1);
 
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
+
 	// sprites
 	init_sprites(loading->count_sprite);
 	gfx_progress(-1);
 
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
+
 	// animations
 	init_animations();
+
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
 
 	// menu
 	init_menu();
@@ -349,11 +424,16 @@ uint32_t ace_main()
 	// map
 	init_map();
 
+#ifdef RAM_DEBUG
+	_hack_show_ram();
+	doom_printf("\n");
+#endif
+
 	//
 	gfx_progress(-1);
 
 	// restore 'I_Error' modification
-	utils_install_hooks(restore_loader + 0, 1);
+	utils_install_hooks(restore_loader, 0);
 
 	// disable shareware
 	old_game_mode = gamemode;
@@ -362,6 +442,69 @@ uint32_t ace_main()
 	gamemode_reg = 0;
 
 	// continue running Doom
+}
+
+//
+// bluescreen
+
+static void bs_puts(uint32_t x, uint32_t y, uint8_t *text)
+{
+	uint16_t *dst;
+
+	dst = (uint16_t*)0xB8000 + x + y * 80;
+
+	while(*text)
+	{
+		*dst++ = ace_wad_type | *text;
+		text++;
+		x++;
+		if(x >= 74)
+		{
+			x = 6;
+			dst += 12;
+		}
+	}
+}
+
+__attribute((noreturn))
+void bluescreen()
+{
+	uint8_t *text = (void*)d_drawsegs;
+	uint8_t *module;
+
+	if(text[0] == '[')
+	{
+		module = text;
+
+		while(*text && *text != ']')
+			text++;
+		if(*text)
+		{
+			text++;
+			if(*text)
+			{
+				*text = 0;
+				text++;
+			}
+		}
+	} else
+		module = "idtech1";
+
+	doom_printf("I_Error:\n%s %s\n", module, text);
+
+	for(uint16_t *dst = (uint16_t*)0xB8000; dst < (uint16_t*)0xB8FA0; dst++)
+		*dst = 0x1720;
+
+	ace_wad_type = 0x7100;
+	bs_puts(34, 8, " ACE Engine ");
+	ace_wad_type = 0x1F00;
+	bs_puts(12, 10, "An error has occurred. There is not much you can do now.");
+	bs_puts(12, 12, "Module that caused this error is");
+	bs_puts(23, 20, "Type 'cls' to clear the screen ...");
+	bs_puts(45, 12, module);
+	bs_puts(6, 15, text);
+
+	dos_exit(1);
 }
 
 //
@@ -398,6 +541,13 @@ static const hook_t restore_loader[] =
 {
 	// 'I_Error' patch
 	{0x0001B830, CODE_HOOK | HOOK_UINT8, 0xE8},
+	// DEBUG
+#ifdef RAM_DEBUG
+	{0x0001AC8A, CODE_HOOK | HOOK_UINT32, 0x0000EA81},
+	{0x0001AC8E, CODE_HOOK | HOOK_UINT8, 0x02},
+#endif
+	// terminator
+	{0}
 };
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -422,11 +572,16 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0005A610, DATA_HOOK | HOOK_IMPORT, (uint32_t)&loading},
 	// early 'I_Error' fix
 	{0x0001B830, CODE_HOOK | HOOK_UINT8, 0xC3},
+	// bluescreen 'I_Error' update
+	{0x0001AB32, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hook_bluescreen},
 	// read stuff
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},
 	// DEBUG
+#ifdef RAM_DEBUG
+	{0x0001AC8A, CODE_HOOK | HOOK_JMP_DOOM, 0x0001AD36},
+#endif
 #ifdef DEBUG_CRASH
 	{0x00014650, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)debug_func},
 //	{0x00014650, CODE_HOOK | HOOK_UINT16, 0x0B0F},

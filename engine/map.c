@@ -1037,8 +1037,20 @@ uint32_t map_load_setup()
 
 	if(gameepisode)
 	{
+		int32_t lump;
+
 		is_title_map = 0;
 		cache = !demoplayback;
+
+		// loading
+		lump = W_CheckNumForName("WILOADIN");
+		if(lump >= 0)
+		{
+			patch_t *patch;
+			patch = W_CacheLumpNum(lump, PU_STATIC);
+			V_DrawPatchDirect(0, 0, patch);
+			I_FinishUpdate();
+		}
 	} else
 	{
 		// titlemap can be visited by other means
@@ -2524,18 +2536,6 @@ static void set_world_done()
 		}
 		if(music_lump >= -1) // -1 means STOP
 			start_music(music_lump, 1); // technically, 'mus_bunny' should not loop ...
-	} else
-	if(map_level_info->flags & MAP_FLAG_NO_INTERMISSION)
-	{
-		int32_t lump;
-		lump = W_CheckNumForName("WILOADIN");
-		if(lump >= 0)
-		{
-			patch_t *patch;
-			patch = W_CacheLumpNum(lump, PU_STATIC);
-			V_DrawPatchDirect(0, 0, patch);
-			I_FinishUpdate();
-		}
 	}
 }
 

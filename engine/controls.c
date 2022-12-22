@@ -77,6 +77,12 @@ void control_setup()
 		if(*ctrl_mouse_ptr[i] < -1 || *ctrl_mouse_ptr[i] >= NUM_MOUSE_BTNS)
 			*ctrl_mouse_ptr[i] = -1;
 	}
+	// check keys
+	for(uint32_t i = 1; i < NUM_CONTROLS; i++)
+	{
+		if(!*control_list[i].ptr)
+			*control_list[i].ptr = 1;
+	}
 }
 
 void control_clear_key(uint8_t id)
@@ -85,7 +91,7 @@ void control_clear_key(uint8_t id)
 	{
 		key_ctrl_t *ctrl = control_list + i;
 		if(*ctrl->ptr == id)
-			*ctrl->ptr = 0;
+			*ctrl->ptr = 1;
 	}
 }
 
@@ -96,6 +102,8 @@ uint8_t *control_key_name(uint8_t id)
 	switch(id)
 	{
 		case 0:
+			return "INVALID";
+		case 1:
 			return "---";
 		case '\t':
 			return "[TAB]";
@@ -123,6 +131,18 @@ uint8_t *control_key_name(uint8_t id)
 			return "[SHIFT]";
 		case 184:
 			return "[ALT]";
+		case 199:
+			return "[HOME]";
+		case 201:
+			return "[PGUP]";
+		case 207:
+			return "[END]";
+		case 209:
+			return "[PGDN]";
+		case 210:
+			return "[INS]";
+		case 211:
+			return "[DEL]";
 	}
 
 	if(id > ' ' && id < 0x7F)

@@ -215,6 +215,15 @@ hook_masked_range_draw:
 	ret
 
 //
+// I_Error hook
+.global hook_bluescreen
+hook_bluescreen:
+	add	$8,%esp
+	movl	$d_drawsegs,(%esp)
+	call	doom_sprintf
+	jmp	bluescreen
+
+//
 // V_CopyRect - this one is nasty
 .global V_CopyRect
 V_CopyRect:
@@ -332,6 +341,12 @@ doom_fopen:
 doom_fclose:
 	.byte	0xE9
 	.4byte	0x0004043A
+////////////////////////////////// _hack_show_ram
+.section .text._hack_show_ram
+.global _hack_show_ram
+_hack_show_ram:
+	.byte	0xE9
+	.4byte	0x0001AC20
 ////////////////////////////////// _hack_update
 .section .text._hack_update
 .global _hack_update

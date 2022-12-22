@@ -43,6 +43,10 @@ typedef struct
 
 //
 
+static hook_t setup_ram[];
+
+//
+
 extra_config_t extra_config =
 {
 	.auto_switch = 0,
@@ -61,6 +65,8 @@ mod_config_t mod_config =
 	.enable_decorate = 1,
 	.enable_dehacked = 1,
 	.wipe_type = 255, // = use user preference
+	.mem_max = 16,
+	.mem_min = 1,
 	.color_fullbright = 1, // = use fullbright in colored light
 	.ammo_bullet = 0x0000000000C29B03, // Clip
 	.ammo_shell = 0x000000002CB25A13, // Shell
@@ -142,6 +148,10 @@ static config_entry_t config_mod[] =
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
 	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
+	// RAM
+	{"ram.max", &mod_config.mem_max, TYPE_U8},
+	{"ram.min", &mod_config.mem_min, TYPE_U8},
+	// ZDoom
 	{"zdoom.light.fullbright", &mod_config.color_fullbright, TYPE_U8},
 	// status bar ammo
 	{"stbar.ammo[0].type", &mod_config.ammo_bullet, TYPE_ALIAS},
@@ -226,6 +236,7 @@ void init_config()
 	player_info_t *pli;
 	config_entry_t *conf;
 	int32_t lump;
+	uint32_t ram_min, ram_max;
 
 	ldr_alloc_message = "Config";
 
@@ -273,6 +284,19 @@ void init_config()
 		usegamma = 0;
 	if(extra_config.wipe_type >= NUM_WIPE_TYPES)
 		extra_config.wipe_type = 0;
+
+	// RAM
+	ram_max = (uint32_t)mod_config.mem_max * 1024 * 1024;
+	if(mod_config.mem_min)
+		ram_min = (uint32_t)mod_config.mem_min * 1024 * 1024;
+	else
+		ram_min = 512 * 1024;
+	if(ram_max < ram_min)
+		ram_max = ram_min;
+	setup_ram[0].value = ram_max;
+	setup_ram[1].value = ram_max;
+	setup_ram[2].value = ram_min;
+	utils_install_hooks(setup_ram, 3);
 
 	// player setup
 	pli = player_info + consoleplayer;
@@ -324,6 +348,13 @@ void config_save()
 
 //
 // hooks
+
+static hook_t setup_ram[] =
+{
+	{0x0001AC92, CODE_HOOK | HOOK_UINT32, 0},
+	{0x0001AC99, CODE_HOOK | HOOK_UINT32, 0},
+	{0x0001ACBA, CODE_HOOK | HOOK_UINT32, 0},
+};
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {

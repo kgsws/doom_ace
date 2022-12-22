@@ -17,10 +17,9 @@ void init_rng()
 	int32_t lump;
 
 	lump = wad_check_lump("ACE_RNG");
-doom_printf("rng lmp %d\n", lump);
 	if(lump < 0)
 		return;
-doom_printf("rng size %d\n", lumpinfo[lump].size);
+
 	if(!lumpinfo[lump].size)
 		return;
 

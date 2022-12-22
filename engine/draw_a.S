@@ -46,6 +46,7 @@ loop_dc:
 	shr	$25,%ebx
 	mov	%al,(%edi)
 	add	$320,%edi
+
 	cmp	%edi,%ebp
 	jnz	loop_dc
 

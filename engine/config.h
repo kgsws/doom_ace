@@ -10,6 +10,9 @@ typedef struct
 	uint8_t enable_decorate;
 	uint8_t enable_dehacked;
 	uint8_t wipe_type;
+	// memory
+	uint8_t mem_max;
+	uint8_t mem_min;
 	// ZDoom compat
 	uint8_t color_fullbright;
 	// status bar

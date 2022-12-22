@@ -470,9 +470,10 @@ void control_input(uint8_t key)
 	if(key == 27)
 	{
 		// remove key
-		*control_list[control_pos].ptr = 0;
+		*control_list[control_pos].ptr = 1;
 		S_StartSound(NULL, 24);
 	} else
+	if(key)
 	{
 		// set new key
 		control_clear_key(key);
@@ -870,6 +871,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace menu setup in 'M_NewGame'
 	{0x0002272D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)sel_new_game},
 	{0x00022732, CODE_HOOK | HOOK_UINT16, 0x2CEB},
+	// disable 'M_ChangeDetail'
+	{0x00022C90, CODE_HOOK | HOOK_UINT8, 0xC3},
 	// import variables
 	{0x0001FBC5, CODE_HOOK | HOOK_IMPORT, (uint32_t)&auto_run},
 	// import functions

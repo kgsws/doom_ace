@@ -1337,9 +1337,11 @@ void hook_obj_key();
 void hook_path_traverse();
 void hook_sound_adjust();
 void hook_masked_range_draw();
+void hook_bluescreen();
 void skip_message_cancel() __attribute((noreturn));
 void rng_asm_code();
 void _hack_update(); // this is address of 'ret' opcode in 'D_Display'; no-DOS-Doom2 hooks this location with screen update
+void _hack_show_ram(); // this is I_ZoneBase
 
 // extra
 void I_FinishUpdate();

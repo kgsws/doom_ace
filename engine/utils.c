@@ -258,6 +258,8 @@ void *memmove(void *destination, const void *source, size_t num)
 	void *temp;
 
 	temp = doom_malloc(num);
+	if(!temp)
+		return NULL;
 	memcpy(temp, source, num);
 	memcpy(destination, temp, num);
 	doom_free(temp);

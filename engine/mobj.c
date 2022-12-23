@@ -2665,7 +2665,18 @@ uint32_t mobj_change_sector(sector_t *sec, uint32_t crush)
 		of = mo->z <= mo->floorz;
 		oc = mo->z + mo->height >= mo->ceilingz;
 
-		P_CheckPosition(mo, mo->x, mo->y);
+		tmfloorz = mo->subsector->sector->floorheight;
+		tmceilingz = mo->subsector->sector->ceilingheight;
+
+		if(mo->subsector && mo->subsector->sector->exfloor)
+		{
+			e3d_check_heights(mo, mo->subsector->sector, 1);
+			tmfloorz = tmextrafloor;
+			tmceilingz = tmextraceiling;
+		}
+
+		mo->floorz = tmfloorz;
+		mo->ceilingz = tmceilingz;
 
 		if(of)
 			mo->z = tmfloorz;

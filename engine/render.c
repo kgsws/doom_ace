@@ -2463,7 +2463,7 @@ void init_render()
 	{
 		// tables are provided in WAD file
 		// beware: tables are based on palette!
-		wad_read_lump(ptr, render_tables_lump, sizeof(render_tables_t));
+		wad_read_lump(render_tables, render_tables_lump, sizeof(render_tables_t));
 	}
 
 	// default sector color
@@ -2472,7 +2472,7 @@ void init_render()
 
 	// optional export
 	if(M_CheckParm("-dumptables"))
-		ldr_dump_buffer("ace_rndr.bin", ptr, sizeof(render_tables_t));
+		ldr_dump_buffer("ace_rndr.lmp", render_tables, sizeof(render_tables_t));
 }
 
 void render_generate_blood()

@@ -627,6 +627,7 @@ typedef struct mobjinfo_s
 	fixed_t camera_height;
 	fixed_t dropoff;
 	fixed_t gravity;
+	uint16_t telefog[2];
 	uint8_t *translation;
 	uint8_t *blood_trns;
 	// damage type stuff

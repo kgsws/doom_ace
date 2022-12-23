@@ -2518,12 +2518,16 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 			mo->momz = 0;
 		}
 
-		P_SpawnMobj(xx, yy, zz, 39); // MT_TFOG
+		if(mo->info->telefog[0])
+			P_SpawnMobj(xx, yy, zz, mo->info->telefog[0]);
 
-		x = mo->x + 20 * finecosine[angle];
-		y = mo->y + 20 * finesine[angle];
-		z = mo->z;
-		P_SpawnMobj(x, y, z, 39); // MT_TFOG
+		if(mo->info->telefog[1])
+		{
+			x = mo->x + 20 * finecosine[angle];
+			y = mo->y + 20 * finesine[angle];
+			z = mo->z;
+			P_SpawnMobj(x, y, z, mo->info->telefog[1]);
+		}
 
 		if(mo->player)
 			mo->reactiontime = 18;

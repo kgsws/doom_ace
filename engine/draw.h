@@ -12,6 +12,8 @@ extern uint8_t loop_ds_start[0x17];
 extern uint8_t r_ds_unroll[];
 extern void *r_ds_jump[SCREENWIDTH];
 
+extern num32_t r_dc_mask;
+
 //
 
 void init_draw();

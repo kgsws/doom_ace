@@ -280,6 +280,17 @@ static void calculate_shade(fixed_t scale)
 }
 
 //
+// texture height
+
+static void set_column_height(uint32_t texture)
+{
+	uint8_t tmp = textureheightpow[texture];
+	r_dc_mask.u8[0] = 0x10 - tmp;
+	r_dc_mask.u8[1] = tmp;
+	r_dc_mask.u8[2] = 0x20 - tmp;
+}
+
+//
 // draw
 
 static void setup_colfunc_tint(uint16_t alpha)
@@ -498,6 +509,9 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 		}
 	}
 
+	// height
+	set_column_height(texnum);
+
 	// light
 	calculate_lightnum(frontsector->lightlevel, seg);
 
@@ -570,7 +584,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			if(texnum >= 0)
 			{
 				data = texture_get_column(texnum, tcol[dc_x] & 0x7FFF);
-				if(tex_was_composite || (height < 0 && data[-2] >= 128))
+				if(tex_was_composite || (height < 0 && data[-2] >= height))
 					draw_solid_column(data, mfc, mcc, height);
 				else
 					draw_masked_column((column_t*)(data - 3), mfc, mcc);
@@ -655,6 +669,8 @@ static void render_striped_seg(uint32_t texture, fixed_t ht, fixed_t hb)
 
 	h0 = ht;
 	light = frontsector->lightlevel;
+
+	set_column_height(texture);
 
 	pl = frontsector->exfloor;
 	while(pl)
@@ -792,6 +808,9 @@ static void R_RenderSegLoop()
 	if(fixedcolormap)
 		dc_colormap = fixedcolormap;
 
+	if(midtexture)
+		set_column_height(midtexture);
+
 	for(uint32_t x = rw_x; x < rw_stopx; x++)
 	{
 		int32_t top;
@@ -883,6 +902,7 @@ static void R_RenderSegLoop()
 						dc_yh = mid;
 						dc_texturemid = rw_toptexturemid;
 						dc_source = texture_get_column(toptexture, texturecolumn);
+						set_column_height(toptexture);
 						colfunc();
 #ifdef RENDER_DEMO
 						render_demo_line();
@@ -913,6 +933,7 @@ static void R_RenderSegLoop()
 						dc_yh = yh;
 						dc_texturemid = rw_bottomtexturemid;
 						dc_source = texture_get_column(bottomtexture, texturecolumn);
+						set_column_height(bottomtexture);
 						colfunc();
 #ifdef RENDER_DEMO
 						render_demo_line();
@@ -961,6 +982,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 	sector_t *sec;
 
 	patch = W_CacheLumpNum(sprite_lump[vis->patch], PU_CACHE);
+
+	r_dc_mask.u32 = 0x180808; // 256px column
 
 	if(!vis->mo)
 	{

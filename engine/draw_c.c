@@ -32,8 +32,8 @@ void R_DrawColumnTint0()
 {
 	int32_t count;
 	uint8_t *dest;
-	fixed_t frac;
-	fixed_t step;
+	uint32_t frac;
+	uint32_t step;
 
 	count = dc_yh - dc_yl;
 
@@ -42,11 +42,12 @@ void R_DrawColumnTint0()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale;
+	frac <<= r_dc_mask.u8[0];
+	step = dc_iscale << r_dc_mask.u8[0];
 
 	do
 	{
-		uint8_t color = dc_colormap[dc_source[(frac >> FRACBITS)&127]];
+		uint8_t color = dc_colormap[dc_source[frac >> r_dc_mask.u8[2]]];
 		*dest = dr_tinttab[*dest + color * 256];
 		dest += SCREENWIDTH;
 		frac += step;
@@ -58,8 +59,8 @@ void R_DrawColumnTint1()
 {
 	int32_t count;
 	uint8_t *dest;
-	fixed_t frac;
-	fixed_t step;
+	uint32_t frac;
+	uint32_t step;
 
 	count = dc_yh - dc_yl;
 
@@ -68,11 +69,12 @@ void R_DrawColumnTint1()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale;
+	frac <<= r_dc_mask.u8[0];
+	step = dc_iscale << r_dc_mask.u8[0];
 
 	do
 	{
-		uint8_t color = dc_colormap[dc_source[(frac >> FRACBITS)&127]];
+		uint8_t color = dc_colormap[dc_source[frac >> r_dc_mask.u8[2]]];
 		*dest = dr_tinttab[*dest * 256 + color];
 		dest += SCREENWIDTH;
 		frac += step;
@@ -134,8 +136,8 @@ void R_DrawTranslatedColumn()
 {
 	int32_t count;
 	uint8_t *dest;
-	fixed_t frac;
-	fixed_t step;
+	uint32_t frac;
+	uint32_t step;
 
 	count = dc_yh - dc_yl;
 
@@ -144,11 +146,12 @@ void R_DrawTranslatedColumn()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale;
+	frac <<= r_dc_mask.u8[0];
+	step = dc_iscale << r_dc_mask.u8[0];
 
 	do
 	{
-		*dest = dc_colormap[dc_translation[dc_source[(frac >> FRACBITS)&127]]];
+		*dest = dc_colormap[dc_translation[dc_source[frac >> r_dc_mask.u8[2]]]];
 		dest += SCREENWIDTH;
 		frac += step;
 	} while(count--);
@@ -159,8 +162,8 @@ void R_DrawTranslatedColumnTint0()
 {
 	int32_t count;
 	uint8_t *dest;
-	fixed_t frac;
-	fixed_t step;
+	uint32_t frac;
+	uint32_t step;
 
 	count = dc_yh - dc_yl;
 
@@ -169,11 +172,12 @@ void R_DrawTranslatedColumnTint0()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale;
+	frac <<= r_dc_mask.u8[0];
+	step = dc_iscale << r_dc_mask.u8[0];
 
 	do
 	{
-		uint8_t color = dc_colormap[dc_translation[dc_source[(frac >> FRACBITS)&127]]];
+		uint8_t color = dc_colormap[dc_translation[dc_source[frac >> r_dc_mask.u8[2]]]];
 		*dest = dr_tinttab[*dest + color * 256];
 		dest += SCREENWIDTH;
 		frac += step;
@@ -185,8 +189,8 @@ void R_DrawTranslatedColumnTint1()
 {
 	int32_t count;
 	uint8_t *dest;
-	fixed_t frac;
-	fixed_t step;
+	uint32_t frac;
+	uint32_t step;
 
 	count = dc_yh - dc_yl;
 
@@ -195,11 +199,12 @@ void R_DrawTranslatedColumnTint1()
 
 	dest = ylookup[dc_yl] + columnofs[dc_x];
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
-	step = dc_iscale;
+	frac <<= r_dc_mask.u8[0];
+	step = dc_iscale << r_dc_mask.u8[0];
 
 	do
 	{
-		uint8_t color = dc_colormap[dc_translation[dc_source[(frac >> FRACBITS)&127]]];
+		uint8_t color = dc_colormap[dc_translation[dc_source[frac >> r_dc_mask.u8[2]]]];
 		*dest = dr_tinttab[*dest * 256 + color];
 		dest += SCREENWIDTH;
 		frac += step;

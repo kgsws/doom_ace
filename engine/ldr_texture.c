@@ -60,6 +60,8 @@ typedef struct maptexure_s
 
 uint_fast8_t tex_was_composite;
 
+uint8_t *textureheightpow;
+
 static uint16_t *patch_lump;
 static uint32_t tmp_count;
 
@@ -161,6 +163,23 @@ void load_textures()
 //
 // funcs
 
+static uint32_t get_height_pow(uint32_t height)
+{
+	uint32_t i = 0;
+
+	while(1)
+	{
+		uint32_t res = 1 << i;
+		if(res >= 1024)
+			break;
+		if(res >= height)
+			break;
+		i++;
+	}
+
+	return i;
+}
+
 static uint32_t texture_size_check(uint8_t *name, uint32_t idx)
 {
 	texturedef_t *td;
@@ -245,6 +264,8 @@ static uint32_t texture_load(uint8_t *name, uint32_t idx)
 					size <<= 1;
 				texturewidthmask[idx] = size - 1;
 			}
+
+			textureheightpow[idx] = get_height_pow(tex->height);
 		}
 
 		doom_free(td);
@@ -292,6 +313,7 @@ static void cb_tx_count(lumpinfo_t *li)
 
 	texturewidthmask[tmp_count] = patch.width;
 	textureheight[tmp_count] = patch.height;
+	textureheightpow[tmp_count] = get_height_pow(patch.height);
 
 	size = sizeof(texture_t);
 	size += sizeof(texpatch_t);
@@ -361,6 +383,7 @@ void init_textures(uint32_t count)
 	texturewidthmask = ldr_malloc(count * sizeof(uint32_t));
 	textureheight = ldr_malloc(count * sizeof(fixed_t));
 	texturetranslation = ldr_malloc(count * sizeof(uint32_t));
+	textureheightpow = ldr_malloc(count);
 
 	for(uint32_t i = 0; i < count; i++)
 		texturetranslation[i] = i;

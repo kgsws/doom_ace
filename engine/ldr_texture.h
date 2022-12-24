@@ -3,6 +3,8 @@
 
 extern uint_fast8_t tex_was_composite;
 
+extern uint8_t *textureheightpow;
+
 //
 
 void init_textures(uint32_t count);

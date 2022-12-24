@@ -31,14 +31,16 @@ R_DrawColumn:
 	imul	%ebp
 	mov	dc_texturemid,%edx
 	add	%eax,%edx
-	shl	$9,%edx	// +1
-	shl	$9,%ebp	// +1
+	mov	r_dc_mask,%cl
+	shl	%cl,%edx	// +1
+	shl	%cl,%ebp	// +1
 	mov	dc_source,%esi
 	mov	dc_colormap,%eax
 	xor	%ebx,%ebx
-	shld	$7,%edx,%ebx	// -1
+	mov	r_dc_mask+1,%cl
+	shld	%cl,%edx,%ebx	// -1
 
-	mov	$25,%cl // +1
+	mov	r_dc_mask+2,%cl
 
 	jmp	*(loop_jump_dst)
 
@@ -105,6 +107,7 @@ R_DrawSpan:
 	shld	$22,%ecx,%ebx
 	shld	$6,%ecx,%ebx
 	and	%ebp,%ebx
+	add	%edx,%ecx
 
 	jmp	*(loop_jump_dst)
 
@@ -121,11 +124,15 @@ loop_ds_start:
 loop_ds_stop:
 
 //
-// tables
+// tables & stuff
 
 .section .bss
 
 loop_jump_dst:
+	.4byte	0
+
+.global r_dc_mask
+r_dc_mask:
 	.4byte	0
 
 .global r_dc_jump

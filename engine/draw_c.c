@@ -210,29 +210,6 @@ void R_DrawTranslatedColumnTint1()
 // span drawers
 
 __attribute((regparm(2),no_caller_saved_registers))
-void R_DrawSpan()
-{
-	uint32_t position, step;
-	uint8_t *dest;
-	uint32_t count;
-
-	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
-	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
-
-	dest = ylookup[ds_y] + columnofs[ds_x1];
-	count = ds_x2 - ds_x1;
-
-	do
-	{
-		uint32_t xtemp, ytemp;
-		ytemp = (position >> 4) & 0x0fc0;
-		xtemp = (position >> 26);
-		*dest++ = ds_colormap[ds_source[xtemp | ytemp]];
-		position += step;
-	} while(count--);
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
 void R_DrawUnknownSpan()
 {
 	uint32_t position, step;
@@ -678,8 +655,43 @@ void V_DrawPatchTint1(int32_t x, int32_t y, patch_t *patch)
 
 void init_draw()
 {
+	uint8_t *ptr;
+
 	// I_FinishUpdate always copies the entire screen[0]; TODO: optimize
 	*((uint8_t**)((void*)I_FinishUpdate + 4)) = screen_buffer;
+
+	//
+	// Next part makes specific assumptions about ASM code.
+
+	// prepare tables for R_DrawColumn
+	ptr = r_dc_unroll;
+	for(int32_t i = 0; i < SCREENHEIGHT; i++)
+	{
+		int32_t idx = SCREENHEIGHT - i - 1;
+
+		memcpy(ptr, loop_dc_start, sizeof(loop_dc_start));
+		*((int32_t*)(ptr + sizeof(loop_dc_start) - sizeof(uint32_t))) = idx * -320;
+
+		r_dc_jump[idx] = ptr;
+
+		ptr += sizeof(loop_dc_start);
+	}
+	*((uint16_t*)ptr) = 0xC361;
+
+	// prepare tables for R_DrawSpan
+	ptr = r_ds_unroll;
+	for(int32_t i = 0; i < SCREENWIDTH; i++)
+	{
+		int32_t idx = SCREENWIDTH - i - 1;
+
+		memcpy(ptr, loop_ds_start, sizeof(loop_ds_start));
+		*((int32_t*)(ptr + sizeof(loop_ds_start) - sizeof(uint32_t))) = -idx;
+
+		r_ds_jump[idx] = ptr;
+
+		ptr += sizeof(loop_ds_start);
+	}
+	*((uint16_t*)ptr) = 0xC361;
 }
 
 //

@@ -4,6 +4,14 @@ extern uint8_t ds_maskcolor;
 
 extern uint8_t *draw_patch_color;
 
+extern uint8_t loop_dc_start[0x11];
+extern uint8_t r_dc_unroll[];
+extern void *r_dc_jump[SCREENWIDTH];
+
+extern uint8_t loop_ds_start[0x17];
+extern uint8_t r_ds_unroll[];
+extern void *r_ds_jump[SCREENWIDTH];
+
 //
 
 void init_draw();

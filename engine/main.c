@@ -488,7 +488,7 @@ void bluescreen()
 			}
 		}
 	} else
-		module = "idtech1";
+		module = "idtech1.";
 
 	doom_printf("I_Error:\n%s %s\n", module, text);
 
@@ -505,6 +505,18 @@ void bluescreen()
 	bs_puts(6, 15, text);
 
 	dos_exit(1);
+}
+
+__attribute((regparm(2),noreturn))
+void zone_alloc_fail(uint32_t unused, uint32_t available)
+{
+	uint8_t *ptr = (uint8_t*)0x0001B830 + doom_code_segment;
+	*ptr = 0xC3; // apply 'I_Error' fix again
+
+	unused = (available & 0xFFFFF) / 10486;
+	available >>= 20;
+
+	I_Error("[out of memory] Minimum is %u MiB but only %u.%02u MiB is available.", mod_config.mem_min, available, unused);
 }
 
 //
@@ -574,6 +586,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001B830, CODE_HOOK | HOOK_UINT8, 0xC3},
 	// bluescreen 'I_Error' update
 	{0x0001AB32, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hook_bluescreen},
+	// change low RAM error in 'I_ZoneBase'
+	{0x0001ACC0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)zone_alloc_fail},
 	// read stuff
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},

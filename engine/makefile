@@ -11,7 +11,7 @@ clean:
 	rm -f *.o ${program} ${program}.rel ${program}.bin
 
 ${program}.lmp: ${OBJ}
-	${CC} ${OBJ} ${LIBS} ${BOTH} -o ${program} -nostdlib -Wl,--gc-sections -Wl,--no-ld-generated-unwind-info -Wl,--no-dynamic-linker -Wl,--omagic -Wl,-T linker.ld
+	${CC} ${OBJ} ${LIBS} ${BOTH} -o ${program} -nostdlib -Wl,--gc-sections -Wl,--no-ld-generated-unwind-info -Wl,--no-dynamic-linker -Wl,--omagic -Wl,-T linker.ld -Wl,-Map=code.map
 	objcopy -O binary --only-section=.text --only-section=.hooks --only-section=.rodata --only-section=.data ${program} ${program}.bin
 	objcopy -O binary --only-section=.rel.dyn ${program} ${program}.rel
 	./lumpgen.py ${program}.bin ${program}.rel ${program}.lmp

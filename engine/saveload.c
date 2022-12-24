@@ -2269,6 +2269,7 @@ static inline uint32_t ld_get_things()
 	{
 		if(reader_get_wame(&alias))
 			return 1;
+
 		if(!alias)
 			break;
 
@@ -2285,8 +2286,8 @@ static inline uint32_t ld_get_things()
 		if(sprite >= numsprites)
 			return 1;
 
-		if(thing.sprite != 0x31544E54 && (thing.frame & 0x1F) >= sprites[sprite].numframes)
-			return 1;
+//		if(thing.sprite != 0x31544E54 && (thing.frame & 0x1F) >= sprites[sprite].numframes)
+//			return 1; // this causes 'invalid save' on sprites with missing frames
 
 		if(thing.translation & 0x8000)
 		{
@@ -2688,6 +2689,7 @@ void do_load()
 
 	//
 error_fail:
+	gamestate = GS_DEMOSCREEN;
 	map_skip_stuff = 0;
 	reader_close();
 	error_message("Unable to load this slot!");

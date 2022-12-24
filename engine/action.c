@@ -2481,9 +2481,9 @@ static const dec_args_t args_ChangeVelocity =
 	.size = sizeof(args_ChangeVelocity_t),
 	.arg =
 	{
-		{handle_fixed, offsetof(args_ChangeVelocity_t, x), 1},
-		{handle_fixed, offsetof(args_ChangeVelocity_t, y), 1},
-		{handle_fixed, offsetof(args_ChangeVelocity_t, z), 1},
+		{handle_fixed, offsetof(args_ChangeVelocity_t, x)},
+		{handle_fixed, offsetof(args_ChangeVelocity_t, y)},
+		{handle_fixed, offsetof(args_ChangeVelocity_t, z)},
 		{handle_flags, offsetof(args_ChangeVelocity_t, flags), 1, flags_ChangeVelocity},
 		{handle_pointer, offsetof(args_ChangeVelocity_t, ptr), 1},
 		// terminator
@@ -2524,6 +2524,33 @@ void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mo->momx += x;
 	mo->momy += y;
 	mo->momz += arg->z;
+}
+
+//
+// A_SetTics
+
+static const dec_args_t args_SetTics =
+{
+	.size = sizeof(args_singleDamage_t),
+	.arg =
+	{
+		{handle_damage, offsetof(args_singleDamage_t, damage)}, // hijack 'random damage' feature
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleDamage_t *arg = st->arg;
+	uint32_t damage;
+
+	damage = arg->damage;
+	if(damage & DAMAGE_IS_CUSTOM)
+		damage = mobj_calc_damage(damage);
+
+	mo->tics = damage;
 }
 
 //
@@ -3312,6 +3339,7 @@ static const dec_action_t mobj_action[] =
 	{"a_setangle", A_SetAngle, &args_SetAngle},
 	{"a_changeflag", A_ChangeFlag, &args_ChangeFlag},
 	{"a_changevelocity", A_ChangeVelocity, &args_ChangeVelocity},
+	{"a_settics", A_SetTics, &args_SetTics},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	{"a_explode", A_Explode, &args_Explode},

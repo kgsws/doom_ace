@@ -1381,6 +1381,9 @@ void I_SetPalette(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t I_GetTime() __attribute((regparm(2),no_caller_saved_registers));
 void I_WaitVBL(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
+// i_sound
+void I_StartupSound() __attribute((regparm(2),no_caller_saved_registers));
+
 // m_argv
 uint32_t M_CheckParm(uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 

@@ -432,9 +432,6 @@ uint32_t ace_main()
 	//
 	gfx_progress(-1);
 
-	// restore 'I_Error' modification
-	utils_install_hooks(restore_loader, 0);
-
 	// disable shareware
 	old_game_mode = gamemode;
 	gamemode = 1;
@@ -510,12 +507,8 @@ void bluescreen()
 __attribute((regparm(2),noreturn))
 void zone_alloc_fail(uint32_t unused, uint32_t available)
 {
-	uint8_t *ptr = (uint8_t*)0x0001B830 + doom_code_segment;
-	*ptr = 0xC3; // apply 'I_Error' fix again
-
 	unused = (available & 0xFFFFF) / 10486;
 	available >>= 20;
-
 	I_Error("[out of memory] Minimum is %u MiB but only %u.%02u MiB is available.", mod_config.mem_min, available, unused);
 }
 
@@ -538,6 +531,15 @@ static void debug_func()
 
 //
 // hooks
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void ldr_restore()
+{
+	// restore 'I_Error' modification
+	utils_install_hooks(restore_loader, 0);
+	// call the original
+	I_StartupSound();
+}
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void late_init()
@@ -566,6 +568,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// late init stuff
 	{0x0001E950, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)late_init},
+	// restore stuff, hook 'I_StartupSound'
+	{0x0001AA7A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)ldr_restore},
 	// add custom loading, skip "commercial" text and PWAD warning
 	{0x0001E4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0001E70C},
 	// change '-config' to '-cfg'

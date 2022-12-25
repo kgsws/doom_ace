@@ -359,6 +359,12 @@ _hack_update:
 FixedDiv:
 	.byte	0xE9
 	.4byte	0x0001D180
+////////////////////////////////// I_StartupSound
+.section .text.I_StartupSound
+.global I_StartupSound
+I_StartupSound:
+	.byte	0xE9
+	.4byte	0x0001B700
 ////////////////////////////////// I_WaitVBL
 .section .text.I_WaitVBL
 .global I_WaitVBL

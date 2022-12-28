@@ -155,53 +155,21 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 	if(slot == BT_ACT_INV_PREV)
 	{
 		pl->inv_tick = PLAYER_INVBAR_TICS;
-
-		if(pl->inv_sel)
-		{
-			inventory_t *item = pl->inv_sel->prev;
-
-			while(item)
-			{
-				mobjinfo_t *info = mobjinfo + item->type;
-				if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
-				{
-					pl->inv_sel = item;
-					break;
-				}
-				item = item->prev;
-			}
-		}
-
+		inv_player_next(pl->mo);
 		return;
 	}
 
 	if(slot == BT_ACT_INV_NEXT)
 	{
 		pl->inv_tick = PLAYER_INVBAR_TICS;
-
-		if(pl->inv_sel)
-		{
-			inventory_t *item = pl->inv_sel->next;
-
-			while(item)
-			{
-				mobjinfo_t *info = mobjinfo + item->type;
-				if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
-				{
-					pl->inv_sel = item;
-					break;
-				}
-				item = item->next;
-			}
-		}
-
+		inv_player_prev(pl->mo);
 		return;
 	}
 
 	if(slot == BT_ACT_INV_USE)
 	{
-		if(pl->inv_sel && pl->inv_sel->count)
-			mobj_use_item(pl->mo, pl->inv_sel);
+		if(pl->inv_sel >= 0)
+			mobj_use_item(pl->mo, pl->mo->inventory->slot + pl->inv_sel);
 		return;
 	}
 
@@ -743,14 +711,16 @@ void player_finish(player_t *pl)
 	pl->bonuscount = 0;
 	pl->extralight = 0;
 
-	if(pl->mo)
+	if(pl->mo && pl->mo->inventory)
 	{
+		Z_ChangeTag2(pl->mo->inventory, PU_STATIC);
 		inventory_hubstrip(pl->mo);
 		pl->inventory = pl->mo->inventory;
 		pl->mo->inventory = NULL;
 		pl->angle = pl->mo->angle;
 		pl->pitch = pl->mo->pitch;
-	}
+	} else
+		pl->inventory = NULL;
 }
 
 //
@@ -760,17 +730,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t spawn_player(mapthing_t *mt)
 {
 	uint32_t angle;
-	uint32_t idx = mt->type - 1;
-	player_t *pl = players + idx;
-
 	angle = (ANG45 / 45) * mt->angle;
-
-	if(pl->mo)
-	{
-		inventory_destroy(pl->mo->inventory);
-		pl->mo->inventory = NULL;
-	}
-
 	mobj_spawn_player(mt->type - 1, mt->x * FRACUNIT, mt->y * FRACUNIT, angle);
 }
 

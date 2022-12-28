@@ -240,6 +240,7 @@ typedef struct
 	uint64_t armor_type;
 	uint64_t weapon_ready;
 	uint64_t weapon_pending;
+	uint64_t inv_sel;
 	//
 	uint32_t cheats;
 	uint32_t refire;
@@ -262,7 +263,6 @@ typedef struct
 	uint8_t state;
 	uint8_t didsecret;
 	//
-	uint16_t inv_sel;
 	uint16_t prop;
 } save_player_t;
 
@@ -1276,17 +1276,13 @@ static uint32_t svcb_thing(mobj_t *mo)
 
 	if(mo->inventory)
 	{
-		// rewind
-		item = mo->inventory;
-		while(item->prev)
-			item = item->prev;
-
-		// save
-		while(item)
+		for(uint32_t i = 0; i < mo->inventory->numslots; i++)
 		{
+			invitem_t *item = mo->inventory->slot + i;
+			if(!item->type)
+				continue;
 			writer_add_wame(&mobjinfo[item->type].alias);
 			writer_add_u16(item->count);
-			item = item->next;
 		}
 	}
 
@@ -1361,7 +1357,10 @@ static inline void sv_put_players()
 		plr.state = pl->state;
 		plr.didsecret = pl->didsecret;
 
-		plr.inv_sel = pl->inv_sel ? pl->inv_sel->type : 0;
+		if(!pl->mo->inventory || pl->inv_sel < 0)
+			plr.inv_sel = 0;
+		else
+			plr.inv_sel = mobjinfo[pl->mo->inventory->slot[pl->inv_sel].type].alias;
 
 		plr.prop = pl->prop;
 
@@ -1580,6 +1579,21 @@ static mobjinfo_t *ld_get_weapon(uint64_t alias)
 		return NULL;
 
 	return info;
+}
+
+static int32_t ld_get_inventory(uint64_t alias)
+{
+	int32_t type;
+	mobjinfo_t *info;
+
+	type = mobj_check_type(alias);
+	if(type < 0)
+		return -1;
+
+	if(!inventory_is_valid(mobjinfo + type))
+		return -1;
+
+	return type;
 }
 
 static inline uint32_t ld_get_sectors()
@@ -2263,7 +2277,6 @@ static inline uint32_t ld_get_things()
 	uint32_t maxnetid = 0;
 	mobj_t *mo;
 	uint8_t *translation;
-	inventory_t *item, *ilst;
 
 	while(1)
 	{
@@ -2368,7 +2381,6 @@ static inline uint32_t ld_get_things()
 			mo->player = NULL;
 
 		// inventory
-		ilst = NULL;
 		while(1)
 		{
 			uint16_t count;
@@ -2378,28 +2390,14 @@ static inline uint32_t ld_get_things()
 			if(!alias)
 				break;
 
-			type = mobj_check_type(alias);
+			type = ld_get_inventory(alias);
 			if(type < 0)
 				return 1;
 
 			if(reader_get_u16(&count))
 				return 1;
 
-			if(!inventory_is_valid(mobjinfo + type))
-				continue;
-
-			item = doom_malloc(sizeof(inventory_t));
-			if(item)
-			{
-				item->prev = ilst;
-				item->next = NULL;
-				item->type = type;
-				item->count = count;
-				if(ilst)
-					ilst->next = item;
-				mo->inventory = item;
-				ilst = item;
-			}
+			inventory_give(mo, type, count);
 		}
 	}
 
@@ -2496,7 +2494,22 @@ static inline uint32_t ld_get_players()
 		pl->state = plr.state;
 		pl->didsecret = plr.didsecret;
 
-		pl->inv_sel = inventory_find(pl->mo, plr.inv_sel);
+		if(plr.inv_sel)
+		{
+			int32_t type;
+			invitem_t *item;
+
+			type = ld_get_inventory(plr.inv_sel);
+			if(type < 0)
+				return 1;
+
+			item = inventory_find(pl->mo, type);
+			if(!item)
+				return 1;
+
+			pl->inv_sel = item - pl->mo->inventory->slot;
+		} else
+			pl->inv_sel = -1;
 
 		pl->prop = plr.prop;
 	}

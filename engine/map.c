@@ -220,15 +220,6 @@ static const hook_t patch_doom[];
 static const hook_t patch_hexen[];
 
 //
-// callbacks
-
-static uint32_t cb_free_inventory(mobj_t *mo)
-{
-	inventory_clear(mo);
-	return 0;
-}
-
-//
 // line scroller
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1066,6 +1057,9 @@ uint32_t map_load_setup()
 	// stop sounds
 	S_Start();
 
+	// free level memory
+	Z_FreeTags(PU_LEVEL, PU_PURGELEVEL-1);
+
 	// find map lump
 	map_lump_idx = W_CheckNumForName(map_lump.name);
 	map_format = check_map(map_lump_idx);
@@ -1102,9 +1096,6 @@ uint32_t map_load_setup()
 
 	// sky
 	skytexture = map_level_info->texture_sky[0];
-
-	// free old inventories
-	mobj_for_each(cb_free_inventory);
 
 	// reset netID
 	mobj_netid = 0;

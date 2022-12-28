@@ -188,6 +188,8 @@ typedef uint32_t angle_t;
 #define PU_STATIC	1
 #define PU_LEVEL	50
 #define PU_LEVELSPEC	51
+#define PU_LEVEL_INV	52	// mobj inventory
+#define	PU_PURGELEVEL	100
 #define PU_CACHE	101
 
 //
@@ -222,6 +224,12 @@ typedef struct
 	uint32_t data2;
 	uint32_t data3;
 } event_t;
+
+//
+// new inventory
+
+struct invitem_s;
+struct inventory_s;
 
 //
 // tics
@@ -361,15 +369,15 @@ typedef struct player_s
 	int32_t frags[MAXPLAYERS];
 	struct mobjinfo_s *readyweapon;
 	struct mobjinfo_s *pendingweapon;
-	uint32_t stbar_update;
 	struct inventory_s *inventory; // for level transition
-	struct inventory_s *inv_sel; // current selection
-	uint32_t inv_tick; // inventory selection visible
+	int16_t inv_sel; // current selection
+	uint16_t inv_tick; // inventory selection visible
+	uint32_t stbar_update;
 	uint32_t info_flags;
 	uint8_t power_color[NUMPOWERS];
 	uint32_t flags;
 	struct mobj_s *camera;
-	uint32_t __unused[4+1];
+	uint32_t __unused[4+2];
 	angle_t angle;
 	angle_t pitch;
 	uint16_t attackdown;
@@ -1588,6 +1596,7 @@ void WI_Start(wbstartstruct_t*) __attribute((regparm(2),no_caller_saved_register
 // z_zone
 void *Z_Malloc(uint32_t size, uint32_t tag, void *owner) __attribute((regparm(2),no_caller_saved_registers));
 void Z_Free(void *ptr) __attribute((regparm(2),no_caller_saved_registers));
+void Z_FreeTags(uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void Z_ChangeTag2(void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // extra inline

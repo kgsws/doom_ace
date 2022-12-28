@@ -624,6 +624,9 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	mo = P_SpawnMobj(x, y, 0x80000000, player_class[0]);
 	mo->angle = angle;
 
+	if(pl->inventory)
+		Z_ChangeTag2(pl->inventory, PU_LEVEL_INV);
+
 	// check for reset
 	if(pl->state == PST_REBORN || map_level_info->flags & MAP_FLAG_RESET_INVENTORY)
 	{
@@ -646,7 +649,8 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		} else
 		{
 			inventory = NULL;
-			inventory_destroy(pl->inventory);
+			if(pl->inventory)
+				Z_Free(pl->inventory);
 		}
 
 		killcount = pl->killcount;
@@ -675,11 +679,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 
 		if(!inventory)
 		{
-			// give 'depleted' original ammo; for status bar
-			inventory_give(mo, 63, 0); // Clip
-			inventory_give(mo, 69, 0); // Shell
-			inventory_give(mo, 67, 0); // Cell
-			inventory_give(mo, 65, 0); // RocketAmmo
+			pl->inv_sel = -1;
 
 			// default inventory
 			for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
@@ -1446,14 +1446,22 @@ uint8_t *mobj_check_keylock(mobj_t *mo, uint32_t lockdef, uint32_t is_remote)
 	if(!did_check)
 	{
 		// any key
-		inventory_t *item = mo->inventory;
-		while(item)
+		if(mo->inventory)
 		{
-			if(item->count && mobjinfo[item->type].extra_type == ETYPE_KEY)
-				break;
-			item = item->prev;
-		}
-		if(!item)
+			for(uint32_t i = 0; i < mo->inventory->numslots; i++)
+			{
+				invitem_t *item = mo->inventory->slot + i;
+
+				if(!item->type)
+					continue;
+
+				if(item->count && mobjinfo[item->type].extra_type == ETYPE_KEY)
+				{
+					have_key = 1;
+					break;
+				}
+			}
+		} else
 			have_key = 0;
 	}
 
@@ -1477,7 +1485,7 @@ uint8_t *mobj_check_keylock(mobj_t *mo, uint32_t lockdef, uint32_t is_remote)
 	return "";
 }
 
-void mobj_use_item(mobj_t *mo, inventory_t *item)
+void mobj_use_item(mobj_t *mo, invitem_t *item)
 {
 	mobjinfo_t *info = mobjinfo + item->type;
 	switch(info->extra_type)
@@ -1703,7 +1711,8 @@ void mobj_remove(mobj_t *mo)
 	if(mo->flags & MF_COUNTITEM)
 		totalitems--;
 
-	inventory_destroy(mo->inventory);
+	inventory_clear(mo);
+
 	P_UnsetThingPosition(mo);
 	S_StopSound(mo);
 	P_RemoveThinker((thinker_t*)mo);

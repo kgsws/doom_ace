@@ -149,7 +149,7 @@ static void stbar_draw_center(int32_t x, int32_t y, int32_t lump)
 	patch->y = oy;
 }
 
-static void sbar_draw_invslot(int32_t x, int32_t y, mobjinfo_t *info, inventory_t *item)
+static void sbar_draw_invslot(int32_t x, int32_t y, mobjinfo_t *info, invitem_t *item)
 {
 	stbar_draw_center(x, y, info->inventory.icon);
 	if(!item->count || info->inventory.max_count > 1)
@@ -323,8 +323,9 @@ static void draw_invbar(player_t *pl)
 	if(pl->inv_tick)
 	{
 		mobjinfo_t *info;
-		inventory_t *item;
+		mobj_t *mo = pl->mo;
 		uint32_t idx;
+		int32_t item;
 
 		if(screenblocks < 11)
 			invbar_was_on = 1;
@@ -333,39 +334,39 @@ static void draw_invbar(player_t *pl)
 			stbar_draw_center(x, INVBAR_Y, inv_box);
 		stbar_draw_center(INVBAR_CENTER, INVBAR_Y, inv_sel);
 
-		if(pl->inv_sel)
+		if(pl->inv_sel >= 0 && mo->inventory)
 		{
 			// previous items
-			item = pl->inv_sel->prev;
+			item = pl->inv_sel - 1;
 			idx = 0;
-			while(item && idx < INVBAR_COUNT / 2)
+			while(item >= 0 && idx < INVBAR_COUNT / 2)
 			{
-				info = mobjinfo + item->type;
+				info = mobjinfo + mo->inventory->slot[item].type;
 				if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
 				{
-					sbar_draw_invslot(INVBAR_CENTER - INVBAR_STEP - idx * INVBAR_STEP, INVBAR_Y, info, item);
+					sbar_draw_invslot(INVBAR_CENTER - INVBAR_STEP - idx * INVBAR_STEP, INVBAR_Y, info, mo->inventory->slot + item);
 					idx++;
 				}
-				item = item->prev;
+				item--;
 			}
 
 			// next items
-			item = pl->inv_sel->next;
+			item = pl->inv_sel + 1;
 			idx = 0;
-			while(item && idx < INVBAR_COUNT / 2)
+			while(item < mo->inventory->numslots && idx < INVBAR_COUNT / 2)
 			{
-				info = mobjinfo + item->type;
+				info = mobjinfo + mo->inventory->slot[item].type;
 				if(info->inventory.icon && info->eflags & MFE_INVENTORY_INVBAR)
 				{
-					sbar_draw_invslot(INVBAR_CENTER + INVBAR_STEP + idx * INVBAR_STEP, INVBAR_Y, info, item);
+					sbar_draw_invslot(INVBAR_CENTER + INVBAR_STEP + idx * INVBAR_STEP, INVBAR_Y, info, mo->inventory->slot + item);
 					idx++;
 				}
-				item = item->next;
+				item++;
 			}
 
 			// current selection
-			info = mobjinfo + pl->inv_sel->type;
-			sbar_draw_invslot(INVBAR_CENTER, INVBAR_Y, info, pl->inv_sel);
+			info = mobjinfo + mo->inventory->slot[pl->inv_sel].type;
+			sbar_draw_invslot(INVBAR_CENTER, INVBAR_Y, info, mo->inventory->slot + pl->inv_sel);
 		}
 
 		return;
@@ -377,13 +378,14 @@ static void draw_invbar(player_t *pl)
 		stbar_refresh_force = 1;
 	}
 
-	if(pl->inv_sel)
+	if(pl->inv_sel >= 0 && pl->mo->inventory)
 	{
 		if(screenblocks == 11 && !automapactive)
 		{
 			// current selection
-			mobjinfo_t *info = mobjinfo + pl->inv_sel->type;
-			sbar_draw_invslot(INVBAR_CENTER, INVBAR_Y, info, pl->inv_sel);
+			invitem_t *item = pl->mo->inventory->slot + pl->inv_sel;
+			mobjinfo_t *info = mobjinfo + item->type;
+			sbar_draw_invslot(INVBAR_CENTER, INVBAR_Y, info, item);
 		}
 	}
 }
@@ -447,7 +449,7 @@ void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 static void update_ammo(player_t *pl)
 {
 	static uint16_t zero;
-	inventory_t *item;
+	invitem_t *item;
 
 	item = inventory_find(pl->mo, mod_config.ammo_bullet); // Clip
 	if(item)
@@ -560,7 +562,7 @@ static void update_ready_weapon(player_t *pl)
 {
 	// weapon changed
 	mobjinfo_t *info = pl->readyweapon;
-	inventory_t *item;
+	invitem_t *item;
 
 	ammo_pri = NULL;
 	ammo_sec = NULL;

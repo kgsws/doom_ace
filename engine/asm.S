@@ -631,6 +631,12 @@ W_ReadLump:
 Z_ChangeTag2:
 	.byte	0xE9
 	.4byte	0x000399B0
+////////////////////////////////// Z_FreeTags
+.section .text.Z_FreeTags
+.global Z_FreeTags
+Z_FreeTags:
+	.byte	0xE9
+	.4byte	0x00039780
 ////////////////////////////////// Z_Free
 .section .text.Z_Free
 .global Z_Free

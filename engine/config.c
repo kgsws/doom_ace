@@ -43,10 +43,6 @@ typedef struct
 
 //
 
-static hook_t setup_ram[];
-
-//
-
 extra_config_t extra_config =
 {
 	.auto_switch = 0,
@@ -236,7 +232,6 @@ void init_config()
 	player_info_t *pli;
 	config_entry_t *conf;
 	int32_t lump;
-	uint32_t ram_min, ram_max;
 
 	ldr_alloc_message = "Config";
 
@@ -279,19 +274,6 @@ void init_config()
 		usegamma = 0;
 	if(extra_config.wipe_type >= NUM_WIPE_TYPES)
 		extra_config.wipe_type = 0;
-
-	// RAM
-	ram_max = (uint32_t)mod_config.mem_max * 1024 * 1024;
-	if(mod_config.mem_min)
-		ram_min = (uint32_t)mod_config.mem_min * 1024 * 1024;
-	else
-		ram_min = 512 * 1024;
-	if(ram_max < ram_min)
-		ram_max = ram_min;
-	setup_ram[0].value = ram_max;
-	setup_ram[1].value = ram_max;
-	setup_ram[2].value = ram_min;
-	utils_install_hooks(setup_ram, 3);
 
 	// player setup
 	pli = player_info + consoleplayer;
@@ -343,13 +325,6 @@ void config_save()
 
 //
 // hooks
-
-static hook_t setup_ram[] =
-{
-	{0x0001AC92, CODE_HOOK | HOOK_UINT32, 0},
-	{0x0001AC99, CODE_HOOK | HOOK_UINT32, 0},
-	{0x0001ACBA, CODE_HOOK | HOOK_UINT32, 0},
-};
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {

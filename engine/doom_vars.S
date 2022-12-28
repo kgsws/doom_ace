@@ -461,6 +461,8 @@ DOOM_VAR 0x00074FA4, lumpinfo
 
 DOOM_VAR 0x00074FC0, usegamma
 
+DOOM_VAR 0x00074FE0, mainzone
+
 DOOM_VAR 0x00074FF0, w_maxammo
 DOOM_VAR 0x00075070, w_ammo
 DOOM_VAR 0x000750F0, w_arms

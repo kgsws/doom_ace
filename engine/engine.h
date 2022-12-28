@@ -184,6 +184,7 @@ typedef uint32_t angle_t;
 //
 // zone
 
+#define ZONEID	0x1D4A11
 #define PU_STATIC	1
 #define PU_LEVEL	50
 #define PU_LEVELSPEC	51
@@ -462,6 +463,26 @@ typedef struct
 	uint32_t unk6;
 	heap_block_t rover;
 } heap_base_t;
+
+//
+// zone
+
+typedef struct memblock_s
+{
+	int32_t size;
+	void **user;
+	int32_t tag;
+	int32_t id;
+	struct memblock_s *next;
+	struct memblock_s *prev;
+} memblock_t;
+
+typedef struct
+{
+	int32_t size;
+	memblock_t blocklist;
+	memblock_t *rover;
+} memzone_t;
 
 //
 // info
@@ -1361,10 +1382,10 @@ void hook_path_traverse();
 void hook_sound_adjust();
 void hook_masked_range_draw();
 void hook_bluescreen();
+uint32_t dpmi_get_ram(); // this is modified I_ZoneBase
 void skip_message_cancel() __attribute((noreturn));
 void rng_asm_code();
 void _hack_update(); // this is address of 'ret' opcode in 'D_Display'; no-DOS-Doom2 hooks this location with screen update
-void _hack_show_ram(); // this is I_ZoneBase
 
 // extra
 void I_FinishUpdate();

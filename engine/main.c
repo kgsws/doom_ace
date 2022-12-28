@@ -498,13 +498,154 @@ static void debug_func()
 #endif
 
 //
+// zone
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void *zone_alloc(uint32_t *psz)
+{
+	uint32_t size;
+	void *ptr = NULL;
+
+	for(size = *psz; size > 0x10000; size -= 0x10000)
+	{
+		ptr = doom_malloc(size);
+		if(ptr)
+			break;
+	}
+
+	if(ptr)
+		*psz = size;
+	else
+		*psz = 0;
+
+	return ptr;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void Z_Init()
+{
+	// Due to previous zone allocation it does not seem to be
+	// possible to get large enough block to cover entire RAM.
+	memblock_t *block;
+	memblock_t *blother = NULL;
+
+	if(old_zone_size < 0x00800000)
+	{
+		// original zone was less than 8MiB
+		// it should not be possible to get more memory
+		uint32_t size = old_zone_size;
+
+		mainzone = zone_alloc(&size);
+		if(!mainzone)
+			I_Error("[ZONE] Allocation failed!");
+
+		doom_printf("[ZONE] 0x%08X at 0x%08X\n", size, mainzone);
+
+		mainzone->size = size;
+	} else
+	{
+		// allocate zone in two blocks
+		uint32_t sz0, sz1;
+		void *p0, *p1;
+
+		sz0 = old_zone_size;
+		sz1 = dpmi_get_ram();
+
+		doom_printf("[ZONE] Available 0x%08X bytes.\n", sz1);
+
+		// allocate larger block first
+		if(sz1 > sz0)
+		{
+			uint32_t tmp = sz1;
+			sz1 = sz0;
+			sz0 = tmp;
+		}
+
+		// first
+		p0 = zone_alloc(&sz0);
+		if(!p0)
+			I_Error("[ZONE] Allocation failed!");
+
+		// second
+		p1 = zone_alloc(&sz1);
+
+		// info
+		doom_printf("[ZONE] 0x%08X at 0x%08X\n", sz0, p0);
+		doom_printf("[ZONE] 0x%08X at 0x%08X\n", sz1, p1);
+
+		// prepare zone
+		if(p1 > p0 || !p1)
+		{
+			mainzone = p0;
+			mainzone->size = sz0;
+			if(p1)
+			{
+				blother = p1;
+				blother->size = sz1;
+			}
+		} else
+		{
+			mainzone = p1;
+			mainzone->size = sz1;
+			blother = p0;
+			blother->size = sz0;
+		}
+	}
+
+	block = (memblock_t*)((void*)mainzone + sizeof(memzone_t));
+
+	mainzone->blocklist.next = block;
+	mainzone->blocklist.prev = block;
+
+	mainzone->blocklist.user = (void*)mainzone;
+	mainzone->blocklist.tag = PU_STATIC;
+	mainzone->rover = block;
+
+	block->prev = &mainzone->blocklist;
+	block->next = &mainzone->blocklist;
+	block->user = NULL;
+	block->size = mainzone->size - sizeof(memzone_t);
+
+	if(blother)
+	{
+		// connect split zone
+		memblock_t *blk;
+		uint32_t gap;
+
+		gap = (void*)blother - (void*)block;
+
+		doom_printf("[ZONE] Skip 0x%08X\n", gap);
+
+		gap -= block->size;
+
+		block->size -= sizeof(memblock_t);
+		blk = (void*)block + block->size;
+
+		blk->size = gap + sizeof(memblock_t);
+		blk->user = (void*)mainzone;
+		blk->tag = PU_STATIC;
+		blk->id = ZONEID;
+		blk->next = blother;
+		blk->prev = block;
+
+		blother->user = NULL;
+		blother->tag = 0;
+		blother->id = 0;
+		blother->prev = blk;
+		blother->next = block->next;
+
+		block->next = blk;
+	}
+}
+
+//
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void ldr_restore()
 {
 	// restore 'I_Error' modification
-	utils_install_hooks(restore_loader, 0);
+	utils_install_hooks(restore_loader, 1);
 	// call the original
 	I_StartupSound();
 }
@@ -527,25 +668,10 @@ void data_init()
 	spr_init_data();
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t zone_memory(uint32_t size)
-{
-	size += old_zone_size;
-	doom_printf("[ZONE] 0x%08X", size);
-	return size;
-}
-
 static const hook_t restore_loader[] =
 {
 	// 'I_Error' patch
 	{0x0001B830, CODE_HOOK | HOOK_UINT8, 0xE8},
-	// DEBUG
-#ifdef RAM_DEBUG
-	{0x0001AC8A, CODE_HOOK | HOOK_UINT32, 0x0000EA81},
-	{0x0001AC8E, CODE_HOOK | HOOK_UINT8, 0x02},
-#endif
-	// terminator
-	{0}
 };
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -556,11 +682,11 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00035D83, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)data_init},
 	// late init stuff
 	{0x0001E950, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)late_init},
-	// hook 'I_ZoneBase' memory check
+	// replace call to 'Z_Init' in 'D_DoomMain'
+	{0x0001E4BE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)Z_Init},
+	// modify 'I_ZoneBase' to only report available memory
 	{0x0001AC7C, CODE_HOOK | HOOK_UINT16, 0xD089},
-	{0x0001AC7E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)zone_memory},
-	{0x0001AC83, CODE_HOOK | HOOK_UINT16, 0xC289},
-	{0x0001AC85, CODE_HOOK | HOOK_SET_NOPS, 5},
+	{0x0001AC7E, CODE_HOOK | HOOK_JMP_DOOM, 0x0001AD36},
 	// restore stuff, hook 'I_StartupSound'
 	{0x0001AA7A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)ldr_restore},
 	// add custom loading, skip "commercial" text and PWAD warning

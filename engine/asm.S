@@ -341,10 +341,10 @@ doom_fopen:
 doom_fclose:
 	.byte	0xE9
 	.4byte	0x0004043A
-////////////////////////////////// _hack_show_ram
-.section .text._hack_show_ram
-.global _hack_show_ram
-_hack_show_ram:
+////////////////////////////////// dpmi_get_ram
+.section .text.dpmi_get_ram
+.global dpmi_get_ram
+dpmi_get_ram:
 	.byte	0xE9
 	.4byte	0x0001AC20
 ////////////////////////////////// _hack_update

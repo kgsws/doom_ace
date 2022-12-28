@@ -967,7 +967,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 {
 	uint32_t damage;
 
-	if(map_format != MAP_FORMAT_DOOM && thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->iflags & MFI_TELEPORT))
+	if(map_format != MAP_FORMAT_DOOM && thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->flags & MF_TELEPORT))
 	{
 		// thing-over-thing
 		tmthing->iflags |= MFI_MOBJONMOBJ;
@@ -989,9 +989,9 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	}
 
 	// ignore when teleporting
-	if(tmthing->iflags & MFI_TELEPORT)
+	if(tmthing->flags & MF_TELEPORT)
 	{
-		teleblock = thing->flags & (MF_SOLID | MF_SHOOTABLE);
+		teleblock = !!(thing->flags & (MF_SOLID | MF_SHOOTABLE));
 		return 1;
 	}
 
@@ -1251,7 +1251,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 
 blocked:
 	// ignore when teleporting
-	if(tmthing->iflags & MFI_TELEPORT)
+	if(tmthing->flags & MF_TELEPORT)
 		return 1;
 
 	if(ld->special && numspecbump < MAXSPECIALBUMP)
@@ -2478,12 +2478,11 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 	teleblock = 0;
 
 	mo->flags |= MF_TELEPORT;
-	mo->iflags |= MFI_TELEPORT;
 	blocked = !P_TryMove(mo, mo->x, mo->y) | teleblock;
 	mo->flags &= ~MF_TELEPORT;
-	mo->iflags &= ~MFI_TELEPORT;
 	if(blocked)
 	{
+doom_printf("Was Blocked!\n");
 		if(flags & TELEF_NO_KILL)
 			goto revert;
 

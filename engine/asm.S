@@ -122,6 +122,14 @@ bss_end:
 	add	$0x0001E4B1,%eax
 	jmp	*%eax
 
+	// error exit; I_Error wrapper
+.global engine_error
+engine_error:
+	pop	%eax
+	pop	%eax
+	mov	%eax,error_module
+	call	I_Error
+
 	// exit
 .global dos_exit
 dos_exit:

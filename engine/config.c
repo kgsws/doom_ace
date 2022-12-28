@@ -61,7 +61,6 @@ mod_config_t mod_config =
 	.enable_decorate = 1,
 	.enable_dehacked = 1,
 	.wipe_type = 255, // = use user preference
-	.mem_max = 16,
 	.mem_min = 1,
 	.color_fullbright = 1, // = use fullbright in colored light
 	.ammo_bullet = 0x0000000000C29B03, // Clip
@@ -145,7 +144,6 @@ static config_entry_t config_mod[] =
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
 	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
 	// RAM
-	{"ram.max", &mod_config.mem_max, TYPE_U8},
 	{"ram.min", &mod_config.mem_min, TYPE_U8},
 	// ZDoom
 	{"zdoom.light.fullbright", &mod_config.color_fullbright, TYPE_U8},
@@ -247,7 +245,7 @@ void init_config()
 	// load config
 	if(!tp_load_file(ACE_CONFIG_FILE))
 	{
-		doom_printf("[ACE] loading game config ...\n");
+		doom_printf("[ACE] loading game config\n");
 		tp_enable_script = 0;
 		while(parse_value(config_game));
 	}
@@ -260,7 +258,7 @@ void init_config()
 	lump = wad_check_lump("ACE_CONF");
 	if(lump >= 0)
 	{
-		doom_printf("[ACE] loading mod config ...\n");
+		doom_printf("[ACE] loading mod config\n");
 		tp_load_lump(lumpinfo + lump);
 		tp_enable_script = 0;
 		while(parse_value(config_mod));

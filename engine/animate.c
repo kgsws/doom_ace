@@ -353,7 +353,7 @@ continue_keyword:
 			if(!kw)
 				goto error_end;
 			if(*((uint16_t*)kw) != 0x6E6F)
-				I_Error("[ANIMDEFS] Expected keyword 'on' found '%s' in '%s'!", kw, name);
+				engine_error("ANIMDEFS", "Expected keyword 'on' found '%s' in '%s'!", kw, name);
 
 			// expecting 'pic' or 'sound'
 			kw = tp_get_keyword_lc();
@@ -376,7 +376,7 @@ continue_keyword:
 			}
 
 			if(strcmp(kw, kwl->pic))
-				I_Error("[ANIMDEFS] Expected keyword 'pic' found '%s' in '%s'!", kw, name);
+				engine_error("ANIMDEFS", "Expected keyword 'pic' found '%s' in '%s'!", kw, name);
 
 			// switch
 			dest.swtch = switch_ptr;
@@ -402,7 +402,7 @@ continue_keyword:
 					goto error_end;
 				num = texture_num_check(kw);
 				if(num < 0)
-					I_Error("[ANIMDEFS] frame '%s' not found for '%s'\n", kw, name);
+					engine_error("ANIMDEFS", "Frame '%s' not found for '%s'\n", kw, name);
 
 				if(animations)
 				{
@@ -481,7 +481,7 @@ continue_keyword:
 				}
 
 				if(strcmp(kw, kwl->pic))
-					I_Error("[ANIMDEFS] Expected keyword 'pic' found '%s' in '%s'!", kw, name);
+					engine_error("ANIMDEFS", "Expected keyword 'pic' found '%s' in '%s'!", kw, name);
 
 				// switch
 				dest.swtch = switch_ptr;
@@ -507,7 +507,7 @@ continue_keyword:
 						goto error_end;
 					num = texture_num_check(kw);
 					if(num < 0)
-						I_Error("[ANIMDEFS] frame '%s' not found for '%s'\n", kw, name);
+						engine_error("ANIMDEFS", "Frame '%s' not found for '%s'\n", kw, name);
 
 					if(animations)
 					{
@@ -585,7 +585,7 @@ continue_keyword:
 		} else
 		{
 			if(!skip && kw[0] && strcmp(kw, "allowdecals"))
-				I_Error("[ANIMDEFS] Invalid keyword '%s'!", kw);
+				engine_error("ANIMDEFS", "Invalid keyword '%s'!", kw);
 			continue;
 		}
 
@@ -625,7 +625,7 @@ continue_keyword:
 
 			num = get_pic(kw);
 			if(num <= target || num - target > 255)
-				I_Error("[ANIMDEFS] invalid range in '%s'", name);
+				engine_error("ANIMDEFS", "Invalid range in '%s'", name);
 
 			num -= target;
 			num++;
@@ -700,7 +700,7 @@ continue_keyword:
 					goto error_end;
 				num = get_pic(kw);
 				if(num < 0)
-					I_Error("[ANIMDEFS] frame '%s' not found for '%s'\n", kw, name);
+					engine_error("ANIMDEFS", "Frame '%s' not found for '%s'\n", kw, name);
 
 				if(animations)
 				{
@@ -761,19 +761,19 @@ continue_keyword:
 			goto continue_keyword;
 		}
 
-		I_Error("[ANIMDEFS] Expected keyword 'pic' or 'range' found '%s' in '%s'!", kw, name);
+		engine_error("ANIMDEFS", "Expected keyword 'pic' or 'range' found '%s' in '%s'!", kw, name);
 	}
 
 error_end:
-	I_Error("[ANIMDEFS] Incomplete definition!");
+	engine_error("ANIMDEFS", "Incomplete definition!");
 error_tics:
-	I_Error("[ANIMDEFS] Expected keyword 'tics' found '%s' in '%s'!", kw, name);
+	engine_error("ANIMDEFS", "Expected keyword 'tics' found '%s' in '%s'!", kw, name);
 error_numeric:
-	I_Error("[ANIMDEFS] Unable to parse number '%s' in '%s'!", kw, name);
+	engine_error("ANIMDEFS", "Unable to parse number '%s' in '%s'!", kw, name);
 error_tic_count:
-	I_Error("[ANIMDEFS] bad tick count for '%s'!", name);
+	engine_error("ANIMDEFS", "Bad tick count for '%s'!", name);
 error_anim_count:
-	I_Error("[ANIMDEFS] bad frame count for '%s'!", name);
+	engine_error("ANIMDEFS", "Bad frame count for '%s'!", name);
 }
 
 //

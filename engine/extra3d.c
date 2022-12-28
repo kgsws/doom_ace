@@ -571,12 +571,12 @@ void e3d_create()
 		if(	(tag != 1 && tag != 3) ||
 			ln->arg2 & ~64
 		)
-			I_Error("[EX3D] Unsupported extra floor type!");
+			engine_error("EX3D", "Unsupported extra floor type!");
 
 		side = sides + ln->sidenum[0];
 
 		if(side->textureoffset || side->rowoffset)
-			I_Error("[EX3D] Texture offsets are not supported!");
+			engine_error("EX3D", "Texture offsets are not supported!");
 
 		src = side->sector;
 
@@ -602,7 +602,7 @@ void e3d_create()
 		tag = ln->arg0 + ln->arg4 * 256;
 
 		if(!tag)
-			I_Error("[EX3D] Do not use zero tag!");
+			engine_error("EX3D", "Do not use zero tag!");
 
 		src->e3d_origin = 1;
 

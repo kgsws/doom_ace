@@ -88,7 +88,7 @@ static void cb_s_load(lumpinfo_t *li)
 	wad_read_lump(&patch, li - lumpinfo, sizeof(patch_t));
 
 	if(patch.c == 0xA1A0A0D474E5089)
-		I_Error("[ACE] Sprite '%.8s' is PNG!", li->name);
+		engine_error("SPRITE", "Patch '%.8s' is a PNG!", li->name);
 
 	spritewidth[tmp_count] = (fixed_t)patch.p.width << FRACBITS;
 	spriteoffset[tmp_count] = (fixed_t)patch.p.x << FRACBITS;

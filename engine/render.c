@@ -212,7 +212,7 @@ static uint32_t add_sector_color(uint16_t color, uint16_t fade)
 	uint32_t ret;
 
 	if(sector_light_count >= MAX_SECTOR_COLORS)
-		I_Error("[RENDER] Too many sector colors\n");
+		engine_error("RENDER", "Too many sector colors\n");
 
 	for(uint32_t i = 1; i < sector_light_count; i++)
 	{
@@ -2056,7 +2056,7 @@ static void generate_sector_light(uint8_t *dest, uint16_t color, uint16_t fade)
 	}
 
 	if(color & 0xF000 && (color & 0xF000) != 0xF000)
-		I_Error("[RENDER] Unable to generate desaturation %u!\n", (color >> 8) & 0xF000);
+		engine_error("RENDER", "Unable to generate desaturation %u!\n", (color >> 8) & 0xF000);
 
 	if(!sector_light_warning)
 	{
@@ -2212,7 +2212,7 @@ static void cb_parse_translations(lumpinfo_t *li)
 				return;
 
 			if(doom_sscanf(kw, "%u:%u=%u:%u", &t0, &t1, &t2, &t3) != 4 || (t0|t1|t2|t3) > 255)
-				I_Error("[TRNSLATE] Unsupported translation '%s'!\n", kw);
+				engine_error("TRNSLATE", "Unsupported translation '%s'!\n", kw);
 
 			generate_translation(render_translation + i * 256, t0, t1, t2, t3);
 
@@ -2287,7 +2287,7 @@ uint32_t r_add_blood_color(uint32_t color)
 	uint32_t ret;
 
 	if(blood_color_count >= MAX_BLOOD_COLORS)
-		I_Error("[DECORATE] Too many blood colors!");
+		engine_error("DECORATE", "Too many blood colors!");
 
 	for(uint32_t i = 0; i < blood_color_count; i++)
 	{

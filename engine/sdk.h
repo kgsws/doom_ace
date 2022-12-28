@@ -58,7 +58,6 @@ static inline void dwcopy(void *dst, void *src, uint32_t count)
 }
 
 // Variadic functions require no attributes.
-void I_Error(uint8_t*, ...) __attribute((noreturn));
 int32_t doom_printf(const uint8_t*, ...);
 int32_t doom_sprintf(uint8_t*, const uint8_t*, ...);
 int32_t doom_sscanf(const uint8_t*, const uint8_t*, ...);

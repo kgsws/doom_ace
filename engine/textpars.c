@@ -263,7 +263,7 @@ parse_string:
 			uint8_t in = *ptr++;
 
 			if(!in || in == '\r' || in == '\n')
-				I_Error("[TP] Unterminated string!");
+				engine_error("SCRIPT", "Unterminated string!");
 
 			if(!escaped)
 			{
@@ -439,7 +439,7 @@ uint32_t tp_skip_code_block(uint32_t depth)
 void tp_load_lump(lumpinfo_t *li)
 {
 	if(li->size > TP_MEMORY_SIZE)
-		I_Error("TextParser: '%.8s' is too large! Limit is %u but size is %u.\n", TP_MEMORY_SIZE, li->size);
+		engine_error("SCRIPT", "Lump '%.8s' is too large! Limit is %u but size is %u.\n", TP_MEMORY_SIZE, li->size);
 
 	tp_text_ptr = TP_MEMORY_ADDR;
 	tp_text_ptr[li->size] = 0;

@@ -154,7 +154,7 @@ uint32_t sound_start_check(void **mo, uint32_t idx)
 	while(sfx->rng_count)
 	{
 		if(count > RNG_RECURSION)
-			I_Error("[SNDINFO] Potentially recursive sound!");
+			engine_error("SNDINFO", "Potentially recursive sound!");
 
 		if(sfx->rng_count > 1)
 			idx = P_Random() % sfx->rng_count;
@@ -203,7 +203,7 @@ static sfxinfo_t *sfx_create(uint64_t alias)
 
 	numsfx++;
 	if(numsfx >= 0x10000)
-		I_Error("[SNDINFO] So. Many. Sounds.");
+		engine_error("SNDINFO", "So. Many. Sounds.");
 
 	sfxinfo = ldr_realloc(sfxinfo, numsfx * sizeof(sfxinfo_t));
 
@@ -265,7 +265,7 @@ static void sfx_by_lump(uint8_t *name, int32_t lump)
 
 	// sanity check
 	if(sfx < sfxinfo + NUMSFX && sfx->lumpnum != lump)
-		I_Error("[SNDINFO] Illegal replacement of '%.8s' by '%.8s' in '%s' detected!", lumpinfo[sfx->lumpnum].name, lumpinfo[lump].name, name);
+		engine_error("SNDINFO", "Illegal replacement of '%.8s' by '%.8s' in '%s' detected!", lumpinfo[sfx->lumpnum].name, lumpinfo[lump].name, name);
 
 	// fill info
 	sfx->lumpnum = lump;
@@ -309,7 +309,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 				if(!kw)
 					goto error_end;
 				if(kw[0] != '{')
-					I_Error("[SNDINFO] Expected '{', found '%s'!", kw);
+					engine_error("SNDINFO", "Expected '{', found '%s'!", kw);
 
 				// get random sounds
 				while(1)
@@ -325,7 +325,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 					}
 
 					if(count >= 5)
-						I_Error("[SNDINFO] Too many random sounds!");
+						engine_error("SNDINFO", "Too many random sounds!");
 
 					sfx = sfx_get(kw);
 					id[count] = sfx - sfxinfo;
@@ -337,7 +337,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 
 				// sanity check
 				if(sfx < sfxinfo + NUMSFX)
-					I_Error("[SNDINFO] Illegal replacement of '%.8s' by random in '%s' detected!", lumpinfo[sfx->lumpnum].name, name);
+					engine_error("SNDINFO", "Illegal replacement of '%.8s' by random in '%s' detected!", lumpinfo[sfx->lumpnum].name, name);
 
 				// modify
 				sfx->lumpnum = -1;
@@ -367,21 +367,21 @@ static void cb_sndinfo(lumpinfo_t *li)
 				if(!pcl)
 					goto error_end;
 				if(strlen(pcl) >= PLAYER_SOUND_CLASS_LEN)
-					I_Error("[SNDINFO] Too long string '%s'!", pcl);
+					engine_error("SNDINFO", "Too long string '%s'!", pcl);
 
 				// gender
 				kw = tp_get_keyword_lc();
 				if(!kw)
 					goto error_end;
 				if(strcmp(kw, "other"))
-					I_Error("[SNDINFO] Unsupported gender '%s'!", kw);
+					engine_error("SNDINFO", "Unsupported gender '%s'!", kw);
 
 				// sound slot
 				slt = tp_get_keyword_lc();
 				if(!slt)
 					goto error_end;
 				if(strlen(slt) >= PLAYER_SOUND_SLOT_LEN)
-					I_Error("[SNDINFO] Too long string '%s'!", slt);
+					engine_error("SNDINFO", "Too long string '%s'!", slt);
 
 				// sound lump
 				kw = tp_get_keyword();
@@ -399,7 +399,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 
 				continue;
 			} else
-				I_Error("[SNDINFO] Unsupported directive '%s'!", kw);
+				engine_error("SNDINFO", "Unsupported directive '%s'!", kw);
 		}
 
 		name = kw;
@@ -417,7 +417,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 	}
 
 error_end:
-	I_Error("[SNDINFO] Incomplete definition!");
+	engine_error("SNDINFO", "Incomplete definition!");
 }
 
 static uint32_t get_sfx_length(int32_t idx)
@@ -542,7 +542,7 @@ static void cb_sndseq(lumpinfo_t *li)
 		}
 
 		if(kw[0] != ':')
-			I_Error("[SNDSEQ] Unexpected '%s'!\n", kw);
+			engine_error("SNDSEQ", "Unexpected '%s'!\n", kw);
 
 		name = tp_get_keyword();
 		if(!name)
@@ -614,14 +614,14 @@ static void cb_sndseq(lumpinfo_t *li)
 			{
 				seq->norm_open.stop = sfx_by_alias(tp_hash64(kw));
 			} else
-				I_Error("[SNDSEQ] Unknown keyword '%s' in '%s'!", wk, name);
+				engine_error("SNDSEQ", "Unknown keyword '%s' in '%s'!", wk, name);
 		}
 	}
 
 error_value:
-	I_Error("[SNDSEQ] Invalid value '%s' in '%s'!", kw, name);
+	engine_error("SNDSEQ", "Invalid value '%s' in '%s'!", kw, name);
 error_end:
-	I_Error("[SNDSEQ] Incomplete definition!");
+	engine_error("SNDSEQ", "Incomplete definition!");
 }
 
 //

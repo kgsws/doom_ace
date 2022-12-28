@@ -788,7 +788,7 @@ static inline void parse_sectors()
 					li->special == 51 // Sector_SetLink
 				){
 					if(li->arg0 || !li->arg1 || !li->arg3 || li->arg3 & 0xFC)
-						I_Error("[MAP] Invalid use of 'Sector_SetLink'!");
+						engine_error("MAP", "Invalid use of 'Sector_SetLink'!");
 
 					for(uint32_t k = 0; k < numsectors; k++)
 					{
@@ -1510,7 +1510,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 		return 1;
 
 	if(kw[0] != '{')
-		I_Error("[%s] Expected '%c' found '%s'!", "MAPINFO", '{', kw);
+		engine_error("MAPINFO", "Expected '%c' found '%s'!", '{', kw);
 
 	while(1)
 	{
@@ -1532,7 +1532,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 		}
 
 		if(!attr->name)
-			I_Error("[MAPINFO] Unknown attribute '%s'!", kw);
+			engine_error("MAPINFO", "Unknown attribute '%s'!", kw);
 
 		if(attr->type != IT_FLAG)
 		{
@@ -1540,7 +1540,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 			if(!kw)
 				return 1;
 			if(kw[0] != '=')
-				I_Error("[%s] Expected '%c' found '%s'!", "MAPINFO", '=', kw);
+				engine_error("MAPINFO", "Expected '%c' found '%s'!", '=', kw);
 		}
 
 		switch(attr->type)
@@ -1550,7 +1550,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 				if(!kw)
 					return 1;
 				if(doom_sscanf(kw, "%u", &value) != 1 || value > 255)
-					I_Error("[MAPINFO] Unable to parse number '%s'!", kw);
+					engine_error("MAPINFO", "Unable to parse number '%s'!", kw);
 				*((uint8_t*)(dest + attr->offset)) = value;
 			break;
 			case IT_U16:
@@ -1558,7 +1558,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 				if(!kw)
 					return 1;
 				if(doom_sscanf(kw, "%u", &value) != 1 || value > 65535)
-					I_Error("[MAPINFO] Unable to parse number '%s'!", kw);
+					engine_error("MAPINFO", "Unable to parse number '%s'!", kw);
 				*((uint16_t*)(dest + attr->offset)) = value;
 			break;
 			case IT_MUSIC:
@@ -1598,7 +1598,7 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 					if(!kw)
 						return 1;
 					if(kw[0] != ',')
-						I_Error("[%s] Expected '%c' found '%s'!", "MAPINFO", ',', kw);
+						engine_error("MAPINFO", "Expected '%c' found '%s'!", ',', kw);
 
 					kw = tp_get_keyword_lc();
 					if(!kw)
@@ -1727,14 +1727,14 @@ static void parse_lockdefs(const lockdefs_kw_list_t *kwl)
 				goto error_end;
 
 			if(doom_sscanf(kw, "%u", &id) != 1 || !id || id > 255)
-				I_Error("[LOCKDEFS] Invalid lock ID '%s'!", kw);
+				engine_error("LOCKDEFS", "Invalid lock ID '%s'!", kw);
 
 			kw = tp_get_keyword();
 			if(!kw)
 				goto error_end;
 
 			if(kw[0] != '{')
-				I_Error("[%s] Expected '%c' found '%s'!", "LOCKDEFS", '{', kw);
+				engine_error("LOCKDEFS", "Expected '%c' found '%s'!", '{', kw);
 
 			bptr = buffer;
 			ld.id = id;
@@ -1830,7 +1830,7 @@ static void parse_lockdefs(const lockdefs_kw_list_t *kwl)
 						goto error_end;
 
 					if(kw[0] != '{')
-						I_Error("[%s] Expected '%c' found '%s'!", "LOCKDEFS", '}', kw);
+						engine_error("LOCKDEFS", "Expected '%c' found '%s'!", '{', kw);
 
 					*value = KEYLOCK_KEYLIST;
 					while(1)
@@ -1897,15 +1897,15 @@ static void parse_lockdefs(const lockdefs_kw_list_t *kwl)
 		break;
 	}
 
-	I_Error("[LOCKDEFS] Unknown keyword '%s'!", kw);
+	engine_error("LOCKDEFS", "Unknown keyword '%s'!", kw);
 error_overflow:
-	I_Error("[LOCKDEFS] Data overflow in lock %u!", id);
+	engine_error("LOCKDEFS", "Data overflow in lock %u!", id);
 error_end:
-	I_Error("[LOCKDEFS] Incomplete definition!");
+	engine_error("LOCKDEFS", "Incomplete definition!");
 error_value:
-	I_Error("[LOCKDEFS] Bad number '%s'!", kw);
+	engine_error("LOCKDEFS", "Bad number '%s'!", kw);
 error_type:
-	I_Error("[LOCKDEFS] Bad key type '%s'!", kw);
+	engine_error("LOCKDEFS", "Bad key type '%s'!", kw);
 }
 
 //
@@ -1965,7 +1965,7 @@ skip_block:
 				break;
 
 			if(kw[0] != '{')
-				I_Error("[MAPINFO] Broken syntax!");
+				engine_error("MAPINFO", "Broken syntax!");
 
 			if(tp_skip_code_block(1))
 				break;
@@ -2006,10 +2006,10 @@ skip_block:
 		if(!strcmp("clearepisodes", kw))
 			continue;
 
-		I_Error("[MAPINFO] Unknown block '%s'!", kw);
+		engine_error("MAPINFO", "Unknown block '%s'!", kw);
 	}
 
-	I_Error("[MAPINFO] Incomplete definition!");
+	engine_error("MAPINFO", "Incomplete definition!");
 }
 
 static void cb_mapinfo(lumpinfo_t *li)
@@ -2070,7 +2070,7 @@ static void cb_mapinfo(lumpinfo_t *li)
 					return;
 
 				if(kw[0] != '{')
-					I_Error("[%s] Expected '%c' found '%s'!", "MAPINFO", '{', kw);
+					engine_error("MAPINFO", "Expected '%c' found '%s'!", '{', kw);
 
 				if(tp_skip_code_block(1))
 					break;
@@ -2087,7 +2087,7 @@ static void cb_mapinfo(lumpinfo_t *li)
 
 			info = map_get_info(lump);
 			if(info == &map_info_unnamed)
-				I_Error("[MAPINFO] Miscounted!");
+				engine_error("MAPINFO", "Miscounted!");
 
 			info->name = text;
 
@@ -2112,11 +2112,11 @@ static void cb_mapinfo(lumpinfo_t *li)
 				break;
 
 			if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 255)
-				I_Error("[MAPINFO] Unable to parse number '%s'!", kw);
+				engine_error("MAPINFO", "Unable to parse number '%s'!", kw);
 
 			// check
 			if(num_clusters >= max_cluster)
-				I_Error("[MAPINFO] Miscounted!");
+				engine_error("MAPINFO", "Miscounted!");
 
 			// set defauls
 			clst = map_cluster + num_clusters;
@@ -2142,7 +2142,7 @@ static void cb_mapinfo(lumpinfo_t *li)
 				break;
 
 			if(kw[0] != '{')
-				I_Error("[MAPINFO] Broken syntax!");
+				engine_error("MAPINFO", "Broken syntax!");
 
 			if(tp_skip_code_block(1))
 				break;
@@ -2155,7 +2155,7 @@ static void cb_mapinfo(lumpinfo_t *li)
 			map_episode_t *epi;
 
 			if(map_episode_count >= MAX_EPISODES)
-				I_Error("[MAPINFO] Too many episodes defined!");
+				engine_error("MAPINFO", "Too many episodes defined!");
 
 			epi = map_episode_def + map_episode_count;
 
@@ -2182,10 +2182,10 @@ static void cb_mapinfo(lumpinfo_t *li)
 			continue;
 		}
 
-		I_Error("[MAPINFO] Unknown keyword '%s'!", kw);
+		engine_error("MAPINFO", "Unknown keyword '%s'!", kw);
 	}
 
-	I_Error("[MAPINFO] Incomplete definition!");
+	engine_error("MAPINFO", "Incomplete definition!");
 }
 
 static void cb_lockdefs(lumpinfo_t *li)
@@ -2356,7 +2356,7 @@ void init_map()
 
 	// prepare episode menu
 	if(!map_episode_count)
-		I_Error("[MAPINFO] No episodes defined!");
+		engine_error("MAPINFO", "No episodes defined!");
 	menu_setup_episodes();
 
 	// prepare LOCKDEFS memory

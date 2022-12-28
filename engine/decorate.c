@@ -1275,7 +1275,7 @@ void *dec_es_alloc(uint32_t size)
 
 	dec_es_ptr += size;
 	if(dec_es_ptr > EXTRA_STORAGE_END)
-		I_Error("[MEMORY] Extra storage allocation failed!");
+		engine_error("LOADER", "Extra storage allocation failed!");
 
 	return ptr;
 }
@@ -1327,7 +1327,7 @@ uint32_t dec_get_custom_state(const uint8_t *name, int32_t idx)
 	}
 
 	if(num_custom_states == MAX_CUSTOM_STATES)
-		I_Error("[DECORATE] Too many custom states!");
+		engine_error("DECORATE", "Too many custom states!");
 
 	strncpy(CUSTOM_STATE_STORAGE[num_custom_states].name, name, 24);
 	CUSTOM_STATE_STORAGE[num_custom_states].state = idx;
@@ -1351,11 +1351,11 @@ static void update_custom_state(uint32_t *ptr, uint32_t limit)
 	uint32_t offs = *ptr & 0xFFFF;
 
 	if(CUSTOM_STATE_STORAGE[idx].state & 0x00800000)
-		I_Error("[DECORATE] Custom state '%s' never defined in '%s'!", CUSTOM_STATE_STORAGE[idx].name, parse_actor_name);
+		engine_error("DECORATE", "Custom state '%s' never defined in '%s'!", CUSTOM_STATE_STORAGE[idx].name, parse_actor_name);
 
 	idx = CUSTOM_STATE_STORAGE[idx].state + offs;
 	if(idx >= limit)
-		I_Error("[DECORATE] Invalid custom jump '%s' + %u in '%s'!", CUSTOM_STATE_STORAGE[idx].name, offs, parse_actor_name);
+		engine_error("DECORATE", "Invalid custom jump '%s' + %u in '%s'!", CUSTOM_STATE_STORAGE[idx].name, offs, parse_actor_name);
 
 	*ptr = idx;
 }
@@ -1363,7 +1363,7 @@ static void update_custom_state(uint32_t *ptr, uint32_t limit)
 void dec_register_state_remap(uint32_t *ptr)
 {
 	if(num_custom_remaps == MAX_CUSTOM_REMAPS)
-		I_Error("[DECORATE] Too many custom states!");
+		engine_error("DECORATE", "Too many custom states!");
 	CUSTOM_STATE_REMAP[num_custom_remaps] = ptr;
 	num_custom_remaps++;
 }
@@ -1537,7 +1537,7 @@ static uint32_t spr_add_name(uint32_t name)
 	}
 
 	if(i == MAX_SPRITE_NAMES)
-		I_Error("[DECORATE] Too many sprite names!");
+		engine_error("DECORATE", "Too many sprite names!");
 
 	sprite_table[i] = name;
 
@@ -1554,7 +1554,7 @@ static uint32_t get_custom_damage(const uint8_t *name)
 			return i;
 	}
 
-	I_Error("[DECORATE] Unknown damage type '%s' in '%s'!", name, parse_actor_name);
+	engine_error("DECORATE", "Unknown damage type '%s' in '%s'!", name, parse_actor_name);
 }
 
 static uint32_t parse_attr(uint32_t type, void *dest)
@@ -1712,7 +1712,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 					break;
 			}
 			if(num.u32 >= NUM_RENDER_STYLES)
-				I_Error("[DECORATE] Unknown render style '%s' in '%s'!", kw, parse_actor_name);
+				engine_error("DECORATE", "Unknown render style '%s' in '%s'!", kw, parse_actor_name);
 			parse_mobj_info->render_style = num.u32;
 		break;
 		case DT_RENDER_ALPHA:
@@ -1747,7 +1747,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 		break;
 		case DT_POWERUP_TYPE:
 			if(parse_mobj_info->powerup.type < NUMPOWERS)
-				I_Error("[DECORATE] Powerup type specified multiple times in '%s'!", parse_actor_name);
+				engine_error("DECORATE", "Powerup type specified multiple times in '%s'!", parse_actor_name);
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
@@ -1757,7 +1757,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 					break;
 			}
 			if(num.u32 >= NUMPOWERS)
-				I_Error("[DECORATE] Unknown powerup type '%s' in '%s'!", kw, parse_actor_name);
+				engine_error("DECORATE", "Unknown powerup type '%s' in '%s'!", kw, parse_actor_name);
 			// set type
 			parse_mobj_info->powerup.type = num.u32;
 			// modify stuff
@@ -1841,7 +1841,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 				return 1;
 			num.s32 = mobj_check_type(tp_hash64(kw));
 			if(num.s32 < 0)
-				I_Error("[DECORATE] Unable to find ammo type '%s' in '%s'!", kw, parse_actor_name);
+				engine_error("DECORATE", "Unable to find ammo type '%s' in '%s'!", kw, parse_actor_name);
 			*((uint16_t*)dest) = num.s32;
 		break;
 		case DT_DAMAGE:
@@ -1854,7 +1854,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 		break;
 		case DT_DROPITEM:
 			if(parse_mobj_info->extra_type == ETYPE_PLAYERPAWN)
-				I_Error("[DECORATE] Attempt to add DropItem to player class '%s'!", parse_actor_name);
+				engine_error("DECORATE", "Attempt to add DropItem to player class '%s'!", parse_actor_name);
 			return parse_dropitem();
 		break;
 		case DT_PP_WPN_SLOT:
@@ -1919,7 +1919,7 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 		uint8_t frm;
 
 		if(*frames < 'A' || *frames > ']')
-			I_Error("[DECORATE] Invalid frame '%c' in '%s'!", *frames, parse_actor_name);
+			engine_error("DECORATE", "Invalid frame '%c' in '%s'!", *frames, parse_actor_name);
 
 		if(parse_next_state)
 			*parse_next_state = state - states;
@@ -2116,7 +2116,7 @@ static uint32_t parse_dropitem()
 	if(extra_stuff_cur)
 	{
 		if(drop != extra_stuff_next)
-			I_Error("[DECORATE] Drop item list is not contiguous in '%s'!", parse_actor_name);
+			engine_error("DECORATE", "Drop item list is not contiguous in '%s'!", parse_actor_name);
 	} else
 		extra_stuff_cur = drop;
 
@@ -2211,7 +2211,7 @@ static uint32_t parse_wpn_slot()
 
 		tmp = mobj_check_type(tp_hash64(kw));
 		if(tmp < 0)
-			I_Error("[DECORATE] Unable to find '%s' in '%s' weapon slot %u!", kw, parse_actor_name, slot);
+			engine_error("DECORATE", "Unable to find '%s' in '%s' weapon slot %u!", kw, parse_actor_name, slot);
 
 		type = dec_es_alloc(sizeof(uint16_t));
 		*type = tmp;
@@ -2249,7 +2249,7 @@ static uint32_t parse_inv_slot()
 	if(extra_stuff_cur)
 	{
 		if(item != extra_stuff_next)
-			I_Error("[DECORATE] Player start item list is not contiguous in '%s'!", parse_actor_name);
+			engine_error("DECORATE", "Player start item list is not contiguous in '%s'!", parse_actor_name);
 	} else
 		extra_stuff_cur = item;
 
@@ -2264,7 +2264,7 @@ static uint32_t parse_inv_slot()
 		return 1;
 	tmp = mobj_check_type(tp_hash64(kw));
 	if(tmp < 0)
-		I_Error("[DECORATE] Unable to find '%s' start item for '%s'!", kw, parse_actor_name);
+		engine_error("DECORATE", "Unable to find '%s' start item for '%s'!", kw, parse_actor_name);
 
 	item->type = tmp;
 
@@ -2402,7 +2402,7 @@ have_keyword:
 					return 1;
 
 				if(doom_sscanf(kw, "%u", &tics) != 1 || tics < 0 || tics > 65535)
-					I_Error("[DECORATE] Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+					engine_error("DECORATE", "Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
 
 				// next keyword
 				kw = tp_get_keyword_lc();
@@ -2464,7 +2464,7 @@ skip_math:
 		// it's a sprite
 		sprite = check_add_sprite(kw);
 		if(sprite < 0)
-			I_Error("[DECORATE] Sprite name '%s' has wrong length in '%s'!", kw, parse_actor_name);
+			engine_error("DECORATE", "Sprite name '%s' has wrong length in '%s'!", kw, parse_actor_name);
 
 		// switch to line-based parsing
 		tp_enable_newline = 1;
@@ -2479,7 +2479,7 @@ skip_math:
 			return 1;
 
 		if(doom_sscanf(kw, "%d", &tics) != 1)
-			I_Error("[DECORATE] Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+			engine_error("DECORATE", "Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
 
 		while(1)
 		{
@@ -2514,7 +2514,7 @@ skip_math:
 		add_states(sprite, wk, tics, flags);
 
 		if(kw[0] != '\n')
-			I_Error("[DECORATE] Expected newline, found '%s' in '%s'!", kw, parse_actor_name);
+			engine_error("DECORATE", "Expected newline, found '%s' in '%s'!", kw, parse_actor_name);
 
 		// next
 		tp_enable_newline = 0;
@@ -2522,11 +2522,11 @@ skip_math:
 
 	// sanity check
 	if(unfinished)
-		I_Error("[DECORATE] Unfinised animation in '%s'!", parse_actor_name);
+		engine_error("DECORATE", "Unfinised animation in '%s'!", parse_actor_name);
 
 	// state limit check
 	if(num_states >= 0x10000)
-		I_Error("[DECORATE] So. Many. States.");
+		engine_error("DECORATE", "So. Many. States.");
 
 	// create a loopback
 	// this is how ZDoom behaves
@@ -2540,7 +2540,7 @@ skip_math:
 	return 0;
 
 error_no_states:
-	I_Error("[DECORATE] Missing states for '%s' in '%s'!", kw, parse_actor_name);
+	engine_error("DECORATE", "Missing states for '%s' in '%s'!", kw, parse_actor_name);
 }
 
 //
@@ -2591,7 +2591,7 @@ static void cb_count_actors(lumpinfo_t *li)
 
 		// must get 'actor'
 		if(strcmp(kw, "actor"))
-			I_Error("[DECORATE] Expected 'actor', got '%s'!", kw);
+			engine_error("DECORATE", "Expected 'actor', got '%s'!", kw);
 
 		// actor name, case sensitive
 		kw = tp_get_keyword();
@@ -2616,7 +2616,7 @@ static void cb_count_actors(lumpinfo_t *li)
 		// check for duplicate
 		alias = tp_hash64(parse_actor_name);
 		if(mobj_check_type(alias) >= 0)
-			I_Error("[DECORATE] Multiple definitions of '%s'!", parse_actor_name);
+			engine_error("DECORATE", "Multiple definitions of '%s'!", parse_actor_name);
 
 		// add new type
 		idx = num_mobj_types;
@@ -2626,7 +2626,7 @@ static void cb_count_actors(lumpinfo_t *li)
 	}
 
 error_end:
-	I_Error("[DECORATE] Incomplete definition!");
+	engine_error("DECORATE", "Incomplete definition!");
 }
 
 static void cb_parse_actors(lumpinfo_t *li)
@@ -2646,7 +2646,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 
 		// must get 'actor'
 		if(strcmp(kw, "actor"))
-			I_Error("[DECORATE] Expected 'actor', got '%s'!", kw);
+			engine_error("DECORATE", "Expected 'actor', got '%s'!", kw);
 
 		// actor name, case sensitive
 		kw = tp_get_keyword();
@@ -2658,7 +2658,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		alias = tp_hash64(kw);
 		idx = mobj_check_type(alias);
 		if(idx < 0)
-			I_Error("[DECORATE] Loading mismatch for '%s'!", kw);
+			engine_error("DECORATE", "Loading mismatch for '%s'!", kw);
 		info = mobjinfo + idx;
 		parse_mobj_info = info;
 
@@ -2705,7 +2705,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 				// must be ammo link
 				idx = mobj_check_type(tp_hash64(kw));
 				if(idx < 0 || mobjinfo[idx].extra_type != ETYPE_AMMO)
-					I_Error("[DECORATE] Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
+					engine_error("DECORATE", "Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
 
 				// fake inheritance - only link ammo
 				etp = ETYPE_AMMO_LINK;
@@ -2730,7 +2730,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 
 			rep = mobj_check_type(tp_hash64(kw));
 			if(rep <= 0)
-				I_Error("[DECORATE] Unable to replace '%s'!", kw);
+				engine_error("DECORATE", "Unable to replace '%s'!", kw);
 
 			mobjinfo[rep].replacement = idx;
 
@@ -2754,7 +2754,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 			idx = -1;
 
 		if(kw[0] != '{')
-			I_Error("[DECORATE] Expected '{', got '%s'!", kw);
+			engine_error("DECORATE", "Expected '{', got '%s'!", kw);
 
 		// initialize mobj
 		memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
@@ -2800,7 +2800,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 					(!inheritance[etp].flag[0] || change_flag(kw, inheritance[etp].flag[0], offsetof(mobjinfo_t, eflags)) ) &&
 					(!inheritance[etp].flag[1] || change_flag(kw, inheritance[etp].flag[1], offsetof(mobjinfo_t, eflags)) )
 				)
-					I_Error("[DECORATE] Unknown flag '%s' in '%s'!", kw + 1, parse_actor_name);
+					engine_error("DECORATE", "Unknown flag '%s' in '%s'!", kw + 1, parse_actor_name);
 			} else
 			{
 				const dec_attr_t *attr = attr_mobj;
@@ -2838,11 +2838,11 @@ static void cb_parse_actors(lumpinfo_t *li)
 				}
 
 				if(!attr->name)
-					I_Error("[DECORATE] Unknown attribute '%s' in '%s'!", kw, parse_actor_name);
+					engine_error("DECORATE", "Unknown attribute '%s' in '%s'!", kw, parse_actor_name);
 
 				// parse it
 				if(parse_attr(attr->type, (void*)info + attr->offset))
-					I_Error("[DECORATE] Unable to parse value of '%s' in '%s'!", kw, parse_actor_name);
+					engine_error("DECORATE", "Unable to parse value of '%s' in '%s'!", kw, parse_actor_name);
 			}
 		}
 
@@ -2923,7 +2923,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 
 			// state limit check
 			if(num_states >= 0x10000)
-				I_Error("[DECORATE] So. Many. States.");
+				engine_error("DECORATE", "So. Many. States.");
 
 			// copy all the stuff
 			memcpy(states + idx, EXTRA_STORAGE_PTR, dec_es_ptr - EXTRA_STORAGE_PTR);
@@ -2933,9 +2933,9 @@ static void cb_parse_actors(lumpinfo_t *li)
 	}
 
 error_end:
-	I_Error("[DECORATE] Incomplete definition!");
+	engine_error("DECORATE", "Incomplete definition!");
 error_numeric:
-	I_Error("[DECORATE] Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+	engine_error("DECORATE", "Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
 }
 
 //
@@ -2967,21 +2967,21 @@ static void parse_keyconf()
 		if(!strcmp("addplayerclass", kw))
 		{
 			if(num_player_classes >= MAX_PLAYER_CLASSES)
-				I_Error("[KEYCONF] Too many player classes!");
+				engine_error("KEYCONF", "Too many player classes!");
 
 			kw = tp_get_keyword();
 			if(!kw)
-				I_Error("[KEYCONF] Incomplete definition!");
+				engine_error("KEYCONF", "Incomplete definition!");
 
 			lump = mobj_check_type(tp_hash64(kw));
 			if(lump < 0 || mobjinfo[lump].extra_type != ETYPE_PLAYERPAWN)
-				I_Error("[KEYCONF] Invalid player class '%s'!", kw);
+				engine_error("KEYCONF", "Invalid player class '%s'!", kw);
 
 			player_class[num_player_classes] = lump;
 
 			num_player_classes++;
 		} else
-			I_Error("[KEYCONF] Unknown keyword '%s'.", kw);
+			engine_error("KEYCONF", "Unknown keyword '%s'.", kw);
 	}
 }
 
@@ -3259,7 +3259,7 @@ void init_decorate()
 			}
 			info->random_weight = weight;
 			if(!weight)
-				I_Error("[DECORATE] Empty RandomSpawner!");
+				engine_error("DECORATE", "Empty RandomSpawner!");
 		}
 
 		// Inventory stuff
@@ -3288,7 +3288,7 @@ void init_decorate()
 					{
 						uint16_t type = *ptr++;
 						if(mobjinfo[type].extra_type != ETYPE_WEAPON)
-							I_Error("[DECORATE] Non-weapon in weapon slot!");
+							engine_error("DECORATE", "Non-weapon in weapon slot!");
 					}
 				}
 			break;
@@ -3296,7 +3296,7 @@ void init_decorate()
 				if(	(info->weapon.ammo_type[0] && mobjinfo[info->weapon.ammo_type[0]].extra_type != ETYPE_AMMO && mobjinfo[info->weapon.ammo_type[0]].extra_type != ETYPE_AMMO_LINK) ||
 					(info->weapon.ammo_type[1] && mobjinfo[info->weapon.ammo_type[1]].extra_type != ETYPE_AMMO && mobjinfo[info->weapon.ammo_type[1]].extra_type != ETYPE_AMMO_LINK)
 				)
-					I_Error("[DECORATE] Invalid weapon ammo!");
+					engine_error("DECORATE", "Invalid weapon ammo!");
 				info->eflags &= ~MFE_INVENTORY_INVBAR;
 			break;
 			case ETYPE_AMMO:
@@ -3310,7 +3310,7 @@ void init_decorate()
 				mobjinfo_t *ofni = mobjinfo + info->inventory.special;
 
 				if(ofni->extra_type != ETYPE_AMMO)
-					I_Error("[DECORATE] Invalid inheritted ammo!");
+					engine_error("DECORATE", "Invalid inheritted ammo!");
 
 				// copy only max amounts, for faster access later
 				info->inventory.max_count = ofni->inventory.max_count;
@@ -3357,7 +3357,7 @@ void init_decorate()
 			while(mobjinfo[type].replacement)
 			{
 				if(!tmp)
-					I_Error("[DECORATE] Too many replacements!");
+					engine_error("DECORATE", "Too many replacements!");
 				type = mobjinfo[type].replacement;
 				tmp--;
 			}
@@ -3386,7 +3386,7 @@ void init_decorate()
 		parse_keyconf();
 
 	if(!num_player_classes)
-		I_Error("No player classes defined!");
+		engine_error("KEYCONF", "No player classes defined!");
 
 	// custom states are stored in visplanes; this memory has to be cleared
 	memset(CUSTOM_STATE_STORAGE, 0, sizeof(custom_state_t) * MAX_CUSTOM_STATES);

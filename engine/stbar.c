@@ -210,7 +210,7 @@ void stbar_init()
 	return;
 
 ammo_error:
-	I_Error("[STBAR] Invalid ammo type.");
+	engine_error("STBAR", "Invalid ammo type.");
 	return;
 }
 

@@ -28,7 +28,7 @@ polyobj_t *poly_find(uint32_t id, uint32_t create)
 	polyobj_t *poly = polyobj;
 
 	if(!id || id > 255)
-		I_Error("[POLY] Invalid polyobject ID %u!", id);
+		engine_error("POLY", "Invalid polyobject ID %u!", id);
 
 	for(uint32_t i = 0; i < poly_count; i++, poly++)
 	{
@@ -37,7 +37,7 @@ polyobj_t *poly_find(uint32_t id, uint32_t create)
 	}
 
 	if(!create)
-		I_Error("[POLY] Invalid polyobject ID %u!", id);
+		engine_error("POLY", "Invalid polyobject ID %u!", id);
 
 	poly = polyobj + poly_count;
 	poly->id = id;
@@ -91,7 +91,7 @@ static uint32_t seg_search(seg_t *start, fixed_t x, fixed_t y, seg_t **dst)
 		y = pick->v1->y;
 	}
 
-	I_Error("[POLY] Unclosed polyobject!");
+	engine_error("POLY", "Unclosed polyobject!");
 }
 
 static void remove_from_subsector(seg_t *seg)
@@ -329,21 +329,21 @@ void poly_create()
 			// find polyobject
 			poly = poly_find(id, 0);
 			if(!poly)
-				I_Error("[POLY] Bad polyobject %u!", id);
+				engine_error("POLY", "Bad polyobject %u!", id);
 			poly->sndseq = seg->linedef->arg2;
 			seg->linedef->special = 0;
 			seg->linedef->arg0 = 0;
 
 			if(poly->segs)
-				I_Error("[POLY] Duplicate polyobject %u!", id);
+				engine_error("POLY", "Duplicate polyobject %u!", id);
 
 			if(!poly->subsec)
-				I_Error("[POLY] Polyobject %u has no start spot!", id);
+				engine_error("POLY", "Polyobject %u has no start spot!", id);
 
 			// count segs
 			segcount = seg_search(seg, seg->v1->x, seg->v1->y, NULL);
 			if(segcount > 255)
-				I_Error("[POLY] Too many segs in %u!", id);
+				engine_error("POLY", "Too many segs in %u!", id);
 
 			// allocate memory
 			poly->segcount = segcount;

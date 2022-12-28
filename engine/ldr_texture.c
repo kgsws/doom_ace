@@ -230,7 +230,7 @@ static uint32_t texture_load(uint8_t *name, uint32_t idx)
 				texpatch_t *tp = tex->patch + j;
 
 				if(mp->patch >= tmp_count || patch_lump[mp->patch] == 0xFFFF)
-					I_Error("[ACE] texture %.8s is missing patch", mt->name);
+					engine_error("TEXTURE", "Texture %.8s is missing patch!", mt->name);
 
 				tp->originx = mp->originx;
 				tp->originy = mp->originy;
@@ -282,7 +282,7 @@ static uint32_t load_pnames()
 	// check patch count
 	count = *((uint32_t*)ptr);
 	if(count > size)
-		I_Error("[ACE] Invalid %s!", dtxt_pnames);
+		engine_error("TEXTURE", "Invalid %s!", dtxt_pnames);
 
 	// prepare patch table
 	patch_lump = (uint16_t*)ptr;
@@ -303,6 +303,9 @@ static void cb_tx_count(lumpinfo_t *li)
 	patch_t patch;
 
 	wad_read_lump(&patch, li - lumpinfo, sizeof(patch_t));
+
+	if(*((uint64_t*)&patch) == 0xA1A0A0D474E5089)
+		engine_error("TEXTURE", "Patch '%.8s' is a PNG!", li->name);
 
 	texturewidthmask[tmp_count] = patch.width;
 	textureheight[tmp_count] = patch.height;
@@ -367,11 +370,11 @@ uint32_t count_textures()
 	if(mod_config.enable_dehacked)
 	{
 		if(!strcmp(dtxt_pnames, "PNAMES"))
-			I_Error("[ACE] Rename %s using DEHACKED!", dtxt_pnames);
+			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_pnames);
 		if(!strcmp(dtxt_texture1, "PNAMES"))
-			I_Error("[ACE] Rename %s using DEHACKED!", dtxt_texture1);
+			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_texture1);
 		if(!strcmp(dtxt_texture2, "PNAMES"))
-			I_Error("[ACE] Rename %s using DEHACKED!", dtxt_texture2);
+			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_texture2);
 	} else
 	{
 		// use hardcoded names when DEHACKED is disabled

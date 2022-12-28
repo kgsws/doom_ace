@@ -156,7 +156,7 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 	// checks
 	info = mobjinfo + type;
 	if(!inventory_is_valid(info))
-		I_Error("Invalid inventory item!");
+		engine_error("ACE", "Invalid inventory item!");
 
 	// backpack hack
 	if(	info->extra_type == ETYPE_AMMO &&
@@ -206,7 +206,7 @@ uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count)
 	// not found; create new
 	item = doom_malloc(sizeof(inventory_t));
 	if(!item)
-		I_Error("Failed to allocate memory for inventory slot!");
+		engine_error("ACE", "Failed to allocate memory for inventory slot!");
 
 	item->next = NULL;
 	item->prev = mo->inventory;
@@ -243,7 +243,7 @@ uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count)
 	// checks
 	info = mobjinfo + type;
 	if(!inventory_is_valid(info))
-		I_Error("Invalid inventory item!");
+		engine_error("ACE", "Invalid inventory item!");
 
 	// find
 	item = inventory_find(mo, type);

@@ -98,7 +98,7 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 				state += offset;
 
 			if(state >= mo->info->state_idx_limit)
-				I_Error("[MOBJ] State jump '+%u' is invalid!", offset);
+				engine_error("MOBJ", "State jump '+%u' is invalid!", offset);
 		}
 
 		if(!state)
@@ -170,7 +170,7 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 				state += offset;
 
 			if(state >= info->state_idx_limit)
-				I_Error("[MOBJ] State jump '+%u' is invalid!", offset);
+				engine_error("MOBJ", "State jump '+%u' is invalid!", offset);
 		}
 
 		if(state <= 1)
@@ -372,7 +372,7 @@ static uint32_t pick_custom_inv(mobj_t *mo, mobjinfo_t *info)
 		return 1;
 
 	if(mo->custom_inventory)
-		I_Error("Nested CustomInventory is not supported!");
+		engine_error("MOBJ", "Nested CustomInventory is not supported!");
 
 	mo->custom_inventory = info;
 	ret = mobj_inv_loop(mo, info->st_custinv.pickup);
@@ -389,7 +389,7 @@ static uint32_t use_custom_inv(mobj_t *mo, mobjinfo_t *info)
 		return 1;
 
 	if(mo->custom_inventory)
-		I_Error("Nested CustomInventory is not supported!");
+		engine_error("MOBJ", "Nested CustomInventory is not supported!");
 
 	mo->custom_inventory = info;
 	return mobj_inv_loop(mo, info->st_custinv.use);

@@ -24,7 +24,7 @@ void reader_open_lump(int32_t lump)
 	int32_t tmp;
 
 	if(ffd >= 0)
-		I_Error("[READER] Attempt to open second file!");
+		engine_error("READER", "Attempt to open second file!");
 
 	ffd = lumpinfo[lump].fd;
 	lump_offset = lumpinfo[lump].offset;
@@ -39,11 +39,11 @@ void reader_open(uint8_t *name)
 	int32_t tmp;
 
 	if(ffd >= 0)
-		I_Error("[READER] Attempt to open second file!");
+		engine_error("READER", "Attempt to open second file!");
 
 	ffd = doom_open_RD(name);
 	if(ffd < 0)
-		I_Error("[READER] Unable to open '%s'!", name);
+		engine_error("READER", "Unable to open '%s'!", name);
 
 	lump_offset = 0;
 
@@ -54,7 +54,7 @@ void reader_open(uint8_t *name)
 void reader_close()
 {
 	if(ffd < 0)
-		I_Error("[READER] Double close or something!");
+		engine_error("READER", "Double close or something!");
 
 	if(!lump_offset)
 		doom_close(ffd);
@@ -68,7 +68,7 @@ void reader_close()
 uint32_t reader_seek(uint32_t offs)
 {
 	if(lump_offset)
-		I_Error("[READER] Can not seek in lumps!");
+		engine_error("READER", "Can not seek in lumps!");
 	eptr = buffer;
 	bptr = buffer;
 	return doom_lseek(ffd, offs, SEEK_SET) < 0;
@@ -80,7 +80,7 @@ uint32_t reader_get(void *ptr, uint32_t size)
 	uint32_t avail = eptr - bptr;
 
 	if(size > BUFFER_SIZE)
-		I_Error("[READER] Attempt to read more than %uB!", BUFFER_SIZE);
+		engine_error("READER", "Attempt to read more than %uB!", BUFFER_SIZE);
 
 	if(avail >= size)
 	{
@@ -140,11 +140,11 @@ uint32_t reader_get_wame(uint64_t *ptr)
 void writer_open(uint8_t *name)
 {
 	if(ffd >= 0)
-		I_Error("[WRITER] Attempt to open second file!");
+		engine_error("READER", "Attempt to open second file!");
 
 	ffd = doom_open_WR(name);
 	if(ffd < 0)
-		I_Error("[WRITER] Unable to create '%s'!", name);
+		engine_error("READER", "Unable to create '%s'!", name);
 
 	bptr = buffer;
 }
@@ -152,7 +152,7 @@ void writer_open(uint8_t *name)
 void writer_close()
 {
 	if(ffd < 0)
-		I_Error("[WRITER] Double close or something!");
+		engine_error("WRITER", "Double close or something!");
 
 	writer_flush();
 	doom_close(ffd);
@@ -168,7 +168,7 @@ void writer_flush()
 	int32_t size, ret;
 
 	if(ffd < 0)
-		I_Error("[WRITER] File is not open!");
+		engine_error("WRITER", "File is not open!");
 
 	if(bptr == buffer)
 		return;
@@ -176,7 +176,7 @@ void writer_flush()
 	size = bptr - buffer;
 	ret = doom_write(ffd, buffer, size);
 	if(ret != size)
-		I_Error("[WRITER] Write failed!");
+		engine_error("WRITER", "Write failed!");
 
 	bptr = buffer;
 }
@@ -187,10 +187,10 @@ void writer_add(void *data, uint32_t size)
 	uint32_t left = BUFFER_SIZE - (bptr - buffer);
 
 	if(ffd < 0)
-		I_Error("[WRITER] File is not open!");
+		engine_error("WRITER", "File is not open!");
 
 	if(size > BUFFER_SIZE)
-		I_Error("[WRITER] Attempt to write more than %uB!", BUFFER_SIZE);
+		engine_error("WRITER", "Attempt to write more than %uB!", BUFFER_SIZE);
 
 	if(size > left)
 		writer_flush();
@@ -205,10 +205,10 @@ void *writer_reserve(uint32_t size)
 	void *ret;
 
 	if(ffd < 0)
-		I_Error("[WRITER] File is not open!");
+		engine_error("WRITER", "File is not open!");
 
 	if(size > BUFFER_SIZE)
-		I_Error("[WRITER] Attempt to reserve more than %uB!", BUFFER_SIZE);
+		engine_error("WRITER", "Attempt to reserve more than %uB!", BUFFER_SIZE);
 
 	if(size > left)
 		writer_flush();
@@ -227,7 +227,7 @@ void *writer_write(void *data, uint32_t size)
 
 	ret = doom_write(ffd, data, size);
 	if(ret != size)
-		I_Error("[WRITER] Write failed!");
+		engine_error("WRITER", "Write failed!");
 }
 
 void writer_add_wame(uint64_t *wame)

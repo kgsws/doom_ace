@@ -1382,6 +1382,7 @@ void hook_path_traverse();
 void hook_sound_adjust();
 void hook_masked_range_draw();
 void hook_bluescreen();
+void engine_error(uint8_t*,uint8_t*, ...) __attribute((noreturn));
 uint32_t dpmi_get_ram(); // this is modified I_ZoneBase
 void skip_message_cancel() __attribute((noreturn));
 void rng_asm_code();

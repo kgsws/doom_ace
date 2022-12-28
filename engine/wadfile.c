@@ -146,12 +146,12 @@ void wad_init()
 
 	for(uint32_t i = 0; i < MAXWADFILES && wadfiles[i]; i++)
 		wad_add(wadfiles[i]);
-
+#if 0
 	if(!numlumps)
-		I_Error("[WAD] Umm. WADs are empty ...");
-
+		engine_error("Umm. WADs are empty ...", "WAD");
+#endif
 	if(numlumps >= 65535)
-		I_Error("[WAD] Wow. Soo many lumps ...");
+		engine_error("WAD", "Wow. Soo many lumps ...");
 
 	lumpcache = ldr_malloc(numlumps * sizeof(void*));
 	memset(lumpcache, 0, numlumps * sizeof(void*));
@@ -207,7 +207,7 @@ int32_t wad_get_lump(const uint8_t *name)
 
 	idx = wad_check_lump(name);
 	if(idx < 0)
-		I_Error("[WAD] Can't find lump %s!", name);
+		engine_error("WAD", "Can't find lump %s!", name);
 
 	return idx;
 }
@@ -223,7 +223,7 @@ uint32_t wad_read_lump(void *dest, int32_t idx, uint32_t limit)
 	doom_lseek(li->fd, li->offset, SEEK_SET);
 	ret = doom_read(li->fd, dest, limit);
 	if(ret != limit)
-		I_Error("[WAD] Lump %.8s read failed!", li->name);
+		engine_error("WAD", "Lump %.8s read failed!", li->name);
 
 	return limit;
 }
@@ -234,11 +234,11 @@ void *wad_cache_lump(int32_t idx, uint32_t *size)
 	lumpinfo_t *li = lumpinfo + idx;
 
 	if(!li->size)
-		I_Error("[WAD] Lump %.8s is empty!");
+		engine_error("WAD", "Lump %.8s is empty!");
 
 	data = doom_malloc(li->size + 4); // extra space for text files
 	if(!data)
-		I_Error("[WAD] Lump %.8s allocation failed!", li->name);
+		engine_error("WAD", "Lump %.8s allocation failed!", li->name);
 
 	wad_read_lump(data, idx, li->size);
 	data[li->size] = 0; // string terminator
@@ -263,7 +263,7 @@ void *wad_cache_optional(const uint8_t *name, uint32_t *size)
 
 	data = doom_malloc(li->size + 4); // extra space for text files
 	if(!data)
-		I_Error("[WAD] Lump %.8s allocation failed!", li->name);
+		engine_error("WAD", "Lump %.8s allocation failed!", li->name);
 
 	wad_read_lump(data, idx, li->size);
 	data[li->size] = 0; // string terminator
@@ -314,7 +314,7 @@ void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))
 	}
 
 	if(is_inside)
-		I_Error("[WAD] Unclosed range %.8s / %.8s\n", range_defs[is_inside-1].u8, range_defs[is_inside+1].u8);
+		engine_error("WAD", "Unclosed range %.8s / %.8s\n", range_defs[is_inside-1].u8, range_defs[is_inside+1].u8);
 }
 
 void wad_handle_lump(const uint8_t *name, void (*cb)(lumpinfo_t*))

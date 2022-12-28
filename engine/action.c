@@ -541,7 +541,7 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 			}
 
 			if(!flag->name)
-				I_Error("[DECORATE] Unknown flag '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+				engine_error("DECORATE", "Unknown flag '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
 
 			if(is_16bit)
 				value->u16[0] |= flag->bits;
@@ -557,7 +557,7 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 			return kw;
 
 		if(kw[0] != '|')
-			I_Error("[DECORATE] Unable to parse flags for action '%s' in '%s'!", action_name, parse_actor_name);
+			engine_error("DECORATE", "Unable to parse flags for action '%s' in '%s'!", action_name, parse_actor_name);
 
 		kw = tp_get_keyword(kw, arg);
 		if(!kw)
@@ -2872,7 +2872,7 @@ void A_Burst(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	const args_singleType_t *arg = st->arg;
 
 	if(mo->player)
-		I_Error("[DECORATE] A_Burst with player connected!");
+		engine_error("DECORATE", "A_Burst with player connected!");
 
 	shatter_spawn(mo, arg->type);
 
@@ -3098,7 +3098,7 @@ uint8_t *action_parser(uint8_t *name)
 					return NULL;
 
 				if(idx >= 5)
-					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
+					engine_error("DECORATE", "Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 
 				// check for 'args' and 'PlayerNumber'
 				if(!strcmp(kw, "args"))
@@ -3112,7 +3112,7 @@ uint8_t *action_parser(uint8_t *name)
 						return NULL;
 
 					if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 4)
-						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
+						engine_error("DECORATE", "Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
 
 					kw = tp_get_keyword();
 					if(!kw || kw[0] != ']')
@@ -3173,7 +3173,7 @@ uint8_t *action_parser(uint8_t *name)
 				{
 					// parse numeric value
 					if(doom_sscanf(kw, "%u", &value) != 1 || value > 0x7FFF)
-						I_Error("[DECORATE] Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
+						engine_error("DECORATE", "Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
 				}
 
 				arg->arg[idx].value = value;
@@ -3202,7 +3202,7 @@ uint8_t *action_parser(uint8_t *name)
 		}
 
 		// not found
-		I_Error("[DECORATE] Unknown action '%s' in '%s'!", name, parse_actor_name);
+		engine_error("DECORATE", "Unknown action '%s' in '%s'!", name, parse_actor_name);
 	}
 
 	// action function
@@ -3229,7 +3229,7 @@ uint8_t *action_parser(uint8_t *name)
 		if(kw[0] != '(')
 		{
 			if(!arg->optional)
-				I_Error("[DECORATE] Missing arg[%d] for action '%s' in '%s'!", 0, name, parse_actor_name);
+				engine_error("DECORATE", "Missing arg[%d] for action '%s' in '%s'!", 0, name, parse_actor_name);
 			if(arg->optional > 1)
 			{
 				parse_action_arg = NULL;
@@ -3247,7 +3247,7 @@ uint8_t *action_parser(uint8_t *name)
 				{
 args_end:
 					if(arg->handler && !arg->optional)
-						I_Error("[DECORATE] Missing arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
+						engine_error("DECORATE", "Missing arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
 					// extra stuff
 					if(parse_action_func == A_Jump)
 					{
@@ -3269,7 +3269,7 @@ args_end:
 
 				kw = arg->handler(kw, arg);
 				if(!kw || (kw[0] != ',' && kw[0] != ')'))
-					I_Error("[DECORATE] Failed to parse arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
+					engine_error("DECORATE", "Failed to parse arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
 
 				arg++;
 
@@ -3277,7 +3277,7 @@ args_end:
 					goto args_end;
 
 				if(!arg->handler)
-					I_Error("[DECORATE] Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
+					engine_error("DECORATE", "Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 			}
 		}
 	}

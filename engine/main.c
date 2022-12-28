@@ -54,6 +54,8 @@ static uint32_t ace_wad_type;
 uint8_t *screen_buffer;
 uint32_t old_game_mode;
 
+uint8_t *error_module;
+
 static gfx_loading_t *loading;
 
 static uint_fast8_t dev_mode;
@@ -98,7 +100,7 @@ void *ldr_malloc(uint32_t size)
 
 	ret = doom_malloc(size);
 	if(!ret)
-		I_Error("[ACE] %s memory allocation failed! (%uB)", ldr_alloc_message, size);
+		engine_error("LOADER", "%s memory allocation failed! (%uB)", ldr_alloc_message, size);
 
 	return ret;
 }
@@ -109,7 +111,7 @@ void *ldr_realloc(void *ptr, uint32_t size)
 
 	ret = doom_realloc(ptr, size);
 	if(!ret)
-		I_Error("%s memory allocation failed! (%uB)", ldr_alloc_message, size);
+		engine_error("LOADER", "%s memory allocation failed! (%uB)", ldr_alloc_message, size);
 
 	return ret;
 }
@@ -414,19 +416,25 @@ uint32_t ace_main()
 
 static void bs_puts(uint32_t x, uint32_t y, uint8_t *text)
 {
+	// 'ace_wad_type' is reused as text attributes
 	uint16_t *dst;
+	uint32_t xx = x;
 
 	dst = (uint16_t*)0xB8000 + x + y * 80;
 
 	while(*text)
 	{
-		*dst++ = ace_wad_type | *text;
-		text++;
-		x++;
-		if(x >= 74)
+		uint8_t in = *text++;
+		if(in == '\n')
+			goto next_line;
+		else
+			*dst++ = ace_wad_type | in;
+		xx++;
+		if(xx >= 74)
 		{
-			x = 6;
-			dst += 12;
+next_line:
+			dst += (80 - xx) + x;
+			xx = x;
 		}
 	}
 }
@@ -435,27 +443,11 @@ __attribute((noreturn))
 void bluescreen()
 {
 	uint8_t *text = (void*)d_drawsegs;
-	uint8_t *module;
 
-	if(text[0] == '[')
-	{
-		module = text;
+	if(!error_module)
+		error_module = "idtech1.";
 
-		while(*text && *text != ']')
-			text++;
-		if(*text)
-		{
-			text++;
-			if(*text)
-			{
-				*text = 0;
-				text++;
-			}
-		}
-	} else
-		module = "idtech1.";
-
-	doom_printf("I_Error:\n%s %s\n", module, text);
+	doom_printf("[%s] %s\n", error_module, text);
 
 	for(uint16_t *dst = (uint16_t*)0xB8000; dst < (uint16_t*)0xB8FA0; dst++)
 		*dst = 0x1720;
@@ -466,18 +458,10 @@ void bluescreen()
 	bs_puts(12, 10, "An error has occurred. There is not much you can do now.");
 	bs_puts(12, 12, "Module that caused this error is");
 	bs_puts(23, 20, "Type 'cls' to clear the screen ...");
-	bs_puts(45, 12, module);
+	bs_puts(45, 12, error_module);
 	bs_puts(6, 15, text);
 
 	dos_exit(1);
-}
-
-__attribute((regparm(2),noreturn))
-void zone_alloc_fail(uint32_t unused, uint32_t available)
-{
-	unused = (available & 0xFFFFF) / 10486;
-	available >>= 20;
-	I_Error("[out of memory] Minimum is %u MiB but only %u.%02u MiB is available.", mod_config.mem_min, available, unused);
 }
 
 //
@@ -528,6 +512,7 @@ void Z_Init()
 	// possible to get large enough block to cover entire RAM.
 	memblock_t *block;
 	memblock_t *blother = NULL;
+	uint32_t total, check;
 
 	if(old_zone_size < 0x00800000)
 	{
@@ -537,11 +522,13 @@ void Z_Init()
 
 		mainzone = zone_alloc(&size);
 		if(!mainzone)
-			I_Error("[ZONE] Allocation failed!");
+			engine_error("ZONE", "Allocation failed!");
 
 		doom_printf("[ZONE] 0x%08X at 0x%08X\n", size, mainzone);
 
 		mainzone->size = size;
+
+		total = size;
 	} else
 	{
 		// allocate zone in two blocks
@@ -564,7 +551,7 @@ void Z_Init()
 		// first
 		p0 = zone_alloc(&sz0);
 		if(!p0)
-			I_Error("[ZONE] Allocation failed!");
+			engine_error("ZONE", "Allocation failed!");
 
 		// second
 		p1 = zone_alloc(&sz1);
@@ -572,6 +559,8 @@ void Z_Init()
 		// info
 		doom_printf("[ZONE] 0x%08X at 0x%08X\n", sz0, p0);
 		doom_printf("[ZONE] 0x%08X at 0x%08X\n", sz1, p1);
+
+		total = sz0 + sz1;
 
 		// prepare zone
 		if(p1 > p0 || !p1)
@@ -590,6 +579,37 @@ void Z_Init()
 			blother = p0;
 			blother->size = sz0;
 		}
+	}
+
+	check = (uint32_t)mod_config.mem_min * 1024 * 1024;
+	if(!check)
+		check = 512 * 1024 * 1024;
+	if(total < check && !M_CheckParm("-lowzone"))
+	{
+		uint32_t dec;
+		uint8_t s0, s1;
+
+		if(total < 1024 * 1024)
+		{
+			s1 = 'k';
+			total <<= 10;
+		} else
+			s1 = 'M';
+
+		dec = (total & 0xFFFFF) / 10486;
+		total >>= 20;
+
+		if(mod_config.mem_min)
+		{
+			s0 = 'M';
+			check = mod_config.mem_min;
+		} else
+		{
+			s0 = 'k';
+			check = 512;
+		}
+
+		engine_error("ZONE", "Not enough memory!\nMinimum is %u %ciB but only %u.%02u %ciB is available.\nYou can skip this check using parameter '%s'.", check, s0, total, dec, s1, "-lowzone");
 	}
 
 	block = (memblock_t*)((void*)mainzone + sizeof(memzone_t));
@@ -613,10 +633,9 @@ void Z_Init()
 		uint32_t gap;
 
 		gap = (void*)blother - (void*)block;
+		gap -= block->size;
 
 		doom_printf("[ZONE] Skip 0x%08X\n", gap);
-
-		gap -= block->size;
 
 		block->size -= sizeof(memblock_t);
 		blk = (void*)block + block->size;
@@ -709,8 +728,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001B830, CODE_HOOK | HOOK_UINT8, 0xC3},
 	// bluescreen 'I_Error' update
 	{0x0001AB32, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hook_bluescreen},
-	// change low RAM error in 'I_ZoneBase'
-	{0x0001ACC0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)zone_alloc_fail},
 	// read stuff
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},

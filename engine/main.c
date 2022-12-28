@@ -58,6 +58,8 @@ static gfx_loading_t *loading;
 
 static uint_fast8_t dev_mode;
 
+static uint32_t old_zone_size;
+
 //
 static const hook_t restore_loader[];
 
@@ -96,7 +98,7 @@ void *ldr_malloc(uint32_t size)
 
 	ret = doom_malloc(size);
 	if(!ret)
-		I_Error("%s memory allocation failed! (%uB)", ldr_alloc_message, size);
+		I_Error("[ACE] %s memory allocation failed! (%uB)", ldr_alloc_message, size);
 
 	return ret;
 }
@@ -122,29 +124,6 @@ void ldr_dump_buffer(const uint8_t *path, void *buff, uint32_t size)
 
 	doom_write(fd, buff, size);
 	doom_close(fd);
-}
-
-static void count_textures()
-{
-	uint32_t temp;
-	int32_t idx;
-	uint32_t count = 0;
-
-	idx = wad_check_lump("TEXTURE1");
-	if(idx >= 0)
-	{
-		wad_read_lump(&temp, idx, 4);
-		count += temp;
-	}
-
-	idx = wad_check_lump("TEXTURE2");
-	if(idx >= 0)
-	{
-		wad_read_lump(&temp, idx, 4);
-		count += temp;
-	}
-
-	loading->count_texture = count;
 }
 
 //
@@ -243,7 +222,7 @@ uint32_t ace_main()
 #endif
 
 	// title
-	doom_printf("                          -= ACE Engine by kgsws =-\n[ACE] CODE: 0x%08X DATA: 0x%08X ACE: 0x%08X+0x1004\n", doom_code_segment, doom_data_segment, ace_segment);
+	doom_printf("-= ACE Engine by kgsws =-\nCODE: 0x%08X DATA: 0x%08X ACE: 0x%08X+0x1004\n", doom_code_segment, doom_data_segment, ace_segment);
 
 	// install hooks
 	utils_init();
@@ -252,20 +231,6 @@ uint32_t ace_main()
 	_hack_show_ram();
 	doom_printf("\n");
 #endif
-
-	// WAD file
-	// - check if ACE is IWAD of PWAD
-	if(ace_wad_type == 0x44415749)
-	{
-		// replace IWAD with ACE WAD
-		wadfiles[0] = ace_wad_name;
-	} else
-	{
-		// insert ACE WAD file to the list
-		for(uint32_t i = MAXWADFILES-2; i > 0; i--)
-			wadfiles[i+1] = wadfiles[i];
-		wadfiles[1] = ace_wad_name;
-	}
 
 #ifdef RAM_DEBUG
 	_hack_show_ram();
@@ -304,10 +269,20 @@ uint32_t ace_main()
 	gfx_progress(0);
 
 	//
+	// early stuff
+
+	// config
+	init_config();
+
+	// dehacked
+	init_dehacked();
+	gfx_progress(-1);
+
+	//
 	// count EVERYTHING
 
 	// count textures
-	count_textures();
+	loading->count_texture += count_textures();
 	loading->counter_value = 0;
 	wad_handle_range(0x5854, cb_counter);
 	loading->count_texture += loading->counter_value;
@@ -350,15 +325,8 @@ uint32_t ace_main()
 	// random
 	init_rng();
 
-	// config
-	init_config();
-
 	// render
 	init_render();
-
-	// dehacked
-	init_dehacked();
-	gfx_progress(-1);
 
 #ifdef RAM_DEBUG
 	_hack_show_ram();
@@ -551,6 +519,22 @@ void late_init()
 	stbar_init();
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void data_init()
+{
+	tex_init_data();
+	flat_init_data();
+	spr_init_data();
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t zone_memory(uint32_t size)
+{
+	size += old_zone_size;
+	doom_printf("[ZONE] 0x%08X", size);
+	return size;
+}
+
 static const hook_t restore_loader[] =
 {
 	// 'I_Error' patch
@@ -566,8 +550,17 @@ static const hook_t restore_loader[] =
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// save old zone size - passed by loader in 'drawsegs'
+	{0x0002D0A0, DATA_HOOK | HOOK_READ32, (uint32_t)&old_zone_size},
+	// data init stuff; 'R_InitData' was overwritten by the exploit
+	{0x00035D83, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)data_init},
 	// late init stuff
 	{0x0001E950, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)late_init},
+	// hook 'I_ZoneBase' memory check
+	{0x0001AC7C, CODE_HOOK | HOOK_UINT16, 0xD089},
+	{0x0001AC7E, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)zone_memory},
+	{0x0001AC83, CODE_HOOK | HOOK_UINT16, 0xC289},
+	{0x0001AC85, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// restore stuff, hook 'I_StartupSound'
 	{0x0001AA7A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)ldr_restore},
 	// add custom loading, skip "commercial" text and PWAD warning

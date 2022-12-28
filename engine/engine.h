@@ -442,6 +442,28 @@ typedef struct
 } wadlump_t;
 
 //
+// watcom
+
+typedef struct heap_block_s
+{
+	uint32_t size;
+	struct heap_block_s *prev;
+	struct heap_block_s *next;
+} heap_block_t;
+
+typedef struct
+{
+	uint32_t unk0;
+	uint32_t unk1;
+	heap_block_t *block;
+	uint32_t unk3;
+	uint32_t unk4;
+	uint32_t unk5;
+	uint32_t unk6;
+	heap_block_t rover;
+} heap_base_t;
+
+//
 // info
 
 enum

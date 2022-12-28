@@ -78,8 +78,11 @@ int32_t flat_num_get(const uint8_t *name)
 	return ret;
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
-void R_InitFlats()
+//
+// API
+
+__attribute((regparm(2),no_caller_saved_registers))
+void flat_init_data()
 {
 	// find transparent color in texture based flats; for transparent extra floors
 	for(uint32_t i = 0; i < num_texture_flats; i++)
@@ -126,9 +129,6 @@ void R_InitFlats()
 		}
 	}
 }
-
-//
-// API
 
 __attribute((regparm(2),no_caller_saved_registers))
 int32_t flat_num_check(const uint8_t *name)
@@ -180,6 +180,8 @@ void init_flats()
 	tmp_count = 0;
 	wad_handle_range('F', cb_count);
 
+	doom_printf("[ACE] preparing %u flats\n", tmp_count);
+
 	flattranslation = ldr_malloc(tmp_count * sizeof(uint16_t));
 	flatlump = ldr_malloc(tmp_count * sizeof(uint16_t));
 	numflats = tmp_count;
@@ -202,30 +204,33 @@ void init_flats()
 	}
 
 	// prepare those textures
-	flattexture_data = ldr_malloc(num_texture_flats * sizeof(uint8_t*));
-	flattexture_idx = ldr_malloc(num_texture_flats * sizeof(uint16_t));
-	flattexture_mask = ldr_malloc(num_texture_flats * sizeof(uint8_t));
-
-	num_texture_flats = 0;
-	for(uint32_t i = 0; i < numtextures; i++)
-	{
-		texture_t *tex = textures[i];
-
-		if(tex->width != 64)
-			continue;
-
-		if(tex->height != 64)
-			continue;
-
-		flattexture_data[num_texture_flats] = NULL;
-		flattexture_idx[num_texture_flats] = i;
-		flattexture_mask[num_texture_flats] = 0;
-
-		num_texture_flats++;
-	}
-
 	if(num_texture_flats)
-		doom_printf("[ACE] %u flat textures\n", num_texture_flats);
+	{
+		flattexture_data = ldr_malloc(num_texture_flats * sizeof(uint8_t*));
+		flattexture_idx = ldr_malloc(num_texture_flats * sizeof(uint16_t));
+		flattexture_mask = ldr_malloc(num_texture_flats * sizeof(uint8_t));
+
+		num_texture_flats = 0;
+		for(uint32_t i = 0; i < numtextures; i++)
+		{
+			texture_t *tex = textures[i];
+
+			if(tex->width != 64)
+				continue;
+
+			if(tex->height != 64)
+				continue;
+
+			flattexture_data[num_texture_flats] = NULL;
+			flattexture_idx[num_texture_flats] = i;
+			flattexture_mask[num_texture_flats] = 0;
+
+			num_texture_flats++;
+		}
+
+		if(num_texture_flats)
+			doom_printf("[ACE] %u flat textures\n", num_texture_flats);
+	}
 }
 
 void *flat_generate_composite(uint32_t idx)
@@ -309,8 +314,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace 'R_FlatNumForName'
 	{0x00034690, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)flat_num_get},
-	// replace call to 'R_InitFlats' in 'R_InitData'
-	{0x00034622, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_InitFlats},
 	// replace call to 'W_CacheLumpNum' in 'R_PrecacheLevel' (flat caching)
 	{0x0003483C, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)precache_flat},
 };

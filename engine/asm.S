@@ -14,10 +14,7 @@
 // %esi - CODE segment base
 // %edi - DATA segment base
 _start:
-	// loader already backed-up all registers
-
 	// get ACE base
-	mov	(%esp),%ecx
 	sub	$0x1004,%ecx	// compensate for VMA offset (set in linker script) and bss_size
 	mov	%ecx,ace_segment(%ecx)
 
@@ -117,7 +114,10 @@ bss_end:
 	// run custom code
 	call	ace_main
 
-	// continue loading Doom
+	// continue from after 'M_LoadDefaults'
+	mov	doom_data_segment,%eax
+	add	$0x00085BF4,%eax
+	mov	%eax,%esp
 	mov	doom_code_segment,%eax
 	add	$0x0001E4B1,%eax
 	jmp	*%eax

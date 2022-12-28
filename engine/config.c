@@ -255,11 +255,6 @@ void init_config()
 		doom_printf("[ACE] loading game config ...\n");
 		tp_enable_script = 0;
 		while(parse_value(config_game));
-	} else
-	{
-		// try to load original config
-		doom_printf("[ACE] loading DOOM config ...\n");
-		M_LoadDefaults();
 	}
 
 	// forced values

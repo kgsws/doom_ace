@@ -2420,6 +2420,7 @@ void init_render()
 	if(mod_config.e3dplane_count < 16)
 		mod_config.e3dplane_count = 16;
 	e3d_init(mod_config.e3dplane_count);
+	ldr_alloc_message = "Render";
 
 	//
 	// PASS 1
@@ -2756,8 +2757,6 @@ static hook_t hook_vissprite[] =
 // hooks
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// disable 'R_InitColormaps' in 'R_InitData'
-	{0x00034646, CODE_HOOK | HOOK_UINT8, 0xC3},
 	// disable 'R_InitTranslationTables' in 'R_Init'
 	{0x00035E08, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace call to 'R_RenderPlayerView' in 'D_Display'

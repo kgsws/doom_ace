@@ -115,13 +115,6 @@ void *vissprite_cache_lump(uint32_t idx)
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void load_sprites()
-{
-	tmp_count = 0;
-	wad_handle_range('S', cb_s_load);
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
 void *precache_setup_sprites(uint8_t *buff)
 {
 	// optionally, it is possible to precache every sprite used in any state
@@ -164,13 +157,18 @@ void init_sprites(uint32_t count)
 	install_sprites(count);
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+void spr_init_data()
+{
+	tmp_count = 0;
+	wad_handle_range('S', cb_s_load);
+}
+
 //
 // hooks
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// replace call to 'R_InitSpriteLumps' in 'R_InitData'
-	{0x00034634, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)load_sprites},
 	// disable call to 'R_InitSpriteDefs' in 'R_InitSprites'
 	{0x00037A4B, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace call to 'W_CacheLumpNum' in 'R_DrawVisSprite'

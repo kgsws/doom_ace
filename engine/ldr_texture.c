@@ -5,6 +5,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "config.h"
 #include "wadfile.h"
 #include "ldr_texture.h"
 
@@ -64,6 +65,8 @@ uint8_t *textureheightpow;
 
 static uint16_t *patch_lump;
 static uint32_t tmp_count;
+
+static uint_fast8_t have_doomtex;
 
 // internal textures
 
@@ -148,16 +151,6 @@ uint64_t texture_get_name(uint32_t idx)
 		return 0;
 
 	return textures[idx]->wame;
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void load_textures()
-{
-	for(uint32_t i; i < tmp_count; i++)
-	{
-		R_GenerateLookup(i);
-		gfx_progress(1);
-	}
 }
 
 //
@@ -274,13 +267,13 @@ static uint32_t texture_load(uint8_t *name, uint32_t idx)
 	return idx;
 }
 
-static void load_pnames()
+static uint32_t load_pnames()
 {
 	uint8_t *ptr;
 	uint32_t size, count;
 
 	// load PNAMES
-	ptr = wad_cache_lump(wad_get_lump("PNAMES"), &size);
+	ptr = wad_cache_lump(wad_get_lump(dtxt_pnames), &size);
 
 	// get entry count from size
 	size -= sizeof(uint32_t);
@@ -289,7 +282,7 @@ static void load_pnames()
 	// check patch count
 	count = *((uint32_t*)ptr);
 	if(count > size)
-		I_Error("[ACE] invalid PNAMES");
+		I_Error("[ACE] Invalid %s!", dtxt_pnames);
 
 	// prepare patch table
 	patch_lump = (uint16_t*)ptr;
@@ -362,6 +355,56 @@ static void cb_tx_load(lumpinfo_t *li)
 //
 // API
 
+uint32_t count_textures()
+{
+	uint32_t temp;
+	int32_t idx;
+	uint32_t count = 0;
+
+	//
+	// check what exploit broke first
+
+	if(mod_config.enable_dehacked)
+	{
+		if(!strcmp(dtxt_pnames, "PNAMES"))
+			I_Error("[ACE] Rename %s using DEHACKED!", dtxt_pnames);
+		if(!strcmp(dtxt_texture1, "PNAMES"))
+			I_Error("[ACE] Rename %s using DEHACKED!", dtxt_texture1);
+		if(!strcmp(dtxt_texture2, "PNAMES"))
+			I_Error("[ACE] Rename %s using DEHACKED!", dtxt_texture2);
+	} else
+	{
+		// use hardcoded names when DEHACKED is disabled
+		strcpy(dtxt_pnames, "PATCHES");
+		strcpy(dtxt_texture1, "DOOMTEX1");
+		strcpy(dtxt_texture2, "DOOMTEX2");
+	}
+
+	//
+	// count textures
+
+	if(wad_check_lump(dtxt_pnames) < 0)
+		return 0;
+
+	idx = wad_check_lump(dtxt_texture1);
+	if(idx >= 0)
+	{
+		wad_read_lump(&temp, idx, 4);
+		count += temp;
+		have_doomtex = 1;
+	}
+
+	idx = wad_check_lump(dtxt_texture2);
+	if(idx >= 0)
+	{
+		wad_read_lump(&temp, idx, 4);
+		count += temp;
+		have_doomtex = 1;
+	}
+
+	return count;
+}
+
 void init_textures(uint32_t count)
 {
 	// To avoid unnecessary memory fragmentation, this function does multiple passes.
@@ -391,9 +434,12 @@ void init_textures(uint32_t count)
 	//
 	// PASS 2
 
-	// get size of each texture[x]
-	idx = texture_size_check("TEXTURE1", 0);
-	tmp_count = texture_size_check("TEXTURE2", idx);
+	if(have_doomtex)
+	{
+		// get size of each texture[x]
+		idx = texture_size_check(dtxt_texture1, 0);
+		tmp_count = texture_size_check(dtxt_texture2, idx);
+	}
 
 	// textures in TX_* block
 	wad_handle_range(0x5854, cb_tx_count);
@@ -408,14 +454,19 @@ void init_textures(uint32_t count)
 	//
 	// PASS 4
 
-	load_pnames();
+	if(have_doomtex)
+		load_pnames();
 
 	//
 	// PASS 5
 
-	// load TEXTUREx info
-	idx = texture_load("TEXTURE1", 0);
-	tmp_count = texture_load("TEXTURE2", idx);
+	if(have_doomtex)
+	{
+		// load TEXTUREx info
+		idx = texture_load(dtxt_texture1, 0);
+		tmp_count = texture_load(dtxt_texture2, idx);
+	} else
+		tmp_count = 0;
 
 	// load TX_* info
 	wad_handle_range(0x5854, cb_tx_load);
@@ -423,7 +474,8 @@ void init_textures(uint32_t count)
 	//
 	// PASS 6
 
-	doom_free(patch_lump);
+	if(patch_lump)
+		doom_free(patch_lump);
 
 	// add internal textures
 	for(uint32_t i = 0; i < EXTRA_TEXTURES; i++, tmp_count++)
@@ -464,6 +516,16 @@ void init_textures(uint32_t count)
 	return;
 }
 
+__attribute((regparm(2),no_caller_saved_registers))
+void tex_init_data()
+{
+	for(uint32_t i; i < tmp_count; i++)
+	{
+		R_GenerateLookup(i);
+		gfx_progress(1);
+	}
+}
+
 uint8_t *texture_get_column(uint32_t tex, uint32_t col)
 {
 	int32_t lump;
@@ -491,8 +553,6 @@ uint8_t *texture_get_column(uint32_t tex, uint32_t col)
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// replace call to 'R_InitTextures' in 'R_InitData'
-	{0x00034610, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)load_textures},
 	// replace 'R_TextureNumForName'
 	{0x00034750, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)texture_num_get},
 };

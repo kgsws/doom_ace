@@ -857,6 +857,8 @@ uint32_t menu_check_message()
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// disable call to 'M_Init' - it was already called
+	{0x0001E74D, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace item and cursor drawer
 	{0x00023E96, CODE_HOOK | HOOK_UINT16, 0xF889},
 	{0x00023E98, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)menu_items_draw},

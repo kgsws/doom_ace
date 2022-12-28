@@ -13,6 +13,7 @@ extern mapthing_t deathmatchstarts[];
 extern mapthing_t *deathmatch_p;
 
 // stuff
+extern heap_base_t heap_base;
 extern uint8_t *screen_buffer;
 extern uint32_t message_is_important;
 
@@ -383,6 +384,9 @@ extern vissprite_t d_vissprites[];
 extern visplane_t d_visplanes[];
 
 // strings
+extern uint8_t dtxt_pnames[];
+extern uint8_t dtxt_texture1[];
+extern uint8_t dtxt_texture2[];
 extern uint8_t dtxt_colormap[];
 extern uint64_t dtxt_skull_name[];
 extern uint8_t dtxt_m_option[];

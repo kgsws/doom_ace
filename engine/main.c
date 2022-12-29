@@ -461,6 +461,16 @@ void bluescreen()
 	bs_puts(45, 12, error_module);
 	bs_puts(6, 15, text);
 
+#if 0
+	for(memblock_t *block = mainzone->blocklist.next; ; block = block->next)
+	{
+		doom_printf("BLOCK 0x%08X; size %uB tag %u used %u\n", block, block->size, block->tag, !!block->user);
+
+		if(block->next == &mainzone->blocklist)
+			break;
+	}
+#endif
+
 	dos_exit(1);
 }
 
@@ -512,8 +522,15 @@ void Z_Init()
 	// possible to get large enough block to cover entire RAM.
 	memblock_t *block;
 	memblock_t *blother = NULL;
+	void *reserved;
 	uint32_t total, check;
 
+	// make sure there's a bit of heap left
+	reserved = doom_malloc(0x8000);
+	if(!reserved)
+		engine_error("ZONE", "Allocation failed!");
+
+	// pick allocation method
 	if(old_zone_size < 0x00800000)
 	{
 		// original zone was less than 8MiB
@@ -655,6 +672,9 @@ void Z_Init()
 
 		block->next = blk;
 	}
+
+	// release reserved bit
+	doom_free(reserved);
 }
 
 //

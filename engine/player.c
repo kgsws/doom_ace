@@ -155,14 +155,14 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 	if(slot == BT_ACT_INV_PREV)
 	{
 		pl->inv_tick = PLAYER_INVBAR_TICS;
-		inv_player_next(pl->mo);
+		inv_player_prev(pl->mo);
 		return;
 	}
 
 	if(slot == BT_ACT_INV_NEXT)
 	{
 		pl->inv_tick = PLAYER_INVBAR_TICS;
-		inv_player_prev(pl->mo);
+		inv_player_next(pl->mo);
 		return;
 	}
 
@@ -173,10 +173,17 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 		return;
 	}
 
-	if(slot == BT_ACT_JUMP && pl->mo->info->player.jump_z && pl->mo->z <= pl->mo->floorz)
+	if(slot == BT_ACT_JUMP)
 	{
-		pl->mo->momz += pl->mo->info->player.jump_z;
-		S_StartSound(pl->mo, pl->mo->info->player.sound.jump);
+		if(pl->mo->flags & MF_NOGRAVITY)
+		{
+			// i don't have a good solution for this
+		} else
+		if(pl->mo->info->player.jump_z && pl->mo->z <= pl->mo->floorz)
+		{
+			pl->mo->momz += pl->mo->info->player.jump_z;
+			S_StartSound(pl->mo, pl->mo->info->player.sound.jump);
+		}
 	}
 
 	slot--;
@@ -427,7 +434,7 @@ void player_think(player_t *pl)
 
 		onground = (pl->mo->z <= pl->mo->floorz);
 
-		if(pl->mo->flags & MF_NOGRAVITY)
+		if(pl->mo->flags & MF_NOGRAVITY && pl->mo->pitch)
 		{
 			scale = 2048;
 
@@ -447,7 +454,7 @@ void player_think(player_t *pl)
 			}
 		} else
 		{
-			scale = onground ? 2048 : 8;
+			scale = (onground || pl->mo->flags & MF_NOGRAVITY) ? 2048 : 8;
 
 			if(cmd->forwardmove)
 			{

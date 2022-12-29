@@ -1038,7 +1038,7 @@ uint32_t map_load_setup()
 		if(lump >= 0)
 		{
 			patch_t *patch;
-			patch = W_CacheLumpNum(lump, PU_STATIC);
+			patch = W_CacheLumpNum(lump, PU_CACHE);
 			V_DrawPatchDirect(0, 0, patch);
 			I_FinishUpdate();
 		}

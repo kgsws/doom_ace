@@ -188,7 +188,8 @@ typedef uint32_t angle_t;
 #define PU_STATIC	1
 #define PU_LEVEL	50
 #define PU_LEVELSPEC	51
-#define PU_LEVEL_INV	52	// mobj inventory
+#define PU_LEVEL_E3D	52	// extra floors
+#define PU_LEVEL_INV	53	// mobj inventory
 #define	PU_PURGELEVEL	100
 #define PU_CACHE	101
 

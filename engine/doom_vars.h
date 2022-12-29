@@ -13,6 +13,8 @@ extern mapthing_t deathmatchstarts[];
 extern mapthing_t *deathmatch_p;
 
 // stuff
+extern uint32_t doom_stdin[];
+extern uint32_t doom_stdout[];
 extern heap_base_t heap_base;
 extern memzone_t *mainzone;
 extern uint8_t *screen_buffer;

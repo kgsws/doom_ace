@@ -47,7 +47,7 @@ void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t 
 		pl = pl->next;
 	}
 
-	new = Z_Malloc(sizeof(extraplane_t), PU_LEVEL, NULL);
+	new = Z_Malloc(sizeof(extraplane_t), PU_LEVEL_E3D, NULL);
 	*dest = new;
 	new->next = pl;
 	new->line = line;
@@ -83,7 +83,7 @@ void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_
 		pl = pl->next;
 	}
 
-	new = Z_Malloc(sizeof(extraplane_t), PU_LEVEL, NULL);
+	new = Z_Malloc(sizeof(extraplane_t), PU_LEVEL_E3D, NULL);
 	*dest = new;
 	new->next = pl;
 	new->line = line;
@@ -762,8 +762,8 @@ void e3d_create()
 	extra_clip_count = top_count * SCREENWIDTH;
 	if(extra_clip_count)
 	{
-		e3d_floorclip = Z_Malloc(extra_clip_count * sizeof(int16_t), PU_LEVEL, NULL);
-		e3d_ceilingclip = Z_Malloc(extra_clip_count * sizeof(int16_t), PU_LEVEL, NULL);
+		e3d_floorclip = Z_Malloc(extra_clip_count * sizeof(int16_t), PU_LEVEL_E3D, NULL);
+		e3d_ceilingclip = Z_Malloc(extra_clip_count * sizeof(int16_t), PU_LEVEL_E3D, NULL);
 	}
 
 	// allocate extra heights
@@ -771,7 +771,7 @@ void e3d_create()
 	{
 		height_count++;
 		height_count *= 2;
-		e3d_heights = Z_Malloc(height_count * sizeof(extra_height_t), PU_LEVEL, NULL);
+		e3d_heights = Z_Malloc(height_count * sizeof(extra_height_t), PU_LEVEL_E3D, NULL);
 	}
 }
 

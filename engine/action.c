@@ -1536,7 +1536,7 @@ void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	fixed_t speed;
 
-	if(mo->target == mo || (mo && mo->target->flags1 & MF1_NOTARGET))
+	if(mo->target == mo || (mo->target && mo->target->flags1 & MF1_NOTARGET))
 		mo->target = NULL;
 
 	if(mo->info->fast_speed && fastparm || gameskill == sk_nightmare)

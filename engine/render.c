@@ -441,7 +441,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			pl = pl->next;
 		}
 
-		// font
+		// front
 		if(!texnum)
 		{
 			pl = frontsector->exfloor;
@@ -584,7 +584,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			if(texnum >= 0)
 			{
 				data = texture_get_column(texnum, tcol[dc_x] & 0x7FFF);
-				if(tex_was_composite || (height < 0 && data[-2] >= height))
+				if(tex_was_composite || (height < 0 && !data[-3] && data[-2] >= textures[texnum]->height))
 					draw_solid_column(data, mfc, mcc, height);
 				else
 					draw_masked_column((column_t*)(data - 3), mfc, mcc);
@@ -1280,6 +1280,7 @@ static void R_DrawPlanes()
 	{
 		if(pl->picnum == skyflatnum)
 		{
+			set_column_height(skytexture);
 			dc_iscale = pspriteiscale;
 			dc_colormap = fixedcolormap ? fixedcolormap : colormaps;
 			dc_texturemid = skytexturemid;

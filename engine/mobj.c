@@ -636,6 +636,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		uint32_t secretcount;
 		uint32_t is_cheater;
 		uint32_t extra_inv;
+		int32_t inv_sel;
 		inventory_t *inventory;
 		mobjinfo_t *weapon;
 
@@ -643,6 +644,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		{
 			weapon = pl->readyweapon;
 			inventory = pl->inventory;
+			inv_sel = pl->inv_sel;
 			extra_inv = pl->backpack;
 			extra_inv |= !!pl->powers[pw_allmap] << 1;
 			reborn_inventory_hack = 0;
@@ -681,6 +683,10 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		{
 			pl->inv_sel = -1;
 
+			// required for inventory allocation
+			pl->mo = mo;
+			mo->player = pl;
+
 			// default inventory
 			for(plrp_start_item_t *si = info->start_item.start; si < (plrp_start_item_t*)info->start_item.end; si++)
 			{
@@ -705,6 +711,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 			}
 		} else
 		{
+			pl->inv_sel = inv_sel;
 			pl->readyweapon = weapon;
 			pl->pendingweapon = weapon;
 			pl->backpack = extra_inv & 1;
@@ -2482,7 +2489,6 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 	mo->flags &= ~MF_TELEPORT;
 	if(blocked)
 	{
-doom_printf("Was Blocked!\n");
 		if(flags & TELEF_NO_KILL)
 			goto revert;
 

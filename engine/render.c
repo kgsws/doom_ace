@@ -297,7 +297,11 @@ static void setup_colfunc_tint(uint16_t alpha)
 {
 	if(alpha > 255)
 	{
-		colfunc = R_DrawColumnTint0;
+		// this is a hack for extra floors
+		if(alpha > 256)
+			colfunc = R_DrawColumnTint1;
+		else
+			colfunc = R_DrawColumnTint0;
 		dr_tinttab = render_add;
 		return;
 	}
@@ -1079,7 +1083,10 @@ void R_DrawVisSprite(vissprite_t *vis)
 				setup_colfunc_tint(vis->mo->render_alpha);
 			break;
 			case RS_ADDITIVE:
-				colfunc = R_DrawColumnTint0;
+				if(vis->mo->render_alpha > 127)
+					colfunc = R_DrawColumnTint1;
+				else
+					colfunc = R_DrawColumnTint0;
 				dr_tinttab = render_add;
 			break;
 		}
@@ -1946,15 +1953,21 @@ static void generate_additive(uint8_t *dest)
 		{
 			uint16_t r, g, b;
 
-			r = pc0->r + pc1->r;
+			r = ((uint32_t)pc0->r * 3) / 4;
+			r += pc1->r;
 			if(r > 255)
 				r = 255;
-			g = pc0->g + pc1->g;
+
+			g = ((uint32_t)pc0->g * 3) / 4;
+			g += pc1->g;
 			if(g > 255)
 				g = 255;
-			b = pc0->b + pc1->b;
+
+			b = ((uint32_t)pc0->b * 3) / 4;
+			b += pc1->b;
 			if(b > 255)
 				b = 255;
+
 
 			*dest++ = r_find_color(r, g, b);
 

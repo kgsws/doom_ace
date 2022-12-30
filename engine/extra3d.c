@@ -595,8 +595,11 @@ void e3d_create()
 			flags ^= E3D_BLOCK_HITSCAN;
 
 		if(ln->arg2 & 64)
+		{
 			alpha = 256; // additive
-		else
+			if(ln->arg3 > 127)
+				alpha++;
+		} else
 			alpha = ln->arg3;
 
 		tag = ln->arg0 + ln->arg4 * 256;

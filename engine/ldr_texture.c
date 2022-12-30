@@ -371,9 +371,9 @@ uint32_t count_textures()
 	{
 		if(!strcmp(dtxt_pnames, "PNAMES"))
 			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_pnames);
-		if(!strcmp(dtxt_texture1, "PNAMES"))
+		if(!strcmp(dtxt_texture1, "TEXTURE1"))
 			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_texture1);
-		if(!strcmp(dtxt_texture2, "PNAMES"))
+		if(!strcmp(dtxt_texture2, "TEXTURE2"))
 			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_texture2);
 	} else
 	{
@@ -382,7 +382,7 @@ uint32_t count_textures()
 		strcpy(dtxt_texture1, "DOOMTEX1");
 		strcpy(dtxt_texture2, "DOOMTEX2");
 	}
-
+doom_printf("[TEX] %s %s %s\n", dtxt_pnames, dtxt_texture1, dtxt_texture2);
 	//
 	// count textures
 
@@ -505,6 +505,7 @@ void init_textures(uint32_t count)
 		texturecolumnlump[tmp_count] = (void*)tex->patch;
 		texturecolumnofs[tmp_count] = it->columnofs;
 		texturecomposite[tmp_count] = it->composite;
+		textureheightpow[tmp_count] = get_height_pow(tex->height);
 		textures[tmp_count] = tex;
 
 		memset((void*)tex->patch, 0xFF, (uint32_t)tex->width * sizeof(uint16_t));

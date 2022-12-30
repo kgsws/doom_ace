@@ -571,6 +571,12 @@ P_GroupLines:
 P_InitThinkers:
 	.byte	0xE9
 	.4byte	0x00032EB0
+////////////////////////////////// P_MobjThinker
+.section .text.P_MobjThinker
+.global P_MobjThinker
+P_MobjThinker:
+	.byte	0xE9
+	.4byte	0x00031490
 ////////////////////////////////// R_RenderPlayerView
 .section .text.R_RenderPlayerView
 .global R_RenderPlayerView

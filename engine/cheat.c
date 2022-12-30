@@ -12,6 +12,7 @@
 #include "action.h"
 #include "hitscan.h"
 #include "render.h"
+#include "think.h"
 #include "map.h"
 #include "stbar.h"
 #include "demo.h"
@@ -42,6 +43,7 @@ static void cf_mdk(player_t*,uint8_t*);
 static void cf_kill(player_t*,uint8_t*);
 static void cf_resurrect(player_t*,uint8_t*);
 static void cf_summon(player_t*,uint8_t*);
+static void cf_freeze(player_t*,uint8_t*);
 static void cf_revenge(player_t*,uint8_t*);
 static void cf_save_light(player_t*,uint8_t*);
 static const cheat_func_t cheat_func[] =
@@ -62,6 +64,7 @@ static const cheat_func_t cheat_func[] =
 	{"kill", cf_kill},
 	{"resurrect", cf_resurrect},
 	{"summon", cf_summon},
+	{"freeze", cf_freeze},
 	// kg
 	{"kgRevenge", cf_revenge},
 	// dev
@@ -343,7 +346,16 @@ static void cf_summon(player_t *pl, uint8_t *arg)
 	mo = P_SpawnMobj(x, y, z, type);
 	mo->angle = pl->mo->angle;
 	if(mo->flags & MF_MISSILE)
-		missile_stuff(mo, pl->mo, NULL, pl->mo->angle, pl->mo->pitch, 0);
+		missile_stuff(mo, pl->mo, NULL, projectile_speed(mo->info), pl->mo->angle, pl->mo->pitch, 0);
+}
+
+static void cf_freeze(player_t *pl, uint8_t *arg)
+{
+	think_freeze_mode = !think_freeze_mode;
+	if(think_freeze_mode)
+		pl->message = "Freeze mode ON";
+	else
+		pl->message = "Freeze mode OFF";
 }
 
 static void cf_revenge(player_t *pl, uint8_t *arg)

@@ -24,7 +24,7 @@
 //#define DUMP_VRAM
 //#define RAM_DEBUG
 
-#define LDR_ENGINE_COUNT	7	// dehacked, sndinfo, decorate, texure-init, flat-init, sprite-init, other-text
+#define LDR_ENGINE_COUNT	6	// sndinfo, decorate, texure-init, flat-init, sprite-init, other-text
 
 typedef struct
 {
@@ -278,7 +278,6 @@ uint32_t ace_main()
 
 	// dehacked
 	init_dehacked();
-	gfx_progress(-1);
 
 	//
 	// count EVERYTHING

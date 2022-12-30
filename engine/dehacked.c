@@ -504,6 +504,7 @@ static void parser_text(uint8_t *line)
 	// Any text can span multiple lines and lenghts are defined in section header.
 	uint32_t olen, nlen, tmp;
 	uint8_t *dst, *end, *otxt, *ntxt;
+	uint8_t bkup;
 
 	if(doom_sscanf(line, "%u %u", &olen, &nlen) != 2)
 		// OK, this is a fail
@@ -518,6 +519,7 @@ static void parser_text(uint8_t *line)
 	ntxt = get_text(nlen);
 	if(!ntxt)
 		return;
+	bkup = ntxt[nlen];
 	ntxt[nlen] = 0;
 	nlen++;
 
@@ -530,13 +532,14 @@ static void parser_text(uint8_t *line)
 		{
 			// found one, replace it
 			memcpy(dst, ntxt, nlen);
-
 			// next
-			dst += olen;
+			dst += nlen > olen ? nlen : olen;
 			continue;
 		}
 		dst++;
 	}
+
+	ntxt[nlen-1] = bkup;
 }
 
 static void parser_dummy(uint8_t *line)

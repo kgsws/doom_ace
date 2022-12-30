@@ -21,6 +21,14 @@ typedef union
 
 typedef struct
 {
+	uint32_t bits;
+	uint16_t offset;
+} act_moflag_t;
+
+//
+
+typedef struct
+{
 	fixed_t value;
 } args_singleFixed_t;
 
@@ -236,9 +244,7 @@ typedef struct
 
 typedef struct
 {
-	uint32_t bits;
-	uint16_t offset;
-	uint8_t more;
+	act_moflag_t moflag;
 	uint8_t set;
 } args_ChangeFlag_t;
 
@@ -282,6 +288,13 @@ typedef struct
 	uint8_t ptr;
 } args_JumpIfHealthLower_t;
 
+typedef struct
+{
+	act_moflag_t moflag;
+	uint32_t state;
+	uint8_t ptr;
+} args_CheckFlag_t;
+
 //
 
 extern const args_singleFixed_t def_LowerRaise;
@@ -291,7 +304,8 @@ extern uint32_t act_cc_tick;
 //
 
 angle_t slope_to_angle(fixed_t slope);
-void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, angle_t pitch, fixed_t slope);
+fixed_t projectile_speed(mobjinfo_t *info);
+void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, fixed_t speed, angle_t angle, angle_t pitch, fixed_t slope);
 
 //
 

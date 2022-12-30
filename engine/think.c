@@ -10,6 +10,8 @@
 
 thinker_t thcap;
 
+uint_fast8_t think_freeze_mode;
+
 //
 // thinkers
 
@@ -17,6 +19,28 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void run_thinkers()
 {
 	thinker_t *th;
+
+	if(think_freeze_mode)
+	{
+		// only players
+		for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		{
+			player_t *pl;
+
+			if(!playeringame[i])
+				continue;
+
+			pl = players + i;
+
+			if(!pl->mo)
+				continue;
+
+			P_MobjThinker(pl->mo);
+		}
+
+		// unlike in ZDoom, do not run anything else
+		return;
+	}
 
 	// animations
 	animate_step();

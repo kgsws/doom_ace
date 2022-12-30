@@ -2,6 +2,7 @@
 ////
 
 extern thinker_t thcap;
+extern uint_fast8_t think_freeze_mode;
 
 //
 

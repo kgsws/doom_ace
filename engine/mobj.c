@@ -9,6 +9,7 @@
 #include "decorate.h"
 #include "inventory.h"
 #include "mobj.h"
+#include "sight.h"
 #include "action.h"
 #include "player.h"
 #include "weapon.h"
@@ -59,9 +60,6 @@ const uint16_t base_anim_offs[LAST_MOBJ_STATE_HACK] =
 	[ANIM_XDEATH] = offsetof(mobjinfo_t, state_xdeath),
 	[ANIM_RAISE] = offsetof(mobjinfo_t, state_raise),
 };
-
-static const hook_t hook_fast_missile[];
-static const hook_t hook_slow_missile[];
 
 //
 // state changes
@@ -771,7 +769,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 }
 
 //
-// hooks
+// stuff
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void set_mobj_animation(mobj_t *mo, uint8_t anim)
@@ -864,16 +862,6 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	// random item hack
 	if(hack)
 		mo->render_style = RS_INVISIBLE;
-
-	// hack for fast projectiles in original attacks
-	if(info->flags & MF_MISSILE)
-	{
-		// this modifies opcodes in 'P_SpawnMissile' even if called from anywhere else
-		if(info->fast_speed && (fastparm || gameskill == sk_nightmare))
-			utils_install_hooks(hook_fast_missile, 3);
-		else
-			utils_install_hooks(hook_slow_missile, 3);
-	}
 
 	// return offset
 	return info;
@@ -1726,7 +1714,7 @@ void mobj_remove(mobj_t *mo)
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
-void explode_missile(mobj_t *mo)
+void mobj_explode_missile(mobj_t *mo)
 {
 	uint32_t animation = ANIM_DEATH;
 
@@ -1766,6 +1754,40 @@ void explode_missile(mobj_t *mo)
 	mo->flags &= ~MF_MISSILE;
 
 	S_StartSound(mo->flags2 & MF2_FULLVOLDEATH ? NULL : mo, mo->info->deathsound);
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+uint32_t mobj_check_melee_range(mobj_t *mo)
+{
+	mobj_t *target;
+	fixed_t dist;
+
+	if(!mo->target)
+		return 0;
+
+	target = mo->target;
+
+	if(target->render_style >= RS_INVISIBLE)
+		return 0;
+
+	if(target->flags1 & MF1_NOTARGET)
+		return 0;
+
+	dist = P_AproxDistance(target->x - mo->x, target->y - mo->y);
+
+	if(dist >= mo->info->range_melee + target->info->radius)
+		return 0;
+
+	if(target->z > mo->z + mo->height)
+		return 0;
+
+	if(target->z + target->height < mo->z)
+		return 0;
+
+	if(!P_CheckSight(mo, mo->target))
+		return 0;
+
+	return 1;
 }
 
 uint32_t mobj_calc_damage(uint32_t damage)
@@ -2177,7 +2199,7 @@ static void mobj_xy_move(mobj_t *mo)
 					// TODO: floorline check
 
 					if(mo->thinker.function != (void*)-1)
-						explode_missile(mo);
+						mobj_explode_missile(mo);
 				} else
 				{
 					mo->momx = 0;
@@ -2234,15 +2256,6 @@ static void mobj_xy_move(mobj_t *mo)
 		mo->momx = FixedMul(mo->momx, FRICTION);
 		mo->momy = FixedMul(mo->momy, FRICTION);
 	}
-
-	// flight friction
-	if(pl && mo->flags & MF_NOGRAVITY)
-	{
-		if(mo->momz > -STOPSPEED && mo->momz < STOPSPEED)
-			mo->momz = 0;
-		else
-			mo->momz = FixedMul(mo->momz, FRICTION);
-	}
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -2257,6 +2270,15 @@ static void mobj_z_move(mobj_t *mo)
 
 	// adjust height
 	mo->z += mo->momz;
+
+	// flight friction
+	if(mo->player && mo->flags & MF_NOGRAVITY)
+	{
+		if(mo->momz > -STOPSPEED && mo->momz < STOPSPEED)
+			mo->momz = 0;
+		else
+			mo->momz = FixedMul(mo->momz, FRICTION);
+	}
 
 	// float down towards target if too close
 	if(mo->flags & MF_FLOAT && mo->target)
@@ -2323,7 +2345,7 @@ static void mobj_z_move(mobj_t *mo)
 				mo->subsector->sector->floorpic != skyflatnum
 			){
 				hit_thing = NULL;
-				explode_missile(mo);
+				mobj_explode_missile(mo);
 			} else
 				mobj_remove(mo);
 			return;
@@ -2393,7 +2415,7 @@ static void mobj_z_move(mobj_t *mo)
 				mo->subsector->sector->ceilingpic != skyflatnum
 			){
 				hit_thing = NULL;
-				explode_missile(mo);
+				mobj_explode_missile(mo);
 			} else
 				mobj_remove(mo);
 			return;
@@ -2714,22 +2736,44 @@ uint32_t mobj_change_sector(sector_t *sec, uint32_t crush)
 	return nofit;
 }
 
+static __attribute((regparm(2),no_caller_saved_registers)) // three!
+mobj_t *spawn_missile(mobj_t *source, mobj_t *target)
+{
+	mobj_t *th;
+	uint32_t type;
+	angle_t angle;
+	fixed_t z, dist, speed;
+
+	{
+		register uint32_t tmp asm("ebx"); // hack to extract 3rd argument
+		type = tmp;
+	}
+
+	z = source->z + 32 * FRACUNIT;
+
+	angle = R_PointToAngle2(source->x, source->y, target->x, target->y);
+	dist = P_AproxDistance(target->x - source->x, target->y - source->y);
+
+	th = P_SpawnMobj(source->x, source->y, z, type);
+
+	speed = projectile_speed(th->info);
+
+	if(speed)
+	{
+		dist /= speed;
+		if(dist <= 0)
+			dist = 1;
+		dist = ((target->z + 32 * FRACUNIT) - z) / dist;
+		th->momz = FixedDiv(dist, speed);
+	}
+
+	missile_stuff(th, source, target, speed, angle, 0, th->momz);
+
+	return th;
+}
+
 //
 // hooks
-
-static const hook_t hook_fast_missile[] =
-{
-	{0x00031CE1, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, fast_speed)},
-	{0x00031CF6, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, fast_speed)},
-	{0x00031D1F, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, fast_speed)},
-};
-
-static const hook_t hook_slow_missile[] =
-{
-	{0x00031CE1, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, speed)},
-	{0x00031CF6, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, speed)},
-	{0x00031D1F, CODE_HOOK | HOOK_UINT8, offsetof(mobjinfo_t, speed)},
-};
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
@@ -2747,6 +2791,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000314F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_set_state},
 	// fix jump condition in 'P_MobjThinker'
 	{0x000314E4, CODE_HOOK | HOOK_UINT8, 0x7F},
+	// replace 'P_CheckMeleeRange'
+	{0x00027040, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_check_melee_range},
 	// replace 'P_SetMobjState'
 	{0x00030EA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_set_state},
 	// replace 'P_RemoveMobj'
@@ -2760,9 +2806,11 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002A3CA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)kill_animation},
 	{0x0002A3CF, CODE_HOOK | HOOK_JMP_DOOM, 0x0002A40D},
 	// replace 'P_ExplodeMissile'
-	{0x00030F00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)explode_missile},
+	{0x00030F00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_explode_missile},
 	// replace 'P_ChangeSector'
 	{0x0002BF90, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_change_sector},
+	// replace 'P_SpawnMissile'
+	{0x00031C60, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_missile},
 	// change 'mobj_t' size
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
 	// fix 'P_SpawnMobj'; disable old 'frame'

@@ -1012,6 +1012,7 @@ uint32_t map_load_setup()
 	totalkills = 0;
 	totalitems = 0;
 	totalsecret = 0;
+	think_freeze_mode = 0;
 
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
@@ -2738,8 +2739,6 @@ static const hook_t patch_doom[] =
 	{0x0002B340, CODE_HOOK | HOOK_CALL_DOOM, 0x0002F500},
 	{0x00027286, CODE_HOOK | HOOK_CALL_DOOM, 0x00030710},
 	{0x0002BCFE, CODE_HOOK | HOOK_CALL_DOOM, 0x00030710},
-	// restore 'P_Move'
-	{0x000272BD, CODE_HOOK | HOOK_UINT16, 0xC2F6},
 	// terminator
 	{0}
 };
@@ -2750,8 +2749,6 @@ static const hook_t patch_hexen[] =
 	{0x0002B340, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_cross},
 	{0x00027286, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by monster
 	{0x0002BCFE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by player
-	// disable snap-to-floor in 'P_Move'
-	{0x000272BD, CODE_HOOK | HOOK_UINT16, 0x09EB},
 	// terminator
 	{0}
 };
@@ -2893,6 +2890,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00012C64, DATA_HOOK | HOOK_UINT32, SCREENHEIGHT},
 	// fix 'A_Tracer' - make it leveltime based
 	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002CF80},
+	// disable snap-to-floor in 'P_Move'
+	{0x000272BD, CODE_HOOK | HOOK_UINT16, 0x09EB},
 	// replace 'P_CheckSight' on multiple places
 	{0x0002708A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},
 	{0x000270AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CheckSight},

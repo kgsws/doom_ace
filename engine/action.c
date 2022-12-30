@@ -144,6 +144,14 @@ mobj_t *resolve_ptr(mobj_t *mo, uint32_t ptr)
 	}
 }
 
+fixed_t projectile_speed(mobjinfo_t *info)
+{
+	if(info->fast_speed && (fastparm || gameskill == sk_nightmare))
+		return info->fast_speed;
+	else
+		return info->speed;
+}
+
 //
 // argument parsers
 
@@ -290,8 +298,8 @@ static uint8_t *handle_angle_rel(uint8_t *kw, const dec_arg_t *arg)
 
 		if(kw[0] == '-')
 			flags |= 2;
-		else
-		if(kw[0] != '+')
+
+		if(kw[0] == '-' || kw[0] == '+')
 		{
 			kw = tp_get_keyword(kw, arg);
 			if(!kw)
@@ -374,7 +382,7 @@ static uint8_t *handle_translation(uint8_t *kw, const dec_arg_t *arg)
 
 static uint8_t *handle_mobj_flag(uint8_t *kw, const dec_arg_t *arg)
 {
-	args_ChangeFlag_t *arf;
+	act_moflag_t *arf;
 	const dec_flag_t *flag;
 	uint32_t offset;
 	uint32_t more = 0;
@@ -396,14 +404,13 @@ static uint8_t *handle_mobj_flag(uint8_t *kw, const dec_arg_t *arg)
 		}
 	} else
 	{
-		if(flag->bits & (MF_NOSECTOR | MF_NOBLOCKMAP))
-			more = 1;
+		if(flag->bits & (MF_NOBLOCKMAP | MF_NOSECTOR))
+			return NULL;
 	}
 
-	arf = parse_action_arg;
+	arf = (void*)(parse_action_arg + arg->offset);
 	arf->bits = flag->bits;
 	arf->offset = offset;
-	arf->more = more;
 
 	return tp_get_keyword();
 }
@@ -716,7 +723,7 @@ static uint32_t remove_ammo(mobj_t *mo)
 //
 // projectile spawn
 
-void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, angle_t pitch, fixed_t slope)
+void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, fixed_t speed, angle_t angle, angle_t pitch, fixed_t slope)
 {
 	if(source && mo->flags2 & MF2_SPAWNSOUNDSOURCE)
 		S_StartSound(SOUND_CHAN_WEAPON(source), mo->info->seesound);
@@ -725,13 +732,6 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 
 	if(!(mo->iflags & MFI_MARKED))
 	{
-		fixed_t speed;
-
-		if(mo->info->fast_speed && (fastparm || gameskill == sk_nightmare))
-			speed = mo->info->fast_speed;
-		else
-			speed = mo->info->speed;
-
 		mo->target = source;
 		if(mo->flags1 & MF1_SEEKERMISSILE)
 			mo->tracer = target;
@@ -793,7 +793,7 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, angle_t angle, an
 			if(mo->flags & MF_SHOOTABLE)
 				mobj_damage(mo, NULL, NULL, 100000, 0);
 			else
-				explode_missile(mo);
+				mobj_explode_missile(mo);
 		}
 	}
 }
@@ -898,7 +898,7 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	z += mo->info->player.attack_offs;
 
 	th = P_SpawnMobj(mo->x, mo->y, z, proj);
-	missile_stuff(th, mo, NULL, angle, pitch, slope);
+	missile_stuff(th, mo, NULL, projectile_speed(th->info), angle, pitch, slope);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1603,7 +1603,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	angle_t angle = mo->angle;
 	fixed_t pitch = 0;
 	int32_t dist = 0;
-	fixed_t x, y, z;
+	fixed_t x, y, z, speed;
 	mobj_t *th, *target;
 	const args_SpawnProjectile_t *arg = st->arg;
 
@@ -1660,21 +1660,23 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
 
+	speed = projectile_speed(th->info);
+
 	if(arg->flags & (CMF_AIMDIRECTION|CMF_ABSOLUTEPITCH))
 		pitch = -arg->pitch;
 	else
-	if(th->info->speed)
+	if(speed)
 	{
-		dist /= th->info->speed;
+		dist /= speed;
 		if(dist <= 0)
 			dist = 1;
 		dist = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
-		th->momz = FixedDiv(dist, th->info->speed);
+		th->momz = FixedDiv(dist, speed);
 		if(arg->flags & CMF_OFFSETPITCH)
 			pitch = -arg->pitch;
 	}
 
-	missile_stuff(th, mo, target, angle, pitch, th->momz);
+	missile_stuff(th, mo, target, speed, angle, pitch, th->momz);
 }
 
 //
@@ -1862,7 +1864,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	th = P_SpawnMobj(x, y, z, arg->missiletype);
 	if(th->flags & MF_MISSILE)
-		missile_stuff(th, mo, linetarget, angle, pitch, slope);
+		missile_stuff(th, mo, linetarget, projectile_speed(th->info), angle, pitch, slope);
 
 	if(arg->flags & FPF_TRANSFERTRANSLATION)
 		th->translation = mo->translation;
@@ -2268,7 +2270,7 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(th->flags & MF_MISSILE)
 	{
 		th->iflags |= MFI_MARKED; // skip most of missile stuff
-		missile_stuff(th, mo, NULL, angle, 0, 0);
+		missile_stuff(th, mo, NULL, 0, angle, 0, 0);
 	}
 }
 
@@ -2427,7 +2429,7 @@ static const dec_args_t args_ChangeFlag =
 	.size = sizeof(args_ChangeFlag_t),
 	.arg =
 	{
-		{handle_mobj_flag, 0},
+		{handle_mobj_flag, offsetof(args_ChangeFlag_t, moflag)},
 		{handle_bool, offsetof(args_ChangeFlag_t, set)},
 		// terminator
 		{NULL}
@@ -2438,31 +2440,13 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_ChangeFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_ChangeFlag_t *arg = st->arg;
+	uint32_t *fs;
 
-	if(arg->more)
-	{
-		uint32_t value;
-
-		if(arg->set)
-			value = mo->flags | arg->bits;
-		else
-			value = mo->flags & ~arg->bits;
-
-		if((mo->flags ^ value) & (MF_NOSECTOR | MF_NOBLOCKMAP))
-		{
-			P_UnsetThingPosition(mo);
-			mo->flags = value;
-			P_SetThingPosition(mo);
-		}
-	} else
-	{
-		uint32_t *fs;
-		fs = (void*)mo + arg->offset;
-		if(arg->set)
-			*fs = *fs | arg->bits;
-		else
-			*fs = *fs & ~arg->bits;
-	}
+	fs = (void*)mo + arg->moflag.offset;
+	if(arg->set)
+		*fs = *fs | arg->moflag.bits;
+	else
+		*fs = *fs & ~arg->moflag.bits;
 }
 
 //
@@ -2799,25 +2783,25 @@ static const dec_args_t args_JumpIfInventory =
 };
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_JumpIfInventory(mobj_t *moo, state_t *st, stfunc_t stfunc)
+void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_JumpIfInventory_t *arg = st->arg;
 	mobjinfo_t *info = mobjinfo + arg->type;
 	uint32_t now, check, limit;
-	mobj_t *mo;
+	mobj_t *targ;
 
 	if(!inventory_is_valid(info))
 		return;
 
-	mo = resolve_ptr(moo, arg->ptr);
-	if(!mo)
+	targ = resolve_ptr(mo, arg->ptr);
+	if(!targ)
 		return;
 
-	now = inventory_check(mo, arg->type);
+	now = inventory_check(targ, arg->type);
 
 	if(	info->extra_type == ETYPE_AMMO &&
-		mo->player &&
-		mo->player->backpack
+		targ->player &&
+		targ->player->backpack
 	)
 		limit = info->ammo.max_count;
 	else
@@ -2829,7 +2813,7 @@ void A_JumpIfInventory(mobj_t *moo, state_t *st, stfunc_t stfunc)
 		check = limit;
 
 	if(now >= check || check > limit)
-		stfunc(moo, arg->state);
+		stfunc(mo, arg->state);
 }
 
 //
@@ -2849,18 +2833,50 @@ static const dec_args_t args_JumpIfHealthLower =
 };
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void A_JumpIfHealthLower(mobj_t *moo, state_t *st, stfunc_t stfunc)
+void A_JumpIfHealthLower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_JumpIfHealthLower_t *arg = st->arg;
 	uint32_t now, check, limit;
-	mobj_t *mo;
+	mobj_t *targ;
 
-	mo = resolve_ptr(moo, arg->ptr);
-	if(!mo)
+	targ = resolve_ptr(mo, arg->ptr);
+	if(!targ)
 		return;
 
-	if(mo->health < arg->amount)
-		stfunc(moo, arg->state);
+	if(targ->health < arg->amount)
+		stfunc(mo, arg->state);
+}
+
+//
+// A_CheckFlag
+
+static const dec_args_t args_CheckFlag =
+{
+	.size = sizeof(args_CheckFlag_t),
+	.arg =
+	{
+		{handle_mobj_flag, offsetof(args_CheckFlag_t, moflag)},
+		{handle_state, offsetof(args_CheckFlag_t, state)},
+		{handle_pointer, offsetof(args_CheckFlag_t, ptr), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_CheckFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_CheckFlag_t *arg = st->arg;
+	uint32_t *flags;
+	mobj_t *targ;
+
+	targ = resolve_ptr(mo, arg->ptr);
+	if(!targ)
+		return;
+
+	flags = (void*)targ + arg->moflag.offset;
+	if(*flags & arg->moflag.bits)
+		stfunc(mo, arg->state);
 }
 
 //
@@ -3350,6 +3366,7 @@ static const dec_action_t mobj_action[] =
 	{"a_jump", A_Jump, &args_Jump},
 	{"a_jumpifinventory", A_JumpIfInventory, &args_JumpIfInventory},
 	{"a_jumpifhealthlower", A_JumpIfHealthLower, &args_JumpIfHealthLower},
+	{"a_checkflag", A_CheckFlag, &args_CheckFlag},
 	// terminator
 	{NULL}
 };

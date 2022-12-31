@@ -87,6 +87,9 @@ static uint32_t bombflags;
 static fixed_t bombdist;
 static fixed_t bombfist;
 
+static mobj_t *enemy_look_pick;
+static mobj_t *enemy_looker;
+
 static const dec_action_t mobj_action[];
 static const dec_linespec_t special_action[];
 
@@ -142,14 +145,6 @@ mobj_t *resolve_ptr(mobj_t *mo, uint32_t ptr)
 		default:
 			return NULL;
 	}
-}
-
-fixed_t projectile_speed(mobjinfo_t *info)
-{
-	if(info->fast_speed && (fastparm || gameskill == sk_nightmare))
-		return info->fast_speed;
-	else
-		return info->speed;
 }
 
 //
@@ -573,6 +568,117 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 }
 
 //
+// enemy search
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t PIT_EnemySearch(mobj_t *thing)
+{
+	if(thing == enemy_looker)
+		return 1;
+
+	if(enemy_looker->flags1 & MF1_SEEKERMISSILE && thing == enemy_looker->target)
+		return 1;
+
+	if(!(thing->flags & MF_SHOOTABLE))
+		return 1;
+
+	if(thing->flags1 & MF1_ISMONSTER)
+	{
+		enemy_look_pick = thing;
+		return 0;
+	}
+
+	return 1;
+}
+
+static uint32_t enemy_block_check(int32_t x, int32_t y)
+{
+	if(x < 0)
+		return 0;
+
+	if(x >= bmapwidth)
+		return 0;
+
+	if(y < 0)
+		return 0;
+
+	if(y >= bmapheight)
+		return 0;
+
+	P_BlockThingsIterator(x, y, PIT_EnemySearch);
+	if(enemy_look_pick)
+		return 1;
+
+	return 0;
+}
+
+mobj_t *look_for_monsters(mobj_t *mo, uint32_t dist)
+{
+	int32_t sx, sy;
+	mobj_t *ret;
+
+	enemy_looker = mo;
+	enemy_look_pick = NULL;
+
+	sx = (mo->x - bmaporgx) >> MAPBLOCKSHIFT;
+	sy = (mo->y - bmaporgy) >> MAPBLOCKSHIFT;
+
+	if(enemy_block_check(sx, sy))
+		return enemy_look_pick;
+
+	for(uint32_t count = 1; count <= dist; count++)
+	{
+		int32_t lx, ly;
+		int32_t hx, hy;
+		int32_t px, py;
+
+		lx = sx - count;
+		ly = sy - count;
+		hx = sx + count;
+		hy = sy + count;
+
+		px = lx;
+		py = ly;
+
+		// top
+		while(1)
+		{
+			if(enemy_block_check(px, py))
+				return enemy_look_pick;
+			if(px >= hx)
+				break;
+			px++;
+		}
+
+		// right
+		do
+		{
+			py++;
+			if(enemy_block_check(px, py))
+				return enemy_look_pick;
+		} while(py < hy);
+
+		// bot
+		do
+		{
+			px--;
+			if(enemy_block_check(px, py))
+				return enemy_look_pick;
+		} while(px > lx);
+
+		// left
+		do
+		{
+			py--;
+			if(enemy_block_check(px, py))
+				return enemy_look_pick;
+		} while(py > ly+1);
+	}
+
+	return NULL;
+}
+
+//
 // slope to angle
 
 static inline uint32_t SlopeDiv(unsigned num, unsigned den)
@@ -722,6 +828,14 @@ static uint32_t remove_ammo(mobj_t *mo)
 
 //
 // projectile spawn
+
+fixed_t projectile_speed(mobjinfo_t *info)
+{
+	if(info->fast_speed && (fastparm || gameskill == sk_nightmare))
+		return info->fast_speed;
+	else
+		return info->speed;
+}
 
 void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, fixed_t speed, angle_t angle, angle_t pitch, fixed_t slope)
 {
@@ -896,6 +1010,7 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	z = mo->z;
 	z += mo->height / 2;
 	z += mo->info->player.attack_offs;
+	z += mo->player->viewz - mo->z - mo->info->player.view_height;
 
 	th = P_SpawnMobj(mo->x, mo->y, z, proj);
 	missile_stuff(th, mo, NULL, projectile_speed(th->info), angle, pitch, slope);
@@ -1853,6 +1968,7 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	z = mo->z;
 	z += mo->height / 2;
 	z += mo->info->player.attack_offs;
+	z += mo->player->viewz - mo->z - mo->info->player.view_height;
 	z += arg->spawnheight;
 
 	if(arg->spawnofs_xy)
@@ -2086,6 +2202,192 @@ void A_CustomPunch(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	// must restore original puff!
 	mo_puff_type = 37;
 	mo_puff_flags = 0;
+}
+
+//
+// A_BFGSpray
+
+static const args_BFGSpray_t def_BFGSpray =
+{
+	.spraytype = 42, // MT_EXTRABFG
+	.numrays = 40,
+	.damagecnt = 15,
+	.angle = ANG90,
+	.range = 1024 * FRACUNIT
+};
+
+static const dec_args_t args_BFGSpray =
+{
+	.size = sizeof(args_BFGSpray_t),
+	.def = &def_BFGSpray,
+	.arg =
+	{
+		{handle_mobjtype, offsetof(args_BFGSpray_t, spraytype), 2},
+		{handle_u16, offsetof(args_BFGSpray_t, numrays), 1},
+		{handle_u16, offsetof(args_BFGSpray_t, damagecnt), 1},
+		{handle_angle, offsetof(args_BFGSpray_t, angle), 1},
+		{handle_fixed, offsetof(args_BFGSpray_t, range), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_BFGSpray(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_BFGSpray_t *arg = st->arg;
+	mobj_t *source = mo->target;
+	angle_t angle, astep;
+
+	if(!source)
+		return;
+
+	if(!arg)
+		arg = &def_BFGSpray;
+
+	if(!arg->numrays)
+		return;
+
+	astep = arg->angle / arg->numrays;
+
+	angle = mo->angle;
+	angle -= arg->angle / 2;
+	angle += astep / 2;
+
+	for(uint32_t i = 0; i < arg->numrays; i++, angle += astep)
+	{
+		uint32_t damage;
+
+		P_AimLineAttack(source, angle, arg->range);
+
+		if(!linetarget)
+			continue;
+
+		P_SpawnMobj(linetarget->x, linetarget->y, linetarget->z + (linetarget->height >> 2), arg->spraytype);
+
+		damage = 0;
+		for(uint32_t j = 0; j < arg->damagecnt; j++)
+			damage += (P_Random() & 7) + 1;
+
+		mobj_damage(linetarget, source, source, damage, mobjinfo + arg->spraytype);
+	}
+}
+
+//
+// A_SeekerMissile
+
+static const dec_arg_flag_t flags_SeekerMissile[] =
+{
+	MAKE_FLAG(SMF_LOOK),
+	MAKE_FLAG(SMF_PRECISE),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_SeekerMissile =
+{
+	.size = sizeof(args_SeekerMissile_t),
+	.arg =
+	{
+		{handle_angle, offsetof(args_SeekerMissile_t, threshold)},
+		{handle_angle, offsetof(args_SeekerMissile_t, maxturn)},
+		{handle_flags, offsetof(args_SeekerMissile_t, flags), 1, flags_SeekerMissile},
+		{handle_u16, offsetof(args_SeekerMissile_t, chance), 1},
+		{handle_u16, offsetof(args_SeekerMissile_t, range), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_SeekerMissile_t *arg = st->arg;
+	mobj_t *target = mo->tracer;
+	uint32_t sub = 0;
+	angle_t dir, delta;
+	fixed_t speed, dist;
+
+	speed = projectile_speed(mo->info);
+	if(!speed)
+		return;
+
+	if(arg->flags & SMF_LOOK && !target)
+	{
+		uint16_t chance = arg->chance;
+		if(!chance)
+			chance = 50;
+
+		if(chance < 256 && P_Random() >= chance)
+			return;
+
+		dist = arg->range;
+		if(!dist)
+			dist = 10;
+
+		target = look_for_monsters(mo, dist);
+		mo->tracer = target;
+	}
+
+	if(!target)
+		return;
+
+	if(!(target->flags & MF_SHOOTABLE))
+	{
+		mo->tracer = NULL;
+		return;
+	}
+
+	dir = R_PointToAngle2(mo->x, mo->y, target->x, target->y);
+	delta = dir - mo->angle;
+	if(delta & 0x80000000)
+	{
+		delta = -delta;
+		sub = 1;
+	}
+
+	if(!delta)
+		return;
+
+	if(delta > arg->threshold)
+	{
+		delta /= 2;
+		if(delta > arg->maxturn)
+			delta = arg->maxturn;
+	}
+
+	if(sub)
+		mo->angle -= delta;
+	else
+		mo->angle += delta;
+
+	dist = P_AproxDistance(target->x - mo->x, target->y - mo->y);
+	dist /= speed;
+	if(dist <= 0)
+		dist = 1;
+	dist = ((target->z + 32 * FRACUNIT) - mo->z) / dist;
+
+	if(arg->flags & SMF_PRECISE)
+	{
+		dist = FixedDiv(dist, speed);
+		if(dist)
+		{
+			angle_t pitch = slope_to_angle(dist);
+			pitch >>= ANGLETOFINESHIFT;
+			mo->momz = FixedMul(speed, finesine[pitch]);
+			speed = FixedMul(speed, finecosine[pitch]);
+		}
+	} else
+	{
+		if(	target->z + target->height < mo->z ||
+			mo->z + mo->height < target->z
+		)
+			mo->momz = dist;
+	}
+
+	delta = mo->angle >> ANGLETOFINESHIFT;
+	mo->momx = FixedMul(speed, finecosine[delta]);
+	mo->momy = FixedMul(speed, finesine[delta]);
 }
 
 //
@@ -2848,6 +3150,46 @@ void A_JumpIfHealthLower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_JumpIf*Closer
+
+static const dec_args_t args_JumpIfCloser =
+{
+	.size = sizeof(args_JumpIfCloser_t),
+	.arg =
+	{
+		{handle_fixed, offsetof(args_JumpIfCloser_t, range)},
+		{handle_state, offsetof(args_JumpIfCloser_t, state)},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIfCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	// TODO: handle player weapon or inventory
+	const args_JumpIfCloser_t *arg = st->arg;
+	if(mobj_range_check(mo, mo->target, arg->range))
+		stfunc(mo, arg->state);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIfTracerCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_JumpIfCloser_t *arg = st->arg;
+	if(mobj_range_check(mo, mo->tracer, arg->range))
+		stfunc(mo, arg->state);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIfMasterCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_JumpIfCloser_t *arg = st->arg;
+	if(mobj_range_check(mo, mo->master, arg->range))
+		stfunc(mo, arg->state);
+}
+
+//
 // A_CheckFlag
 
 static const dec_args_t args_CheckFlag =
@@ -2876,6 +3218,36 @@ void A_CheckFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	flags = (void*)targ + arg->moflag.offset;
 	if(*flags & arg->moflag.bits)
+		stfunc(mo, arg->state);
+}
+
+//
+// A_MonsterRefire
+
+static const dec_args_t args_MonsterRefire =
+{
+	.size = sizeof(args_MonsterRefire_t),
+	.arg =
+	{
+		{handle_u16, offsetof(args_MonsterRefire_t, chance)},
+		{handle_state, offsetof(args_MonsterRefire_t, state)},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_MonsterRefire(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_MonsterRefire_t *arg = st->arg;
+
+	if(P_Random() < arg->chance)
+		return;
+
+	if(	!mo->target ||
+		mo->target->health <= 0 ||
+		!P_CheckSight(mo, mo->target)
+	)
 		stfunc(mo, arg->state);
 }
 
@@ -3338,6 +3710,9 @@ static const dec_action_t mobj_action[] =
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	{"a_firebullets", A_FireBullets, &args_FireBullets},
 	{"a_custompunch", A_CustomPunch, &args_CustomPunch},
+	// other attack
+	{"a_bfgspray", A_BFGSpray, &args_BFGSpray},
+	{"a_seekermissile", A_SeekerMissile, &args_SeekerMissile},
 	// spawn
 	{"a_spawnitemex", A_SpawnItemEx, &args_SpawnItemEx},
 	// chunks
@@ -3366,7 +3741,11 @@ static const dec_action_t mobj_action[] =
 	{"a_jump", A_Jump, &args_Jump},
 	{"a_jumpifinventory", A_JumpIfInventory, &args_JumpIfInventory},
 	{"a_jumpifhealthlower", A_JumpIfHealthLower, &args_JumpIfHealthLower},
+	{"a_jumpifcloser", A_JumpIfCloser, &args_JumpIfCloser},
+	{"a_jumpiftracercloser", A_JumpIfTracerCloser, &args_JumpIfCloser},
+	{"a_jumpifmastercloser", A_JumpIfMasterCloser, &args_JumpIfCloser},
 	{"a_checkflag", A_CheckFlag, &args_CheckFlag},
+	{"a_monsterrefire", A_MonsterRefire, &args_MonsterRefire},
 	// terminator
 	{NULL}
 };

@@ -62,6 +62,7 @@ mod_config_t mod_config =
 	.enable_dehacked = 1,
 	.wipe_type = 255, // = use user preference
 	.mem_min = 1,
+	.game_mode = 255, // = IWAD based
 	.color_fullbright = 1, // = use fullbright in colored light
 	.ammo_bullet = 0x0000000000C29B03, // Clip
 	.ammo_shell = 0x000000002CB25A13, // Shell
@@ -145,6 +146,8 @@ static config_entry_t config_mod[] =
 	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
 	// RAM
 	{"ram.min", &mod_config.mem_min, TYPE_U8},
+	// game
+	{"game.mode", &mod_config.game_mode, TYPE_U8},
 	// ZDoom
 	{"zdoom.light.fullbright", &mod_config.color_fullbright, TYPE_U8},
 	// status bar ammo
@@ -272,6 +275,21 @@ void init_config()
 		usegamma = 0;
 	if(extra_config.wipe_type >= NUM_WIPE_TYPES)
 		extra_config.wipe_type = 0;
+
+	// game mode
+	switch(mod_config.game_mode)
+	{
+		case 0:
+			gamemode = 1;
+			gamemode_sw = 0;
+			gamemode_reg = 0;
+		break;
+		case 1:
+			gamemode = 0;
+			gamemode_sw = 0;
+			gamemode_reg = 1;
+		break;
+	}
 
 	// player setup
 	pli = player_info + consoleplayer;

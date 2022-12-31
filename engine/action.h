@@ -162,6 +162,31 @@ typedef struct
 
 //
 
+typedef struct
+{
+	uint16_t spraytype;
+	uint16_t numrays;
+	uint16_t damagecnt;
+	angle_t angle;
+	fixed_t range;
+} args_BFGSpray_t;
+
+//
+
+#define SMF_LOOK	1
+#define SMF_PRECISE	2
+
+typedef struct
+{
+	angle_t threshold;
+	angle_t maxturn;
+	uint16_t flags;
+	uint16_t chance;
+	uint16_t range;
+} args_SeekerMissile_t;
+
+//
+
 #define SXF_TRANSFERTRANSLATION	0x0001
 #define SXF_ABSOLUTEPOSITION	0x0002
 #define SXF_ABSOLUTEANGLE	0x0004
@@ -290,10 +315,22 @@ typedef struct
 
 typedef struct
 {
+	fixed_t range;
+	uint32_t state;
+} args_JumpIfCloser_t;
+
+typedef struct
+{
 	act_moflag_t moflag;
 	uint32_t state;
 	uint8_t ptr;
 } args_CheckFlag_t;
+
+typedef struct
+{
+	uint32_t state;
+	uint16_t chance;
+} args_MonsterRefire_t;
 
 //
 

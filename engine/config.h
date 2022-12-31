@@ -12,6 +12,8 @@ typedef struct
 	uint8_t wipe_type;
 	// memory
 	uint8_t mem_min;
+	// game
+	uint8_t game_mode;
 	// ZDoom compat
 	uint8_t color_fullbright;
 	// status bar

@@ -597,7 +597,7 @@ void e3d_create()
 		if(ln->arg2 & 64)
 		{
 			alpha = 256; // additive
-			if(ln->arg3 > 127)
+			if(ln->arg3 > 192)
 				alpha++;
 		} else
 			alpha = ln->arg3;

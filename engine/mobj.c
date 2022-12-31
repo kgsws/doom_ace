@@ -1756,6 +1756,27 @@ void mobj_explode_missile(mobj_t *mo)
 	S_StartSound(mo->flags2 & MF2_FULLVOLDEATH ? NULL : mo, mo->info->deathsound);
 }
 
+uint32_t mobj_range_check(mobj_t *mo, mobj_t *target, fixed_t range)
+{
+	fixed_t dist;
+
+	if(!target)
+		return 0;
+
+	if(target->z > mo->z + mo->height)
+		return 0;
+
+	if(target->z + target->height < mo->z)
+		return 0;
+
+	dist = P_AproxDistance(target->x - mo->x, target->y - mo->y);
+
+	if(dist >= mo->info->range_melee + target->info->radius)
+		return 0;
+
+	return 1;
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 uint32_t mobj_check_melee_range(mobj_t *mo)
 {
@@ -1773,15 +1794,7 @@ uint32_t mobj_check_melee_range(mobj_t *mo)
 	if(target->flags1 & MF1_NOTARGET)
 		return 0;
 
-	dist = P_AproxDistance(target->x - mo->x, target->y - mo->y);
-
-	if(dist >= mo->info->range_melee + target->info->radius)
-		return 0;
-
-	if(target->z > mo->z + mo->height)
-		return 0;
-
-	if(target->z + target->height < mo->z)
+	if(!mobj_range_check(mo, target, mo->info->range_melee + target->info->radius))
 		return 0;
 
 	if(!P_CheckSight(mo, mo->target))

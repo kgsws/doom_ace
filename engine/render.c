@@ -1083,7 +1083,7 @@ void R_DrawVisSprite(vissprite_t *vis)
 				setup_colfunc_tint(vis->mo->render_alpha);
 			break;
 			case RS_ADDITIVE:
-				if(vis->mo->render_alpha > 127)
+				if(vis->mo->render_alpha > 192)
 					colfunc = R_DrawColumnTint1;
 				else
 					colfunc = R_DrawColumnTint0;

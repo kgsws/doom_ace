@@ -1130,12 +1130,12 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		value = def_LowerRaise.value;
 
 	pl->weapon_ready = 0;
-	pl->psprites[0].sy += value;
+	pl->psprites[1].sy += value;
 
-	if(pl->psprites[0].sy < WEAPONBOTTOM)
+	if(pl->psprites[1].sy < WEAPONBOTTOM)
 		return;
 
-	pl->psprites[0].sy = WEAPONBOTTOM;
+	pl->psprites[1].sy = WEAPONBOTTOM;
 	pl->psprites[1].state = NULL;
 
 	if(pl->state == PST_DEAD)
@@ -1186,12 +1186,12 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		value = def_LowerRaise.value;
 
 	pl->weapon_ready = 0;
-	pl->psprites[0].sy -= value;
+	pl->psprites[1].sy -= value;
 
-	if(pl->psprites[0].sy > WEAPONTOP)
+	if(pl->psprites[1].sy > WEAPONTOP)
 		return;
 
-	pl->psprites[0].sy = WEAPONTOP;
+	pl->psprites[1].sy = WEAPONTOP;
 
 	stfunc(mo, pl->readyweapon->st_weapon.ready);
 }
@@ -1329,7 +1329,6 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	pspdef_t *psp;
 	uint32_t flags;
 
 	if(!pl)
@@ -1337,6 +1336,9 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(mo->custom_inventory)
 		return;
+
+	pl->psprites[1].sx = FRACUNIT;
+	pl->psprites[1].sy = WEAPONTOP;
 
 	if(st->arg)
 	{
@@ -1347,8 +1349,6 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(extra_config.center_weapon != 2)
 		pl->weapon_ready = 0;
-
-	psp = pl->psprites;
 
 	// mobj animation (not shooting)
 	if(mo->animation == ANIM_MELEE || mo->animation == ANIM_MISSILE)
@@ -1362,8 +1362,6 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if((pl->pendingweapon && !(flags & WRF_NOSWITCH)) || !pl->health)
 	{
 		stfunc(mo, pl->readyweapon->st_weapon.lower);
-		// this has to be set regardless of weapon mode, for demo/netgame compatibility
-		pl->psprites[0].sy = WEAPONTOP;
 		return;
 	}
 

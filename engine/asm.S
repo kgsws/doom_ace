@@ -589,12 +589,12 @@ R_RenderPlayerView:
 R_SetupFrame:
 	.byte	0xE9
 	.4byte	0x00035E80
-////////////////////////////////// R_DrawPlayerSprites
-.section .text.R_DrawPlayerSprites
-.global R_DrawPlayerSprites
-R_DrawPlayerSprites:
+////////////////////////////////// R_DrawPSprite
+.section .text.R_DrawPSprite
+.global R_DrawPSprite
+R_DrawPSprite:
 	.byte	0xE9
-	.4byte	0x00038210
+	.4byte	0x00038010
 ////////////////////////////////// W_CheckNumForName
 .section .text.W_CheckNumForName
 .global W_CheckNumForName

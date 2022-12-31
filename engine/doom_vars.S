@@ -443,6 +443,9 @@ DOOM_VAR 0x0005A200, rw_distance
 
 DOOM_VAR 0x0005A210, d_vissprites
 
+DOOM_VAR 0x0005C010, screenheightarray
+DOOM_VAR 0x0005C290, negonearray
+
 DOOM_VAR 0x0005C554, sprtemp
 
 DOOM_VAR 0x0005C884, spr_maxframe

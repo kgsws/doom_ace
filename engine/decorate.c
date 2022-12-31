@@ -1921,7 +1921,7 @@ static int32_t check_add_sprite(uint8_t *text)
 	return spr_add_name(sprname.u32);
 }
 
-static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint16_t flags)
+static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint16_t flags, int32_t ox, int32_t oy)
 {
 	uint32_t tmp = num_states;
 
@@ -1945,8 +1945,8 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 		state->tics = tics;
 		state->action = parse_action_func;
 		state->nextstate = 0;
-		state->misc1 = 0;
-		state->misc2 = 0;
+		state->misc1 = ox;
+		state->misc2 = oy;
 
 		parse_next_state = &state->nextstate;
 
@@ -2315,6 +2315,7 @@ static uint32_t parse_states()
 	uint8_t *wk;
 	int32_t sprite;
 	int32_t tics;
+	int32_t ox, oy;
 	uint16_t flags;
 	uint_fast8_t unfinished;
 	uint32_t first_state = num_states;
@@ -2487,6 +2488,8 @@ skip_math:
 		flags = 0;
 		parse_action_func = NULL;
 		parse_action_arg = NULL;
+		ox = 0;
+		oy = 0;
 
 		// get ticks
 		kw = tp_get_keyword();
@@ -2503,6 +2506,39 @@ skip_math:
 			if(!kw)
 				return 1;
 
+			if(!strcmp(kw, "offset"))
+			{
+				//
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				if(kw[0] != '(')
+					engine_error("DECORATE", "Expected '%c' found '%s'!", '(', kw);
+				// X
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				if(doom_sscanf(kw, "%d", &ox) != 1 || ox < -32768 || ox > 32767)
+					engine_error("DECORATE", "Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+				// comma
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				if(kw[0] != ',')
+					engine_error("DECORATE", "Expected '%c' found '%s'!", ',', kw);
+				// Y
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				if(doom_sscanf(kw, "%d", &oy) != 1 || oy < -32768 || oy > 32767)
+					engine_error("DECORATE", "Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+				//
+				kw = tp_get_keyword();
+				if(!kw)
+					return 1;
+				if(kw[0] != ')')
+					engine_error("DECORATE", "Expected '%c' found '%s'!", ')', kw);
+			} else
 			if(!strcmp(kw, "bright"))
 				flags |= FF_FULLBRIGHT;
 			else
@@ -2526,7 +2562,7 @@ skip_math:
 		}
 
 		// create states
-		add_states(sprite, wk, tics, flags);
+		add_states(sprite, wk, tics, flags, ox, oy);
 
 		if(kw[0] != '\n')
 			engine_error("DECORATE", "Expected newline, found '%s' in '%s'!", kw, parse_actor_name);
@@ -2769,7 +2805,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 			idx = -1;
 
 		if(kw[0] != '{')
-			engine_error("DECORATE", "Expected '{', got '%s'!", kw);
+			engine_error("DECORATE", "Expected '%c' found '%s'!", '{', kw);
 
 		// initialize mobj
 		memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));

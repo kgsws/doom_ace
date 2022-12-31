@@ -250,6 +250,8 @@ extern vissprite_t vsprsortedhead;
 extern angle_t xtoviewangle[];
 extern int16_t floorclip[];
 extern int16_t ceilingclip[];
+extern int16_t negonearray[];
+extern int16_t screenheightarray[];
 
 // render, light
 extern uint8_t *colormaps;

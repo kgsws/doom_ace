@@ -309,7 +309,7 @@ static void cb_sndinfo(lumpinfo_t *li)
 				if(!kw)
 					goto error_end;
 				if(kw[0] != '{')
-					engine_error("SNDINFO", "Expected '{', found '%s'!", kw);
+					engine_error("SNDINFO", "Expected '%c' found '%s'!", '{', kw);
 
 				// get random sounds
 				while(1)

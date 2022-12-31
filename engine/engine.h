@@ -42,6 +42,7 @@ typedef uint32_t angle_t;
 #define MAXLIGHTZ	128
 #define LIGHTZSHIFT	20
 #define FUZZTABLE	50
+#define BASEYCENTER	100
 #define MAXBOB	(16 * FRACUNIT)
 #define MAXRADIUS	(64 * FRACUNIT)
 #define ONFLOORZ	-2147483648
@@ -1568,9 +1569,9 @@ void R_MakeSpans(int32_t,int32_t,int32_t,int32_t,int32_t) __attribute((regparm(2
 // r_things
 void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void R_ProjectSprite(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
-void R_DrawPlayerSprites() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawSprite(vissprite_t*) __attribute((regparm(2),no_caller_saved_registers));
 void R_SortVisSprites() __attribute((regparm(2),no_caller_saved_registers));
+void R_DrawPSprite(pspdef_t*,fixed_t,fixed_t) __attribute((regparm(1),no_caller_saved_registers)); // modified for two arguments on stack!
 
 // s_sound.c
 void S_Start() __attribute((regparm(2),no_caller_saved_registers));

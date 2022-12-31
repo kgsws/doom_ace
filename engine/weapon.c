@@ -94,10 +94,12 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 		if(pl->powers[pw_attack_speed] && psp->tics > 1)
 			psp->tics >>= 1;
 
-		if(st->misc1)
+		if(!idx)
 		{
-			psp->sx = st->misc1 << FRACBITS;
-			psp->sy = st->misc2 << FRACBITS;
+			if(st->misc1)
+				pl->psprites[1].sx = st->misc1 << FRACBITS;
+			if(st->misc2)
+				pl->psprites[1].sy = st->misc2 << FRACBITS;
 		}
 
 		if(st->acp)
@@ -163,17 +165,19 @@ void weapon_move_pspr(player_t *pl)
 		}
 	}
 
-	if(pl->weapon_ready)
+	if(pl->weapon_ready || extra_config.center_weapon == 2)
 	{
 		// do weapon bob here for smooth chainsaw
 		angle = (128 * leveltime) & FINEMASK;
-		pl->psprites[0].sx = FRACUNIT + FixedMul(pl->bob, finecosine[angle]);
+		pl->psprites[0].sx = FixedMul(pl->bob, finecosine[angle]);
 		angle &= FINEANGLES / 2 - 1;
-		pl->psprites[0].sy = WEAPONTOP + FixedMul(pl->bob, finesine[angle]);
+		pl->psprites[0].sy = FixedMul(pl->bob, finesine[angle]);
+	} else
+	if(extra_config.center_weapon)
+	{
+		pl->psprites[0].sx = 0;
+		pl->psprites[0].sy = 0;
 	}
-
-	pl->psprites[1].sx = pl->psprites[0].sx;
-	pl->psprites[1].sy = pl->psprites[0].sy;
 }
 
 //
@@ -200,15 +204,19 @@ void weapon_setup(player_t *pl)
 	pl->readyweapon = pl->pendingweapon;
 	pl->pendingweapon = NULL;
 
+	pl->psprites[0].sx = 0;
+	pl->psprites[0].sy = 0;
+	pl->psprites[1].sy = FRACUNIT;
+
 	S_StartSound(SOUND_CHAN_WEAPON(pl->mo), pl->readyweapon->weapon.sound_up);
 
 	if(map_level_info->flags & MAP_FLAG_SPAWN_WITH_WEAPON_RAISED)
 	{
-		pl->psprites[0].sy = WEAPONTOP;
+		pl->psprites[1].sy = WEAPONTOP;
 		weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.ready);
 	} else
 	{
-		pl->psprites[0].sy = WEAPONBOTTOM;
+		pl->psprites[1].sy = WEAPONBOTTOM;
 		weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.raise);
 	}
 }
@@ -252,13 +260,12 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 	if(!(info->eflags & MFE_WEAPON_NOALERT))
 		P_NoiseAlert(pl->mo, pl->mo);
 
-	if(extra_config.center_weapon != 2)
-		pl->weapon_ready = 0;
+	pl->weapon_ready = 0;
 
-	if(extra_config.center_weapon == 1)
+	if(!refire && extra_config.center_weapon == 1)
 	{
-		pl->psprites[0].sx = FRACUNIT;
-		pl->psprites[0].sy = WEAPONTOP;
+		pl->psprites[1].sx = FRACUNIT;
+		pl->psprites[1].sy = WEAPONTOP;
 	}
 
 	// just hope that this was not called in 'flash PSPR'

@@ -1157,13 +1157,25 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 static inline void draw_player_sprites()
 {
+	fixed_t sx, sy;
+
 	centery = cy_weapon;
 	centeryfrac = cy_weapon << FRACBITS;
 
 	clip_height_top = ONCEILINGZ;
 	clip_height_bot = ONFLOORZ;
 
-	R_DrawPlayerSprites();
+	mfloorclip = screenheightarray;
+	mceilingclip = negonearray;
+
+	sx = viewplayer->psprites[0].sx + viewplayer->psprites[1].sx - 160 * FRACUNIT;
+	sy = (BASEYCENTER << FRACBITS) + (FRACUNIT / 2) - (viewplayer->psprites[0].sy + viewplayer->psprites[1].sy);
+
+	if(viewplayer->psprites[0].state)
+		R_DrawPSprite(viewplayer->psprites + 0, sx, sy);
+
+	if(viewplayer->psprites[1].state)
+		R_DrawPSprite(viewplayer->psprites + 1, sx, sy);
 
 	centery = cy_look;
 	centeryfrac = cy_look << FRACBITS;
@@ -2806,6 +2818,11 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// skip 'vis->colormap' in 'R_ProjectSprite'; set 'vis->mo = mo'
 	{0x00037F31, CODE_HOOK | HOOK_UINT32, 0x7389 | (offsetof(vissprite_t, mo) << 16)},
 	{0x00037F34, CODE_HOOK | HOOK_UINT16, 0x17EB},
+	// add XY offset to 'R_DrawPSprite'
+	{0x000380AF, CODE_HOOK | HOOK_UINT32, 0x60244C8B},
+	{0x000380B3, CODE_HOOK | HOOK_UINT16, 0x9090},
+	{0x00038123, CODE_HOOK | HOOK_UINT32, 0x5C031A8B},
+	{0x00038127, CODE_HOOK | HOOK_UINT32, 0x05EB6424},
 	// skip 'vis->colormap' in 'R_DrawPSprite'; set vis->psp
 	{0x000381B2, CODE_HOOK | HOOK_UINT32, 0x7089 | (offsetof(vissprite_t, psp) << 16)},
 	{0x000381B5, CODE_HOOK | HOOK_UINT16, 0x41EB},

@@ -353,7 +353,7 @@ continue_keyword:
 			if(!kw)
 				goto error_end;
 			if(*((uint16_t*)kw) != 0x6E6F)
-				engine_error("ANIMDEFS", "Expected keyword 'on' found '%s' in '%s'!", kw, name);
+				engine_error("ANIMDEFS", "Expected keyword '%s' found '%s' in '%s'!", "on", kw, name);
 
 			// expecting 'pic' or 'sound'
 			kw = tp_get_keyword_lc();
@@ -376,7 +376,7 @@ continue_keyword:
 			}
 
 			if(strcmp(kw, kwl->pic))
-				engine_error("ANIMDEFS", "Expected keyword 'pic' found '%s' in '%s'!", kw, name);
+				engine_error("ANIMDEFS", "Expected keyword '%s' found '%s' in '%s'!", "pic", kw, name);
 
 			// switch
 			dest.swtch = switch_ptr;
@@ -481,7 +481,7 @@ continue_keyword:
 				}
 
 				if(strcmp(kw, kwl->pic))
-					engine_error("ANIMDEFS", "Expected keyword 'pic' found '%s' in '%s'!", kw, name);
+					engine_error("ANIMDEFS", "Expected keyword '%s' found '%s' in '%s'!", "pic", kw, name);
 
 				// switch
 				dest.swtch = switch_ptr;
@@ -767,7 +767,7 @@ continue_keyword:
 error_end:
 	engine_error("ANIMDEFS", "Incomplete definition!");
 error_tics:
-	engine_error("ANIMDEFS", "Expected keyword 'tics' found '%s' in '%s'!", kw, name);
+	engine_error("ANIMDEFS", "Expected keyword '%s' found '%s' in '%s'!", "tics", kw, name);
 error_numeric:
 	engine_error("ANIMDEFS", "Unable to parse number '%s' in '%s'!", kw, name);
 error_tic_count:

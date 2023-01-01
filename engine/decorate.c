@@ -637,6 +637,8 @@ const dec_flag_t mobj_flags2[] =
 	{"hittracer", MF2_HITTRACER},
 	{"movewithsector", MF2_MOVEWITHSECTOR},
 	{"fullvoldeath", MF2_FULLVOLDEATH},
+	{"oldradiusdmg", MF2_OLDRADIUSDMG},
+	{"bloodlessimpact", MF2_BLOODLESSIMPACT}, // TODO
 	// terminator
 	{NULL}
 };

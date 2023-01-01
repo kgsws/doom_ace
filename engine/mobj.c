@@ -1722,6 +1722,8 @@ void mobj_explode_missile(mobj_t *mo)
 	mo->momy = 0;
 	mo->momz = 0;
 
+	mo->flags &= ~MF_SHOOTABLE;
+
 	if(hit_thing)
 	{
 		if(hit_thing->flags & MF_NOBLOOD)
@@ -1771,7 +1773,7 @@ uint32_t mobj_range_check(mobj_t *mo, mobj_t *target, fixed_t range)
 
 	dist = P_AproxDistance(target->x - mo->x, target->y - mo->y);
 
-	if(dist >= mo->info->range_melee + target->info->radius)
+	if(dist >= range)
 		return 0;
 
 	return 1;
@@ -2023,18 +2025,29 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 				target->death_damage_type = damage_type;
 
-				if(!(target->flags1 & MF1_DONTFALL))
-					target->flags &= ~MF_NOGRAVITY;
-
-				if(target->special.special)
+				if(target->flags & MF_MISSILE)
 				{
-					spec_special = target->special.special;
-					spec_arg[0] = target->special.arg[0];
-					spec_arg[1] = target->special.arg[1];
-					spec_arg[2] = target->special.arg[2];
-					spec_arg[3] = target->special.arg[3];
-					spec_arg[4] = target->special.arg[4];
-					spec_activate(NULL, source, 0);
+					target->momx = 0;
+					target->momy = 0;
+					target->momz = 0;
+				} else
+				{
+					if(!target->target)
+						target->target = source;
+
+					if(!(target->flags1 & MF1_DONTFALL))
+						target->flags &= ~MF_NOGRAVITY;
+
+					if(target->special.special)
+					{
+						spec_special = target->special.special;
+						spec_arg[0] = target->special.arg[0];
+						spec_arg[1] = target->special.arg[1];
+						spec_arg[2] = target->special.arg[2];
+						spec_arg[3] = target->special.arg[3];
+						spec_arg[4] = target->special.arg[4];
+						spec_activate(NULL, source, 0);
+					}
 				}
 
 				P_KillMobj(source, target);
@@ -2043,7 +2056,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 				if(player)
 					player->extralight = 0;
 
-				if(!target->momz)
+				if(!target->momz && !(target->flags & MF_MISSILE))
 					// fake some Z movement for crash states
 					target->momz = -1;
 

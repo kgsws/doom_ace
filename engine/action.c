@@ -2345,7 +2345,11 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	}
 
 	if(!delta)
-		return;
+	{
+		if(dir == mo->angle)
+			return;
+		delta = ANG180;
+	}
 
 	if(delta > arg->threshold)
 	{

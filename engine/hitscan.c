@@ -598,7 +598,7 @@ do_puff:
 		trace.y = trace.y + FixedMul(trace.dy, frac);
 		trace.dx = z;
 
-		mobj_spawn_puff(&trace, NULL);
+		mobj_spawn_puff(&trace, NULL, mo_puff_type);
 
 		if(activate && li->special)
 			spec_activate(li, shootthing, SPEC_ACT_SHOOT);
@@ -631,7 +631,7 @@ do_puff:
 				trace.x = trace.x + FixedMul(trace.dx, frac);
 				trace.y = trace.y + FixedMul(trace.dy, frac);
 				trace.dx = z;
-				mobj_spawn_puff(&trace, NULL);
+				mobj_spawn_puff(&trace, NULL, mo_puff_type);
 				return 0;
 			}
 		}
@@ -651,8 +651,8 @@ do_puff:
 		trace.y = trace.y + FixedMul(trace.dy, in->frac);
 		trace.dx = shootz + FixedMul(aimslope, FixedMul(in->frac, attackrange));
 
-		mobj_spawn_puff(&trace, th);
-		mobj_spawn_blood(&trace, th, la_damage);
+		mobj_spawn_puff(&trace, th, mo_puff_type);
+		mobj_spawn_blood(&trace, th, la_damage, mo_puff_type);
 
 		if(la_damage)
 			mobj_damage(th, shootthing, shootthing, la_damage, mobjinfo + mo_puff_type);

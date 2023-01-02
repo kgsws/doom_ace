@@ -1124,7 +1124,9 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		}
 
 		return 0;
-	}
+	} else
+	if(tmthing->inside == thing)
+		return 1;
 
 	if(thing->flags1 & MF1_PUSHABLE && !(tmthing->flags1 & MF1_CANNOTPUSH))
 	{
@@ -1681,6 +1683,8 @@ void mobj_remove(mobj_t *mo)
 			om->tracer = NULL;
 		if(om->master == mo)
 			om->master = NULL;
+		if(om->inside == mo)
+			om->inside = NULL;
 	}
 
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
@@ -2624,7 +2628,7 @@ revert:
 	return 0;
 }
 
-void mobj_spawn_puff(divline_t *trace, mobj_t *target)
+void mobj_spawn_puff(divline_t *trace, mobj_t *target, uint32_t puff_type)
 {
 	mobj_t *mo;
 	uint32_t state = 0;
@@ -2636,7 +2640,7 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 	)
 		return;
 
-	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, mo_puff_type);
+	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, puff_type);
 
 	if(mo->flags2 & MF2_HITTARGET)
 		mo->target = target;
@@ -2683,7 +2687,7 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target)
 	mo->angle = shootthing->angle + ANG180;
 }
 
-void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
+void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage, uint32_t puff_type)
 {
 	mobj_t *mo;
 	uint32_t state;
@@ -2694,7 +2698,11 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage)
 	if(target->flags1 & MF1_DORMANT)
 		return;
 
+	if(puff_type && mobjinfo[puff_type].flags2 & MF2_BLOODLESSIMPACT)
+		return;
+
 	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, target->info->blood_type);
+	mo->inside = target;
 	mo->momz = FRACUNIT * 2;
 	if(!(mo->flags2 & MF2_DONTTRANSLATE))
 		mo->translation = target->info->blood_trns;

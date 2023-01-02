@@ -1118,8 +1118,9 @@ typedef struct mobj_s
 	int32_t lastlook;
 	mapthing_t spawnpoint;
 	struct mobj_s *tracer;
-	// new pointer
+	// new pointers
 	struct mobj_s *master;
+	struct mobj_s *inside; // for A_SpawnItemEx
 	// more flags
 	uint32_t flags1;
 	uint32_t flags2;

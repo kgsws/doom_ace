@@ -2575,7 +2575,8 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	{
 		th->iflags |= MFI_MARKED; // skip most of missile stuff
 		missile_stuff(th, mo, NULL, 0, angle, 0, 0);
-	}
+	} else
+		th->inside = mo;
 }
 
 //

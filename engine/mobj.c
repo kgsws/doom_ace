@@ -854,6 +854,7 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	mo->flags2 = info->flags2;
 	mo->translation = info->translation;
 	mo->gravity = info->gravity;
+	mo->scale = info->scale;
 	mo->netid = mobj_netid;
 
 	// vertical speed

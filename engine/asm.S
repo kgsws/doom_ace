@@ -427,12 +427,12 @@ R_GenerateComposite:
 R_GenerateLookup:
 	.byte	0xE9
 	.4byte	0x00033D40
-////////////////////////////////// R_ProjectSprite
-.section .text.R_ProjectSprite
-.global R_ProjectSprite
-R_ProjectSprite:
+////////////////////////////////// R_PointToAngle
+.section .text.R_PointToAngle
+.global R_PointToAngle
+R_PointToAngle:
 	.byte	0xE9
-	.4byte	0x00037CA0
+	.4byte	0x00035510
 ////////////////////////////////// R_AddLine
 .section .text.R_AddLine
 .global R_AddLine

@@ -48,7 +48,7 @@ static fixed_t mlook_pitch;
 static player_t fake_player;
 
 static visplane_t *ptr_visplanes;
-static vissprite_t *ptr_vissprites;
+static vissprite_t *vissprites;
 static drawseg_t *ptr_drawsegs;
 
 static uint32_t lightvalue;
@@ -143,6 +143,9 @@ static uint8_t r_color_demo_fakc;
 static hook_t hook_drawseg[];
 static hook_t hook_visplane[];
 static hook_t hook_vissprite[];
+
+//
+void R_ProjectSprite(mobj_t *thing);
 
 //
 // demo mode
@@ -989,7 +992,7 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 	r_dc_mask.u32 = 0x180808; // 256px column
 
-	if(!vis->mo)
+	if(vis->ptr >= (void*)players && vis->ptr < (void*)(players + MAXPLAYERS))
 	{
 		colfunc = R_DrawColumn;
 
@@ -1036,6 +1039,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 			if(viewplayer->mo->render_style == RS_TRANSLUCENT && (viewplayer->powers[pw_invisibility] > 4*32 || viewplayer->powers[pw_invisibility] & 8))
 				setup_colfunc_tint(viewplayer->mo->render_alpha);
 		}
+
+		spryscale = vis->scale;
 	} else
 	{
 		sector_t *sec = vis->mo->subsector->sector;
@@ -1103,12 +1108,13 @@ void R_DrawVisSprite(vissprite_t *vis)
 			if(colfunc == R_DrawColumnTint1)
 				colfunc = R_DrawTranslatedColumnTint1;
 		}
+
+		spryscale = vis->scale_scaled;
 	}
 
 	dc_iscale = abs(vis->xiscale);
 	dc_texturemid = vis->texturemid;
 	frac = vis->startfrac;
-	spryscale = vis->scale;
 	sprtopscreen = centeryfrac - FixedMul(dc_texturemid, spryscale);
 
 	fc = clip_height_bot;
@@ -1122,7 +1128,7 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 	if(fc > ONFLOORZ)
 	{
-		fc = (((centeryfrac >> 4) - FixedMul((fc - viewz) >> 4, spryscale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
+		fc = (((centeryfrac >> 4) - FixedMul((fc - viewz) >> 4, vis->scale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
 		if(fc < 0)
 			return;
 	} else
@@ -1130,7 +1136,7 @@ void R_DrawVisSprite(vissprite_t *vis)
 
 	if(clip_height_top < ONCEILINGZ)
 	{
-		cc = (((centeryfrac >> 4) - FixedMul((clip_height_top - viewz) >> 4, spryscale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
+		cc = (((centeryfrac >> 4) - FixedMul((clip_height_top - viewz) >> 4, vis->scale)) + HEIGHTUNIT - 1) >> HEIGHTBITS;
 		cc--;
 		if(cc >= SCREENHEIGHT)
 			return;
@@ -1186,7 +1192,7 @@ static void draw_masked()
 	vissprite_t *spr;
 	drawseg_t *ds;
 
-	if(vissprite_p > ptr_vissprites)
+	if(vissprite_p > vissprites)
 	{
 		for(spr = vsprsortedhead.next; spr != &vsprsortedhead; spr = spr->next)
 			R_DrawSprite(spr);
@@ -1858,6 +1864,148 @@ void R_Subsector(uint32_t num)
 	}
 }
 
+void R_ProjectSprite(mobj_t *thing)
+{
+	fixed_t tr_x, tr_y;
+	fixed_t gxt, gyt;
+	fixed_t tx, tz;
+	fixed_t xscale, tscale;
+	int32_t x1, x2;
+	spritedef_t *sprdef;
+	spriteframe_t *sprframe;
+	int32_t lump;
+	uint32_t rot;
+	uint32_t flip;
+	int32_t index;
+	vissprite_t *vis;
+	angle_t ang;
+	fixed_t iscale;
+
+	if(vissprite_p >= vissprites + mod_config.vissprite_count)
+		return;
+
+	tscale = abs(thing->scale);
+	if(tscale < 655) // < 0.01
+		return;
+
+	tr_x = thing->x - viewx;
+	tr_y = thing->y - viewy;
+
+	gxt = FixedMul(tr_x, viewcos);
+	gyt = -FixedMul(tr_y, viewsin);
+
+	tz = gxt-gyt;
+
+	if(tz < MINZ)
+		return;
+
+	xscale = FixedDiv(projection, tz);
+
+	gxt = -FixedMul(tr_x, viewsin);
+	gyt = FixedMul(tr_y, viewcos);
+	tx = -(gyt + gxt);
+
+	if(abs(tx) > (tz<<2))
+		return;
+
+	if(thing->sprite >= numsprites)
+		return;
+
+	sprdef = &sprites[thing->sprite];
+
+	if((thing->frame & FF_FRAMEMASK) >= sprdef->numframes)
+		return;
+
+	sprframe = &sprdef->spriteframes[ thing->frame & FF_FRAMEMASK];
+
+	if(sprframe->rotate)
+	{
+		ang = R_PointToAngle(thing->x, thing->y);
+		rot = (ang - thing->angle + (ANG45 / 2) * 9) >> 29;
+		lump = sprframe->lump[rot];
+		flip = sprframe->flip[rot];
+	} else
+	{
+		lump = sprframe->lump[0];
+		flip = sprframe->flip[0];
+	}
+
+	if(tscale == FRACUNIT)
+	{
+		tr_x = spritewidth[lump];
+		tr_y = spriteoffset[lump];
+	} else
+	{
+		tr_x = FixedMul(spritewidth[lump], tscale);
+		tr_y = FixedMul(spriteoffset[lump], tscale);
+	}
+
+	if(flip & 1)
+	{
+		tx += tr_y + tscale;
+		x2 = ((centerxfrac + FixedMul(tx, xscale)) >> FRACBITS) - 1;
+		if(x2 < 0)
+			return;
+
+		tx -= tr_x;
+		x1 = (centerxfrac + FixedMul(tx, xscale)) >> FRACBITS;
+		if(x1 > viewwidth)
+			return;
+	} else
+	{
+		tx -= tr_y;
+		x1 = (centerxfrac + FixedMul(tx, xscale)) >> FRACBITS;
+		if(x1 > viewwidth)
+			return;
+
+		tx += tr_x;
+		x2 = ((centerxfrac + FixedMul(tx, xscale)) >> FRACBITS) - 1;
+		if(x2 < 0)
+			return;
+	}
+
+	if(tscale == FRACUNIT)
+		tr_x = spritetopoffset[lump];
+	else
+		tr_x = FixedMul(spritetopoffset[lump], tscale);
+
+	vis = vissprite_p++;
+	vis->mo = thing;
+	vis->scale = xscale;
+	vis->gx = thing->x;
+	vis->gy = thing->y;
+	vis->gz = thing->z;
+	vis->gzt = thing->z + tr_x;
+	vis->texturemid = vis->gzt - viewz;
+	vis->x1 = x1 < 0 ? 0 : x1;
+	vis->x2 = x2 >= viewwidth ? viewwidth - 1 : x2;
+
+	if(tscale != FRACUNIT)
+	{
+		xscale = FixedMul(xscale, tscale);
+		vis->texturemid = FixedDiv(vis->texturemid, tscale);
+	}
+
+	vis->scale_scaled = xscale;
+
+	iscale = FixedDiv(FRACUNIT, xscale);
+
+	if(flip ^ (thing->scale < 0))
+	{
+		vis->startfrac = spritewidth[lump] - 1;
+		vis->xiscale = -iscale;
+	} else
+	{
+		vis->startfrac = 0;
+		vis->xiscale = iscale;
+	}
+
+	if(vis->x1 > x1)
+		vis->startfrac += vis->xiscale * (vis->x1 - x1);
+
+	vis->patch = lump;
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void extra_mark_check()
 {
@@ -2432,15 +2580,17 @@ void init_render()
 	{
 		doom_printf("[RENDER] New vissprite limit %u\n", mod_config.vissprite_count);
 		// allocate new memory
-		ptr_vissprites = ldr_malloc(mod_config.vissprite_count * sizeof(vissprite_t));
+		vissprites = ldr_malloc(mod_config.vissprite_count * sizeof(vissprite_t));
 		// update values in hooks
 		for(int i = 0; i <= 4; i++)
-			hook_vissprite[i].value = (uint32_t)ptr_vissprites;
-		hook_vissprite[5].value = (uint32_t)ptr_vissprites + mod_config.vissprite_count * sizeof(vissprite_t);
+			hook_vissprite[i].value = (uint32_t)vissprites;
 		// install hooks
-		utils_install_hooks(hook_vissprite, 6);
+		utils_install_hooks(hook_vissprite, 5);
 	} else
-		ptr_vissprites = d_vissprites;
+	{
+		mod_config.vissprite_count = 128;
+		vissprites = d_vissprites;
+	}
 
 	// extra planes
 	if(mod_config.e3dplane_count < 16)
@@ -2775,8 +2925,6 @@ static hook_t hook_vissprite[] =
 	{0x000382e4, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
 	{0x0003830c, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
 	{0x00038311, CODE_HOOK | HOOK_UINT32, 0}, // R_SortVisSprites
-	// vissprite max pointer
-	{0x00037e5a, CODE_HOOK | HOOK_UINT32, 0}, // R_ProjectSprite
 };
 
 //
@@ -2815,9 +2963,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000371B8, CODE_HOOK | HOOK_UINT16, 0xC085},
 	// replace call to 'R_RenderMaskedSegRange' in 'R_DrawSprite'
 	{0x0003846D, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_masked_range_draw},
-	// skip 'vis->colormap' in 'R_ProjectSprite'; set 'vis->mo = mo'
-	{0x00037F31, CODE_HOOK | HOOK_UINT32, 0x7389 | (offsetof(vissprite_t, mo) << 16)},
-	{0x00037F34, CODE_HOOK | HOOK_UINT16, 0x17EB},
 	// add XY offset to 'R_DrawPSprite'
 	{0x000380AF, CODE_HOOK | HOOK_UINT32, 0x60244C8B},
 	{0x000380B3, CODE_HOOK | HOOK_UINT16, 0x9090},

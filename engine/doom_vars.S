@@ -378,7 +378,9 @@ DOOM_VAR 0x000343E0, scalelight
 
 DOOM_VAR 0x00038FE0, r_setblocks
 
+DOOM_VAR 0x00038FF4, viewsin
 DOOM_VAR 0x00038FFC, fixedcolormap
+DOOM_VAR 0x00039000, viewcos
 
 DOOM_VAR 0x00039004, spanfunc
 DOOM_VAR 0x00039010, colfunc
@@ -388,8 +390,10 @@ DOOM_VAR 0x00039020, xtoviewangle
 
 DOOM_VAR 0x00039528, viewangle
 DOOM_VAR 0x0003952C, centeryfrac
+DOOM_VAR 0x00039530, centerxfrac
 DOOM_VAR 0x00039534, centerx
 DOOM_VAR 0x00039538, centery
+DOOM_VAR 0x0003953C, projection
 DOOM_VAR 0x00039540, viewx
 DOOM_VAR 0x00039544, viewy
 DOOM_VAR 0x00039548, viewz

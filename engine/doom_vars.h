@@ -185,19 +185,23 @@ extern player_t *viewplayer;
 extern fixed_t viewx;
 extern fixed_t viewy;
 extern fixed_t viewz;
+extern fixed_t viewsin;
+extern fixed_t viewcos;
 extern angle_t viewangle;
 extern int32_t extralight;
 extern uint8_t *fixedcolormap;
 
 // render, screen
+extern fixed_t centerxfrac;
 extern fixed_t centeryfrac;
 extern int32_t centerx;
 extern int32_t centery;
+extern fixed_t projection;
 extern int32_t viewwindowx;
 extern int32_t viewwindowy;
 extern fixed_t yslope[];
-extern uint32_t viewheight;
-extern uint32_t viewwidth;
+extern int32_t viewheight;
+extern int32_t viewwidth;
 extern uint32_t screenblocks;
 extern uint32_t usegamma;
 extern uint32_t detaillevel;

@@ -43,6 +43,7 @@ typedef uint32_t angle_t;
 #define LIGHTZSHIFT	20
 #define FUZZTABLE	50
 #define BASEYCENTER	100
+#define MINZ	(4*FRACUNIT)
 #define MAXBOB	(16 * FRACUNIT)
 #define MAXRADIUS	(64 * FRACUNIT)
 #define ONFLOORZ	-2147483648
@@ -56,10 +57,10 @@ typedef uint32_t angle_t;
 #define FINEMASK	(FINEANGLES - 1)
 #define ANGLETOSKYSHIFT	22
 
-#define ANG45	0x20000000
-#define ANG90	0x40000000
-#define ANG180	0x80000000
-#define ANG270	0xC0000000
+#define ANG45	0x20000000UL
+#define ANG90	0x40000000UL
+#define ANG180	0x80000000UL
+#define ANG270	0xC0000000UL
 
 #define SLOPERANGE	2048
 #define SLOPEBITS	11
@@ -681,6 +682,7 @@ typedef struct mobjinfo_s
 	fixed_t dropoff;
 	fixed_t gravity;
 	fixed_t range_melee;
+	fixed_t scale;
 	uint16_t telefog[2];
 	uint8_t *translation;
 	uint8_t *blood_trns;
@@ -1126,6 +1128,7 @@ typedef struct mobj_s
 	uint8_t render_style;
 	uint8_t render_alpha;
 	uint8_t *translation;
+	fixed_t scale;
 	fixed_t e3d_floorz;
 	// animation system
 	uint8_t animation;
@@ -1223,8 +1226,13 @@ typedef struct vissprite_s
 	fixed_t xiscale;
 	fixed_t texturemid;
 	int patch;
-	pspdef_t *psp;
-	mobj_t *mo;
+	fixed_t scale_scaled;
+	union
+	{
+		mobj_t *mo;
+		pspdef_t *psp;
+		void *ptr;
+	};
 } vissprite_t;
 
 typedef	struct
@@ -1557,6 +1565,7 @@ void R_PrecacheLevel() __attribute((regparm(2),no_caller_saved_registers));
 // r_main
 void R_ExecuteSetViewSize() __attribute((regparm(2),no_caller_saved_registers));
 void R_RenderPlayerView(player_t*) __attribute((regparm(2),no_caller_saved_registers));
+angle_t R_PointToAngle(fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 angle_t R_PointToAngle2(fixed_t,fixed_t,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 void R_SetupFrame(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t R_ScaleFromGlobalAngle(angle_t) __attribute((regparm(2),no_caller_saved_registers));
@@ -1568,7 +1577,6 @@ void R_MakeSpans(int32_t,int32_t,int32_t,int32_t,int32_t) __attribute((regparm(2
 
 // r_things
 void R_InstallSpriteLump(uint32_t,uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
-void R_ProjectSprite(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawSprite(vissprite_t*) __attribute((regparm(2),no_caller_saved_registers));
 void R_SortVisSprites() __attribute((regparm(2),no_caller_saved_registers));
 void R_DrawPSprite(pspdef_t*,fixed_t,fixed_t) __attribute((regparm(1),no_caller_saved_registers)); // modified for two arguments on stack!

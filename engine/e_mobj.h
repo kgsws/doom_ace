@@ -77,6 +77,7 @@ enum
 };
 
 // frame flags
+#define FF_FRAMEMASK	0x003F
 #define FF_FULLBRIGHT	0x8000
 #define FF_FAST	0x4000
 #define FF_CANRAISE	0x2000

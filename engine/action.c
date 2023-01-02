@@ -2659,6 +2659,27 @@ void A_SetTranslation(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_SetScale
+
+static const dec_args_t args_SetScale =
+{
+	.size = sizeof(args_singleFixed_t),
+	.arg =
+	{
+		{handle_fixed, offsetof(args_singleFixed_t, value)},
+		// terminator
+		{NULL}
+	}
+};
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_SetScale(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleFixed_t *arg = st->arg;
+	mo->scale = arg->value;
+}
+
+//
 // A_CheckPlayerDone
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -3726,6 +3747,7 @@ static const dec_action_t mobj_action[] =
 	{"a_freezedeathchunks", A_FreezeDeathChunks},
 	// render
 	{"a_settranslation", A_SetTranslation, &args_SetTranslation},
+	{"a_setscale", A_SetScale, &args_SetScale},
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_alertmonsters", A_AlertMonsters},

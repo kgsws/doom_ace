@@ -229,6 +229,17 @@ typedef struct
 } event_t;
 
 //
+// printed text
+
+typedef struct
+{
+	uint32_t tics;
+	uint16_t font;
+	uint16_t lines;
+	uint8_t text[];
+} print_text_t;
+
+//
 // new inventory
 
 struct invitem_s;
@@ -1154,6 +1165,9 @@ typedef struct mobj_s
 	uint32_t freeze_tick;
 	// special
 	mobj_special_t special;
+	// printed text
+	const print_text_t *text_data;
+	uint32_t text_tics;
 	// new sound sources
 	vertex_t sound_body;
 	vertex_t sound_weapon;

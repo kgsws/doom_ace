@@ -15,6 +15,7 @@
 #include "extra3d.h"
 #include "draw.h"
 #include "textpars.h"
+#include "font.h"
 #include "render.h"
 
 //#define RENDER_DEMO
@@ -2630,13 +2631,13 @@ void init_render()
 	//
 	// PASS 3
 
-	// load original colormap - only 33 levels
+	// load original colormap - only 33 levels - must be 256 bytes aligned
 	colormaps = ptr;
 	wad_read_lump(ptr, wad_get_lump(dtxt_colormap), COLORMAP_SIZE);
 
 	render_parse_colormap();
 
-	// new tables
+	// new tables - alignment does not matter
 	render_tables = ptr + COLORMAP_SIZE;
 
 	// there are two translucency tables, 20/80 and 40/60
@@ -2659,6 +2660,8 @@ void init_render()
 		generate_color(render_tables->cmap + 256 * 2, 200, 255, 180);
 		generate_color(render_tables->cmap + 256 * 3, 0, 0, 255);
 		generate_color(render_tables->cmap + 256 * 4, 255, 255, 255);
+		// font
+		font_generate();
 	} else
 	{
 		// tables are provided in WAD file
@@ -2892,6 +2895,10 @@ void hook_RenderPlayerView(player_t *pl)
 
 	// status bar
 	stbar_draw(pl);
+
+	// text message
+	if(pl->camera && pl->camera->text_data)
+		font_center_text(pl->camera->text_data->text, pl->camera->text_data->font, pl->camera->text_data->lines);
 }
 
 // expanded drawseg limit

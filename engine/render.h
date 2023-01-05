@@ -8,6 +8,9 @@
 
 #define MAX_SECTOR_COLORS	32
 
+#define FONT_TRANSLATION_COUNT	25
+#define FONT_COLOR_COUNT	32 // techically its one less, first color is transparent
+
 enum
 {
 	TRANSLATION_PLAYER2,
@@ -48,10 +51,11 @@ typedef struct
 
 typedef struct
 {
-	uint8_t cmap[256*5]; // gold, red, green, blue, white; used for extra colormap, fonts and translation
 	uint8_t trn0[256*256];
 	uint8_t trn1[256*256];
 	uint8_t addt[256*256];
+	uint8_t cmap[256*5]; // gold, red, green, blue, white; used for extra colormap, fonts and translation
+	uint8_t fmap[FONT_TRANSLATION_COUNT * FONT_COLOR_COUNT]; // ZDoom font colors
 } render_tables_t;
 
 //

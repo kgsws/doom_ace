@@ -7,6 +7,7 @@
 #include "dehacked.h"
 #include "decorate.h"
 #include "action.h"
+#include "wadfile.h"
 #include "mobj.h"
 #include "player.h"
 #include "weapon.h"
@@ -14,6 +15,7 @@
 #include "inventory.h"
 #include "sound.h"
 #include "stbar.h"
+#include "font.h"
 #include "map.h"
 #include "special.h"
 #include "demo.h"
@@ -565,6 +567,81 @@ static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 		if(!kw)
 			return NULL;
 	}
+}
+
+static uint8_t *handle_ftics(uint8_t *kw, const dec_arg_t *arg)
+{
+	fixed_t value;
+	uint_fast8_t negate;
+
+	if(kw[0] == '-')
+	{
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+		negate = 1;
+	} else
+		negate = 0;
+
+	if(tp_parse_fixed(kw, &value))
+		return NULL;
+
+	if(negate)
+		value = -value;
+
+	value *= 35;
+	value >>= FRACBITS;
+
+	if(!value)
+		value = 35 * 3;
+
+	*((uint32_t*)(parse_action_arg + arg->offset)) = value;
+
+	return tp_get_keyword();
+}
+
+static uint8_t *handle_font(uint8_t *kw, const dec_arg_t *arg)
+{
+	int32_t lump;
+	uint32_t magic;
+
+	lump = wad_get_lump(kw);
+
+	wad_read_lump(&magic, lump, sizeof(uint32_t));
+	if(magic != FONT_MAGIC_ID)
+		engine_error("FONT", "Invalid font %.8s.", lumpinfo[lump].name);
+
+	*((uint16_t*)(parse_action_arg + arg->offset)) = lump;
+
+	return tp_get_keyword(kw, arg);
+}
+
+static uint8_t *handle_print_text(uint8_t *kw, const dec_arg_t *arg)
+{
+	uint32_t len;
+	uint8_t *dst;
+	print_text_t *pt = parse_action_arg;
+
+	if(!tp_is_string)
+		return NULL;
+
+	len = strlen(kw);
+	len += 4;
+	len &= ~3;
+
+	dst = dec_es_alloc(len);
+	strcpy(dst, kw);
+
+	len = 1;
+	while(*dst)
+	{
+		if(*dst == '\n')
+			len++;
+		dst++;
+	}
+	pt->lines = len;
+
+	return tp_get_keyword(kw, arg);
 }
 
 //
@@ -2639,6 +2716,29 @@ void A_TakeInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// text
+
+static const dec_args_t args_Print =
+{
+	.size = sizeof(print_text_t),
+	.arg =
+	{
+		{handle_print_text, 0},
+		{handle_ftics, offsetof(print_text_t, tics), 1},
+		{handle_font, offsetof(print_text_t, font), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_Print(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	mo->text_data = st->arg;
+	mo->text_tics = 0;
+}
+
+//
 // A_SetTranslation
 
 static const dec_args_t args_SetTranslation =
@@ -3762,6 +3862,8 @@ static const dec_action_t mobj_action[] =
 	// inventory
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},
+	// text
+	{"a_print", A_Print, &args_Print},
 	// jumps
 	{"a_jump", A_Jump, &args_Jump},
 	{"a_jumpifinventory", A_JumpIfInventory, &args_JumpIfInventory},

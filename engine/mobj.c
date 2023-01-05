@@ -2138,6 +2138,16 @@ static void mobj_xy_move(mobj_t *mo)
 	uint32_t dropoff;
 	player_t *pl = mo->player;
 
+	if(mo->text_data)
+	{
+		// This part should be directly in P_MobjThinker.
+		// But sice this function is always called now it could be handled here.
+		// Keep that in mind when porting ACE Engine features.
+		mo->text_tics++;
+		if(mo->text_tics >= mo->text_data->tics)
+			mo->text_data = NULL;
+	}
+
 	oldfloorz = mo->floorz;
 
 	if(!mo->momx && !mo->momy)

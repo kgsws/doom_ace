@@ -282,6 +282,8 @@ parse_string:
 				escaped = 0;
 				if(in == 'n')
 					in = '\n';
+				if(in == 'c')
+					in = 0x1C;
 			}
 
 			*dst++ = in;

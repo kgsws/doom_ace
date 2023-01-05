@@ -382,7 +382,7 @@ uint32_t count_textures()
 		strcpy(dtxt_texture1, "DOOMTEX1");
 		strcpy(dtxt_texture2, "DOOMTEX2");
 	}
-doom_printf("[TEX] %s %s %s\n", dtxt_pnames, dtxt_texture1, dtxt_texture2);
+
 	//
 	// count textures
 

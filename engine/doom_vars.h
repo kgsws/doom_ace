@@ -57,6 +57,10 @@ extern menu_t EpiDef;
 extern menu_t LoadDef;
 extern menuitem_t LoadMenu[];
 
+// HUD
+
+extern patch_t *hu_font[];
+
 // save / load
 extern uint8_t savename[];
 extern uint8_t savedesc[];
@@ -373,8 +377,8 @@ extern uint8_t rng_table[128*16*4]; // was zlight
 extern wbstartstruct_t wminfo;
 extern int32_t finaleflat; // type is changed!
 extern uint8_t *finaletext;
-extern uint32_t finalecount;
-extern uint32_t finalestage;
+extern int32_t finalecount;
+extern int32_t finalestage;
 
 // original map info
 extern uint8_t *mapnames[];
@@ -397,6 +401,7 @@ extern uint8_t dtxt_pnames[];
 extern uint8_t dtxt_texture1[];
 extern uint8_t dtxt_texture2[];
 extern uint8_t dtxt_colormap[];
+extern uint8_t dtxt_stcfn[];
 extern uint64_t dtxt_skull_name[];
 extern uint8_t dtxt_m_option[];
 extern uint8_t dtxt_m_lscntr[];

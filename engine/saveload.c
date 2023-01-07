@@ -22,6 +22,7 @@
 #include "demo.h"
 #include "generic.h"
 #include "render.h"
+#include "font.h"
 #include "draw.h"
 #include "polyobj.h"
 #include "extra3d.h"

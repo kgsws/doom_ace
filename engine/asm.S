@@ -150,6 +150,18 @@ skip_message_cancel:
 	jmp	*%eax
 
 //
+// skip menu draw
+.global skip_menu_draw
+skip_menu_draw:
+	pop	%eax
+	sub	doom_code_segment,%eax
+	cmp	$0x23D10,%eax
+	jne	skip_menu_draw
+	mov	doom_code_segment,%eax
+	add	$0x23F4E,%eax
+	jmp	*%eax
+
+//
 // I_FinishUpdate replacement
 .global I_FinishUpdate
 I_FinishUpdate:
@@ -511,6 +523,12 @@ HU_Start:
 HU_dequeueChatChar:
 	.byte	0xE9
 	.4byte	0x0003B920
+////////////////////////////////// HUlib_drawTextLine
+.section .text.HUlib_drawTextLine
+.global HUlib_drawTextLine
+HUlib_drawTextLine:
+	.byte	0xE9
+	.4byte	0x0003BDA0
 ////////////////////////////////// P_LoadBlockMap
 .section .text.P_LoadBlockMap
 .global P_LoadBlockMap

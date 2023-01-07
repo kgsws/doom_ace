@@ -145,6 +145,9 @@ uint8_t *control_key_name(uint8_t id)
 			return "[DEL]";
 	}
 
+	if(id >= 'a' && id <= 'z')
+		id &= ~0x20;
+
 	if(id > ' ' && id < 0x7F)
 	{
 		*((uint32_t*)name_tmp) = 0x005D005B | ((uint32_t)id << 8);

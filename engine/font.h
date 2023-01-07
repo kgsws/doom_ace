@@ -9,5 +9,8 @@
 void font_generate();
 void *font_load(int32_t lump);
 
-void font_center_text(const uint8_t *text, int32_t font, uint32_t linecount);
+uint32_t font_message_to_print();
+
+uint32_t font_draw_text(int32_t x, int32_t y, const uint8_t *text, void *font);
+void font_center_text(int32_t y, const uint8_t *text, void *font, uint32_t linecount);
 

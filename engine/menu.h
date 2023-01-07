@@ -9,6 +9,9 @@
 //
 
 void init_menu();
+
+void menu_init();
+
 void menu_draw_slot_bg(uint32_t x, uint32_t y, uint32_t width);
 
 void menu_setup_episodes();

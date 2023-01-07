@@ -2898,7 +2898,7 @@ void hook_RenderPlayerView(player_t *pl)
 
 	// text message
 	if(pl->camera && pl->camera->text_data)
-		font_center_text(pl->camera->text_data->text, pl->camera->text_data->font, pl->camera->text_data->lines);
+		font_center_text(SCREENHEIGHT / 2, pl->camera->text_data->text, font_load(pl->camera->text_data->font), pl->camera->text_data->lines);
 }
 
 // expanded drawseg limit

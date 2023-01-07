@@ -11,6 +11,7 @@
 #include "render.h"
 #include "map.h"
 #include "wadfile.h"
+#include "font.h"
 #include "draw.h"
 #include "wipe.h"
 #include "menu.h"
@@ -26,7 +27,8 @@ static int32_t title_display;
 static int32_t title_controls;
 static int32_t title_mouse;
 static int32_t title_player;
-static int32_t small_selector;
+static patch_t *selector_normal;
+static patch_t *selector_special;
 
 static uint16_t control_old;
 static int16_t control_pos;
@@ -94,29 +96,29 @@ static void change_gamma(uint32_t) __attribute((regparm(2),no_caller_saved_regis
 static menuitem_t display_items[] =
 {
 	{
-		.text = "MESSAGES",
+		.text = "Messages",
 		.status = 2,
 		.key = 'm'
 	},
 	{
-		.text = "SCREEN SIZE",
+		.text = "Screen Size",
 		.status = 2,
 		.key = 's'
 	},
 	{
-		.text = "WIPE STYLE",
+		.text = "Wipe Style",
 		.status = 2,
 		.func = change_wipe,
 		.key = 'w'
 	},
 	{
-		.text = "SHOW FPS",
+		.text = "Show FPS",
 		.status = 2,
 		.func = change_fps,
 		.key = 'f'
 	},
 	{
-		.text = "GAMMA",
+		.text = "Gamma",
 		.status = 2,
 		.func = change_gamma,
 		.key = 'g'
@@ -128,23 +130,23 @@ static menuitem_t display_items[] =
 		.status = -1
 	},
 	{
-		.text = "SHAPE",
+		.text = "Shape",
 		.status = 2,
 		.func = xhair_type,
 		.key = 'x'
 	},
 	{
-		.text = "RED",
+		.text = "Red",
 		.status = 2,
 		.func = xhair_color
 	},
 	{
-		.text = "GREEN",
+		.text = "Green",
 		.status = 2,
 		.func = xhair_color
 	},
 	{
-		.text = "BLUE",
+		.text = "Blue",
 		.status = 2,
 		.func = xhair_color
 	},
@@ -188,7 +190,7 @@ static void mouse_change(uint32_t) __attribute((regparm(2),no_caller_saved_regis
 static menuitem_t mouse_items[] =
 {
 	{
-		.text = "SENSITIVITY",
+		.text = "Sensitivity",
 		.status = 2
 	},
 	{
@@ -196,27 +198,27 @@ static menuitem_t mouse_items[] =
 		.status = -1
 	},
 	{
-		.text = "ATTACK",
+		.text = "Attack",
 		.status = 2,
 		.func = mouse_change
 	},
 	{
-		.text = "ALT ATTACK",
+		.text = "Alt Attack",
 		.status = 2,
 		.func = mouse_change
 	},
 	{
-		.text = "USE",
+		.text = "Use",
 		.status = 2,
 		.func = mouse_change
 	},
 	{
-		.text = "INVENTORY",
+		.text = "Inventory",
 		.status = 2,
 		.func = mouse_change
 	},
 	{
-		.text = "STRAFE",
+		.text = "Strafe",
 		.status = 2,
 		.func = mouse_change
 	},
@@ -239,31 +241,31 @@ static void player_change(uint32_t) __attribute((regparm(2),no_caller_saved_regi
 static menuitem_t player_items[] =
 {
 	{
-		.text = "AUTO RUN",
+		.text = "Auto Run",
 		.status = 2,
 		.func = player_change,
 		.key = 'r'
 	},
 	{
-		.text = "AUTO SWITCH",
+		.text = "Auto Switch",
 		.status = 2,
 		.func = player_change,
 		.key = 's'
 	},
 	{
-		.text = "AUTO AIM",
+		.text = "Auto Aim",
 		.status = 2,
 		.func = player_change,
 		.key = 'a'
 	},
 	{
-		.text = "MOUSE LOOK",
+		.text = "Mouse Look",
 		.status = 2,
 		.func = player_change,
 		.key = 'l'
 	},
 	{
-		.text = "WEAPON",
+		.text = "Weapon",
 		.status = 2,
 		.func = player_change,
 		.key = 'c'
@@ -520,7 +522,7 @@ void controls_draw()
 	V_DrawPatchDirect(104, 15, W_CacheLumpNum(title_controls, PU_CACHE));
 
 	// selector
-	V_DrawPatchDirect(CONTROL_X - 10, CONTROL_Y_BASE, W_CacheLumpNum(small_selector, PU_STATIC));
+	V_DrawPatchDirect(CONTROL_X - 10, CONTROL_Y_BASE, selector_normal);
 
 	// extra offset
 	old = control_list[0].group;
@@ -710,10 +712,10 @@ void menu_items_draw(menu_t *menu)
 		// small font
 		y = -y;
 
-		patch = W_CacheLumpNum(small_selector, PU_STATIC);
 		if(menu->menuitems[menu_item_now].status == 2)
-			V_DrawPatchDirect(x + CURSORX_SMALL - 6, y + menu_item_now * LINEHEIGHT_SMALL, patch);
-		V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * LINEHEIGHT_SMALL, patch);
+			V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * LINEHEIGHT_SMALL, selector_special);
+		else
+			V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * LINEHEIGHT_SMALL, selector_normal);
 
 		for(uint32_t i = 0; i < menu->numitems; i++)
 		{
@@ -773,10 +775,18 @@ void sel_new_game()
 //
 // API
 
+void menu_init()
+{
+	uint8_t text[32];
+
+	doom_sprintf(text, dtxt_stcfn, 42);
+	selector_normal = W_CacheLumpName(text, PU_STATIC);
+	doom_sprintf(text, dtxt_stcfn, 62);
+	selector_special = W_CacheLumpName(text, PU_STATIC);
+}
+
 void init_menu()
 {
-	small_selector = W_GetNumForName("STCFN042"); // it's from font, use PU_STATIC
-
 	title_options = W_GetNumForName(dtxt_m_option);
 
 	title_display = W_CheckNumForName("M_DISPL");
@@ -849,7 +859,9 @@ uint32_t menu_check_message()
 	if(menuactive || messageToPrint)
 		for(uint8_t *ptr = screen_buffer; ptr < screen_buffer + 320 * 200; ptr++)
 			*ptr = colormaps[*ptr + 256 * 21];
-	return messageToPrint;
+
+	// check for message with custom font
+	return font_message_to_print();
 }
 
 //

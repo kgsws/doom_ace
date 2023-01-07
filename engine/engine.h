@@ -49,6 +49,12 @@ typedef uint32_t angle_t;
 #define ONFLOORZ	-2147483648
 #define ONCEILINGZ	2147483647
 
+// HU values
+#define HU_MAXLINELENGTH	80
+#define HU_FONTSTART	'!'
+#define HU_FONTEND	'_'
+#define HU_FONTSIZE	(HU_FONTEND - HU_FONTSTART + 1)
+
 //
 // tables
 
@@ -1283,6 +1289,20 @@ typedef struct
 } st_multicon_t;
 
 //
+// headsup
+
+typedef struct
+{
+	int32_t x;
+	int32_t y;
+	patch_t **f;
+	int32_t sc;
+	uint8_t l[HU_MAXLINELENGTH+1];
+	int32_t len;
+	int32_t needsupdate;
+} __attribute__((packed)) hu_textline_t;
+
+//
 // WI
 
 typedef struct
@@ -1419,6 +1439,7 @@ void hook_bluescreen();
 void engine_error(uint8_t*,uint8_t*, ...) __attribute((noreturn));
 uint32_t dpmi_get_ram(); // this is modified I_ZoneBase
 void skip_message_cancel() __attribute((noreturn));
+void skip_menu_draw() __attribute((noreturn));
 void rng_asm_code();
 void _hack_update(); // this is address of 'ret' opcode in 'D_Display'; no-DOS-Doom2 hooks this location with screen update
 
@@ -1482,9 +1503,12 @@ void ST_doPaletteStuff() __attribute((regparm(2),no_caller_saved_registers));
 void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
 uint8_t HU_dequeueChatChar() __attribute((regparm(2),no_caller_saved_registers));
 
+// hu_lib
+void HUlib_drawTextLine(hu_textline_t *l, uint32_t cursor);
+
 // m_menu
 void M_Drawer() __attribute((regparm(2),no_caller_saved_registers));
-void M_WriteText(uint32_t,uint32_t,const uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
+void M_WriteText(int32_t,int32_t,const uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void M_ClearMenus() __attribute((regparm(2),no_caller_saved_registers));
 void M_StartMessage(uint8_t*,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 

@@ -15,6 +15,7 @@
 #include "stbar.h"
 #include "config.h"
 #include "rng.h"
+#include "font.h"
 #include "demo.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
@@ -694,8 +695,9 @@ void late_init()
 	// call original first
 	ST_Init();
 
-	// call other init
+	// call other inits
 	stbar_init();
+	menu_init();
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

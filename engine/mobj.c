@@ -2061,10 +2061,6 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 				if(player)
 					player->extralight = 0;
 
-				if(!target->momz && !(target->flags & MF_MISSILE))
-					// fake some Z movement for crash states
-					target->momz = -1;
-
 				return;
 			}
 		}
@@ -2138,14 +2134,11 @@ static void mobj_xy_move(mobj_t *mo)
 	uint32_t dropoff;
 	player_t *pl = mo->player;
 
-	if(mo->text_data)
+	if(!mo->momz && mo->z == mo->floorz && mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
 	{
-		// This part should be directly in P_MobjThinker.
-		// But sice this function is always called now it could be handled here.
-		// Keep that in mind when porting ACE Engine features.
-		mo->text_tics++;
-		if(mo->text_tics >= mo->text_data->tics)
-			mo->text_data = NULL;
+		// fake some Z movement for crash states
+		// technically, this should be outside of XY Move function
+		mo->momz = -1;
 	}
 
 	oldfloorz = mo->floorz;

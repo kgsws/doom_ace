@@ -83,8 +83,7 @@ enum
 #define FF_CANRAISE	0x2000
 
 // player flags
-#define PF_NO_BODY	0x00000001
-#define PF_IS_FROZEN	0x00000002
+#define PF_IS_FROZEN	0x00000001
 
 // FLAGS 0
 #define MF_SPECIAL	0x00000001

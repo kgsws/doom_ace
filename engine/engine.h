@@ -397,7 +397,9 @@ typedef struct player_s
 	uint8_t power_color[NUMPOWERS];
 	uint32_t flags;
 	struct mobj_s *camera;
-	uint32_t __unused[4+2];
+	const print_text_t *text_data;
+	uint32_t text_tics;
+	uint32_t __unused[4];
 	angle_t angle;
 	angle_t pitch;
 	uint16_t attackdown;
@@ -519,6 +521,7 @@ enum
 {
 	ETYPE_NONE, // must be first
 	ETYPE_PLAYERPAWN,
+	ETYPE_PLAYERCHUNK,
 	ETYPE_SWITCHABLE,
 	ETYPE_RANDOMSPAWN,
 	ETYPE_HEALTH,
@@ -1171,9 +1174,6 @@ typedef struct mobj_s
 	uint32_t freeze_tick;
 	// special
 	mobj_special_t special;
-	// printed text
-	const print_text_t *text_data;
-	uint32_t text_tics;
 	// new sound sources
 	vertex_t sound_body;
 	vertex_t sound_weapon;

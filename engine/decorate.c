@@ -264,6 +264,31 @@ static const mobjinfo_t default_player =
 	.player.jump_z = 8 << FRACBITS,
 };
 
+// default 'PlayerChunk'
+static const mobjinfo_t default_plrchunk =
+{
+	.spawnhealth = 100,
+	.radius = 16 << FRACBITS,
+	.height = 56 << FRACBITS,
+	.step_height = 24 * FRACUNIT,
+	.camera_height = -1,
+	.dropoff = 24 * FRACUNIT,
+	.mass = 100,
+	.blood_type = 38,
+	.telefog[0] = 39,
+	.telefog[1] = 39,
+	.gravity = FRACUNIT,
+	.scale = FRACUNIT,
+	.range_melee = 44 * FRACUNIT,
+	.render_alpha = 255,
+	.painchance[DAMAGE_NORMAL] = 255,
+	.speed = 1 << FRACBITS,
+	.flags = MF_DROPOFF,
+	.player.view_height = 41 << FRACBITS,
+	.player.attack_offs = 8 << FRACBITS,
+	.player.jump_z = 8 << FRACBITS,
+};
+
 // default 'Health'
 static const mobjinfo_t default_health =
 {
@@ -817,6 +842,12 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 		.def = &default_player,
 		.attr[0] = attr_player
 	},
+	[ETYPE_PLAYERCHUNK] =
+	{
+		.name = "PlayerChunk",
+		.def = &default_plrchunk,
+		.attr[0] = attr_player
+	},
 	[ETYPE_SWITCHABLE] =
 	{
 		.name = "SwitchableDecoration",
@@ -1105,7 +1136,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.flags1 = MF1_CANNOTPUSH,
 		.state_spawn = STATE_ICE_CHUNK_PLR,
 		.state_idx_limit = NEW_NUMSTATES,
-		.extra_type = ETYPE_PLAYERPAWN,
+		.extra_type = ETYPE_PLAYERCHUNK,
 		.player.view_height = 2 << FRACBITS,
 		.player.attack_offs = 2 << FRACBITS,
 	},

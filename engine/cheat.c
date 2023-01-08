@@ -284,7 +284,7 @@ static void cf_resurrect(player_t *pl, uint8_t *arg)
 	if(pl->state != PST_DEAD && pl->health > 0)
 		return;
 
-	if(pl->flags & PF_NO_BODY)
+	if(mo->info->extra_type != ETYPE_PLAYERPAWN)
 	{
 		pl->message = "Original body was lost!";
 		return;

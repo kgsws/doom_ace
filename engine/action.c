@@ -149,6 +149,25 @@ mobj_t *resolve_ptr(mobj_t *mo, uint32_t ptr)
 	}
 }
 
+fixed_t reslove_fixed_rng(fixed_t value)
+{
+	fixed_t ret;
+
+	if(!(value & 0x80000000))
+	{
+		value |= (value & 0x40000000) << 1;
+		return value;
+	}
+
+	ret = (value >> 4) & 0x03FFF000;
+	if(value & 0x40000000)
+		ret -= P_Random() * ((value << 5) & 0x001FFFE0);
+	else
+		ret += P_Random() * ((value << 5) & 0x001FFFE0);
+
+	return ret;
+}
+
 //
 // argument parsers
 
@@ -257,6 +276,92 @@ static uint8_t *handle_fixed(uint8_t *kw, const dec_arg_t *arg)
 		value = -value;
 
 	*((fixed_t*)(parse_action_arg + arg->offset)) = value;
+
+	return tp_get_keyword();
+}
+
+static uint8_t *handle_fixed_rng(uint8_t *kw, const dec_arg_t *arg)
+{
+	fixed_t v0, v1;
+	uint32_t tmp;
+	uint_fast8_t negate;
+
+	if(!strcmp(kw, "random"))
+	{
+		v0 = 0;
+		goto skip_v0;
+	}
+
+	if(kw[0] == '-')
+	{
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
+		negate = 1;
+	} else
+		negate = 0;
+
+	if(tp_parse_fixed(kw, &v0))
+		return NULL;
+
+	kw = tp_get_keyword_lc();
+	if(!kw)
+		return NULL;
+
+	if(kw[0] == ',' || kw[0] == ')')
+	{
+		// just a value
+		if(negate)
+			v0 = -v0;
+		*((fixed_t*)(parse_action_arg + arg->offset)) = v0 & 0x7FFFFFFF;
+		return kw;
+	}
+
+	if(negate)
+		return NULL;
+
+	// there must be specific format now
+	// v0 + random(0, 255) * v1
+	// v0 - random(0, 255) * v1
+	// v0 and v1 can't be negative
+
+	if(kw[0] == '-')
+		negate = 1;
+	else
+	if(kw[0] != '+')
+		return NULL;
+
+	if(!tp_must_get_lc("random"))
+		return NULL;
+
+skip_v0:
+
+	if(!tp_must_get("("))
+		return NULL;
+
+	if(!tp_must_get("0"))
+		return NULL;
+
+	if(!tp_must_get(","))
+		return NULL;
+
+	if(!tp_must_get("255"))
+		return NULL;
+
+	if(!tp_must_get(")"))
+		return NULL;
+
+	if(!tp_must_get("*"))
+		return NULL;
+
+	kw = tp_get_keyword();
+	if(!kw)
+		return NULL;
+
+	if(tp_parse_fixed(kw, &v1))
+		return NULL;
+
+	*((fixed_t*)(parse_action_arg + arg->offset)) = 0x80000000 | (negate << 30) | ((v0 & 0x03FFF000) << 4) | ((v1 & 0x001FFFE0) >> 5);
 
 	return tp_get_keyword();
 }
@@ -2503,12 +2608,12 @@ static const dec_args_t args_SpawnItemEx =
 	.arg =
 	{
 		{handle_mobjtype, offsetof(args_SpawnItemEx_t, type), 1},
-		{handle_fixed, offsetof(args_SpawnItemEx_t, ox), 1},
-		{handle_fixed, offsetof(args_SpawnItemEx_t, oy), 1},
-		{handle_fixed, offsetof(args_SpawnItemEx_t, oz), 1},
-		{handle_fixed, offsetof(args_SpawnItemEx_t, vx), 1},
-		{handle_fixed, offsetof(args_SpawnItemEx_t, vy), 1},
-		{handle_fixed, offsetof(args_SpawnItemEx_t, vz), 1},
+		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, ox), 1},
+		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, oy), 1},
+		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, oz), 1},
+		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, vx), 1},
+		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, vy), 1},
+		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, vz), 1},
 		{handle_angle, offsetof(args_SpawnItemEx_t, angle), 1},
 		{handle_flags, offsetof(args_SpawnItemEx_t, flags), 1, flags_SpawnItemEx},
 		{handle_u16, offsetof(args_SpawnItemEx_t, fail), 1},
@@ -2542,34 +2647,40 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(arg->flags & SXF_ABSOLUTEPOSITION)
 	{
-		x = mo->x + arg->ox;
-		y = mo->y + arg->oy;
+		x = mo->x + reslove_fixed_rng(arg->ox);
+		y = mo->y + reslove_fixed_rng(arg->oy);
 	} else
 	{
-		x = FixedMul(arg->ox, cc);
-		x += FixedMul(arg->oy, ss);
-		y = FixedMul(arg->ox, ss);
-		y -= FixedMul(arg->oy, cc);
+		fixed_t ox, oy;
+		ox = reslove_fixed_rng(arg->ox);
+		oy = reslove_fixed_rng(arg->oy);
+		x = FixedMul(ox, cc);
+		x += FixedMul(oy, ss);
+		y = FixedMul(ox, ss);
+		y -= FixedMul(oy, cc);
 		x += mo->x;
 		y += mo->y;
 	}
 
 	if(!(arg->flags & SXF_ABSOLUTEVELOCITY))
 	{
-		mx = FixedMul(arg->vx, cc);
-		mx += FixedMul(arg->vy, ss);
-		my = FixedMul(arg->vx, ss);
-		my -= FixedMul(arg->vy, cc);
+		fixed_t vx, vy;
+		vx = reslove_fixed_rng(arg->vx);
+		vy = reslove_fixed_rng(arg->vy);
+		mx = FixedMul(vx, cc);
+		mx += FixedMul(vy, ss);
+		my = FixedMul(vx, ss);
+		my -= FixedMul(vy, cc);
 	} else
 	{
-		mx = arg->vx;
-		my = arg->vy;
+		mx = reslove_fixed_rng(arg->vx);
+		my = reslove_fixed_rng(arg->vy);
 	}
 
-	th = P_SpawnMobj(x, y, mo->z + arg->oz, arg->type);
+	th = P_SpawnMobj(x, y, mo->z + reslove_fixed_rng(arg->oz), arg->type);
 	th->momx = mx;
 	th->momy = my;
-	th->momz = arg->vz;
+	th->momz = reslove_fixed_rng(arg->vz);
 	th->angle = mo->angle;
 	th->special.tid = arg->tid;
 
@@ -2734,8 +2845,26 @@ static const dec_args_t args_Print =
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Print(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	mo->text_data = st->arg;
-	mo->text_tics = 0;
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		player_t *pl = players + i;
+		if(pl->camera == mo || pl->mo == mo)
+		{
+			pl->text_data = st->arg;
+			pl->text_tics = 0;
+		}
+	}
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_PrintBold(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		player_t *pl = players + i;
+		pl->text_data = st->arg;
+		pl->text_tics = 0;
+	}
 }
 
 //
@@ -2848,6 +2977,25 @@ void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_SetPitch
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SetPitch(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_SetAngle_t *arg = st->arg;
+
+	if(arg->angle & 0x80000000)
+		// invalid
+		return;
+
+	mo = resolve_ptr(mo, arg->ptr);
+	if(!mo)
+		return;
+
+	mo->pitch = -(arg->angle << 1);
+}
+
+//
 // A_ChangeFlag
 
 static const dec_args_t args_ChangeFlag =
@@ -2934,6 +3082,17 @@ void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mo->momx += x;
 	mo->momy += y;
 	mo->momz += arg->z;
+}
+
+//
+// A_Stop
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_Stop(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	mo->momx = 0;
+	mo->momy = 0;
+	mo->momz = 0;
 }
 
 //
@@ -3409,15 +3568,19 @@ void A_SkullPop(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!mo->player)
 		return;
 
-	mo->player->flags |= PF_NO_BODY;
+	if(mo->player->attacker == mo)
+		mo->player->attacker = NULL;
+
+	mo->player->viewheight = 6 * FRACUNIT;
 
 	th = P_SpawnMobj(mo->x, mo->y, mo->z + mo->info->player.view_height, arg->type);
 	th->momx = (P_Random() - P_Random()) << 9;
 	th->momy = (P_Random() - P_Random()) << 9;
-	th->momz = FRACUNIT*2 + (P_Random() << 6);
+	th->momz = FRACUNIT*3 + (P_Random() << 6);
 	th->angle = mo->angle;
 	th->player = mo->player;
 	th->player->mo = th;
+	th->player->camera = th;
 	th->target = mo->target;
 	th->inventory = mo->inventory;
 	mo->player = NULL;
@@ -3477,7 +3640,11 @@ void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(mo->player)
 	{
-		mo->player->flags |= PF_NO_BODY;
+		if(mo->player->attacker == mo)
+			mo->player->attacker = NULL;
+
+		mo->player->viewheight = 6 * FRACUNIT;
+
 		th = P_SpawnMobj(mo->x, mo->y, mo->z + mo->info->player.view_height, MOBJ_IDX_ICE_CHUNK_HEAD);
 		th->momx = (P_Random() - P_Random()) << 9;
 		th->momy = (P_Random() - P_Random()) << 9;
@@ -3853,8 +4020,10 @@ static const dec_action_t mobj_action[] =
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_alertmonsters", A_AlertMonsters},
 	{"a_setangle", A_SetAngle, &args_SetAngle},
+	{"a_setpitch", A_SetPitch, &args_SetAngle}, // using 'SetAngle' is not ideal
 	{"a_changeflag", A_ChangeFlag, &args_ChangeFlag},
 	{"a_changevelocity", A_ChangeVelocity, &args_ChangeVelocity},
+	{"a_stop", A_Stop},
 	{"a_settics", A_SetTics, &args_SetTics},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
@@ -3864,6 +4033,7 @@ static const dec_action_t mobj_action[] =
 	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},
 	// text
 	{"a_print", A_Print, &args_Print},
+	{"a_printbold", A_PrintBold, &args_Print},
 	// jumps
 	{"a_jump", A_Jump, &args_Jump},
 	{"a_jumpifinventory", A_JumpIfInventory, &args_JumpIfInventory},

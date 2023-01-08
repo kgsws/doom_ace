@@ -2897,8 +2897,8 @@ void hook_RenderPlayerView(player_t *pl)
 	stbar_draw(pl);
 
 	// text message
-	if(pl->camera && pl->camera->text_data)
-		font_center_text(SCREENHEIGHT / 2, pl->camera->text_data->text, font_load(pl->camera->text_data->font), pl->camera->text_data->lines);
+	if(pl->text_data)
+		font_center_text(SCREENHEIGHT / 2, pl->text_data->text, font_load(pl->text_data->font), pl->text_data->lines);
 }
 
 // expanded drawseg limit

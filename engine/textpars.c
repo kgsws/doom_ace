@@ -405,6 +405,18 @@ uint8_t *tp_get_keyword_uc()
 	return data;
 }
 
+uint32_t tp_must_get(const uint8_t *kv)
+{
+	uint8_t *kw = tp_get_keyword();
+	return !strcmp(kv, kw);
+}
+
+uint32_t tp_must_get_lc(const uint8_t *kv)
+{
+	uint8_t *kw = tp_get_keyword_lc();
+	return !strcmp(kv, kw);
+}
+
 void tp_push_keyword(uint8_t *kw)
 {
 	pushed_kw = kw;

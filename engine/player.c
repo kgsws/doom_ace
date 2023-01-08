@@ -340,6 +340,13 @@ void player_think(player_t *pl)
 	uint32_t idx = pl - players;
 	ticcmd_t *cmd = &pl->cmd;
 
+	if(pl->text_data)
+	{
+		pl->text_tics++;
+		if(pl->text_tics >= pl->text_data->tics)
+			pl->text_data = NULL;
+	}
+
 	if(pl->stbar_update)
 	{
 		if(idx == consoleplayer)

@@ -655,7 +655,7 @@ const dec_flag_t mobj_flags1[] =
 	{"ghost", MF1_GHOST},
 	{"thrughost", MF1_THRUGHOST},
 	{"dormant", MF1_DORMANT},
-	{"synchronized", MF1_SYNCHRONIZED},
+	{"painless", MF1_PAINLESS},
 	{"iceshatter", MF1_ICESHATTER},
 	{"dontfall", MF1_DONTFALL},
 	// terminator
@@ -675,7 +675,8 @@ const dec_flag_t mobj_flags2[] =
 	{"movewithsector", MF2_MOVEWITHSECTOR},
 	{"fullvoldeath", MF2_FULLVOLDEATH},
 	{"oldradiusdmg", MF2_OLDRADIUSDMG},
-	{"bloodlessimpact", MF2_BLOODLESSIMPACT}, // TODO
+	{"bloodlessimpact", MF2_BLOODLESSIMPACT},
+	{"synchronized", MF2_SYNCHRONIZED},
 	// terminator
 	{NULL}
 };

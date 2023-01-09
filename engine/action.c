@@ -159,7 +159,10 @@ fixed_t reslove_fixed_rng(fixed_t value)
 		return value;
 	}
 
-	ret = (value >> 4) & 0x03FFF000;
+	ret = (value >> 4) & 0x01FFF000;
+	if(value & 0x20000000)
+		ret = -ret;
+
 	if(value & 0x40000000)
 		ret -= P_Random() * ((value << 5) & 0x001FFFE0);
 	else
@@ -284,7 +287,8 @@ static uint8_t *handle_fixed_rng(uint8_t *kw, const dec_arg_t *arg)
 {
 	fixed_t v0, v1;
 	uint32_t tmp;
-	uint_fast8_t negate;
+	uint_fast8_t negate = 0;
+	uint_fast8_t subtract = 0;
 
 	if(!strcmp(kw, "random"))
 	{
@@ -297,9 +301,14 @@ static uint8_t *handle_fixed_rng(uint8_t *kw, const dec_arg_t *arg)
 		kw = tp_get_keyword();
 		if(!kw)
 			return NULL;
+		if(!strcmp(kw, "random"))
+		{
+			v0 = 0;
+			subtract = 1;
+			goto skip_v0;
+		}
 		negate = 1;
-	} else
-		negate = 0;
+	}
 
 	if(tp_parse_fixed(kw, &v0))
 		return NULL;
@@ -317,16 +326,13 @@ static uint8_t *handle_fixed_rng(uint8_t *kw, const dec_arg_t *arg)
 		return kw;
 	}
 
-	if(negate)
-		return NULL;
-
 	// there must be specific format now
 	// v0 + random(0, 255) * v1
 	// v0 - random(0, 255) * v1
-	// v0 and v1 can't be negative
+	// v1 can't be negative
 
 	if(kw[0] == '-')
-		negate = 1;
+		subtract = 1;
 	else
 	if(kw[0] != '+')
 		return NULL;
@@ -361,7 +367,7 @@ skip_v0:
 	if(tp_parse_fixed(kw, &v1))
 		return NULL;
 
-	*((fixed_t*)(parse_action_arg + arg->offset)) = 0x80000000 | (negate << 30) | ((v0 & 0x03FFF000) << 4) | ((v1 & 0x001FFFE0) >> 5);
+	*((fixed_t*)(parse_action_arg + arg->offset)) = 0x80000000 | (subtract << 30) | (negate << 29) | ((v0 & 0x01FFF000) << 4) | ((v1 & 0x001FFFE0) >> 5);
 
 	return tp_get_keyword();
 }
@@ -1266,7 +1272,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			aaa += (P_Random() - P_Random()) << hs;
 		sss = bulletslope;
 		if(vs)
-			sss += (P_Random() - P_Random()) << 5;
+			sss += (P_Random() - P_Random()) << vs;
 
 		P_LineAttack(mo, aaa, MISSILERANGE, sss, damage);
 	}
@@ -2360,6 +2366,8 @@ void A_CustomPunch(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	angle = mo->angle;
 	if(!player_aim(pl, &angle, &slope, 0))
 		slope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
+
+	angle += (P_Random() - P_Random()) << 18;
 
 	damage = arg->damage;
 	if(damage & DAMAGE_IS_CUSTOM)

@@ -522,7 +522,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		mo->render_alpha = 50;
 	}
 
-	if(!(mo->flags1 & MF1_SYNCHRONIZED) && mo->tics > 0)
+	if(!(mo->flags2 & MF2_SYNCHRONIZED) && mo->tics > 0)
 		mo->tics = 1 + (P_Random() % mo->tics);
 
 	mo->special.special = mt->special;

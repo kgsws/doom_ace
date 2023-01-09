@@ -904,6 +904,9 @@ uint32_t finish_mobj(mobj_t *mo)
 	// teleport fog starts teleport sound
 	if(mo->type == 39)
 		S_StartSound(mo, 35);
+
+	// fix type - RandomSpawner
+	mo->type = mo->info - mobjinfo;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -921,9 +924,10 @@ static void kill_animation(mobj_t *mo)
 	if(mo->health < -mo->info->spawnhealth)
 	{
 		// find extreme death state
-		if(cst && cst->xdeath)
+		if(cst)
 		{
-			state = cst->xdeath;
+			if(cst->xdeath)
+				state = cst->xdeath;
 			ice_death = 0;
 		} else
 			state = mo->info->state_xdeath;
@@ -2066,7 +2070,8 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		}
 	}
 
-	if(	P_Random() < target->info->painchance[damage_type] &&
+	if(	!(if_flags1 & MF1_PAINLESS) &&
+		P_Random() < target->info->painchance[damage_type] &&
 		!(target->flags & MF_SKULLFLY)
 	) {
 		uint32_t state = target->info->state_pain;

@@ -232,6 +232,14 @@ typedef struct
 
 typedef struct
 {
+	fixed_t alpha;
+	uint16_t flags;
+} args_SetRenderStyle_t;
+
+//
+
+typedef struct
+{
 	angle_t angle;
 	uint8_t ptr;
 	uint8_t sacrifice;

@@ -2918,6 +2918,47 @@ void A_SetScale(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_SetRenderStyle
+
+static const dec_arg_flag_t flags_SetRenderStyle[] =
+{
+	{.name = "STYLE_Normal", .bits = RS_NORMAL},
+	{.name = "STYLE_Fuzzy", .bits = RS_FUZZ},
+	{.name = "STYLE_Shadow", .bits = RS_SHADOW},
+	{.name = "STYLE_Translucent", .bits = RS_TRANSLUCENT},
+	{.name = "STYLE_Add", .bits = RS_ADDITIVE},
+	{.name = "STYLE_None", .bits = RS_INVISIBLE},
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_SetRenderStyle =
+{
+	.size = sizeof(args_SetRenderStyle_t),
+	.arg =
+	{
+		{handle_fixed, offsetof(args_SetRenderStyle_t, alpha), 0},
+		{handle_flags, offsetof(args_SetRenderStyle_t, flags), 0, flags_SetRenderStyle},
+		// terminator
+		{NULL}
+	}
+};
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_SetRenderStyle(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_SetRenderStyle_t *arg = st->arg;
+	mo->render_style = arg->flags;
+	if(arg->alpha >= FRACUNIT)
+		mo->render_alpha = 255;
+	else
+	if(arg->alpha <= 0)
+		mo->render_alpha = 0;
+	else
+		mo->render_alpha = arg->alpha >> 8;
+}
+
+//
 // A_CheckPlayerDone
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -4024,6 +4065,7 @@ static const dec_action_t mobj_action[] =
 	// render
 	{"a_settranslation", A_SetTranslation, &args_SetTranslation},
 	{"a_setscale", A_SetScale, &args_SetScale},
+	{"a_setrenderstyle", A_SetRenderStyle, &args_SetRenderStyle},
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_alertmonsters", A_AlertMonsters},

@@ -1106,6 +1106,11 @@ void missile_stuff(mobj_t *mo, mobj_t *source, mobj_t *target, fixed_t speed, an
 static void shatter_spawn(mobj_t *mo, uint32_t type)
 {
 	uint32_t count, i;
+	mobj_t *inside;
+
+	inside = mo->inside;
+	while(inside && !(inside->flags & MF_SOLID))
+		inside = inside->inside;
 
 	mo->momx = 0;
 	mo->momy = 0;
@@ -1140,6 +1145,8 @@ static void shatter_spawn(mobj_t *mo, uint32_t type)
 		th->momx = -FRACUNIT + (P_Random() << 9);
 		th->momy = -FRACUNIT + (P_Random() << 9);
 		th->momz = 4 * FixedDiv(th->z - mo->z, mo->info->height);
+
+		th->inside = inside;
 	} while(--count);
 }
 
@@ -2772,7 +2779,11 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		th->iflags |= MFI_MARKED; // skip most of missile stuff
 		missile_stuff(th, mo, NULL, 0, angle, 0, 0);
 	} else
+	{
+		while(mo && !(mo->flags & MF_SOLID))
+			mo = mo->inside;
 		th->inside = mo;
+	}
 }
 
 //
@@ -2956,6 +2967,47 @@ void A_SetRenderStyle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mo->render_alpha = 0;
 	else
 		mo->render_alpha = arg->alpha >> 8;
+}
+
+//
+// A_FadeOut
+
+static const dec_args_t args_FadeOut =
+{
+	.size = sizeof(args_singleFixed_t),
+	.arg =
+	{
+		{handle_fixed, offsetof(args_singleFixed_t, value), 2},
+		// terminator
+		{NULL}
+	}
+};
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_FadeOut(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleFixed_t *arg = st->arg;
+	fixed_t sub;
+	fixed_t alpha;
+
+	if(arg)
+		sub = arg->value;
+	else
+		sub = FRACUNIT / 10;
+
+	if(mo->render_style != RS_TRANSLUCENT && mo->render_style != RS_ADDITIVE)
+		mo->render_style = RS_TRANSLUCENT;
+
+	alpha = mo->render_alpha << 8;
+	alpha -= sub;
+
+	if(alpha < 0)
+	{
+		mobj_remove(mo);
+		return;
+	}
+
+	mo->render_alpha = alpha >> 8;
 }
 
 //
@@ -4066,6 +4118,7 @@ static const dec_action_t mobj_action[] =
 	{"a_settranslation", A_SetTranslation, &args_SetTranslation},
 	{"a_setscale", A_SetScale, &args_SetScale},
 	{"a_setrenderstyle", A_SetRenderStyle, &args_SetRenderStyle},
+	{"a_fadeout", A_FadeOut, &args_FadeOut},
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_alertmonsters", A_AlertMonsters},

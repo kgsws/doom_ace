@@ -1903,7 +1903,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			damage = (damage * target->info->damage_factor[damage_type]) / 4;
 	}
 
-	if(!damage)
+	if(!damage && !(target->flags1 & MF1_NODAMAGE))
 		return;
 
 	forced = damage >= 1000000;
@@ -2086,8 +2086,11 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 				state = cst->pain;
 		}
 
-		target->animation = ANIM_PAIN;
-		mobj_set_state(target, state);
+		if(state)
+		{
+			target->animation = ANIM_PAIN;
+			mobj_set_state(target, state);
+		}
 	}
 
 	target->reactiontime = 0;

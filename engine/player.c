@@ -417,6 +417,7 @@ void player_think(player_t *pl)
 			pl->mo->pitch = 0;
 		pl->weapon_ready = 0;
 		pl->inv_tick = 0;
+		pl->extralight = 0;
 
 		P_DeathThink(pl);
 

@@ -95,7 +95,7 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 			if(state)
 				state += offset;
 
-			if(state >= mo->info->state_idx_limit)
+			if(state >= num_states)
 				engine_error("MOBJ", "State jump '+%u' is invalid!", offset);
 		}
 
@@ -167,7 +167,7 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 			if(state)
 				state += offset;
 
-			if(state >= info->state_idx_limit)
+			if(state >= num_states)
 				engine_error("MOBJ", "State jump '+%u' is invalid!", offset);
 		}
 
@@ -2726,8 +2726,8 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage, uint32_
 	if(damage <= 12)
 		state += 1;
 
-	if(state >= mo->info->state_idx_limit)
-		state >= mo->info->state_idx_limit - 1;
+	if(state >= num_states) // TODO: this is not correct
+		state = num_states - 1;
 
 	mobj_set_state(mo, state);
 

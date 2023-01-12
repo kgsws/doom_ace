@@ -4,8 +4,8 @@
 #define MAX_SPRITE_NAMES	1024
 #define MAX_PLAYER_CLASSES	512
 
-#define EXTRA_STORAGE_PTR	((void*)d_drawsegs)
-#define EXTRA_STORAGE_SIZE	12288
+#define EXTRA_STORAGE_PTR	((void*)ptr_visplanes)
+#define EXTRA_STORAGE_SIZE	(mod_config.visplane_count * sizeof(visplane_t))
 #define EXTRA_STORAGE_END	(EXTRA_STORAGE_PTR + EXTRA_STORAGE_SIZE)
 
 enum

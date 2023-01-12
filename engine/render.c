@@ -48,9 +48,9 @@ static fixed_t mlook_pitch;
 
 static player_t fake_player;
 
-static visplane_t *ptr_visplanes;
 static vissprite_t *vissprites;
-static drawseg_t *ptr_drawsegs;
+visplane_t *ptr_visplanes;
+drawseg_t *ptr_drawsegs;
 
 static uint32_t lightvalue;
 static uint8_t *lightmap;
@@ -2574,7 +2574,10 @@ void init_render()
 		// install hooks
 		utils_install_hooks(hook_visplane, 4);
 	} else
+	{
+		mod_config.visplane_count = 128;
 		ptr_visplanes = d_visplanes;
+	}
 
 	// vissprite limit
 	if(mod_config.vissprite_count > 128)

@@ -75,7 +75,7 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 			if(state)
 				state += offset;
 
-			if(state >= info->state_idx_limit)
+			if(state >= num_states)
 				engine_error("WEAPON", "State jump '+%u' is invalid!", offset);
 		}
 

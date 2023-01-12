@@ -26,11 +26,11 @@
 
 #define NUM_STATE_HOOKS	1
 
-#define CUSTOM_STATE_STORAGE	((custom_state_t*)d_visplanes)
-#define MAX_CUSTOM_STATES	1024
-
+// these are calculated to fit into 12288 bytes
+#define CUSTOM_STATE_STORAGE	((custom_state_t*)ptr_drawsegs)
+#define MAX_CUSTOM_STATES	320
 #define CUSTOM_STATE_REMAP	((uint32_t**)(CUSTOM_STATE_STORAGE + MAX_CUSTOM_STATES))
-#define MAX_CUSTOM_REMAPS	512
+#define MAX_CUSTOM_REMAPS	832
 
 enum
 {
@@ -193,6 +193,8 @@ static uint32_t parse_last_anim;
 
 static void *extra_stuff_cur;
 static void *extra_stuff_next;
+
+static uint32_t extra_storage_size;
 
 //
 static uint32_t parse_damage();
@@ -1049,7 +1051,6 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_NOGRAVITY,
 		.state_spawn = STATE_UNKNOWN_ITEM,
-		.state_idx_limit = NEW_NUMSTATES,
 	},
 	[MOBJ_IDX_FIST - NUMMOBJTYPES] =
 	{
@@ -1067,7 +1068,6 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_SPECIAL,
-		.state_idx_limit = NEW_NUMSTATES,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
 		.weapon.inventory.max_count = 1,
@@ -1093,7 +1093,6 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_SPECIAL,
 		.state_spawn = STATE_PISTOL,
-		.state_idx_limit = NEW_NUMSTATES,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
 		.weapon.inventory.max_count = 1,
@@ -1118,7 +1117,6 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.flags1 = MF1_NOTELEPORT | MF1_CANNOTPUSH,
 		.flags2 = MF2_MOVEWITHSECTOR,
 		.state_spawn = STATE_ICE_CHUNK_0,
-		.state_idx_limit = NEW_NUMSTATES,
 	},
 	[MOBJ_IDX_ICE_CHUNK_HEAD - NUMMOBJTYPES] =
 	{
@@ -1136,7 +1134,6 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.flags = MF_DROPOFF,
 		.flags1 = MF1_CANNOTPUSH,
 		.state_spawn = STATE_ICE_CHUNK_PLR,
-		.state_idx_limit = NEW_NUMSTATES,
 		.extra_type = ETYPE_PLAYERCHUNK,
 		.player.view_height = 2 << FRACBITS,
 		.player.attack_offs = 2 << FRACBITS,
@@ -1342,6 +1339,8 @@ void *dec_es_alloc(uint32_t size)
 	dec_es_ptr += size;
 	if(dec_es_ptr > EXTRA_STORAGE_END)
 		engine_error("LOADER", "Extra storage allocation failed!");
+
+	extra_storage_size += size;
 
 	return ptr;
 }
@@ -1579,6 +1578,18 @@ static void make_doom_invspec(uint32_t idx)
 	info->inventory.special = pw->special;
 	info->inventory.sound_pickup = pw->sound;
 	info->inventory.message = pw->message + doom_data_segment;
+}
+
+int32_t check_internal_type(uint8_t *name)
+{
+	// find this class
+	for(uint32_t etp = 1; etp < NUM_EXTRA_TYPES; etp++)
+	{
+		if(inheritance[etp].name && !strcmp(name, inheritance[etp].name))
+			return etp;
+	}
+
+	return -1;
 }
 
 void *dec_reloc_es(void *target, void *ptr)
@@ -2635,10 +2646,6 @@ skip_math:
 	if(parse_next_state)
 		*parse_next_state = first_state;
 
-	// add limitation for animations
-	parse_mobj_info->state_idx_first = first_state;
-	parse_mobj_info->state_idx_limit = num_states;
-
 	return 0;
 
 error_no_states:
@@ -2717,7 +2724,7 @@ static void cb_count_actors(lumpinfo_t *li)
 
 		// check for duplicate
 		alias = tp_hash64(parse_actor_name);
-		if(mobj_check_type(alias) >= 0)
+		if(mobj_check_type(alias) >= 0 || check_internal_type(parse_actor_name) >= 0)
 			engine_error("DECORATE", "Multiple definitions of '%s'!", parse_actor_name);
 
 		// add new type
@@ -2737,6 +2744,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 	uint8_t *kw;
 	mobjinfo_t *info;
 	uint64_t alias;
+	uint32_t first_state;
 
 	tp_load_lump(li);
 
@@ -2778,40 +2786,45 @@ static void cb_parse_actors(lumpinfo_t *li)
 			if(!kw)
 				goto error_end;
 
-			// find this class
-			for(etp = 1; etp < NUM_EXTRA_TYPES; etp++)
+			// check other actors
+			idx = mobj_check_type(tp_hash64(kw));
+			if(idx >= 0)
 			{
-				if(inheritance[etp].name && !strcmp(kw, inheritance[etp].name))
-					break;
-			}
-			if(etp >= NUM_EXTRA_TYPES)
-			{
-				// extra special type
-				uint32_t extra = 0;
-				const uint8_t **name = powerup_special;
-				while(*name)
-				{
-					if(!strcmp(*name, kw))
-						break;
-					extra++;
-					name++;
-				}
-				if(*name)
-				{
-					etp = ETYPE_INV_SPECIAL;
-					default_inventory.inventory.special = extra;
-				}
-			}
-			if(etp >= NUM_EXTRA_TYPES)
-			{
-				// must be ammo link
-				idx = mobj_check_type(tp_hash64(kw));
-				if(idx < 0 || mobjinfo[idx].extra_type != ETYPE_AMMO)
-					engine_error("DECORATE", "Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
+				etp = -1;
 
-				// fake inheritance - only link ammo
-				etp = ETYPE_AMMO_LINK;
-				default_ammo.inventory.special = idx;
+				// copy info
+				memcpy(info, mobjinfo + idx, sizeof(mobjinfo_t));
+
+				// ammo check
+				if(mobjinfo[idx].extra_type == ETYPE_AMMO)
+				{
+					info->extra_type = ETYPE_AMMO_LINK;
+					info->inventory.special = idx;
+				}
+			} else
+			{
+				// find this class
+				etp = check_internal_type(kw);
+				if(etp < 0)
+				{
+					// extra special type
+					uint32_t extra = 0;
+					const uint8_t **name = powerup_special;
+					while(*name)
+					{
+						if(!strcmp(*name, kw))
+							break;
+						extra++;
+						name++;
+					}
+					if(*name)
+					{
+						etp = ETYPE_INV_SPECIAL;
+						default_inventory.inventory.special = extra;
+					}
+				}
+				if(etp < 0)
+					engine_error("DECORATE", "Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
 			}
 
 			// next keyword
@@ -2859,25 +2872,24 @@ static void cb_parse_actors(lumpinfo_t *li)
 			engine_error("DECORATE", "Expected '%c' found '%s'!", '{', kw);
 
 		// initialize mobj
-		memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
+		if(etp >= 0)
+		{
+			// default info
+			memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
+			info->extra_type = etp;
+			// default damage factors
+			memset(info->damage_factor, 0xFF, NUM_DAMAGE_TYPES);
+		} else
+			etp = info->extra_type;
 		info->doomednum = idx;
 		info->alias = alias;
-		info->extra_type = etp;
-
-		// default damage factors
-		memset(info->damage_factor, 0xFF, NUM_DAMAGE_TYPES);
+		info->spawnid = -1;
 
 		// reset stuff
 		extra_stuff_cur = NULL;
 		extra_stuff_next = NULL;
 		num_custom_remaps = 0;
-
-		// no states yet
-		info->state_idx_first = num_states;
-		info->state_idx_limit = num_states;
-
-		// reset extra storage
-		dec_es_ptr = EXTRA_STORAGE_PTR;
+		first_state = num_states;
 
 		// parse attributes
 		while(1)
@@ -2953,7 +2965,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		info->extra_stuff[1] = extra_stuff_next;
 
 		// resolve custom states
-		for(uint32_t i = parse_mobj_info->state_idx_first; i < parse_mobj_info->state_idx_limit; i++)
+		for(uint32_t i = first_state; i < num_states; i++)
 		{
 			state_t *st = states + i;
 			if(st->nextstate & 0x40000000)
@@ -2965,9 +2977,21 @@ static void cb_parse_actors(lumpinfo_t *li)
 		// find damage type animations
 		{
 			custom_damage_state_t *cst = NULL;
+			custom_damage_state_t *ist = info->damage_states;
 			uint8_t name[64];
 
-			info->damage_states = (void*)dec_es_ptr;
+			info->damage_states = dec_es_ptr;
+
+			if(ist)
+			{
+				// inheritance
+				while(ist->type)
+				{
+					cst = dec_es_alloc(sizeof(custom_damage_state_t));
+					*cst = *ist;
+					ist++;
+				}
+			}
 
 			for(uint32_t i = 1; i < NUM_DAMAGE_TYPES; i++) // 'normal' does not count
 			{
@@ -2990,6 +3014,30 @@ static void cb_parse_actors(lumpinfo_t *li)
 
 				if(death | xdeath | crash | xcrash | pain)
 				{
+					if(ist)
+					{
+						custom_damage_state_t *ost = info->damage_states;
+						while((void*)ost < dec_es_ptr)
+						{
+							if(ost->type == i)
+							{
+								if(death)
+									ost->death = death;
+								if(xdeath)
+									cst->xdeath = xdeath;
+								if(crash)
+									cst->crash = crash;
+								if(xcrash)
+									cst->xcrash = xcrash;
+								if(pain)
+									cst->pain = pain;
+								break;
+							}
+							ost++;
+						}
+						if((void*)ost < dec_es_ptr)
+							continue;
+					}
 					cst = dec_es_alloc(sizeof(custom_damage_state_t));
 					cst->type = i;
 					cst->death = death;
@@ -3007,30 +3055,6 @@ static void cb_parse_actors(lumpinfo_t *li)
 				cst->type = 0;
 			} else
 				info->damage_states = NULL;
-		}
-
-		// process extra storage
-		if(dec_es_ptr != EXTRA_STORAGE_PTR)
-		{
-			// allocate extra space .. in states!
-			uint32_t size;
-			uint32_t idx = num_states;
-
-			size = dec_es_ptr - EXTRA_STORAGE_PTR;
-			size += sizeof(state_t) - 1;
-			size /= sizeof(state_t);
-
-			num_states += size;
-			states = ldr_realloc(states, num_states * sizeof(state_t));
-
-			// state limit check
-			if(num_states >= 0x10000)
-				engine_error("DECORATE", "So. Many. States.");
-
-			// copy all the stuff
-			memcpy(states + idx, EXTRA_STORAGE_PTR, dec_es_ptr - EXTRA_STORAGE_PTR);
-
-			// relocation has to be done later
 		}
 	}
 
@@ -3114,6 +3138,11 @@ int32_t mobj_check_type(uint64_t alias)
 
 void init_decorate()
 {
+	void *es_ptr;
+	uint32_t es_size;
+
+	dec_es_ptr = EXTRA_STORAGE_PTR;
+
 	// To avoid unnecessary memory fragmentation, this function does multiple passes.
 	doom_printf("[ACE] init DECORATE\n");
 	ldr_alloc_message = "Decorate";
@@ -3160,7 +3189,6 @@ void init_decorate()
 
 		mobjinfo[i].alias = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
-		mobjinfo[i].state_idx_limit = NEW_NUMSTATES;
 
 		// check for original random sounds
 		sfx_rng_fix(&mobjinfo[i].seesound, 98);
@@ -3315,36 +3343,36 @@ void init_decorate()
 	//
 	// PASS 3
 
+	// copy extra storage
+	es_size = dec_es_ptr - EXTRA_STORAGE_PTR;
+	es_ptr = ldr_malloc(es_size);
+	memcpy(es_ptr, EXTRA_STORAGE_PTR, es_size);
+	doom_printf("[DECORATE] %uB / %uB extra storage\n", es_size, EXTRA_STORAGE_SIZE);
+
 	// post-init render
 	render_generate_blood();
 
 	// relocate extra storage
+	for(uint32_t i = 0; i < num_states; i++)
+		states[i].arg = dec_reloc_es(es_ptr, (void*)states[i].arg);
+
 	for(uint32_t idx = NUMMOBJTYPES + NUM_NEW_TYPES; idx < num_mobj_types; idx++)
 	{
 		mobjinfo_t *info = mobjinfo + idx;
-		void *target = states + info->state_idx_limit;
-
-		// state arguments
-		for(uint32_t i = info->state_idx_first; i < info->state_idx_limit; i++)
-			states[i].arg = dec_reloc_es(target, (void*)states[i].arg);
 
 		// drop item list / start inventory list
-		if(info->extra_stuff[0])
-		{
-			info->extra_stuff[0] = dec_reloc_es(target, info->extra_stuff[0]);
-			info->extra_stuff[1] = dec_reloc_es(target, info->extra_stuff[1]);
-		}
+		info->extra_stuff[0] = dec_reloc_es(es_ptr, info->extra_stuff[0]);
+		info->extra_stuff[1] = dec_reloc_es(es_ptr, info->extra_stuff[1]);
 
 		// custom damage animations
-		if(info->damage_states)
-			info->damage_states = dec_reloc_es(target, info->damage_states);
+		info->damage_states = dec_reloc_es(es_ptr, info->damage_states);
 
 		// PlayerPawn
 		if(info->extra_type == ETYPE_PLAYERPAWN)
 		{
 			// weapon slots
 			for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
-				info->player.wpn_slot[i] = dec_reloc_es(target, info->player.wpn_slot[i]);
+				info->player.wpn_slot[i] = dec_reloc_es(es_ptr, info->player.wpn_slot[i]);
 		}
 
 		// RandomSpawner
@@ -3366,7 +3394,7 @@ void init_decorate()
 
 		// Inventory stuff
 		if(inventory_is_valid(info) || info->extra_type == ETYPE_HEALTH || info->extra_type == ETYPE_INV_SPECIAL)
-			info->inventory.message = dec_reloc_es(target, info->inventory.message);
+			info->inventory.message = dec_reloc_es(es_ptr, info->inventory.message);
 	}
 
 	// extra stuff
@@ -3489,9 +3517,6 @@ void init_decorate()
 
 	if(!num_player_classes)
 		engine_error("KEYCONF", "No player classes defined!");
-
-	// custom states are stored in visplanes; this memory has to be cleared
-	memset(CUSTOM_STATE_STORAGE, 0, sizeof(custom_state_t) * MAX_CUSTOM_STATES);
 }
 
 //

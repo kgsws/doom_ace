@@ -36,7 +36,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFB3	// increment with updates
+#define SAVE_VERSION	0xE58BAFB4	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -635,25 +635,6 @@ void draw_save_menu()
 //
 // save game
 
-static uint32_t sv_convert_state(state_t *st, mobjinfo_t *info)
-{
-	uint32_t state;
-
-	if(!st || !info)
-		return 0x80000000;
-
-	state = st - states;
-
-	if(state < NEW_NUMSTATES)
-		return state | 0x80000000;
-	else
-	if(state >= info->state_idx_first && state < info->state_idx_limit)
-		return state - info->state_idx_first;
-	else
-		// this should never happen
-		return 0x80000000;
-}
-
 static void save_put_generic(generic_mover_t *gm, uint32_t magic)
 {
 	save_generic_mover_t sav;
@@ -1232,7 +1213,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 	thing.threshold = mo->threshold;
 	thing.lastlook = mo->lastlook;
 
-	thing.state = sv_convert_state(mo->state, mo->info);
+	thing.state = mo->state - states;
 	thing.tics = mo->tics;
 	thing.sprite = sprite_table[mo->sprite];
 	thing.frame = mo->frame;
@@ -1347,7 +1328,7 @@ static inline void sv_put_players()
 
 		for(uint32_t j = 0; j < NUMPSPRITES; j++)
 		{
-			plr.pspr[j].state = sv_convert_state(pl->psprites[j].state, pl->readyweapon);
+			plr.pspr[j].state = pl->psprites[j].state ? pl->psprites[j].state - states : 0;
 			plr.pspr[j].tics = pl->psprites[j].tics;
 		}
 
@@ -1526,29 +1507,6 @@ void do_save()
 
 //
 // load game
-
-static state_t *ld_convert_state(uint32_t state, mobjinfo_t *info, uint32_t allow_null)
-{
-	if(!info)
-		state = 0x80000000;
-
-	if(state & 0x80000000)
-	{
-		state &= 0x7FFFFFFF;
-		if(state >= NEW_NUMSTATES)
-			state = 0;
-	} else
-	{
-		state += info->state_idx_first;
-		if(state >= info->state_idx_limit)
-			state = 0;
-	}
-
-	if(!state && allow_null)
-		return NULL;
-
-	return states + state;
-}
 
 static uint32_t ld_get_armor(uint64_t alias)
 {
@@ -2344,7 +2302,10 @@ static inline uint32_t ld_get_things()
 		mo->threshold = thing.threshold;
 		mo->lastlook = thing.lastlook;
 
-		mo->state = ld_convert_state(thing.state, mo->info, 0);
+		if(thing.state >= num_states)
+			return 1;
+
+		mo->state = states + thing.state;
 		mo->tics = thing.tics;
 		mo->sprite = sprite;
 		mo->frame = thing.frame;
@@ -2484,7 +2445,9 @@ static inline uint32_t ld_get_players()
 
 		for(uint32_t i = 0; i < NUMPSPRITES; i++)
 		{
-			pl->psprites[i].state = ld_convert_state(plr.pspr[i].state, pl->readyweapon, 1);
+			if(plr.pspr[i].state >= num_states)
+				return 1;
+			pl->psprites[i].state = states + plr.pspr[i].state;
 			pl->psprites[i].tics = plr.pspr[i].tics;
 		}
 

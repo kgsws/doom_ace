@@ -402,6 +402,9 @@ uint32_t ace_main()
 	//
 	gfx_progress(-1);
 
+	// stuff is stored in visplanes; this memory has to be cleared
+	memset(EXTRA_STORAGE_PTR, 0, EXTRA_STORAGE_SIZE);
+
 	// disable shareware
 	old_game_mode = gamemode;
 	gamemode = 1;

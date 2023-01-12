@@ -79,6 +79,9 @@ extern uint64_t *translation_alias;
 extern uint32_t translation_count;
 extern uint32_t blood_color_count;
 
+extern visplane_t *ptr_visplanes;
+extern drawseg_t *ptr_drawsegs;
+
 // sector light / fog
 
 extern uint32_t sector_light_count;

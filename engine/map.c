@@ -2195,6 +2195,8 @@ void init_map()
 	const def_cluster_t *def_clusters;
 	int32_t temp;
 
+	dec_es_ptr = EXTRA_STORAGE_PTR;
+
 	doom_printf("[ACE] init MAPs\n");
 	ldr_alloc_message = "Map and game info";
 

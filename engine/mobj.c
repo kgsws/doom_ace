@@ -855,6 +855,7 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	mo->translation = info->translation;
 	mo->gravity = info->gravity;
 	mo->scale = info->scale;
+	mo->damage_type = info->damage_type;
 	mo->netid = mobj_netid;
 
 	// vertical speed
@@ -913,11 +914,12 @@ __attribute((regparm(2),no_caller_saved_registers))
 static void kill_animation(mobj_t *mo)
 {
 	custom_damage_state_t *cst;
+	uint_fast8_t new_damage_type = DAMAGE_NORMAL;
 	uint32_t state = 0;
-	uint32_t ice_death = mo->death_damage_type == DAMAGE_ICE && (mo->flags1 & MF1_ISMONSTER || mo->player) && !(mo->flags2 & MF2_NOICEDEATH);
+	uint32_t ice_death = mo->damage_type == DAMAGE_ICE && (mo->flags1 & MF1_ISMONSTER || mo->player) && !(mo->flags2 & MF2_NOICEDEATH);
 
-	if(mo->death_damage_type != DAMAGE_NORMAL && mo->info->damage_states)
-		cst = dec_get_damage_animation(mo->info->damage_states, mo->death_damage_type);
+	if(mo->damage_type != DAMAGE_NORMAL && mo->info->damage_states)
+		cst = dec_get_damage_animation(mo->info->damage_states, mo->damage_type);
 	else
 		cst = NULL;
 
@@ -927,7 +929,10 @@ static void kill_animation(mobj_t *mo)
 		if(cst)
 		{
 			if(cst->xdeath)
+			{
 				state = cst->xdeath;
+				new_damage_type = mo->damage_type;
+			}
 			ice_death = 0;
 		} else
 			state = mo->info->state_xdeath;
@@ -939,12 +944,18 @@ static void kill_animation(mobj_t *mo)
 		if(cst && cst->death)
 		{
 			state = cst->death;
+			new_damage_type = mo->damage_type;
 			ice_death = 0;
 		} else
+		{
 			state = mo->info->state_death;
+			new_damage_type = DAMAGE_NORMAL;
+		}
 		mo->animation = ANIM_DEATH;
 	} else
 		mo->animation = ANIM_XDEATH;
+
+	mo->damage_type = new_damage_type;
 
 	if(ice_death)
 		state = STATE_ICE_DEATH_0;
@@ -1865,11 +1876,17 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	if(inflictor)
 	{
 		if_flags1 = inflictor->flags1;
-		damage_type = inflictor->info->damage_type;
+		damage_type = inflictor->damage_type;
 	} else
 	{
 		if_flags1 = 0;
 		damage_type = DAMAGE_NORMAL;
+	}
+
+	if((damage & 0xF0000000) == DAMAGE_CUSTOM_TYPE)
+	{
+		damage_type = (damage >> 20) & 0xFF;
+		damage &= 0x000FFFFF;
 	}
 
 	if(target->flags2 & MF2_ICECORPSE)
@@ -2032,7 +2049,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 						target->health = -target->info->spawnhealth - 1;
 				}
 
-				target->death_damage_type = damage_type;
+				target->damage_type = damage_type; // seems like ZDoom does this
 
 				if(target->flags & MF_MISSILE)
 				{
@@ -2400,8 +2417,8 @@ static void mobj_z_move(mobj_t *mo)
 
 			mo->iflags |= MFI_CRASHED;
 
-			if(mo->death_damage_type != DAMAGE_NORMAL && mo->info->damage_states)
-				cst = dec_get_damage_animation(mo->info->damage_states, mo->death_damage_type);
+			if(mo->damage_type != DAMAGE_NORMAL && mo->info->damage_states)
+				cst = dec_get_damage_animation(mo->info->damage_states, mo->damage_type);
 			else
 				cst = NULL;
 

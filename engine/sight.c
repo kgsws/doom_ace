@@ -285,7 +285,7 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 			partialy = FRACUNIT - partialy;
 		if(partialx == partialy)
 		{
-			while(1)
+			for(count = 0; count < 64; count++)
 			{
 				if(!P_BlockLinesIterator(mapx, mapy, P_SightLineCheck))
 					return 0;
@@ -301,6 +301,11 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 				mapx += mapxstep;
 				mapy += mapystep;
 			}
+
+			if(count >= 64)
+				// TODO: better solution
+				return 0;
+
 			goto traverse;
 		}
 	}

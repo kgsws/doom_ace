@@ -630,6 +630,18 @@ static uint8_t *handle_damage(uint8_t *kw, const dec_arg_t *arg)
 	return kw;
 }
 
+static uint8_t *handle_damage_type(uint8_t *kw, const dec_arg_t *arg)
+{
+	if(!tp_is_string)
+		return NULL;
+
+	strlwr(kw);
+
+	*((uint8_t*)(parse_action_arg + arg->offset)) = dec_get_custom_damage(kw);
+
+	return tp_get_keyword();
+}
+
 static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
 {
 	const dec_arg_flag_t *flag;
@@ -2094,6 +2106,52 @@ void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	// must restore original puff!
 	mo_puff_type = 37;
 	mo_puff_flags = 0;
+}
+
+//
+// A_CustomMeleeAttack
+
+static const dec_args_t args_CustomMeleeAttack =
+{
+	.size = sizeof(args_MeleeAttack_t),
+	.arg =
+	{
+		{handle_damage, offsetof(args_MeleeAttack_t, damage)},
+		{handle_sound, offsetof(args_MeleeAttack_t, sound_hit), 1},
+		{handle_sound, offsetof(args_MeleeAttack_t, sound_miss), 1},
+		{handle_damage_type, offsetof(args_MeleeAttack_t, damage_type), 1},
+		{handle_bool, offsetof(args_MeleeAttack_t, sacrifice), 1}, // ignored
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_CustomMeleeAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_MeleeAttack_t *arg = st->arg;
+	uint32_t damage;
+
+	if(!mo->target)
+		return;
+
+	A_FaceTarget(mo, NULL, NULL);
+
+	if(!mobj_check_melee_range(mo))
+	{
+		S_StartSound(mo, arg->sound_miss);
+		return;
+	}
+
+	S_StartSound(mo, arg->sound_hit);
+
+	damage = arg->damage;
+	if(damage & DAMAGE_IS_CUSTOM)
+		damage = mobj_calc_damage(damage);
+
+	damage = DAMAGE_WITH_TYPE(damage, arg->damage_type);
+
+	mobj_damage(mo->target, mo, mo, damage, NULL);
 }
 
 //
@@ -3573,6 +3631,22 @@ void A_JumpIfMasterCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		stfunc(mo, arg->state);
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIfTargetInsideMeleeRange(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleState_t *arg = st->arg;
+	if(mobj_check_melee_range(mo))
+		stfunc(mo, arg->state);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIfTargetOutsideMeleeRange(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleState_t *arg = st->arg;
+	if(!mobj_check_melee_range(mo))
+		stfunc(mo, arg->state);
+}
+
 //
 // A_CheckFlag
 
@@ -3753,6 +3827,7 @@ void A_FreezeDeathChunks(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		th->angle = mo->angle;
 		th->player = mo->player;
 		th->player->mo = th;
+		th->player->camera = th;
 		th->target = mo->target;
 		th->inventory = mo->inventory;
 		mo->player = NULL;
@@ -4098,6 +4173,7 @@ static const dec_action_t mobj_action[] =
 	// enemy attack
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
 	{"a_custombulletattack", A_CustomBulletAttack, &args_CustomBulletAttack},
+	{"a_custommeleeattack", A_CustomMeleeAttack, &args_CustomMeleeAttack},
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	{"a_firebullets", A_FireBullets, &args_FireBullets},
@@ -4144,6 +4220,8 @@ static const dec_action_t mobj_action[] =
 	{"a_jumpifcloser", A_JumpIfCloser, &args_JumpIfCloser},
 	{"a_jumpiftracercloser", A_JumpIfTracerCloser, &args_JumpIfCloser},
 	{"a_jumpifmastercloser", A_JumpIfMasterCloser, &args_JumpIfCloser},
+	{"a_jumpiftargetinsidemeleerange", A_JumpIfTargetInsideMeleeRange, &args_ReFire},
+	{"a_jumpiftargetoutsidemeleerange", A_JumpIfTargetOutsideMeleeRange, &args_ReFire},
 	{"a_checkflag", A_CheckFlag, &args_CheckFlag},
 	{"a_monsterrefire", A_MonsterRefire, &args_MonsterRefire},
 	// terminator

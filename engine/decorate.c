@@ -1623,7 +1623,7 @@ static uint32_t spr_add_name(uint32_t name)
 	return i;
 }
 
-static uint32_t get_custom_damage(const uint8_t *name)
+uint32_t dec_get_custom_damage(const uint8_t *name)
 {
 	for(uint32_t i = 0; i < NUM_DAMAGE_TYPES; i++)
 	{
@@ -1731,7 +1731,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 
 			if(wk[0] == ',')
 			{
-				idx = get_custom_damage(kw);
+				idx = dec_get_custom_damage(kw);
 				wk = tp_get_keyword();
 				if(!wk)
 					return 1;
@@ -1752,7 +1752,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			parse_mobj_info->damage_type = get_custom_damage(kw);
+			parse_mobj_info->damage_type = dec_get_custom_damage(kw);
 		break;
 		case DT_DAMAGE_FACTOR:
 		{
@@ -1760,7 +1760,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			type = get_custom_damage(kw);
+			type = dec_get_custom_damage(kw);
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
@@ -2787,20 +2787,25 @@ static void cb_parse_actors(lumpinfo_t *li)
 				goto error_end;
 
 			// check other actors
-			idx = mobj_check_type(tp_hash64(kw));
-			if(idx >= 0)
+			etp = mobj_check_type(tp_hash64(kw));
+			if(etp >= 0)
 			{
-				etp = -1;
+				// check
+				if(!(mobjinfo[etp].flags & MF_MOBJ_IS_DEFINED))
+					engine_error("DECORATE", "Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
 
 				// copy info
-				memcpy(info, mobjinfo + idx, sizeof(mobjinfo_t));
+				memcpy(info, mobjinfo + etp, sizeof(mobjinfo_t));
+				info->replacement = 0;
 
 				// ammo check
-				if(mobjinfo[idx].extra_type == ETYPE_AMMO)
+				if(mobjinfo[etp].extra_type == ETYPE_AMMO)
 				{
 					info->extra_type = ETYPE_AMMO_LINK;
-					info->inventory.special = idx;
+					info->inventory.special = etp;
 				}
+
+				etp = -1;
 			} else
 			{
 				// find this class
@@ -2884,6 +2889,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 		info->doomednum = idx;
 		info->alias = alias;
 		info->spawnid = -1;
+		info->flags |= MF_MOBJ_IS_DEFINED;
 
 		// reset stuff
 		extra_stuff_cur = NULL;
@@ -2960,9 +2966,12 @@ static void cb_parse_actors(lumpinfo_t *li)
 			}
 		}
 
-		// save drop item list
-		info->extra_stuff[0] = extra_stuff_cur;
-		info->extra_stuff[1] = extra_stuff_next;
+		// save dropitem / weapon list
+		if(extra_stuff_cur)
+		{
+			info->extra_stuff[0] = extra_stuff_cur;
+			info->extra_stuff[1] = extra_stuff_next;
+		}
 
 		// resolve custom states
 		for(uint32_t i = first_state; i < num_states; i++)
@@ -3183,7 +3192,7 @@ void init_decorate()
 		mobjinfo[i].mass = deh_mobjinfo[i].mass;
 		mobjinfo[i].damage = deh_mobjinfo[i].damage;
 		mobjinfo[i].activesound = deh_mobjinfo[i].activesound;
-		mobjinfo[i].flags = deh_mobjinfo[i].flags;
+		mobjinfo[i].flags = (deh_mobjinfo[i].flags & 0x7FFFFFFF) | MF_MOBJ_IS_DEFINED;
 		mobjinfo[i].state_raise = deh_mobjinfo[i].raisestate;
 		mobjinfo[i].painchance[DAMAGE_NORMAL] = deh_mobjinfo[i].painchance;
 

@@ -36,7 +36,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFB4	// increment with updates
+#define SAVE_VERSION	0xE58BAFB5	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -219,6 +219,7 @@ typedef struct
 	uint8_t render_style;
 	uint8_t render_alpha;
 	uint8_t player;
+	uint8_t damage_type;
 } save_thing_t;
 
 typedef struct
@@ -1246,6 +1247,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 	thing.master = mo->master ? mo->master->netid : 0;
 
 	thing.animation = mo->animation;
+	thing.damage_type = mo->damage_type;
 
 	if(mo->player)
 		thing.player = 1 + (mo->player - players);
@@ -2332,6 +2334,11 @@ static inline uint32_t ld_get_things()
 		mo->master = (mobj_t*)thing.master;
 
 		mo->animation = thing.animation;
+		mo->damage_type = thing.damage_type;
+
+		if(thing.damage_type >= NUM_DAMAGE_TYPES)
+			return 1;
+
 		if(thing.player)
 		{
 			thing.player--;

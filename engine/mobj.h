@@ -6,7 +6,9 @@
 #define DAMAGE_TYPE_CHECK	0x60000000
 
 #define DAMAGE_IS_CUSTOM	0x80000000
+#define DAMAGE_CUSTOM_TYPE	0x70000000
 #define DAMAGE_CUSTOM(lo,hi,mul,add)	((lo) | ((hi) << 9) | ((add) << 18) | ((mul) << 27) | DAMAGE_IS_CUSTOM)
+#define DAMAGE_WITH_TYPE(damage,type)	((damage) | ((type) << 20) | DAMAGE_CUSTOM_TYPE)
 
 #define TELEF_USE_Z	1
 #define TELEF_USE_ANGLE	2

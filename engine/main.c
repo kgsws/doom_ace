@@ -410,6 +410,7 @@ uint32_t ace_main()
 	gamemode = 1;
 	gamemode_sw = 0;
 	gamemode_reg = 0;
+	french_version = 0;
 
 	// continue running Doom
 }

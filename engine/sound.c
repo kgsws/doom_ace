@@ -143,6 +143,9 @@ uint32_t sound_start_check(void **mo, uint32_t idx)
 	sfxinfo_t *sfx;
 	uint32_t count = 0;
 
+	if(snd_sfxdevice != 3)
+		return 0;
+
 	// only 16 bits are valid
 	idx &= 0xFFFF;
 

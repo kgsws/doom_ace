@@ -146,6 +146,17 @@ typedef struct
 
 //
 
+typedef struct
+{
+	uint32_t damage;
+	uint16_t sound_hit;
+	uint16_t sound_miss;
+	uint8_t damage_type;
+	uint8_t sacrifice;
+} args_MeleeAttack_t;
+
+//
+
 #define CPF_USEAMMO	1
 #define CPF_PULLIN	2
 #define CPF_NORANDOMPUFFZ	4

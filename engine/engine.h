@@ -1153,8 +1153,8 @@ typedef struct mobj_s
 	uint8_t animation;
 	// path traverse
 	uint8_t intercept_side;
-	// death damage
-	uint8_t death_damage_type;
+	// damage type - also set on death
+	uint8_t damage_type;
 	// unique identification
 	uint32_t netid;
 	// new orientation

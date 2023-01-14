@@ -19,6 +19,7 @@ extern heap_base_t heap_base;
 extern memzone_t *mainzone;
 extern uint8_t *screen_buffer;
 extern uint32_t message_is_important;
+extern uint32_t french_version;
 
 // game state
 extern uint32_t wipegamestate;

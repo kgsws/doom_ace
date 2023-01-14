@@ -91,6 +91,8 @@ int32_t mobj_by_spawnid(uint32_t id);
 void *dec_es_alloc(uint32_t size);
 void *dec_reloc_es(void *target, void *ptr);
 
+uint32_t dec_get_custom_damage(const uint8_t *name);
+
 const dec_anim_t *dec_find_animation(const uint8_t *name);
 
 uint32_t dec_get_custom_state(const uint8_t *name, int32_t idx);

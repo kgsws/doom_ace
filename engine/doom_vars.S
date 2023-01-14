@@ -161,6 +161,7 @@ DOOM_VAR 0x0002A3A4, startepisode
 
 DOOM_VAR 0x0002A3AC, gamemode_sw
 DOOM_VAR 0x0002A3B4, gamemode_reg
+DOOM_VAR 0x0002A3B8, french_version
 DOOM_VAR 0x0002A3BC, gamemode
 DOOM_VAR 0x0002A3C0, nomonsters
 DOOM_VAR 0x0002A3C4, fastparm

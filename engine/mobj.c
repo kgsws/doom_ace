@@ -2115,8 +2115,10 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 	target->reactiontime = 0;
 
-	if(	!dehacked.no_infight &&
-		!(map_level_info->flags & MAP_FLAG_NO_INFIGHTING) &&
+	if(	(
+			(source && source->player) ||
+			(!dehacked.no_infight && !(map_level_info->flags & MAP_FLAG_NO_INFIGHTING))
+		) &&
 		(!target->threshold || target->flags1 & MF1_QUICKTORETALIATE) &&
 		source && source != target &&
 		!(source->flags1 & MF1_NOTARGET)

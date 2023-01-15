@@ -190,6 +190,7 @@ uint8_t *parse_actor_name;
 static mobjinfo_t *parse_mobj_info;
 static uint32_t *parse_next_state;
 static uint32_t parse_last_anim;
+static uint16_t *parse_anim_slot;
 
 static void *extra_stuff_cur;
 static void *extra_stuff_next;
@@ -2418,10 +2419,18 @@ have_keyword:
 		} else
 		if(!strcmp(kw, "stop"))
 		{
-			if(!parse_next_state)
-				goto error_no_states;
-			*parse_next_state = 0;
-			parse_next_state = NULL;
+			if(parse_next_state)
+			{
+				*parse_next_state = 0;
+				parse_next_state = NULL;
+			} else
+			{
+				if(parse_anim_slot)
+					*parse_anim_slot = 0;
+				else
+					goto error_no_states;
+			}
+			parse_anim_slot = NULL;
 			continue;
 		} else
 		if(!strcmp(kw, "wait"))
@@ -2531,11 +2540,17 @@ skip_math:
 					break;
 				anim++;
 			}
-			if(!anim->name)
+			if(anim->name)
+			{
+				// actual animation
+				parse_anim_slot = (uint16_t*)((void*)parse_mobj_info + anim->offset);
+				*parse_anim_slot = num_states;
+			} else
+			{
 				// custom state
 				dec_get_custom_state(kw, num_states);
-			else
-				*((uint16_t*)((void*)parse_mobj_info + anim->offset)) = num_states;
+				parse_anim_slot = NULL;
+			}
 
 			parse_last_anim = num_states;
 			unfinished = 1;
@@ -3039,13 +3054,13 @@ static void cb_parse_actors(lumpinfo_t *li)
 								if(death)
 									ost->death = death;
 								if(xdeath)
-									cst->xdeath = xdeath;
+									ost->xdeath = xdeath;
 								if(crash)
-									cst->crash = crash;
+									ost->crash = crash;
 								if(xcrash)
-									cst->xcrash = xcrash;
+									ost->xcrash = xcrash;
 								if(pain)
-									cst->pain = pain;
+									ost->pain = pain;
 								break;
 							}
 							ost++;

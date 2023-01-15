@@ -663,6 +663,8 @@ void start_music(int32_t lump, uint32_t loop)
 
 uint16_t sfx_by_alias(uint64_t alias)
 {
+	if(!alias)
+		return 0;
 	for(uint32_t i = 0; i < numsfx; i++)
 	{
 		if(sfxinfo[i].alias == alias)

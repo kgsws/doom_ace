@@ -1,5 +1,6 @@
 // ANIMATIONS
 #define STATE_SET_ANIMATION(anim,offset)	(0x80000000 | ((anim) << 16) | (offset))
+#define STATE_WITH_ANIMATION(anim,state)	(0xC0000000 | ((anim) << 16) | (state))
 #define STATE_TEMPORARY_CUSTOM(idx,offset)	(0x40000000 | ((idx) << 16) | (offset))
 
 // damage types

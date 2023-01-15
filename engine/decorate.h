@@ -92,6 +92,7 @@ void *dec_es_alloc(uint32_t size);
 void *dec_reloc_es(void *target, void *ptr);
 
 uint32_t dec_get_custom_damage(const uint8_t *name);
+int32_t dec_get_powerup_type(const uint8_t *name);
 
 const dec_anim_t *dec_find_animation(const uint8_t *name);
 

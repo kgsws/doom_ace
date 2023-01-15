@@ -1778,18 +1778,21 @@ void mobj_explode_missile(mobj_t *mo)
 	S_StartSound(mo->flags2 & MF2_FULLVOLDEATH ? NULL : mo, mo->info->deathsound);
 }
 
-uint32_t mobj_range_check(mobj_t *mo, mobj_t *target, fixed_t range)
+uint32_t mobj_range_check(mobj_t *mo, mobj_t *target, fixed_t range, uint32_t check_z)
 {
 	fixed_t dist;
 
 	if(!target)
 		return 0;
 
-	if(target->z > mo->z + mo->height)
-		return 0;
+	if(check_z)
+	{
+		if(target->z > mo->z + mo->height)
+			return 0;
 
-	if(target->z + target->height < mo->z)
-		return 0;
+		if(target->z + target->height < mo->z)
+			return 0;
+	}
 
 	dist = P_AproxDistance(target->x - mo->x, target->y - mo->y);
 
@@ -1816,7 +1819,7 @@ uint32_t mobj_check_melee_range(mobj_t *mo)
 	if(target->flags1 & MF1_NOTARGET)
 		return 0;
 
-	if(!mobj_range_check(mo, target, mo->info->range_melee + target->info->radius))
+	if(!mobj_range_check(mo, target, mo->info->range_melee + target->info->radius, 1))
 		return 0;
 
 	if(!P_CheckSight(mo, mo->target))
@@ -1916,8 +1919,8 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	{
 		if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL))
 			return;
-		if(target->info->damage_factor[damage_type] != 4)
-			damage = (damage * target->info->damage_factor[damage_type]) / 4;
+		if(target->info->damage_factor[damage_type] != 8)
+			damage = (damage * target->info->damage_factor[damage_type]) / 8;
 	}
 
 	if(!damage && !(target->flags1 & MF1_NODAMAGE))

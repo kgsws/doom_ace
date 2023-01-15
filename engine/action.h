@@ -178,6 +178,7 @@ typedef struct
 	uint16_t spraytype;
 	uint16_t numrays;
 	uint16_t damagecnt;
+	uint32_t damage;
 	angle_t angle;
 	fixed_t range;
 } args_BFGSpray_t;
@@ -234,6 +235,14 @@ typedef struct
 typedef struct
 {
 	uint16_t type;
+	uint16_t chance;
+} args_DropItem_t;
+
+//
+
+typedef struct
+{
+	uint16_t type;
 	uint16_t amount;
 	uint8_t ptr;
 	uint8_t sacrifice;
@@ -267,6 +276,15 @@ typedef struct
 	uint16_t flags;
 	uint8_t ptr;
 } args_ChangeVelocity_t;
+
+//
+
+typedef struct
+{
+	uint8_t target;
+	uint8_t master;
+	uint8_t tracer;
+} args_RearrangePointers_t;
 
 //
 
@@ -336,6 +354,7 @@ typedef struct
 {
 	fixed_t range;
 	uint32_t state;
+	uint8_t no_z;
 } args_JumpIfCloser_t;
 
 typedef struct

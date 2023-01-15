@@ -1634,6 +1634,16 @@ uint32_t dec_get_custom_damage(const uint8_t *name)
 	engine_error("DECORATE", "Unknown damage type '%s' in '%s'!", name, parse_actor_name);
 }
 
+int32_t dec_get_powerup_type(const uint8_t *name)
+{
+	for(uint32_t i = 0; i < NUMPOWERS; i++)
+	{
+		if(!strcmp(powerup_type[i].name, name))
+			return i;
+	}
+	return -1;
+}
+
 static uint32_t parse_attr(uint32_t type, void *dest)
 {
 	num32_t num;
@@ -1774,9 +1784,9 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			if(num.s32 < 0)
 				num.s32 = FRACUNIT;
 			else
-			if(num.s32 >= 64 * FRACUNIT)
+			if(num.s32 >= 8192 * FRACUNIT)
 				return 1;
-			parse_mobj_info->damage_factor[type] = num.s32 >> 14;
+			parse_mobj_info->damage_factor[type] = num.s32 >> 13;
 		}
 		break;
 		case DT_RENDER_STYLE:
@@ -1828,12 +1838,8 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			for(num.u32 = 0; num.u32 < NUMPOWERS; num.u32++)
-			{
-				if(!strcmp(powerup_type[num.u32].name, kw))
-					break;
-			}
-			if(num.u32 >= NUMPOWERS)
+			num.u32 = dec_get_powerup_type(kw);
+			if(num.u32 < 0)
 				engine_error("DECORATE", "Unknown powerup type '%s' in '%s'!", kw, parse_actor_name);
 			// set type
 			parse_mobj_info->powerup.type = num.u32;
@@ -2883,7 +2889,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 			memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
 			info->extra_type = etp;
 			// default damage factors
-			memset(info->damage_factor, 0xFF, NUM_DAMAGE_TYPES);
+			memset(info->damage_factor, 0xFF, NUM_DAMAGE_TYPES * sizeof(uint16_t));
 		} else
 			etp = info->extra_type;
 		info->doomednum = idx;
@@ -3223,7 +3229,7 @@ void init_decorate()
 			mobjinfo[i].render_style = RS_FUZZ;
 
 		// default damage factors
-		memset(mobjinfo[i].damage_factor, 0xFF, NUM_DAMAGE_TYPES);
+		memset(mobjinfo[i].damage_factor, 0xFF, NUM_DAMAGE_TYPES * sizeof(uint16_t));
 
 		// set translation
 		if(mobjinfo[i].flags & MF_TRANSLATION)
@@ -3474,8 +3480,8 @@ void init_decorate()
 		}
 
 		// update damage type stuff
-		if(info->damage_factor[DAMAGE_NORMAL] == 0xFF)
-			info->damage_factor[DAMAGE_NORMAL] = 4;
+		if(info->damage_factor[DAMAGE_NORMAL] == 0xFFFF)
+			info->damage_factor[DAMAGE_NORMAL] = 8;
 		info->painchance[DAMAGE_NORMAL] &= 0x01FF;
 		for(uint32_t i = 1; i < NUM_DAMAGE_TYPES; i++)
 		{
@@ -3484,7 +3490,7 @@ void init_decorate()
 			else
 				info->painchance[i] = info->painchance[DAMAGE_NORMAL];
 
-			if(info->damage_factor[i] == 0xFF)
+			if(info->damage_factor[i] == 0xFFFF)
 				info->damage_factor[i] = info->damage_factor[DAMAGE_NORMAL];
 		}
 

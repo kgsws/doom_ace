@@ -706,7 +706,7 @@ typedef struct mobjinfo_s
 	uint8_t *blood_trns;
 	// damage type stuff
 	uint16_t painchance[NUM_DAMAGE_TYPES];
-	uint8_t damage_factor[NUM_DAMAGE_TYPES];
+	uint16_t damage_factor[NUM_DAMAGE_TYPES];
 	custom_damage_state_t *damage_states;
 	// new states
 	union

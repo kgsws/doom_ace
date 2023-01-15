@@ -52,7 +52,11 @@ typedef struct dec_arg_s
 	uint8_t *(*handler)(uint8_t*,const struct dec_arg_s*);
 	uint16_t offset;
 	uint16_t optional;
-	const dec_arg_flag_t *flags;
+	union
+	{
+		const dec_arg_flag_t *flags;
+		uint8_t *string;
+	};
 } dec_arg_t;
 
 typedef struct
@@ -193,6 +197,30 @@ static uint8_t *handle_mobjtype(uint8_t *kw, const dec_arg_t *arg)
 	return tp_get_keyword();
 }
 
+static uint8_t *handle_mobjtype_power(uint8_t *kw, const dec_arg_t *arg)
+{
+	uint16_t *ptr = (uint16_t*)(parse_action_arg + arg->offset);
+	uint8_t *ret;
+
+	ret = handle_mobjtype(kw, arg);
+	if(!ret)
+		return NULL;
+
+	if(*ptr == MOBJ_IDX_UNKNOWN && !strncmp(kw, "Power", 5))
+	{
+		int32_t power;
+
+		kw += 5;
+		strlwr(kw);
+
+		power = dec_get_powerup_type(kw);
+		if(power >= 0)
+			*ptr = 0xFFF0 + power;
+	}
+
+	return ret;
+}
+
 static uint8_t *handle_bool(uint8_t *kw, const dec_arg_t *arg)
 {
 	uint32_t tmp;
@@ -218,6 +246,27 @@ static uint8_t *handle_bool_invert(uint8_t *kw, const dec_arg_t *arg)
 	*((uint8_t*)(parse_action_arg + arg->offset)) ^= 1;
 
 	return kw;
+}
+
+static uint8_t *handle_skip(uint8_t *kw, const dec_arg_t *arg)
+{
+	return tp_get_keyword();
+}
+
+static uint8_t *handle_skip_zero(uint8_t *kw, const dec_arg_t *arg)
+{
+	if(strcmp(kw, "0"))
+		return NULL;
+	return tp_get_keyword();
+}
+
+static uint8_t *handle_forced_string(uint8_t *kw, const dec_arg_t *arg)
+{
+	if(arg->offset <= 1 && tp_is_string != arg->offset)
+		return NULL;
+	if(strcmp(kw, arg->string))
+		return NULL;
+	return tp_get_keyword();
 }
 
 static uint8_t *handle_s8(uint8_t *kw, const dec_arg_t *arg)
@@ -357,19 +406,28 @@ skip_v0:
 	if(!tp_must_get(")"))
 		return NULL;
 
-	if(!tp_must_get("*"))
-		return NULL;
-
 	kw = tp_get_keyword();
 	if(!kw)
 		return NULL;
+	if(kw[0] == '*')
+	{
+		kw = tp_get_keyword();
+		if(!kw)
+			return NULL;
 
-	if(tp_parse_fixed(kw, &v1))
+		if(tp_parse_fixed(kw, &v1))
+			return NULL;
+
+		kw = tp_get_keyword();
+	} else
+	if(kw[0] == ',')
+		v1 = FRACUNIT;
+	else
 		return NULL;
 
 	*((fixed_t*)(parse_action_arg + arg->offset)) = 0x80000000 | (subtract << 30) | (negate << 29) | ((v0 & 0x01FFF000) << 4) | ((v1 & 0x001FFFE0) >> 5);
 
-	return tp_get_keyword();
+	return kw;
 }
 
 static uint8_t *handle_angle(uint8_t *kw, const dec_arg_t *arg)
@@ -1120,7 +1178,7 @@ static void shatter_spawn(mobj_t *mo, uint32_t type)
 	uint32_t count, i;
 	mobj_t *inside;
 
-	inside = mo->inside;
+	inside = mo;
 	while(inside && !(inside->flags & MF_SOLID))
 		inside = inside->inside;
 
@@ -1714,6 +1772,12 @@ void A_ActiveSound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	S_StartSound(mo, mo->info->activesound);
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_BrainPain(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	S_StartSound(NULL, 97);
+}
+
 //
 // A_StartSound
 
@@ -1808,6 +1872,11 @@ void A_FaceMaster(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	mobj_t *inside = mo;
+
+	while(inside && !(inside->flags & MF_SOLID))
+		inside = inside->inside;
+
 	mo->flags &= ~MF_SOLID;
 
 	if(mo->info->extra_type == ETYPE_PLAYERPAWN)
@@ -1828,6 +1897,7 @@ void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		item->momx = FRACUNIT - (P_Random() << 9);
 		item->momy = FRACUNIT - (P_Random() << 9);
 		item->momz = (4 << 16) + (P_Random() << 10);
+		item->inside = inside;
 	}
 }
 
@@ -2480,6 +2550,8 @@ static const dec_args_t args_BFGSpray =
 		{handle_u16, offsetof(args_BFGSpray_t, damagecnt), 1},
 		{handle_angle, offsetof(args_BFGSpray_t, angle), 1},
 		{handle_fixed, offsetof(args_BFGSpray_t, range), 1},
+		{handle_forced_string, 0, 0, .string = "32"},
+		{handle_damage, offsetof(args_BFGSpray_t, damage)},
 		// terminator
 		{NULL}
 	}
@@ -2491,6 +2563,7 @@ void A_BFGSpray(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	const args_BFGSpray_t *arg = st->arg;
 	mobj_t *source = mo->target;
 	angle_t angle, astep;
+	uint32_t damage;
 
 	if(!source)
 		return;
@@ -2501,6 +2574,14 @@ void A_BFGSpray(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!arg->numrays)
 		return;
 
+	if(arg->damage)
+	{
+		damage = arg->damage;
+		if(damage & DAMAGE_IS_CUSTOM)
+			damage = mobj_calc_damage(damage);
+	} else
+		damage = 0;
+
 	astep = arg->angle / arg->numrays;
 
 	angle = mo->angle;
@@ -2509,7 +2590,7 @@ void A_BFGSpray(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	for(uint32_t i = 0; i < arg->numrays; i++, angle += astep)
 	{
-		uint32_t damage;
+		uint32_t dmg = damage;
 
 		P_AimLineAttack(source, angle, arg->range);
 
@@ -2518,11 +2599,15 @@ void A_BFGSpray(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 		P_SpawnMobj(linetarget->x, linetarget->y, linetarget->z + (linetarget->height >> 2), arg->spraytype);
 
-		damage = 0;
-		for(uint32_t j = 0; j < arg->damagecnt; j++)
-			damage += (P_Random() & 7) + 1;
+		if(!dmg)
+		{
+			for(uint32_t j = 0; j < arg->damagecnt; j++)
+				dmg += (P_Random() & 7) + 1;
+		}
 
-		mobj_damage(linetarget, source, source, damage, mobjinfo + arg->spraytype);
+		dmg = DAMAGE_WITH_TYPE(dmg, mobjinfo[arg->spraytype].damage_type);
+
+		mobj_damage(linetarget, source, source, dmg, NULL);
 	}
 }
 
@@ -2842,6 +2927,49 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			mo = mo->inside;
 		th->inside = mo;
 	}
+}
+
+//
+// A_DropItem
+
+const args_DropItem_t def_DropItem =
+{
+	.chance = 256
+};
+
+static const dec_args_t args_DropItem =
+{
+	.size = sizeof(args_DropItem_t),
+	.def = &def_DropItem,
+	.arg =
+	{
+		{handle_mobjtype, offsetof(args_DropItem_t, type)},
+		{handle_skip_zero, 0, 1},
+		{handle_u16, offsetof(args_DropItem_t, chance), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_DropItem(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_DropItem_t *arg = st->arg;
+	mobj_t *item;
+
+	if(arg->chance < 255 && arg->chance > P_Random())
+		return;
+
+	item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), arg->type);
+	item->flags |= MF_DROPPED;
+	item->angle = P_Random() << 24;
+	item->momx = FRACUNIT - (P_Random() << 9);
+	item->momy = FRACUNIT - (P_Random() << 9);
+	item->momz = (4 << 16) + (P_Random() << 10);
+
+	while(mo && !(mo->flags & MF_SOLID))
+		mo = mo->inside;
+	item->inside = mo;
 }
 
 //
@@ -3282,6 +3410,82 @@ void A_SetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_RearrangePointers
+
+static const dec_args_t args_RearrangePointers =
+{
+	.size = sizeof(args_RearrangePointers_t),
+	.arg =
+	{
+		{handle_pointer, offsetof(args_RearrangePointers_t, target)},
+		{handle_pointer, offsetof(args_RearrangePointers_t, master)},
+		{handle_pointer, offsetof(args_RearrangePointers_t, tracer)},
+		{handle_forced_string, 0, 0, .string = "PTROP_NOSAFEGUARDS"},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_RearrangePointers(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_RearrangePointers_t *arg = st->arg;
+	mobj_t *target = mo->target;
+	mobj_t *master = mo->master;
+	mobj_t *tracer = mo->tracer;
+
+	switch(arg->target)
+	{
+		case AAPTR_TRACER:
+			mo->target = tracer;
+		break;
+		case AAPTR_MASTER:
+			mo->target = master;
+		break;
+		case AAPTR_NULL:
+			mo->target = NULL;
+		break;
+	}
+
+	switch(arg->master)
+	{
+		case AAPTR_TARGET:
+			mo->master = target;
+		break;
+		case AAPTR_TRACER:
+			mo->master = tracer;
+		break;
+		case AAPTR_NULL:
+			mo->master = NULL;
+		break;
+	}
+
+	switch(arg->tracer)
+	{
+		case AAPTR_TARGET:
+			mo->tracer = target;
+		break;
+		case AAPTR_MASTER:
+			mo->tracer = master;
+		break;
+		case AAPTR_NULL:
+			mo->tracer = NULL;
+		break;
+	}
+}
+
+//
+// A_BrainDie
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_BrainDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	secretexit = 0;
+	gameaction = ga_completed;
+	map_start_id = 0;
+}
+
+//
 // A_DamageTarget
 
 static const dec_args_t args_DamageTarget =
@@ -3517,7 +3721,7 @@ static const dec_args_t args_JumpIfInventory =
 	.size = sizeof(args_JumpIfInventory_t),
 	.arg =
 	{
-		{handle_mobjtype, offsetof(args_JumpIfInventory_t, type)},
+		{handle_mobjtype_power, offsetof(args_JumpIfInventory_t, type)},
 		{handle_u16, offsetof(args_JumpIfInventory_t, amount)},
 		{handle_state, offsetof(args_JumpIfInventory_t, state)},
 		{handle_pointer, offsetof(args_JumpIfInventory_t, ptr), 1},
@@ -3533,6 +3737,17 @@ void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mobjinfo_t *info = mobjinfo + arg->type;
 	uint32_t now, check, limit;
 	mobj_t *targ;
+
+	if(arg->type >= 0xFFF0)
+	{
+		// powerup check
+		if(!mo->player)
+			return;
+		if(!mo->player->powers[arg->type - 0xFFF0])
+			return;
+		stfunc(mo, arg->state);
+		return;
+	}
 
 	if(!inventory_is_valid(info))
 		return;
@@ -3601,6 +3816,7 @@ static const dec_args_t args_JumpIfCloser =
 	{
 		{handle_fixed, offsetof(args_JumpIfCloser_t, range)},
 		{handle_state, offsetof(args_JumpIfCloser_t, state)},
+		{handle_bool, offsetof(args_JumpIfCloser_t, no_z), 1},
 		// terminator
 		{NULL}
 	}
@@ -3611,7 +3827,7 @@ void A_JumpIfCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	// TODO: handle player weapon or inventory
 	const args_JumpIfCloser_t *arg = st->arg;
-	if(mobj_range_check(mo, mo->target, arg->range))
+	if(mobj_range_check(mo, mo->target, arg->range, !arg->no_z))
 		stfunc(mo, arg->state);
 }
 
@@ -3619,7 +3835,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfTracerCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_JumpIfCloser_t *arg = st->arg;
-	if(mobj_range_check(mo, mo->tracer, arg->range))
+	if(mobj_range_check(mo, mo->tracer, arg->range, !arg->no_z))
 		stfunc(mo, arg->state);
 }
 
@@ -3627,7 +3843,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfMasterCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_JumpIfCloser_t *arg = st->arg;
-	if(mobj_range_check(mo, mo->master, arg->range))
+	if(mobj_range_check(mo, mo->master, arg->range, !arg->no_z))
 		stfunc(mo, arg->state);
 }
 
@@ -4033,7 +4249,7 @@ uint8_t *action_parser(uint8_t *name)
 
 				arg->arg[idx].value = value;
 				if(flags & 1)
-					arg->arg[idx].value = arg->arg[idx].value;
+					arg->arg[idx].value = -arg->arg[idx].value;
 				arg->arg[idx].info = tmp;
 				idx++;
 
@@ -4161,6 +4377,7 @@ static const dec_action_t mobj_action[] =
 	{"a_xscream", A_XScream},
 	{"a_playerscream", A_PlayerScream},
 	{"a_activesound", A_ActiveSound},
+	{"a_brainpain", A_BrainPain},
 	{"a_startsound", A_StartSound, &args_StartSound},
 	// basic control
 	{"a_facetarget", A_FaceTarget},
@@ -4183,6 +4400,7 @@ static const dec_action_t mobj_action[] =
 	{"a_seekermissile", A_SeekerMissile, &args_SeekerMissile},
 	// spawn
 	{"a_spawnitemex", A_SpawnItemEx, &args_SpawnItemEx},
+	{"a_dropitem", A_DropItem, &args_DropItem},
 	// chunks
 	{"a_burst", A_Burst, &args_SingleMobjtype},
 	{"a_skullpop", A_SkullPop, &args_SingleMobjtype},
@@ -4204,6 +4422,8 @@ static const dec_action_t mobj_action[] =
 	{"a_changevelocity", A_ChangeVelocity, &args_ChangeVelocity},
 	{"a_stop", A_Stop},
 	{"a_settics", A_SetTics, &args_SetTics},
+	{"a_rearrangepointers", A_RearrangePointers, &args_RearrangePointers},
+	{"a_braindie", A_BrainDie},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	{"a_explode", A_Explode, &args_Explode},

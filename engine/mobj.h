@@ -28,9 +28,7 @@ extern uint_fast8_t reborn_inventory_hack;
 
 //
 
-#define mobj_set_animation(mo,anim)	mobj_set_state((mo), STATE_SET_ANIMATION((anim), 0))
-
-uint32_t mobj_set_state(mobj_t *mo, uint32_t state) __attribute((regparm(2),no_caller_saved_registers));
+void mobj_set_animation(mobj_t*,uint8_t) __attribute((regparm(2),no_caller_saved_registers));
 
 void mobj_remove(mobj_t *mo) __attribute((regparm(2),no_caller_saved_registers));
 

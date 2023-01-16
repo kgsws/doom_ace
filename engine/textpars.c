@@ -95,6 +95,34 @@ uint64_t tp_hash64(const uint8_t *name)
 	return ret;
 }
 
+uint32_t tp_hash32(const uint8_t *name)
+{
+	// Converts string name into 32bit alias (pseudo-hash).
+	// Letters are converted to uppercase.
+	uint32_t ret = 0;
+	uint32_t sub = 0;
+
+	while(*name)
+	{
+		uint8_t in = *name++;
+
+		if(in >= 'a' && in <= 'z')
+			in &= 0xDF;
+
+		in &= 0x3F;
+
+		ret ^= (uint64_t)in << sub;
+		if(sub > 24)
+			ret ^= (uint64_t)in >> (32 - sub);
+
+		sub += 6;
+		if(sub >= 32)
+			sub -= 32;
+	}
+
+	return ret;
+}
+
 uint32_t tp_parse_fixed(uint8_t *text, fixed_t *value)
 {
 	fixed_t ret = 0;

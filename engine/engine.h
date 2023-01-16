@@ -313,9 +313,18 @@ typedef struct
 {
 	struct state_s *state;
 	int32_t tics;
-	fixed_t	sx;
-	fixed_t	sy;
+	uint32_t extra;
+	int16_t sx, sy;
 } pspdef_t;
+
+//
+// extra
+
+typedef struct
+{
+	uint32_t alias;
+	uint16_t state;
+} __attribute__((packed)) custom_state_t;
 
 //
 // player
@@ -327,9 +336,9 @@ typedef struct
 #define NUMAMMO		4
 #define NUMCARDS		6
 
-#define WEAPONBOTTOM	(128 << FRACBITS)
-#define WEAPONTOP	(32 << FRACBITS)
-#define WEAPONRAISE	(6 << FRACBITS)
+#define WEAPONBOTTOM	128
+#define WEAPONTOP	32
+#define WEAPONRAISE	6
 
 #define USERANGE	(64 << FRACBITS)
 #define MELEERANGE	(64 << FRACBITS)
@@ -572,16 +581,6 @@ typedef struct
 
 typedef struct
 {
-	uint16_t type;
-	uint16_t death;
-	uint16_t xdeath;
-	uint16_t crash;
-	uint16_t xcrash;
-	uint16_t pain;
-} custom_damage_state_t;
-
-typedef struct
-{
 	uint16_t *wpn_slot[NUM_WPN_SLOTS];
 	fixed_t view_height;
 	fixed_t attack_offs;
@@ -687,13 +686,13 @@ typedef struct mobjinfo_s
 	uint32_t flags;
 	uint32_t state_raise;
 	// new stuff
-	fixed_t fast_speed; // offset must be < 128
 	uint64_t alias;
 	uint16_t replacement;
 	uint16_t species;
 	uint32_t flags1;
 	uint32_t flags2;
 	uint32_t eflags;
+	fixed_t fast_speed;
 	fixed_t vspeed;
 	fixed_t step_height;
 	fixed_t camera_height;
@@ -707,7 +706,9 @@ typedef struct mobjinfo_s
 	// damage type stuff
 	uint16_t painchance[NUM_DAMAGE_TYPES];
 	uint16_t damage_factor[NUM_DAMAGE_TYPES];
-	custom_damage_state_t *damage_states;
+	// custom states
+	custom_state_t *custom_states;
+	custom_state_t *custom_st_end;
 	// new states
 	union
 	{
@@ -778,14 +779,15 @@ typedef struct mobjinfo_s
 	};
 } mobjinfo_t;
 
-typedef uint32_t(*stfunc_t)(struct mobj_s*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+typedef uint32_t(*stfunc_t)(struct mobj_s*,uint32_t,uint16_t) __attribute((regparm(3),no_caller_saved_registers)); // three!
 
 typedef struct state_s
 {
 	uint16_t sprite;
 	uint16_t frame;
 	const void *arg;
-	int32_t tics;
+	uint16_t tics;
+	uint16_t next_extra;
 	union
 	{
 		void *action;
@@ -1163,8 +1165,11 @@ typedef struct mobj_s
 	struct inventory_s *inventory;
 	// activating item, nesting is not supported
 	mobjinfo_t *custom_inventory;
-	// custom inventory state jumps
+	// state jumps
+	uint32_t next_state;
 	uint32_t custom_state;
+	uint16_t next_extra;
+	uint16_t custom_extra;
 	// to avoid mutiple rip damage per tick
 	struct mobj_s *rip_thing;
 	uint32_t rip_tick;

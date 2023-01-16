@@ -22,23 +22,25 @@ extern const uint16_t base_anim_offs[NUM_MOBJ_ANIMS];
 //
 // weapon states
 
-__attribute((regparm(2),no_caller_saved_registers))
-static uint32_t weapon_change_state0(mobj_t *mo, uint32_t state)
+static __attribute((regparm(3),no_caller_saved_registers)) // three!
+uint32_t weapon_change_state0(mobj_t *mo, uint32_t state, uint16_t extra)
 {
 	// defer state change for later
 	mo->player->psprites[0].state = NULL;
 	mo->player->psprites[0].tics = state;
+	mo->player->psprites[0].extra = extra;
 }
 
-__attribute((regparm(2),no_caller_saved_registers))
-static uint32_t weapon_change_state1(mobj_t *mo, uint32_t state)
+static __attribute((regparm(3),no_caller_saved_registers)) // three!
+uint32_t weapon_change_state1(mobj_t *mo, uint32_t state, uint16_t extra)
 {
 	// defer state change for later
 	mo->player->psprites[1].state = NULL;
 	mo->player->psprites[1].tics = state;
+	mo->player->psprites[1].extra = extra;
 }
 
-static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint32_t state)
+static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint32_t state, uint16_t extra)
 {
 	// normal state changes
 	state_t *st;
@@ -54,30 +56,7 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 
 	while(1)
 	{
-		if(state & 0x80000000)
-		{
-			// change animation
-			uint16_t offset;
-			uint8_t anim;
-
-			offset = state & 0xFFFF;
-			if(!(state & 0x40000000))
-			{
-				anim = (state >> 16) & 0xFF;
-
-				if(anim < NUM_MOBJ_ANIMS)
-					state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
-				else
-					state = info->extra_states[anim - NUM_MOBJ_ANIMS];
-			} else
-				state = oldstate;
-
-			if(state)
-				state += offset;
-
-			if(state >= num_states)
-				engine_error("WEAPON", "State jump '+%u' is invalid!", offset);
-		}
+		state = dec_reslove_state(info, oldstate, state, extra);
 
 		if(!state)
 		{
@@ -87,8 +66,9 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 
 		st = states + state;
 		psp->state = st;
-		psp->tics = st->tics;
+		psp->tics = st->tics == 0xFFFF ? -1 : st->tics;
 		oldstate = state;
+		extra = st->next_extra;
 		state = st->nextstate;
 
 		if(pl->powers[pw_attack_speed] && psp->tics > 1)
@@ -97,9 +77,9 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 		if(!idx)
 		{
 			if(st->misc1)
-				pl->psprites[1].sx = st->misc1 << FRACBITS;
+				pl->psprites[1].sx = st->misc1;
 			if(st->misc2)
-				pl->psprites[1].sy = st->misc2 << FRACBITS;
+				pl->psprites[1].sy = st->misc2;
 		}
 
 		if(st->acp)
@@ -109,6 +89,7 @@ static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint3
 			{
 				// apply deferred state change
 				state = psp->tics;
+				extra = psp->extra;
 				continue;
 			}
 		}
@@ -128,7 +109,7 @@ static void hook_lower_weapon(player_t *pl)
 		return;
 
 	pl->weapon_ready = 0;
-	weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.lower);
+	weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.lower, 0);
 }
 
 //
@@ -152,7 +133,7 @@ void weapon_move_pspr(player_t *pl)
 		if(!psp->tics)
 		{
 			// special case for deferred gun flash
-			weapon_set_state(pl, i, pl->readyweapon, psp->state - states);
+			weapon_set_state(pl, i, pl->readyweapon, psp->state - states, 0);
 			if(psp->tics > 0)
 				psp->tics++;
 		}
@@ -161,7 +142,7 @@ void weapon_move_pspr(player_t *pl)
 		{
 			psp->tics--;
 			if(!psp->tics)
-				weapon_set_state(pl, i, pl->readyweapon, psp->state->nextstate);
+				weapon_set_state(pl, i, pl->readyweapon, psp->state->nextstate, psp->state->next_extra);
 		}
 	}
 
@@ -169,9 +150,9 @@ void weapon_move_pspr(player_t *pl)
 	{
 		// do weapon bob here for smooth chainsaw
 		angle = (128 * leveltime) & FINEMASK;
-		pl->psprites[0].sx = FixedMul(pl->bob, finecosine[angle]);
+		pl->psprites[0].sx = FixedMul(pl->bob, finecosine[angle]) >> FRACBITS;
 		angle &= FINEANGLES / 2 - 1;
-		pl->psprites[0].sy = FixedMul(pl->bob, finesine[angle]);
+		pl->psprites[0].sy = FixedMul(pl->bob, finesine[angle]) >> FRACBITS;
 	} else
 	if(extra_config.center_weapon)
 	{
@@ -206,18 +187,18 @@ void weapon_setup(player_t *pl)
 
 	pl->psprites[0].sx = 0;
 	pl->psprites[0].sy = 0;
-	pl->psprites[1].sy = FRACUNIT;
+	pl->psprites[1].sy = 1;
 
 	S_StartSound(SOUND_CHAN_WEAPON(pl->mo), pl->readyweapon->weapon.sound_up);
 
 	if(map_level_info->flags & MAP_FLAG_SPAWN_WITH_WEAPON_RAISED)
 	{
 		pl->psprites[1].sy = WEAPONTOP;
-		weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.ready);
+		weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.ready, 0);
 	} else
 	{
 		pl->psprites[1].sy = WEAPONBOTTOM;
-		weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.raise);
+		weapon_set_state(pl, 0, pl->readyweapon, pl->readyweapon->st_weapon.raise, 0);
 	}
 }
 
@@ -264,13 +245,14 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 
 	if(!refire && extra_config.center_weapon == 1)
 	{
-		pl->psprites[1].sx = FRACUNIT;
+		pl->psprites[1].sx = 1;
 		pl->psprites[1].sy = WEAPONTOP;
 	}
 
 	// just hope that this was not called in 'flash PSPR'
 	pl->psprites[0].state = NULL;
 	pl->psprites[0].tics = state;
+	pl->psprites[0].extra = 0;
 
 	return 1;
 }
@@ -328,6 +310,7 @@ uint32_t weapon_check_ammo(player_t *pl)
 	// just hope that this was not called in 'flash PSPR'
 	pl->psprites[0].state = NULL;
 	pl->psprites[0].tics = pl->readyweapon->st_weapon.lower;
+	pl->psprites[0].extra = 0;
 	pl->weapon_ready = 0;
 
 	return 0;

@@ -47,56 +47,42 @@ static mobj_t *hit_thing;
 static uint_fast8_t teleblock;
 
 //
-
-// this only exists because original animations are all over the place in 'mobjinfo_t'
-const uint16_t base_anim_offs[LAST_MOBJ_STATE_HACK] =
-{
-	[ANIM_SPAWN] = offsetof(mobjinfo_t, state_spawn),
-	[ANIM_SEE] = offsetof(mobjinfo_t, state_see),
-	[ANIM_PAIN] = offsetof(mobjinfo_t, state_pain),
-	[ANIM_MELEE] = offsetof(mobjinfo_t, state_melee),
-	[ANIM_MISSILE] = offsetof(mobjinfo_t, state_missile),
-	[ANIM_DEATH] = offsetof(mobjinfo_t, state_death),
-	[ANIM_XDEATH] = offsetof(mobjinfo_t, state_xdeath),
-	[ANIM_RAISE] = offsetof(mobjinfo_t, state_raise),
-};
-
-//
 // state changes
 
-__attribute((regparm(2),no_caller_saved_registers))
-uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
+static __attribute((regparm(3),no_caller_saved_registers)) // three!
+uint32_t mobj_change_state(mobj_t *mo, uint32_t state, uint16_t extra)
+{
+	// defer state change for later
+	mo->next_state = state;
+	mo->next_extra = extra;
+}
+
+static __attribute((regparm(3),no_caller_saved_registers)) // three!
+uint32_t P_SetMobjState(mobj_t *mo, uint32_t state, uint16_t extra)
 {
 	// normal state changes
 	state_t *st;
 
-	do
+	while(1)
 	{
-		if(state & 0x80000000)
+		switch(extra & STATE_CHECK_MASK)
 		{
-			// change animation
-			uint16_t offset;
-
-			offset = state & 0xFFFF;
-			if(!(state & 0x40000000))
-			{
-				mo->animation = (state >> 16) & 0xFF;
-
-				if(mo->animation < LAST_MOBJ_STATE_HACK)
-					state = *((uint16_t*)((void*)mo->info + base_anim_offs[mo->animation]));
-				else
-				if(mo->animation < NUM_MOBJ_ANIMS)
-					state = mo->info->new_states[mo->animation - LAST_MOBJ_STATE_HACK];
-				else
-					state = mo->info->extra_states[mo->animation - NUM_MOBJ_ANIMS];
-			} else
-				state = mo->state - states;
-
-			if(state)
-				state += offset;
-
-			if(state >= num_states)
-				engine_error("MOBJ", "State jump '+%u' is invalid!", offset);
+			case STATE_SET_OFFSET:
+				state += mo->state - states;
+				if(state >= num_states)
+					state = 0;
+			break;
+			case STATE_SET_CUSTOM:
+				state = dec_mobj_custom_state(mo->info, state);
+				state += extra & STATE_EXTRA_MASK;
+				if(state >= num_states)
+					state = 0;
+			break;
+			case STATE_SET_ANIMATION:
+				mo->animation = extra & STATE_EXTRA_MASK;
+				if(state == 0xFFFFFFFF)
+					state = dec_resolve_animation(mo->info, 0, mo->animation, num_states);
+			break;
 		}
 
 		if(!state)
@@ -113,25 +99,50 @@ uint32_t mobj_set_state(mobj_t *mo, uint32_t state)
 			mo->frame = st->frame;
 		}
 
-		if(st->tics > 1 && (fastparm || gameskill == sk_nightmare) && st->frame & FF_FAST)
-			mo->tics = st->tics / 2;
-		else
-			mo->tics = st->tics;
+		if(st->tics != 0xFFFF)
+		{
+			if(st->tics > 1 && (fastparm || gameskill == sk_nightmare) && st->frame & FF_FAST)
+				mo->tics = st->tics / 2;
+			else
+				mo->tics = st->tics;
+		} else
+			mo->tics = -1;
 
+		extra = st->next_extra;
 		state = st->nextstate;
 
 		if(st->acp)
-			st->acp(mo, st, mobj_set_state);
+		{
+			st->acp(mo, st, mobj_change_state);
+			if(mo->next_state || mo->next_extra)
+			{
+				// apply deferred state change
+				state = mo->next_state;
+				extra = mo->next_extra;
+				mo->next_state = 0;
+				mo->next_extra = 0;
+				continue;
+			}
+		}
 
-	} while(!mo->tics);
+		if(mo->tics)
+			break;
+	}
 
 	return 1;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
-static uint32_t mobj_inv_change(mobj_t *mo, uint32_t state)
+void mobj_set_animation(mobj_t *mo, uint8_t anim)
+{
+	P_SetMobjState(mo, 0xFFFFFFFF, anim | STATE_SET_ANIMATION);
+}
+
+__attribute((regparm(3),no_caller_saved_registers))
+static uint32_t mobj_inv_change(mobj_t *mo, uint32_t state, uint16_t extra)
 {
 	// defer state change for later
+	mo->custom_extra = extra;
 	mo->custom_state = state;
 }
 
@@ -140,36 +151,13 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 	// state set by custom inventory
 	state_t *st;
 	uint32_t oldstate = 0;
+	uint16_t extra = 0;
 
 	mo->custom_state = 0;
 
 	while(1)
 	{
-		if(state & 0x80000000)
-		{
-			// change animation
-			mobjinfo_t *info = mo->custom_inventory;
-			uint16_t offset;
-			uint8_t anim;
-
-			offset = state & 0xFFFF;
-			if(!(state & 0x40000000))
-			{
-				anim = (state >> 16) & 0xFF;
-
-				if(anim < NUM_MOBJ_ANIMS)
-					state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
-				else
-					state = info->extra_states[anim - NUM_MOBJ_ANIMS];
-			} else
-				state = oldstate;
-
-			if(state)
-				state += offset;
-
-			if(state >= num_states)
-				engine_error("MOBJ", "State jump '+%u' is invalid!", offset);
-		}
+		state = dec_reslove_state(mo->info, oldstate, state, extra);
 
 		if(state <= 1)
 		{
@@ -179,6 +167,8 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 
 		oldstate = state;
 		st = states + state;
+
+		extra = st->next_extra;
 		state = st->nextstate;
 
 		if(st->acp)
@@ -187,6 +177,7 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 			if(mo->custom_state)
 			{
 				// apply deferred state change
+				extra = mo->custom_extra;
 				state = mo->custom_state;
 				mo->custom_state = 0;
 			}
@@ -772,6 +763,12 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 // stuff
 
 static __attribute((regparm(2),no_caller_saved_registers))
+void set_mobj_state(mobj_t *mo, uint32_t state)
+{
+	P_SetMobjState(mo, state, 0);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 void set_mobj_animation(mobj_t *mo, uint8_t anim)
 {
 	if(anim == ANIM_HEAL)
@@ -784,7 +781,7 @@ void set_mobj_animation(mobj_t *mo, uint8_t anim)
 		if(mo->state - states == 895)
 			mo->translation = mo->info->translation;
 	}
-	mobj_set_state(mo, STATE_SET_ANIMATION(anim, 0));
+	mobj_set_animation(mo, anim);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -874,6 +871,7 @@ uint32_t finish_mobj(mobj_t *mo)
 {
 	// add thinker
 	P_AddThinker(&mo->thinker);
+	mo->thinker.function = P_MobjThinker;
 
 	// spawn inactive
 	if(mo->flags1 & MF1_DORMANT)
@@ -895,6 +893,9 @@ uint32_t finish_mobj(mobj_t *mo)
 	if(mo->flags & MF_COUNTITEM)
 		totalitems++;
 
+	// fix tics
+	mo->tics = mo->state->tics == 0xFFFF ? -1 : mo->state->tics;
+
 	// HACK - other sound slots
 	mo->sound_body.x = mo->x;
 	mo->sound_body.y = mo->y;
@@ -913,7 +914,9 @@ uint32_t finish_mobj(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 static void kill_animation(mobj_t *mo)
 {
-	custom_damage_state_t *cst;
+	uint32_t state = 0;
+
+/*	custom_damage_state_t *cst;
 	uint_fast8_t new_damage_type = DAMAGE_NORMAL;
 	uint32_t state = 0;
 	uint32_t ice_death = mo->damage_type == DAMAGE_ICE && (mo->flags1 & MF1_ISMONSTER || mo->player) && !(mo->flags2 & MF2_NOICEDEATH);
@@ -960,7 +963,18 @@ static void kill_animation(mobj_t *mo)
 	if(ice_death)
 		state = STATE_ICE_DEATH_0;
 
-	mobj_set_state(mo, state);
+	P_SetMobjState(mo, state, 0);
+*/
+	if(mo->health < -mo->info->spawnhealth)
+	{
+		state = mo->info->state_xdeath;
+	}
+	if(!state)
+	{
+		state = mo->info->state_death;
+	}
+
+	P_SetMobjState(mo, state, 0);
 
 	if(mo->tics > 0)
 	{
@@ -1310,7 +1324,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 					thing->height = 0;
 				}
 
-				mobj_set_state(thing, state);
+				P_SetMobjState(thing, state, 0);
 			}
 
 			return 1;
@@ -1628,7 +1642,7 @@ uint32_t mobj_for_each(uint32_t (*cb)(mobj_t*))
 	{
 		uint32_t ret;
 
-		if(th->function != (void*)0x00031490 + doom_code_segment)
+		if(th->function != (void*)P_MobjThinker)
 			continue;
 
 		ret = cb((mobj_t*)th);
@@ -1645,7 +1659,7 @@ mobj_t *mobj_by_tid_first(uint32_t tid)
 	{
 		mobj_t *mo;
 
-		if(th->function != (void*)0x00031490 + doom_code_segment)
+		if(th->function != (void*)P_MobjThinker)
 			continue;
 
 		mo = (mobj_t*)th;
@@ -1669,7 +1683,7 @@ mobj_t *mobj_by_netid(uint32_t netid)
 	{
 		mobj_t *mo;
 
-		if(th->function != (void*)0x00031490 + doom_code_segment)
+		if(th->function != (void*)P_MobjThinker)
 			continue;
 
 		mo = (mobj_t*)th;
@@ -1687,7 +1701,7 @@ void mobj_remove(mobj_t *mo)
 	{
 		mobj_t *om;
 
-		if(th->function != (void*)0x00031490 + doom_code_segment)
+		if(th->function != (void*)P_MobjThinker)
 			continue;
 
 		om = (mobj_t*)th;
@@ -2097,7 +2111,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		uint32_t state = target->info->state_pain;
 
 		target->flags |= MF_JUSTHIT;
-
+/*
 		if(damage_type != DAMAGE_NORMAL && target->info->damage_states)
 		{
 			custom_damage_state_t *cst;
@@ -2105,11 +2119,11 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			if(cst && cst->pain)
 				state = cst->pain;
 		}
-
+*/
 		if(state)
 		{
 			target->animation = ANIM_PAIN;
-			mobj_set_state(target, state);
+			P_SetMobjState(target, state, 0);
 		}
 	}
 
@@ -2126,7 +2140,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		target->target = source;
 		target->threshold = 100;
 		if(target->info->state_see && target->state == states + target->info->state_spawn)
-			mobj_set_state(target, STATE_SET_ANIMATION(ANIM_SEE, 0));
+			mobj_set_animation(target, ANIM_SEE);
 	}
 }
 
@@ -2158,32 +2172,13 @@ static void mobj_fall_damage(mobj_t *mo)
 	mobj_damage(mo, NULL, NULL, damage, NULL);
 }
 
-__attribute((regparm(2),no_caller_saved_registers))
-static void mobj_xy_move(mobj_t *mo)
+static __attribute((regparm(2),no_caller_saved_registers))
+void P_XYMovement(mobj_t *mo)
 {
 	uint32_t dropoff;
 	player_t *pl = mo->player;
 
-	if(!mo->momz && mo->z == mo->floorz && mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
-	{
-		// fake some Z movement for crash states
-		// technically, this should be outside of XY Move function
-		mo->momz = -1;
-	}
-
 	oldfloorz = mo->floorz;
-
-	if(!mo->momx && !mo->momy)
-	{
-		if(mo->flags & MF_SKULLFLY)
-		{
-			mo->flags &= ~MF_SKULLFLY;
-			mo->momz = 0;
-			mobj_set_animation(mo, ANIM_SPAWN);
-		}
-		if(!(mo->flags & MF_MISSILE) && !(mo->iflags & MFI_MOBJONMOBJ))
-			return;
-	}
 
 	// allow pushing monsters off ledges (and +PUSHABLE)
 	dropoff = (mo->flags ^ MF_DROPOFF) & MF_DROPOFF;
@@ -2323,7 +2318,7 @@ static void mobj_xy_move(mobj_t *mo)
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
-static void mobj_z_move(mobj_t *mo)
+static void P_ZMovement(mobj_t *mo)
 {
 	// check for smooth step up
 	if(mo->player && mo->z < mo->floorz)
@@ -2418,10 +2413,9 @@ static void mobj_z_move(mobj_t *mo)
 		{
 			uint32_t state = 0;
 			uint32_t animation;
-			custom_damage_state_t *cst;
 
 			mo->iflags |= MFI_CRASHED;
-
+/*
 			if(mo->damage_type != DAMAGE_NORMAL && mo->info->damage_states)
 				cst = dec_get_damage_animation(mo->info->damage_states, mo->damage_type);
 			else
@@ -2446,11 +2440,11 @@ static void mobj_z_move(mobj_t *mo)
 				animation = ANIM_CRASH;
 			} else
 				animation = ANIM_XCRASH;
-
+*/
 			if(state)
 			{
 				mo->animation = animation;
-				mobj_set_state(mo, state);
+				P_SetMobjState(mo, state, 0);
 			}
 		}
 	} else
@@ -2708,7 +2702,7 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target, uint32_t puff_type)
 	}
 
 	if(state)
-		mobj_set_state(mo, state);
+		P_SetMobjState(mo, state, 0);
 
 	if(mo->flags1 & MF1_RANDOMIZE && mo->tics > 0)
 	{
@@ -2751,7 +2745,7 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage, uint32_
 	if(state >= num_states) // TODO: this is not correct
 		state = num_states - 1;
 
-	mobj_set_state(mo, state);
+	P_SetMobjState(mo, state, 0);
 
 	mo->angle = shootthing->angle;
 }
@@ -2804,7 +2798,7 @@ uint32_t mobj_change_sector(sector_t *sec, uint32_t crush)
 	return nofit;
 }
 
-static __attribute((regparm(2),no_caller_saved_registers)) // three!
+static __attribute((regparm(2),no_caller_saved_registers))
 mobj_t *spawn_missile(mobj_t *source, mobj_t *target)
 {
 	mobj_t *th;
@@ -2841,6 +2835,71 @@ mobj_t *spawn_missile(mobj_t *source, mobj_t *target)
 }
 
 //
+// new thinker
+
+__attribute((regparm(2),no_caller_saved_registers))
+void P_MobjThinker(mobj_t *mo)
+{
+	if(!mo->momz && !(mo->flags & MF_NOGRAVITY) && mo->z == mo->floorz && mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
+		// fake some Z movement for crash states
+		mo->momz = -1;
+
+	// XY movement
+	if(	mo->momx ||
+		mo->momy ||
+		mo->flags & MF_MISSILE ||
+		mo->iflags & MFI_MOBJONMOBJ
+	){
+		P_XYMovement(mo);
+		if(mo->thinker.function == (void*)-1)
+			return;
+	} else
+	if(mo->flags & MF_SKULLFLY)
+	{
+		mo->flags &= ~MF_SKULLFLY;
+		mo->momz = 0;
+		mobj_set_animation(mo, ANIM_SPAWN);
+	}
+
+	// Z movement
+	if((mo->z != mo->floorz) || mo->momz)
+	{
+		P_ZMovement(mo);
+		if(mo->thinker.function == (void*)-1)
+			return;
+	}
+
+	// animate
+	if(mo->tics >= 0)
+	{
+		mo->tics--;
+		if(mo->tics <= 0)
+			if(!P_SetMobjState(mo, mo->state->nextstate, mo->state->next_extra))
+				return;
+	} /* else
+	{
+		if(!(mo->flags1 & MF1_ISMONSTER))
+			return;
+
+		if(!respawnmonsters)
+			return;
+
+		mo->movecount++;
+
+		if(mo->movecount < 12*35)
+			return;
+
+		if(leveltime & 31)
+			return;
+
+		if(P_Random () > 4)
+			return;
+
+		P_NightmareRespawn(mo);
+	}*/
+}
+
+//
 // hooks
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
@@ -2855,14 +2914,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031579, CODE_HOOK | HOOK_SET_NOPS, 3},
 	// replace call to 'P_AddThinker' in 'P_SpawnMobj'
 	{0x00031647, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)finish_mobj},
-	// replace call to 'P_SetMobjState' in 'P_MobjThinker'
-	{0x000314F0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_set_state},
-	// fix jump condition in 'P_MobjThinker'
-	{0x000314E4, CODE_HOOK | HOOK_UINT8, 0x7F},
 	// replace 'P_CheckMeleeRange'
 	{0x00027040, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_check_melee_range},
 	// replace 'P_SetMobjState'
-	{0x00030EA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_set_state},
+	{0x00030EA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)set_mobj_state},
 	// replace 'P_RemoveMobj'
 	{0x00031660, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_remove},
 	// replace 'P_DamageMobj' - use trampoline
@@ -2914,10 +2969,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x000281E3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_VileChase
 	{0x000281FF, CODE_HOOK | HOOK_UINT32, 0x909000B2 | (ANIM_RAISE << 8)}, // A_VileChase
 	{0x00028202, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_VileChase
-	// replace call to 'P_XYMovement' in 'P_MobjThinker'; call always
-	{0x00031496, CODE_HOOK | HOOK_UINT16, 0x12EB},
-	{0x000314AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_xy_move},
-	// replace call to 'P_ZMovement' in 'P_MobjThinker'
-	{0x000314C9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)mobj_z_move},
 };
 

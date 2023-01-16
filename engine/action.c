@@ -56,6 +56,7 @@ typedef struct dec_arg_s
 	{
 		const dec_arg_flag_t *flags;
 		uint8_t *string;
+		uint32_t extra;
 	};
 } dec_arg_t;
 
@@ -507,34 +508,38 @@ static uint8_t *handle_pointer(uint8_t *kw, const dec_arg_t *arg)
 
 static uint8_t *handle_state(uint8_t *kw, const dec_arg_t *arg)
 {
-	uint32_t *dst = (uint32_t*)(parse_action_arg + arg->offset);
+	args_singleState_t *state = (args_singleState_t*)(parse_action_arg + arg->offset);
+	uint32_t tmp;
 
 	if(tp_is_string)
 	{
 		const dec_anim_t *anim;
-		uint32_t aidx;
 
 		strlwr(kw);
 
+		// find animation
 		anim = dec_find_animation(kw);
-		if(!anim)
+		if(anim)
 		{
-			aidx = dec_get_custom_state(kw, -1);
-			aidx = STATE_TEMPORARY_CUSTOM(aidx, 0);
-			dec_register_state_remap(dst);
+			// actual animation
+			state->state.extra = STATE_SET_ANIMATION | anim->idx;
+			state->state.next = 0xFFFFFFFF;
 		} else
-			aidx = STATE_SET_ANIMATION(anim->idx, 0);
-
-		*dst = aidx;
+		{
+			// custom state
+			state->state.extra = STATE_SET_CUSTOM;
+			state->state.next = tp_hash32(kw);
+		}
 	} else
+	if(!arg->extra)
 	{
-		uint32_t tmp;
-
 		if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 65535)
 			return NULL;
-
-		*dst = 0xC0000000 | tmp;
-	}
+		// offset jump
+		state->state.extra = STATE_SET_OFFSET;
+		state->state.next = tmp;
+	} else
+		return NULL;
 
 	return tp_get_keyword();
 }
@@ -1358,18 +1363,18 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // weapon (logic)
 
-const args_singleFixed_t def_LowerRaise =
+const args_singleU16_t def_LowerRaise =
 {
-	.value = 6 * FRACUNIT
+	.value = 6
 };
 
 static const dec_args_t args_LowerRaise =
 {
-	.size = sizeof(args_singleFixed_t),
+	.size = sizeof(args_singleU16_t),
 	.def = &def_LowerRaise,
 	.arg =
 	{
-		{handle_fixed, offsetof(args_singleFixed_t, value), 2},
+		{handle_u16, offsetof(args_singleFixed_t, value), 2},
 		// terminator
 		{NULL}
 	}
@@ -1379,7 +1384,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	fixed_t value;
+	int32_t value;
 
 	if(!pl)
 		return;
@@ -1389,7 +1394,7 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(st->arg)
 	{
-		const args_singleFixed_t *arg = st->arg;
+		const args_singleU16_t *arg = st->arg;
 		value = arg->value;
 	} else
 		value = def_LowerRaise.value;
@@ -1406,7 +1411,7 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(pl->state == PST_DEAD)
 	{
 		if(pl->readyweapon->st_weapon.deadlow)
-			stfunc(mo, pl->readyweapon->st_weapon.deadlow);
+			stfunc(mo, pl->readyweapon->st_weapon.deadlow, 0);
 		return;
 	}
 
@@ -1428,14 +1433,14 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->weapon.sound_up);
 
-	stfunc(mo, pl->readyweapon->st_weapon.raise);
+	stfunc(mo, pl->readyweapon->st_weapon.raise, 0);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	fixed_t value;
+	int32_t value;
 
 	if(!pl)
 		return;
@@ -1445,7 +1450,7 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(st->arg)
 	{
-		const args_singleFixed_t *arg = st->arg;
+		const args_singleU16_t *arg = st->arg;
 		value = arg->value;
 	} else
 		value = def_LowerRaise.value;
@@ -1458,7 +1463,7 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	pl->psprites[1].sy = WEAPONTOP;
 
-	stfunc(mo, pl->readyweapon->st_weapon.ready);
+	stfunc(mo, pl->readyweapon->st_weapon.ready, 0);
 }
 
 //
@@ -1476,7 +1481,7 @@ static const dec_args_t args_GunFlash =
 	.size = sizeof(args_GunFlash_t),
 	.arg =
 	{
-		{handle_state, offsetof(args_GunFlash_t, state), 2},
+		{handle_state, offsetof(args_GunFlash_t, state), 2, .extra = 1},
 		{handle_flags, offsetof(args_GunFlash_t, flags), 1, flags_GunFlash},
 		// terminator
 		{NULL}
@@ -1487,7 +1492,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	uint32_t state;
+	uint32_t state, extra;
 	uint32_t flags;
 
 	if(!pl)
@@ -1499,10 +1504,12 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(st->arg)
 	{
 		const args_GunFlash_t *arg = st->arg;
-		state = arg->state;
+		extra = arg->state.extra;
+		state = arg->state.next;
 		flags = arg->flags;
 	} else
 	{
+		extra = 0;
 		state = 0;
 		flags = 0;
 	}
@@ -1513,14 +1520,17 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(!state)
 	{
+		extra = 0;
 		if(pl->attackdown > 1)
 			state = pl->readyweapon->st_weapon.flash_alt;
 		else
 			state = pl->readyweapon->st_weapon.flash;
 	}
 
-	if(!state)
+	if(!state && !extra)
 		return;
+
+	state = dec_reslove_state(pl->readyweapon, 0, state, extra);
 
 	// just hope that this is called in 'weapon PSPR'
 	pl->psprites[1].state = states + state;
@@ -1602,7 +1612,7 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->custom_inventory)
 		return;
 
-	pl->psprites[1].sx = FRACUNIT;
+	pl->psprites[1].sx = 1;
 	pl->psprites[1].sy = WEAPONTOP;
 
 	if(st->arg)
@@ -1626,7 +1636,7 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	// new selection
 	if((pl->pendingweapon && !(flags & WRF_NOSWITCH)) || !pl->health)
 	{
-		stfunc(mo, pl->readyweapon->st_weapon.lower);
+		stfunc(mo, pl->readyweapon->st_weapon.lower, 0);
 		return;
 	}
 
@@ -1672,7 +1682,7 @@ static const dec_args_t args_ReFire =
 	.size = sizeof(args_singleState_t),
 	.arg =
 	{
-		{handle_state, offsetof(args_singleState_t, state), 2},
+		{handle_state, offsetof(args_singleState_t, state), 2, .extra = 1},
 		// terminator
 		{NULL}
 	}
@@ -1682,7 +1692,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	uint32_t btn, state;
+	uint32_t btn, state, extra;
 
 	if(!pl)
 		return;
@@ -1693,9 +1703,15 @@ void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(st->arg)
 	{
 		const args_singleState_t *arg = st->arg;
-		state = arg->state;
+		extra = arg->state.extra;
+		state = arg->state.next;
 	} else
+	{
+		extra = 0;
 		state = 0;
+	}
+
+	state = dec_reslove_state(pl->readyweapon, 0, state, extra);
 
 	if(pl->attackdown > 1)
 		btn = BT_ALTACK;
@@ -3710,7 +3726,7 @@ void A_Jump(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 
 	idx = P_Random() % arg->count;
-	stfunc(mo, arg->states[idx]);
+	stfunc(mo, arg->states[idx].next, arg->states[idx].extra);
 }
 
 //
@@ -3745,7 +3761,7 @@ void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			return;
 		if(!mo->player->powers[arg->type - 0xFFF0])
 			return;
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 		return;
 	}
 
@@ -3772,7 +3788,7 @@ void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		check = limit;
 
 	if(now >= check || check > limit)
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 //
@@ -3803,7 +3819,7 @@ void A_JumpIfHealthLower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 
 	if(targ->health < arg->amount)
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 //
@@ -3828,7 +3844,7 @@ void A_JumpIfCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	// TODO: handle player weapon or inventory
 	const args_JumpIfCloser_t *arg = st->arg;
 	if(mobj_range_check(mo, mo->target, arg->range, !arg->no_z))
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -3836,7 +3852,7 @@ void A_JumpIfTracerCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_JumpIfCloser_t *arg = st->arg;
 	if(mobj_range_check(mo, mo->tracer, arg->range, !arg->no_z))
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -3844,7 +3860,7 @@ void A_JumpIfMasterCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_JumpIfCloser_t *arg = st->arg;
 	if(mobj_range_check(mo, mo->master, arg->range, !arg->no_z))
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -3852,7 +3868,7 @@ void A_JumpIfTargetInsideMeleeRange(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_singleState_t *arg = st->arg;
 	if(mobj_check_melee_range(mo))
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -3860,7 +3876,7 @@ void A_JumpIfTargetOutsideMeleeRange(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_singleState_t *arg = st->arg;
 	if(!mobj_check_melee_range(mo))
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 //
@@ -3892,7 +3908,7 @@ void A_CheckFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	flags = (void*)targ + arg->moflag.offset;
 	if(*flags & arg->moflag.bits)
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 //
@@ -3922,7 +3938,7 @@ void A_MonsterRefire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mo->target->health <= 0 ||
 		!P_CheckSight(mo, mo->target)
 	)
-		stfunc(mo, arg->state);
+		stfunc(mo, arg->state.next, arg->state.extra);
 }
 
 //
@@ -4327,12 +4343,12 @@ args_end:
 						uint32_t count = 0;
 						for(uint32_t i = 1; i < 10; i++)
 						{
-							if(aaa->states[i])
+							if(aaa->states[i].next || aaa->states[i].extra)
 								count = i;
 						}
 						count++;
 						aaa->count = count;
-						dec_es_ptr -= sizeof(uint32_t) * (10 - count);
+						dec_es_ptr -= sizeof(state_jump_t) * (10 - count);
 					}
 					// return next keyword
 					return tp_get_keyword();

@@ -8,7 +8,7 @@ CFLAGS = ${BOTH} ${OPT} -mgeneral-regs-only -fdata-sections -ffunction-sections 
 build: ${program}.lmp
 
 clean:
-	rm -f *.o ${program} ${program}.rel ${program}.bin
+	rm -f *.o ${program} ${program}.rel ${program}.bin ${program}.lmp
 
 ${program}.lmp: ${OBJ}
 	${CC} ${OBJ} ${LIBS} ${BOTH} -o ${program} -nostdlib -Wl,--gc-sections -Wl,--no-ld-generated-unwind-info -Wl,--no-dynamic-linker -Wl,--omagic -Wl,-T linker.ld -Wl,-Map=code.map

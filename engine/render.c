@@ -1175,8 +1175,9 @@ static inline void draw_player_sprites()
 	mfloorclip = screenheightarray;
 	mceilingclip = negonearray;
 
-	sx = viewplayer->psprites[0].sx + viewplayer->psprites[1].sx - 160 * FRACUNIT;
-	sy = (BASEYCENTER << FRACBITS) + (FRACUNIT / 2) - (viewplayer->psprites[0].sy + viewplayer->psprites[1].sy);
+	sx = (fixed_t)(viewplayer->psprites[0].sx + viewplayer->psprites[1].sx) << FRACBITS;
+	sx -= 160 * FRACUNIT;
+	sy = (BASEYCENTER << FRACBITS) + (FRACUNIT / 2) - ((fixed_t)(viewplayer->psprites[0].sy + viewplayer->psprites[1].sy) << FRACBITS);
 
 	if(viewplayer->psprites[0].state)
 		R_DrawPSprite(viewplayer->psprites + 0, sx, sy);

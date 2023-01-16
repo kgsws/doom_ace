@@ -28,9 +28,7 @@
 
 // these are calculated to fit into 12288 bytes
 #define CUSTOM_STATE_STORAGE	((custom_state_t*)ptr_drawsegs)
-#define MAX_CUSTOM_STATES	320
-#define CUSTOM_STATE_REMAP	((uint32_t**)(CUSTOM_STATE_STORAGE + MAX_CUSTOM_STATES))
-#define MAX_CUSTOM_REMAPS	832
+#define MAX_CUSTOM_STATES	(12288 / sizeof(custom_state_t))
 
 enum
 {
@@ -62,12 +60,6 @@ enum
 	DT_PP_INV_SLOT,
 	DT_STATES,
 };
-
-typedef struct
-{
-	uint8_t name[24];
-	uint32_t state;
-} custom_state_t;
 
 typedef struct
 {
@@ -183,12 +175,12 @@ static hook_t hook_states[NUM_STATE_HOOKS];
 
 void *dec_es_ptr;
 static uint32_t num_custom_states;
-static uint32_t num_custom_remaps;
 
 uint8_t *parse_actor_name;
 
 static mobjinfo_t *parse_mobj_info;
 static uint32_t *parse_next_state;
+static uint16_t *parse_next_extra;
 static uint32_t parse_last_anim;
 static uint16_t *parse_anim_slot;
 
@@ -954,6 +946,19 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 	},
 };
 
+// this only exists because original animations are all over the place in 'mobjinfo_t'
+const uint16_t base_anim_offs[LAST_MOBJ_STATE_HACK] =
+{
+	[ANIM_SPAWN] = offsetof(mobjinfo_t, state_spawn),
+	[ANIM_SEE] = offsetof(mobjinfo_t, state_see),
+	[ANIM_PAIN] = offsetof(mobjinfo_t, state_pain),
+	[ANIM_MELEE] = offsetof(mobjinfo_t, state_melee),
+	[ANIM_MISSILE] = offsetof(mobjinfo_t, state_missile),
+	[ANIM_DEATH] = offsetof(mobjinfo_t, state_death),
+	[ANIM_XDEATH] = offsetof(mobjinfo_t, state_xdeath),
+	[ANIM_RAISE] = offsetof(mobjinfo_t, state_raise),
+};
+
 // internal states
 static const state_t internal_states[] =
 {
@@ -961,21 +966,21 @@ static const state_t internal_states[] =
 	{
 		.sprite = 28, // TODO: custom sprite
 		.frame = 0,
-		.tics = -1,
+		.tics = 0xFFFF,
 		.nextstate = 0, // this state is used for delayed deletion so 'next' has to be zero
 	},
 	[STATE_PISTOL - NUMSTATES] =
 	{
 		.sprite = SPR_PIST,
 		.frame = 0,
-		.tics = -1,
+		.tics = 0xFFFF,
 		.nextstate = 0,
 	},
 	[STATE_ICE_DEATH_0 - NUMSTATES] =
 	{
 		.sprite = 0xFFFF,
 		.frame = 0,
-		.tics = -1,
+		.tics = 0xFFFF,
 		.nextstate = STATE_ICE_DEATH_1,
 		.acp = A_GenericFreezeDeath,
 	},
@@ -983,7 +988,7 @@ static const state_t internal_states[] =
 	{
 		.sprite = 0xFFFF,
 		.frame = 0,
-		.tics = -1,
+		.tics = 0xFFFF,
 		.nextstate = STATE_ICE_DEATH_1,
 		.acp = A_FreezeDeathChunks,
 	},
@@ -1366,72 +1371,93 @@ const dec_anim_t *dec_find_animation(const uint8_t *name)
 }
 
 //
-// custom states
+// decorate states
 
-custom_damage_state_t *dec_get_damage_animation(custom_damage_state_t *cst, uint32_t type)
+uint32_t dec_resolve_animation(mobjinfo_t *info, uint32_t offset, uint16_t anim, uint32_t limit)
 {
-	while(cst->type)
-	{
-		if(cst->type == type)
-			return cst;
-		cst++;
-	}
-	return NULL;
+	uint32_t state;
+
+	if(anim < LAST_MOBJ_STATE_HACK)
+		state = *((uint16_t*)((void*)info + base_anim_offs[anim]));
+	else
+	if(anim < NUM_MOBJ_ANIMS)
+		state = info->new_states[anim - LAST_MOBJ_STATE_HACK];
+	else
+		state = info->extra_states[anim - NUM_MOBJ_ANIMS];
+
+	state += offset;
+	if(state >= limit)
+		engine_error("MOBJ", "State jump '+%u' in '%s' is invalid!", offset, parse_actor_name);
+
+	return state;
 }
 
-uint32_t dec_get_custom_state(const uint8_t *name, int32_t idx)
+int32_t dec_find_custom_state(uint32_t alias)
 {
-	idx &= 0x00FFFFFF;
 	for(uint32_t i = 0; i < num_custom_states; i++)
 	{
-		if(!strcmp(name, CUSTOM_STATE_STORAGE[i].name))
-		{
-			if(!(idx & 0x00800000))
-				CUSTOM_STATE_STORAGE[i].state = idx;
+		if(CUSTOM_STATE_STORAGE[i].alias == alias)
 			return i;
-		}
 	}
 
-	if(num_custom_states == MAX_CUSTOM_STATES)
-		engine_error("DECORATE", "Too many custom states!");
-
-	strncpy(CUSTOM_STATE_STORAGE[num_custom_states].name, name, 24);
-	CUSTOM_STATE_STORAGE[num_custom_states].state = idx;
-
-	return num_custom_states++;
+	return -1;
 }
 
-static uint32_t find_custom_state(const uint8_t *name)
+uint16_t *dec_make_custom_state(uint32_t alias, uint32_t state)
 {
-	for(uint32_t i = 0; i < num_custom_states; i++)
+	int32_t idx;
+
+	idx = dec_find_custom_state(alias);
+	if(idx < 0)
 	{
-		if(!strcmp(name, CUSTOM_STATE_STORAGE[i].name))
-			return CUSTOM_STATE_STORAGE[i].state;
+		if(num_custom_states >= MAX_CUSTOM_STATES)
+			engine_error("DECORATE", "Too many custom states!");
+		idx = num_custom_states++;
+		CUSTOM_STATE_STORAGE[idx].alias = alias;
 	}
+
+	CUSTOM_STATE_STORAGE[idx].state = state;
+
+	return &CUSTOM_STATE_STORAGE[idx].state;
+}
+
+uint32_t dec_mobj_custom_state(mobjinfo_t *info, uint32_t alias)
+{
+	if(!info->custom_states)
+		return 0;
+
+	for(custom_state_t *cst = info->custom_states; cst < info->custom_st_end; cst++)
+	{
+		if(cst->alias == alias)
+			return cst->state;
+	}
+
 	return 0;
 }
 
-static void update_custom_state(uint32_t *ptr, uint32_t limit)
+uint32_t dec_reslove_state(mobjinfo_t *info, uint32_t current, uint32_t next, uint32_t extra)
 {
-	uint32_t idx = (*ptr >> 16) & 0x3FFF;
-	uint32_t offs = *ptr & 0xFFFF;
+	// this is a limited version for weapons and custom inventory
+	switch(extra & STATE_CHECK_MASK)
+	{
+		case STATE_SET_OFFSET:
+			next += current;
+			if(next >= num_states)
+				next = 0;
+		break;
+		case STATE_SET_CUSTOM:
+			next = dec_mobj_custom_state(info, next);
+			next += extra & STATE_EXTRA_MASK;
+			if(next >= num_states)
+				next = 0;
+		break;
+		case STATE_SET_ANIMATION:
+			if(next == 0xFFFFFFFF)
+				next = dec_resolve_animation(info, 0, extra & STATE_EXTRA_MASK, num_states);
+		break;
+	}
 
-	if(CUSTOM_STATE_STORAGE[idx].state & 0x00800000)
-		engine_error("DECORATE", "Custom state '%s' never defined in '%s'!", CUSTOM_STATE_STORAGE[idx].name, parse_actor_name);
-
-	idx = CUSTOM_STATE_STORAGE[idx].state + offs;
-	if(idx >= limit)
-		engine_error("DECORATE", "Invalid custom jump '%s' + %u in '%s'!", CUSTOM_STATE_STORAGE[idx].name, offs, parse_actor_name);
-
-	*ptr = idx;
-}
-
-void dec_register_state_remap(uint32_t *ptr)
-{
-	if(num_custom_remaps == MAX_CUSTOM_REMAPS)
-		engine_error("DECORATE", "Too many custom states!");
-	CUSTOM_STATE_REMAP[num_custom_remaps] = ptr;
-	num_custom_remaps++;
+	return next;
 }
 
 //
@@ -2006,7 +2032,10 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 			engine_error("DECORATE", "Invalid frame '%c' in '%s'!", *frames, parse_actor_name);
 
 		if(parse_next_state)
+		{
 			*parse_next_state = state - states;
+			*parse_next_extra = 0;
+		}
 
 		state->sprite = sprite;
 		state->frame = (*frames - 'A') | flags;
@@ -2014,10 +2043,12 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 		state->tics = tics;
 		state->action = parse_action_func;
 		state->nextstate = 0;
+		state->next_extra = 0;
 		state->misc1 = ox;
 		state->misc2 = oy;
 
 		parse_next_state = &state->nextstate;
+		parse_next_extra = &state->next_extra;
 
 		frames++;
 		state++;
@@ -2397,8 +2428,6 @@ static uint32_t parse_states()
 	parse_last_anim = 0;
 	parse_next_state = NULL;
 	unfinished = 0;
-	num_custom_states = 0;
-	num_custom_remaps = 0;
 
 	while(1)
 	{
@@ -2413,6 +2442,7 @@ have_keyword:
 		{
 			if(!parse_next_state)
 				goto error_no_states;
+			*parse_next_extra = 0;
 			*parse_next_state = parse_last_anim;
 			parse_next_state = NULL;
 			continue;
@@ -2421,6 +2451,7 @@ have_keyword:
 		{
 			if(parse_next_state)
 			{
+				*parse_next_extra = 0;
 				*parse_next_state = 0;
 				parse_next_state = NULL;
 			} else
@@ -2437,21 +2468,22 @@ have_keyword:
 		{
 			if(!parse_next_state)
 				goto error_no_states;
+			*parse_next_extra = 0;
 			*parse_next_state = num_states - 1;
 			parse_next_state = NULL;
 			continue;
-		}
+		} else
 		if(parse_mobj_info->extra_type == ETYPE_INVENTORY_CUSTOM && !strcmp(kw, "fail"))
 		{
 			if(!parse_next_state)
 				goto error_no_states;
+			*parse_next_extra = 0;
 			*parse_next_state = 1;
 			parse_next_state = NULL;
 			continue;
 		} else
 		if(!strcmp(kw, "goto"))
 		{
-			uint32_t aidx;
 			const dec_anim_t *anim;
 
 			if(!parse_next_state)
@@ -2472,6 +2504,7 @@ have_keyword:
 				if(parse_mobj_info->extra_type == ETYPE_WEAPON && !strcmp(kw, "lightdone"))
 				{
 					// special state for weapons
+					*parse_next_extra = 0;
 					*parse_next_state = 1;
 					// next keyword
 					kw = tp_get_keyword_lc();
@@ -2479,9 +2512,15 @@ have_keyword:
 						return 1;
 					goto skip_math;
 				}
-				aidx = dec_get_custom_state(kw, -1) | 0x80000000;
+				// custom state
+				*parse_next_extra = STATE_SET_CUSTOM;
+				*parse_next_state = tp_hash32(kw);
 			} else
-				aidx = anim->idx;
+			{
+				// actual animation
+				*parse_next_extra = STATE_SET_ANIMATION;
+				*parse_next_state = anim->idx;
+			}
 
 			// check for '+'
 			kw = tp_get_keyword_lc();
@@ -2494,22 +2533,18 @@ have_keyword:
 				if(!kw)
 					return 1;
 
-				if(doom_sscanf(kw, "%u", &tics) != 1 || tics < 0 || tics > 65535)
+				if(doom_sscanf(kw, "%u", &tics) != 1 || tics < 0 || tics > STATE_EXTRA_MASK)
 					engine_error("DECORATE", "Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
 
 				// next keyword
 				kw = tp_get_keyword_lc();
 				if(!kw)
 					return 1;
-			} else
-				tics = 0;
 
-			if(aidx & 0x80000000)
-				// temporary custom state
-				*parse_next_state = STATE_TEMPORARY_CUSTOM(aidx, tics);
-			else
-				// use animation 'system'
-				*parse_next_state = STATE_SET_ANIMATION(aidx, tics);
+				// add offset to 'extra'
+				*parse_next_extra = *parse_next_extra + tics;
+			}
+
 skip_math:
 			// disable math
 			tp_enable_math = 0;
@@ -2548,8 +2583,7 @@ skip_math:
 			} else
 			{
 				// custom state
-				dec_get_custom_state(kw, num_states);
-				parse_anim_slot = NULL;
+				parse_anim_slot = dec_make_custom_state(tp_hash32(kw), num_states);
 			}
 
 			parse_last_anim = num_states;
@@ -2579,8 +2613,11 @@ skip_math:
 		if(!kw || kw[0] == '\n')
 			return 1;
 
-		if(doom_sscanf(kw, "%d", &tics) != 1)
+		if(doom_sscanf(kw, "%d", &tics) != 1 || tics > 65000)
 			engine_error("DECORATE", "Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+
+		if(tics < 0)
+			tics = 0xFFFF;
 
 		while(1)
 		{
@@ -2811,21 +2848,29 @@ static void cb_parse_actors(lumpinfo_t *li)
 			etp = mobj_check_type(tp_hash64(kw));
 			if(etp >= 0)
 			{
+				mobjinfo_t *other = mobjinfo + etp;
+
 				// check
-				if(!(mobjinfo[etp].flags & MF_MOBJ_IS_DEFINED))
+				if(!(other->flags & MF_MOBJ_IS_DEFINED))
 					engine_error("DECORATE", "Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
 
 				// copy info
-				memcpy(info, mobjinfo + etp, sizeof(mobjinfo_t));
+				memcpy(info, other, sizeof(mobjinfo_t));
 				info->replacement = 0;
 
 				// ammo check
-				if(mobjinfo[etp].extra_type == ETYPE_AMMO)
+				if(other->extra_type == ETYPE_AMMO)
 				{
 					info->extra_type = ETYPE_AMMO_LINK;
 					info->inventory.special = etp;
 				}
 
+				// copy custom states
+				num_custom_states = 0;
+				for(custom_state_t *cst = other->custom_states; cst < other->custom_st_end; cst++)
+					dec_make_custom_state(cst->alias, cst->state);
+
+				// mark
 				etp = -1;
 			} else
 			{
@@ -2905,6 +2950,8 @@ static void cb_parse_actors(lumpinfo_t *li)
 			info->extra_type = etp;
 			// default damage factors
 			memset(info->damage_factor, 0xFF, NUM_DAMAGE_TYPES * sizeof(uint16_t));
+			// reset custom states
+			num_custom_states = 0;
 		} else
 			etp = info->extra_type;
 		info->doomednum = idx;
@@ -2915,7 +2962,6 @@ static void cb_parse_actors(lumpinfo_t *li)
 		// reset stuff
 		extra_stuff_cur = NULL;
 		extra_stuff_next = NULL;
-		num_custom_remaps = 0;
 		first_state = num_states;
 
 		// parse attributes
@@ -2987,6 +3033,15 @@ static void cb_parse_actors(lumpinfo_t *li)
 			}
 		}
 
+		// save custom states
+		if(num_custom_states)
+		{
+			uint32_t size = num_custom_states * sizeof(custom_state_t);
+			info->custom_states = dec_es_alloc(size);
+			info->custom_st_end = info->custom_states + num_custom_states;
+			memcpy(info->custom_states, CUSTOM_STATE_STORAGE, size);
+		}
+
 		// save dropitem / weapon list
 		if(extra_stuff_cur)
 		{
@@ -2994,97 +3049,19 @@ static void cb_parse_actors(lumpinfo_t *li)
 			info->extra_stuff[1] = extra_stuff_next;
 		}
 
-		// resolve custom states
+		// resolve animation states
 		for(uint32_t i = first_state; i < num_states; i++)
 		{
 			state_t *st = states + i;
-			if(st->nextstate & 0x40000000)
-				update_custom_state(&st->nextstate, num_states);
-		}
-		for(uint32_t i = 0; i < num_custom_remaps; i++)
-			update_custom_state(CUSTOM_STATE_REMAP[i], num_states);
-
-		// find damage type animations
-		{
-			custom_damage_state_t *cst = NULL;
-			custom_damage_state_t *ist = info->damage_states;
-			uint8_t name[64];
-
-			info->damage_states = dec_es_ptr;
-
-			if(ist)
+			if((st->next_extra & STATE_CHECK_MASK) == STATE_SET_ANIMATION)
 			{
-				// inheritance
-				while(ist->type)
-				{
-					cst = dec_es_alloc(sizeof(custom_damage_state_t));
-					*cst = *ist;
-					ist++;
-				}
+				// resolve animation jumps now, this emulates ZDoom behavior of inherited actors
+				uint32_t next;
+				next = dec_resolve_animation(info, st->next_extra & STATE_EXTRA_MASK, st->nextstate, num_states);
+				st->next_extra &= STATE_CHECK_MASK; // keep type, remove offset
+				st->next_extra |= st->nextstate; // add animation ID
+				st->nextstate = next; // set explicit state number
 			}
-
-			for(uint32_t i = 1; i < NUM_DAMAGE_TYPES; i++) // 'normal' does not count
-			{
-				uint16_t death;
-				uint16_t xdeath;
-				uint16_t crash;
-				uint16_t xcrash;
-				uint16_t pain;
-
-				doom_sprintf(name, "death.%s", damage_type_name[i]);
-				death = find_custom_state(name);
-				doom_sprintf(name, "xdeath.%s", damage_type_name[i]);
-				xdeath = find_custom_state(name);
-				doom_sprintf(name, "crash.%s", damage_type_name[i]);
-				crash = find_custom_state(name);
-				doom_sprintf(name, "crash.extreme.%s", damage_type_name[i]);
-				xcrash = find_custom_state(name);
-				doom_sprintf(name, "pain.%s", damage_type_name[i]);
-				pain = find_custom_state(name);
-
-				if(death | xdeath | crash | xcrash | pain)
-				{
-					if(ist)
-					{
-						custom_damage_state_t *ost = info->damage_states;
-						while((void*)ost < dec_es_ptr)
-						{
-							if(ost->type == i)
-							{
-								if(death)
-									ost->death = death;
-								if(xdeath)
-									ost->xdeath = xdeath;
-								if(crash)
-									ost->crash = crash;
-								if(xcrash)
-									ost->xcrash = xcrash;
-								if(pain)
-									ost->pain = pain;
-								break;
-							}
-							ost++;
-						}
-						if((void*)ost < dec_es_ptr)
-							continue;
-					}
-					cst = dec_es_alloc(sizeof(custom_damage_state_t));
-					cst->type = i;
-					cst->death = death;
-					cst->xdeath = xdeath;
-					cst->crash = crash;
-					cst->xcrash = xcrash;
-					cst->pain = pain;
-				}
-			}
-
-			if(cst)
-			{
-				// terminator
-				cst = dec_es_alloc(sizeof(uint16_t));
-				cst->type = 0;
-			} else
-				info->damage_states = NULL;
 		}
 	}
 
@@ -3344,7 +3321,13 @@ void init_decorate()
 		states[i].sprite = deh_states[i].sprite;
 		states[i].frame = deh_states[i].frame & 0x80FF;
 		states[i].arg = NULL;
-		states[i].tics = deh_states[i].tics;
+		if(deh_states[i].tics > 65000)
+			states[i].tics = 65000;
+		else
+		if(deh_states[i].tics < 0)
+			states[i].tics = 0xFFFF;
+		else
+			states[i].tics = deh_states[i].tics;
 		states[i].action = deh_states[i].action;
 		states[i].nextstate = deh_states[i].nextstate;
 		states[i].misc1 = deh_states[i].misc1;
@@ -3390,12 +3373,16 @@ void init_decorate()
 	{
 		mobjinfo_t *info = mobjinfo + idx;
 
+		// custom states
+		info->custom_states = dec_reloc_es(es_ptr, info->custom_states);
+		info->custom_st_end = dec_reloc_es(es_ptr, info->custom_st_end);
+
 		// drop item list / start inventory list
 		info->extra_stuff[0] = dec_reloc_es(es_ptr, info->extra_stuff[0]);
 		info->extra_stuff[1] = dec_reloc_es(es_ptr, info->extra_stuff[1]);
 
 		// custom damage animations
-		info->damage_states = dec_reloc_es(es_ptr, info->damage_states);
+//		info->damage_states = dec_reloc_es(es_ptr, info->damage_states);
 
 		// PlayerPawn
 		if(info->extra_type == ETYPE_PLAYERPAWN)

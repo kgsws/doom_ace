@@ -1,7 +1,9 @@
 // ANIMATIONS
-#define STATE_SET_ANIMATION(anim,offset)	(0x80000000 | ((anim) << 16) | (offset))
-#define STATE_WITH_ANIMATION(anim,state)	(0xC0000000 | ((anim) << 16) | (state))
-#define STATE_TEMPORARY_CUSTOM(idx,offset)	(0x40000000 | ((idx) << 16) | (offset))
+#define STATE_EXTRA_MASK	0x3FFF
+#define STATE_CHECK_MASK	0xC000
+#define STATE_SET_OFFSET	0x4000
+#define STATE_SET_CUSTOM	0x8000
+#define STATE_SET_ANIMATION	0xC000
 
 // damage types
 enum
@@ -76,6 +78,13 @@ enum
 	ANIM_I_PICKUP = NUM_MOBJ_ANIMS,
 	ANIM_I_USE,
 };
+
+// state jumps
+typedef struct
+{
+	uint32_t next;
+	uint16_t extra;
+} __attribute__((packed)) state_jump_t;
 
 // frame flags
 #define FF_FRAMEMASK	0x003F

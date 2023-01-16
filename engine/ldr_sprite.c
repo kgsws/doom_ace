@@ -126,7 +126,7 @@ void *precache_setup_sprites(uint8_t *buff)
 	{
 		mobj_t *mo;
 
-		if(th->function != (void*)0x00031490 + doom_code_segment)
+		if(th->function != (void*)P_MobjThinker)
 			continue;
 
 		mo = (mobj_t*)th;

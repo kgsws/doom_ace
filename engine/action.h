@@ -34,6 +34,11 @@ typedef struct
 
 typedef struct
 {
+	uint16_t value;
+} args_singleU16_t;
+
+typedef struct
+{
 	void *value;
 } args_singlePointer_t;
 
@@ -54,7 +59,7 @@ typedef struct
 
 typedef struct
 {
-	uint32_t state;
+	state_jump_t state;
 } args_singleState_t;
 
 typedef struct
@@ -69,7 +74,7 @@ typedef struct
 
 typedef struct
 {
-	uint32_t state;
+	state_jump_t state;
 	uint16_t flags;
 } args_GunFlash_t;
 
@@ -320,18 +325,18 @@ typedef struct
 	{
 		struct
 		{
-			uint32_t state0;
-			uint32_t state1;
-			uint32_t state2;
-			uint32_t state3;
-			uint32_t state4;
-			uint32_t state5;
-			uint32_t state6;
-			uint32_t state7;
-			uint32_t state8;
-			uint32_t state9;
+			state_jump_t state0;
+			state_jump_t state1;
+			state_jump_t state2;
+			state_jump_t state3;
+			state_jump_t state4;
+			state_jump_t state5;
+			state_jump_t state6;
+			state_jump_t state7;
+			state_jump_t state8;
+			state_jump_t state9;
 		};
-		uint32_t states[10];
+		state_jump_t states[10];
 	};
 } args_Jump_t;
 
@@ -339,13 +344,13 @@ typedef struct
 {
 	uint16_t type;
 	uint16_t amount;
-	uint32_t state;
+	state_jump_t state;
 	uint8_t ptr;
 } args_JumpIfInventory_t;
 
 typedef struct
 {
-	uint32_t state;
+	state_jump_t state;
 	uint16_t amount;
 	uint8_t ptr;
 } args_JumpIfHealthLower_t;
@@ -353,26 +358,26 @@ typedef struct
 typedef struct
 {
 	fixed_t range;
-	uint32_t state;
+	state_jump_t state;
 	uint8_t no_z;
 } args_JumpIfCloser_t;
 
 typedef struct
 {
 	act_moflag_t moflag;
-	uint32_t state;
+	state_jump_t state;
 	uint8_t ptr;
 } args_CheckFlag_t;
 
 typedef struct
 {
-	uint32_t state;
+	state_jump_t state;
 	uint16_t chance;
 } args_MonsterRefire_t;
 
 //
 
-extern const args_singleFixed_t def_LowerRaise;
+extern const args_singleU16_t def_LowerRaise;
 
 extern uint32_t act_cc_tick;
 

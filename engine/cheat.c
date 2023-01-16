@@ -313,10 +313,7 @@ static void cf_summon(player_t *pl, uint8_t *arg)
 	fixed_t x, y, z;
 
 	if(!arg[0])
-	{
-		pl->message = "usage: summon thing_type";
 		return;
-	}
 
 	type = mobj_check_type(tp_hash64(arg));
 	if(type < 0)

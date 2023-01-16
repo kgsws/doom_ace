@@ -1295,7 +1295,7 @@ static uint32_t do_TeleportInSector()
 		fixed_t r;
 		uint32_t flags;
 
-		if(th->function != (void*)0x00031490 + doom_code_segment)
+		if(th->function != (void*)P_MobjThinker)
 			continue;
 
 		mo = (mobj_t*)th;
@@ -1492,7 +1492,7 @@ static void handle_tid(line_t *ln, int32_t tid, void (*cb)(mobj_t*))
 		uint32_t ret;
 		mobj_t *mo;
 
-		if(th->function != (void*)0x00031490 + doom_code_segment)
+		if(th->function != (void*)P_MobjThinker)
 			continue;
 
 		mo = (mobj_t*)th;
@@ -1976,7 +1976,7 @@ uint32_t EV_Teleport(line_t *ln, uint32_t side)
 	{
 		mobj_t *target;
 
-		if(th->function != (void*)0x00031490 + doom_code_segment)
+		if(th->function != (void*)P_MobjThinker)
 			continue;
 
 		target = (mobj_t*)th;

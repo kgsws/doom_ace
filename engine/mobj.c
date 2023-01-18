@@ -871,7 +871,6 @@ uint32_t finish_mobj(mobj_t *mo)
 {
 	// add thinker
 	P_AddThinker(&mo->thinker);
-	mo->thinker.function = P_MobjThinker;
 
 	// spawn inactive
 	if(mo->flags1 & MF1_DORMANT)
@@ -914,66 +913,40 @@ uint32_t finish_mobj(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 static void kill_animation(mobj_t *mo)
 {
-	uint32_t state = 0;
-
-/*	custom_damage_state_t *cst;
 	uint_fast8_t new_damage_type = DAMAGE_NORMAL;
 	uint32_t state = 0;
-	uint32_t ice_death = mo->damage_type == DAMAGE_ICE && (mo->flags1 & MF1_ISMONSTER || mo->player) && !(mo->flags2 & MF2_NOICEDEATH);
 
-	if(mo->damage_type != DAMAGE_NORMAL && mo->info->damage_states)
-		cst = dec_get_damage_animation(mo->info->damage_states, mo->damage_type);
-	else
-		cst = NULL;
-
-	if(mo->health < -mo->info->spawnhealth)
+	// look for custom damage first
+	if(mo->damage_type)
 	{
-		// find extreme death state
-		if(cst)
-		{
-			if(cst->xdeath)
-			{
-				state = cst->xdeath;
-				new_damage_type = mo->damage_type;
-			}
-			ice_death = 0;
-		} else
-			state = mo->info->state_xdeath;
+		if(mo->health < -mo->info->spawnhealth)
+			state = dec_mobj_custom_state(mo->info, damage_type_config[mo->damage_type].xdeath);
+		if(!state)
+			state = dec_mobj_custom_state(mo->info, damage_type_config[mo->damage_type].death);
+		if(state)
+			new_damage_type = mo->damage_type;
 	}
 
+	// check generic ice death
+	if(	mo->damage_type == DAMAGE_ICE &&
+		(mo->flags1 & MF1_ISMONSTER || mo->player) &&
+		!(mo->flags2 & MF2_NOICEDEATH)
+	){
+		state = STATE_ICE_DEATH_0;
+		new_damage_type = DAMAGE_ICE;
+	}
+
+	// look for normal damage now
 	if(!state)
 	{
-		// find normal death state
-		if(cst && cst->death)
-		{
-			state = cst->death;
-			new_damage_type = mo->damage_type;
-			ice_death = 0;
-		} else
-		{
+		if(mo->health < -mo->info->spawnhealth)
+			state = mo->info->state_xdeath;
+		if(!state)
 			state = mo->info->state_death;
-			new_damage_type = DAMAGE_NORMAL;
-		}
-		mo->animation = ANIM_DEATH;
-	} else
-		mo->animation = ANIM_XDEATH;
+	}
 
 	mo->damage_type = new_damage_type;
-
-	if(ice_death)
-		state = STATE_ICE_DEATH_0;
-
-	P_SetMobjState(mo, state, 0);
-*/
-	if(mo->health < -mo->info->spawnhealth)
-	{
-		state = mo->info->state_xdeath;
-	}
-	if(!state)
-	{
-		state = mo->info->state_death;
-	}
-
+	mo->animation = ANIM_DEATH; // or XDEATH? meh
 	P_SetMobjState(mo, state, 0);
 
 	if(mo->tics > 0)
@@ -2075,7 +2048,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 					target->momz = 0;
 				} else
 				{
-					if(!target->target)
+					if(source)
 						target->target = source;
 
 					if(!(target->flags1 & MF1_DONTFALL))
@@ -2108,18 +2081,16 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		P_Random() < target->info->painchance[damage_type] &&
 		!(target->flags & MF_SKULLFLY)
 	) {
-		uint32_t state = target->info->state_pain;
+		uint32_t state = 0;
 
 		target->flags |= MF_JUSTHIT;
-/*
-		if(damage_type != DAMAGE_NORMAL && target->info->damage_states)
-		{
-			custom_damage_state_t *cst;
-			cst = dec_get_damage_animation(target->info->damage_states, damage_type);
-			if(cst && cst->pain)
-				state = cst->pain;
-		}
-*/
+
+		if(damage_type)
+			state = dec_mobj_custom_state(target->info, damage_type_config[damage_type].pain);
+
+		if(!state)
+			state = target->info->state_pain;
+
 		if(state)
 		{
 			target->animation = ANIM_PAIN;
@@ -2415,35 +2386,28 @@ static void P_ZMovement(mobj_t *mo)
 			uint32_t animation;
 
 			mo->iflags |= MFI_CRASHED;
-/*
-			if(mo->damage_type != DAMAGE_NORMAL && mo->info->damage_states)
-				cst = dec_get_damage_animation(mo->info->damage_states, mo->damage_type);
-			else
-				cst = NULL;
 
-			if(mo->health < -mo->info->spawnhealth)
+			// look for custom damage first
+			if(mo->damage_type)
 			{
-				// find extreme crash state
-				if(cst && cst->xcrash)
-					state = cst->xcrash;
-				else
-					state = mo->info->state_xcrash;
+				if(mo->health < -mo->info->spawnhealth)
+					state = dec_mobj_custom_state(mo->info, damage_type_config[mo->damage_type].xcrash);
+				if(!state)
+					state = dec_mobj_custom_state(mo->info, damage_type_config[mo->damage_type].crash);
 			}
 
+			// look for normal damage now
 			if(!state)
 			{
-				// find normal crash state
-				if(cst && cst->crash)
-					state = cst->crash;
-				else
+				if(mo->health < -mo->info->spawnhealth)
+					state = mo->info->state_xcrash;
+				if(!state)
 					state = mo->info->state_crash;
-				animation = ANIM_CRASH;
-			} else
-				animation = ANIM_XCRASH;
-*/
+			}
+
 			if(state)
 			{
-				mo->animation = animation;
+				mo->animation = ANIM_CRASH; // or xcrash? meh
 				P_SetMobjState(mo, state, 0);
 			}
 		}
@@ -2956,6 +2920,14 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// add extra floor check into 'P_CheckPosition'
 	{0x0002B0D7, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_position_extra},
 	{0x0002B0DC, CODE_HOOK | HOOK_UINT32, 0x16EBC085},
+	// replace pointers to ''
+	{0x0002767F, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
+	{0x000286FA, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
+	{0x00028979, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
+	{0x00028ADB, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
+	{0x00031643, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
+	{0x00031EA6, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
+	{0x0002767F, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
 	// replace 'P_SetMobjState' with new animation system
 	{0x00027776, CODE_HOOK | HOOK_UINT32, 0x909000B2 | (ANIM_SEE << 8)}, // A_Look
 	{0x00027779, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)set_mobj_animation}, // A_Look

@@ -1,6 +1,8 @@
 // kgsws' ACE Engine
 ////
 
+extern uint8_t file_buffer[];
+
 // writer
 
 void writer_open(uint8_t *name);

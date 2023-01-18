@@ -9,6 +9,7 @@
 #include "decorate.h"
 #include "ldr_sprite.h"
 #include "inventory.h"
+#include "filebuf.h"
 #include "action.h"
 #include "weapon.h"
 #include "sound.h"
@@ -815,13 +816,13 @@ static const uint8_t *player_sound_slot[NUM_PLAYER_SOUNDS] =
 };
 
 // damage types
-uint8_t *damage_type_name[NUM_DAMAGE_TYPES] =
+dec_damage_type damage_type_config[NUM_DAMAGE_TYPES] =
 {
-	[DAMAGE_NORMAL] = "normal",
-	[DAMAGE_ICE] = "ice",
-	[DAMAGE_FIRE] = "fire",
-	[DAMAGE_DISINTEGRATE] = "disintegrate",
-	[DAMAGE_ELECTRIC] = "electric",
+	[DAMAGE_NORMAL] = {.name = "normal"},
+	[DAMAGE_ICE] = {.name = "ice"},
+	[DAMAGE_FIRE] = {.name = "fire"},
+	[DAMAGE_DISINTEGRATE] = {.name = "disintegrate"},
+	[DAMAGE_ELECTRIC] = {.name = "electric"},
 };
 
 // actor inheritance
@@ -1654,7 +1655,7 @@ uint32_t dec_get_custom_damage(const uint8_t *name)
 {
 	for(uint32_t i = 0; i < NUM_DAMAGE_TYPES; i++)
 	{
-		if(damage_type_name[i] && !strcmp(damage_type_name[i], name))
+		if(damage_type_config[i].name && !strcmp(damage_type_config[i].name, name))
 			return i;
 	}
 
@@ -3153,6 +3154,24 @@ void init_decorate()
 	// To avoid unnecessary memory fragmentation, this function does multiple passes.
 	doom_printf("[ACE] init DECORATE\n");
 	ldr_alloc_message = "Decorate";
+
+	// init damage types
+	for(uint32_t i = 1; i < NUM_DAMAGE_TYPES; i++)
+	{
+		if(damage_type_config[i].name)
+		{
+			doom_sprintf(file_buffer, "pain.%s", damage_type_config[i].name);
+			damage_type_config[i].pain = tp_hash32(file_buffer);
+			doom_sprintf(file_buffer, "death.%s", damage_type_config[i].name);
+			damage_type_config[i].death = tp_hash32(file_buffer);
+			doom_sprintf(file_buffer, "xdeath.%s", damage_type_config[i].name);
+			damage_type_config[i].xdeath = tp_hash32(file_buffer);
+			doom_sprintf(file_buffer, "crash.%s", damage_type_config[i].name);
+			damage_type_config[i].crash = tp_hash32(file_buffer);
+			doom_sprintf(file_buffer, "crash.extreme.%s", damage_type_config[i].name);
+			damage_type_config[i].xcrash = tp_hash32(file_buffer);
+		}
+	}
 
 	// init sprite names
 	numsprites = NUMSPRITES;

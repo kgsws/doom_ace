@@ -156,17 +156,17 @@ static config_entry_t config_mod[] =
 	{"stbar.ammo[2].type", &mod_config.ammo_rocket, TYPE_ALIAS},
 	{"stbar.ammo[3].type", &mod_config.ammo_cell, TYPE_ALIAS},
 	// custom damage types
-	{"damage[0].name", &damage_type_name[DAMAGE_CUSTOM_0], TYPE_STRING_LC_ALLOC},
-	{"damage[1].name", &damage_type_name[DAMAGE_CUSTOM_1], TYPE_STRING_LC_ALLOC},
-	{"damage[2].name", &damage_type_name[DAMAGE_CUSTOM_2], TYPE_STRING_LC_ALLOC},
-	{"damage[3].name", &damage_type_name[DAMAGE_CUSTOM_3], TYPE_STRING_LC_ALLOC},
-	{"damage[4].name", &damage_type_name[DAMAGE_CUSTOM_4], TYPE_STRING_LC_ALLOC},
-	{"damage[5].name", &damage_type_name[DAMAGE_CUSTOM_5], TYPE_STRING_LC_ALLOC},
-	{"damage[6].name", &damage_type_name[DAMAGE_CUSTOM_6], TYPE_STRING_LC_ALLOC},
-	{"damage[7].name", &damage_type_name[DAMAGE_CUSTOM_7], TYPE_STRING_LC_ALLOC},
-	{"damage[8].name", &damage_type_name[DAMAGE_CUSTOM_8], TYPE_STRING_LC_ALLOC},
-	{"damage[9].name", &damage_type_name[DAMAGE_CUSTOM_9], TYPE_STRING_LC_ALLOC},
-	{"damage[10].name", &damage_type_name[DAMAGE_CUSTOM_10], TYPE_STRING_LC_ALLOC},
+	{"damage[0].name", &damage_type_config[DAMAGE_CUSTOM_0].name, TYPE_STRING_LC_ALLOC},
+	{"damage[1].name", &damage_type_config[DAMAGE_CUSTOM_1].name, TYPE_STRING_LC_ALLOC},
+	{"damage[2].name", &damage_type_config[DAMAGE_CUSTOM_2].name, TYPE_STRING_LC_ALLOC},
+	{"damage[3].name", &damage_type_config[DAMAGE_CUSTOM_3].name, TYPE_STRING_LC_ALLOC},
+	{"damage[4].name", &damage_type_config[DAMAGE_CUSTOM_4].name, TYPE_STRING_LC_ALLOC},
+	{"damage[5].name", &damage_type_config[DAMAGE_CUSTOM_5].name, TYPE_STRING_LC_ALLOC},
+	{"damage[6].name", &damage_type_config[DAMAGE_CUSTOM_6].name, TYPE_STRING_LC_ALLOC},
+	{"damage[7].name", &damage_type_config[DAMAGE_CUSTOM_7].name, TYPE_STRING_LC_ALLOC},
+	{"damage[8].name", &damage_type_config[DAMAGE_CUSTOM_8].name, TYPE_STRING_LC_ALLOC},
+	{"damage[9].name", &damage_type_config[DAMAGE_CUSTOM_9].name, TYPE_STRING_LC_ALLOC},
+	{"damage[10].name", &damage_type_config[DAMAGE_CUSTOM_10].name, TYPE_STRING_LC_ALLOC},
 	// terminator
 	{NULL}
 };
@@ -214,16 +214,19 @@ static uint32_t parse_value(config_entry_t *conf_def)
 					break;
 					case TYPE_STRING_LC_ALLOC:
 						value = strlen(kv) + 1;
-						kw = ldr_malloc(value);
-						*conf->ptrp = kw;
-						while(1)
+						if(value < 1024)
 						{
-							uint8_t in = *kv++;
-							if(in >= 'A' && in <= 'Z')
-								in |= 0x20;
-							*kw++ = in;
-							if(!in)
-								break;
+							kw = ldr_malloc(value);
+							*conf->ptrp = kw;
+							while(1)
+							{
+								uint8_t in = *kv++;
+								if(in >= 'A' && in <= 'Z')
+									in |= 0x20;
+								*kw++ = in;
+								if(!in)
+									break;
+							}
 						}
 					break;
 				}

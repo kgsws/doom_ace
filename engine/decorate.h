@@ -56,6 +56,16 @@ typedef struct
 	uint16_t offset;
 } dec_anim_t;
 
+typedef struct
+{
+	const uint8_t *name;
+	uint32_t pain;
+	uint32_t death;
+	uint32_t xdeath;
+	uint32_t crash;
+	uint32_t xcrash;
+} dec_damage_type;
+
 //
 
 extern uint32_t num_spr_names;
@@ -72,7 +82,7 @@ extern uint16_t player_class[MAX_PLAYER_CLASSES];
 
 extern uint8_t *parse_actor_name;
 
-extern uint8_t *damage_type_name[NUM_DAMAGE_TYPES];
+extern dec_damage_type damage_type_config[NUM_DAMAGE_TYPES];
 
 extern void *dec_es_ptr;
 

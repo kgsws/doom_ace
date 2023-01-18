@@ -9,7 +9,7 @@
 
 #define BUFFER_SIZE	(8*1024)
 
-static uint8_t buffer[BUFFER_SIZE];
+uint8_t file_buffer[BUFFER_SIZE];
 static uint8_t *bptr;
 static uint8_t *eptr;
 static int ffd = -1;
@@ -30,8 +30,8 @@ void reader_open_lump(int32_t lump)
 	lump_offset = lumpinfo[lump].offset;
 	lump_size = lumpinfo[lump].size;
 
-	eptr = buffer;
-	bptr = buffer;
+	eptr = file_buffer;
+	bptr = file_buffer;
 }
 
 void reader_open(uint8_t *name)
@@ -47,8 +47,8 @@ void reader_open(uint8_t *name)
 
 	lump_offset = 0;
 
-	eptr = buffer;
-	bptr = buffer;
+	eptr = file_buffer;
+	bptr = file_buffer;
 }
 
 void reader_close()
@@ -69,8 +69,8 @@ uint32_t reader_seek(uint32_t offs)
 {
 	if(lump_offset)
 		engine_error("READER", "Can not seek in lumps!");
-	eptr = buffer;
-	bptr = buffer;
+	eptr = file_buffer;
+	bptr = file_buffer;
 	return doom_lseek(ffd, offs, SEEK_SET) < 0;
 }
 
@@ -106,12 +106,12 @@ uint32_t reader_get(void *ptr, uint32_t size)
 		lump_offset += tmp;
 	}
 
-	tmp = doom_read(ffd, buffer, tmp);
+	tmp = doom_read(ffd, file_buffer, tmp);
 	if(tmp < 0)
 		return 1;
 
-	bptr = buffer;
-	eptr = buffer + tmp;
+	bptr = file_buffer;
+	eptr = file_buffer + tmp;
 
 	memcpy(ptr, bptr, size);
 	bptr += size;
@@ -146,7 +146,7 @@ void writer_open(uint8_t *name)
 	if(ffd < 0)
 		engine_error("READER", "Unable to create '%s'!", name);
 
-	bptr = buffer;
+	bptr = file_buffer;
 }
 
 void writer_close()
@@ -170,21 +170,21 @@ void writer_flush()
 	if(ffd < 0)
 		engine_error("WRITER", "File is not open!");
 
-	if(bptr == buffer)
+	if(bptr == file_buffer)
 		return;
 
-	size = bptr - buffer;
-	ret = doom_write(ffd, buffer, size);
+	size = bptr - file_buffer;
+	ret = doom_write(ffd, file_buffer, size);
 	if(ret != size)
 		engine_error("WRITER", "Write failed!");
 
-	bptr = buffer;
+	bptr = file_buffer;
 }
 
 void writer_add(void *data, uint32_t size)
 {
 	// TODO: maybe partial writes and buffer fills?
-	uint32_t left = BUFFER_SIZE - (bptr - buffer);
+	uint32_t left = BUFFER_SIZE - (bptr - file_buffer);
 
 	if(ffd < 0)
 		engine_error("WRITER", "File is not open!");
@@ -201,7 +201,7 @@ void writer_add(void *data, uint32_t size)
 
 void *writer_reserve(uint32_t size)
 {
-	uint32_t left = BUFFER_SIZE - (bptr - buffer);
+	uint32_t left = BUFFER_SIZE - (bptr - file_buffer);
 	void *ret;
 
 	if(ffd < 0)

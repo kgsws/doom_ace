@@ -3590,7 +3590,7 @@ uint32_t PIT_Explode(mobj_t *thing)
 	dz = thing->z + thing->height;
 
 	if(	!(thing->flags2 & MF2_OLDRADIUSDMG) &&
-		!(bombsource->flags2 & MF2_OLDRADIUSDMG) &&
+		(!bombsource || !(bombsource->flags2 & MF2_OLDRADIUSDMG)) &&
 		(bombspot->z < thing->z || bombspot->z >= dz)
 	){
 		if(bombspot->z > thing->z)

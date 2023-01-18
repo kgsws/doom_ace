@@ -965,7 +965,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 {
 	uint32_t damage;
 
-	if(map_format != MAP_FORMAT_DOOM && thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->flags & MF_TELEPORT))
+	if(/*map_format != MAP_FORMAT_DOOM && */thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->flags & MF_TELEPORT))
 	{
 		// thing-over-thing
 		tmthing->iflags |= MFI_MOBJONMOBJ;
@@ -1983,8 +1983,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		if(player->armortype && !mo_dmg_skip_armor)
 		{
 			uint32_t saved;
-
-			saved = (damage * mobjinfo[player->armortype].armor.percent) / 100;
+			saved = ((damage * mobjinfo[player->armortype].armor.percent) + 75) / 100;
 			if(player->armorpoints <= saved)
 			{
 				saved = player->armorpoints;

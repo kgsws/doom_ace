@@ -688,7 +688,6 @@ typedef struct mobjinfo_s
 	// new stuff
 	uint64_t alias;
 	uint16_t replacement;
-	uint16_t species;
 	uint32_t flags1;
 	uint32_t flags2;
 	uint32_t eflags;
@@ -700,6 +699,7 @@ typedef struct mobjinfo_s
 	fixed_t gravity;
 	fixed_t range_melee;
 	fixed_t scale;
+	uint64_t species;
 	uint16_t telefog[2];
 	uint8_t *translation;
 	uint8_t *blood_trns;

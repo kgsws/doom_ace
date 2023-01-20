@@ -37,6 +37,7 @@ enum
 	DT_U16,
 	DT_S32,
 	DT_FIXED,
+	DT_ALIAS64,
 	DT_SOUND,
 	DT_STRING,
 	DT_ICON,
@@ -549,7 +550,7 @@ static const dec_attr_t attr_mobj[] =
 	{"fastspeed", DT_FIXED, offsetof(mobjinfo_t, fast_speed)},
 	{"vspeed", DT_FIXED, offsetof(mobjinfo_t, vspeed)},
 	//
-	{"species", DT_MOBJTYPE, offsetof(mobjinfo_t, species)},
+	{"species", DT_ALIAS64, offsetof(mobjinfo_t, species)},
 	//
 	{"telefogsourcetype", DT_MOBJTYPE, offsetof(mobjinfo_t, telefog[0])},
 	{"telefogdesttype", DT_MOBJTYPE, offsetof(mobjinfo_t, telefog[1])},
@@ -1713,6 +1714,12 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 				return 1;
 			*((fixed_t*)dest) = num.s32;
 		break;
+		case DT_ALIAS64:
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			*((uint64_t*)dest) = tp_hash64(kw);
+		break;
 		case DT_SOUND:
 			kw = tp_get_keyword();
 			if(!kw)
@@ -2460,8 +2467,10 @@ have_keyword:
 			} else
 			{
 				if(parse_anim_slot)
+				{
 					*parse_anim_slot = 0;
-				else
+					unfinished = 0;
+				} else
 					goto error_no_states;
 			}
 			parse_anim_slot = NULL;
@@ -2951,6 +2960,8 @@ static void cb_parse_actors(lumpinfo_t *li)
 			// default info
 			memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
 			info->extra_type = etp;
+			// default species
+			info->species = info->alias;
 			// default damage factors
 			memset(info->damage_factor, 0xFF, NUM_DAMAGE_TYPES * sizeof(uint16_t));
 			// reset custom states
@@ -3218,6 +3229,8 @@ void init_decorate()
 		mobjinfo[i].alias = doom_actor_name[i];
 		mobjinfo[i].spawnid = doom_spawn_id[i];
 
+		mobjinfo[i].species = mobjinfo[i].alias;
+
 		// check for original random sounds
 		sfx_rng_fix(&mobjinfo[i].seesound, 98);
 		sfx_rng_fix(&mobjinfo[i].deathsound, 70);
@@ -3274,7 +3287,7 @@ void init_decorate()
 	mobjinfo[37].state_melee = 95;
 
 	// species
-	mobjinfo[17].species = 15;
+	mobjinfo[17].species = mobjinfo[15].species;
 
 	// boss stuff
 	mobjinfo[19].flags1 |= MF1_BOSS | MF1_NORADIUSDMG;

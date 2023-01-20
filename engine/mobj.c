@@ -1040,15 +1040,8 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 			mobj_t *target = tmthing->target;
 			if(target->type == thing->type)
 				return 0;
-			if(thing->info->species && thing->info->species == target->type)
+			if(thing->info->species == target->info->species)
 				return 0;
-			if(target->info->species)
-			{
-				if(target->info->species == thing->type)
-					return 0;
-				if(target->info->species == thing->info->species)
-					return 0;
-			}
 		}
 
 		if(!(thing->flags & MF_SHOOTABLE))
@@ -1076,7 +1069,15 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 		if(is_ripper)
 		{
-			// TODO: ripper blood
+			if(!(thing->flags & MF_NOBLOOD) && !(tmthing->flags2 & MF2_BLOODLESSIMPACT))
+			{
+				mobj_t *mo;
+				mo = P_SpawnMobj(tmthing->x, tmthing->y, tmthing->z + tmthing->height / 2, tmthing->info->blood_type);
+				mo->momx = (P_Random() - P_Random()) << 12;
+				mo->momy = (P_Random() - P_Random()) << 12;
+				if(!(mo->flags2 & MF2_DONTTRANSLATE))
+					mo->translation = tmthing->info->blood_trns;
+			}
 			if(thing->flags1 & MF1_PUSHABLE && !(tmthing->flags1 & MF1_CANNOTPUSH))
 			{
 				thing->momx += tmthing->momx / 2;
@@ -1317,7 +1318,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 
 	if(crushchange && !(leveltime & 3))
 	{
-		mobj_damage(thing, NULL, NULL, crushchange & 0x8000 ? crushchange & 0x7FFF : 10, NULL); // 'crushchange' sould contain damage value directly
+		mobj_damage(thing, NULL, NULL, crushchange & 0x8000 ? crushchange & 0x7FFF : 10, NULL); // TODO: 'crushchange' sould contain damage value directly
 
 		if(!(thing->flags & MF_NOBLOOD))
 		{

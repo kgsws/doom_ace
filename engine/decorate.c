@@ -673,6 +673,7 @@ const dec_flag_t mobj_flags2[] =
 	{"oldradiusdmg", MF2_OLDRADIUSDMG},
 	{"bloodlessimpact", MF2_BLOODLESSIMPACT},
 	{"synchronized", MF2_SYNCHRONIZED},
+	{"dontmorph", MF2_DONTMORPH},
 	// terminator
 	{NULL}
 };
@@ -1287,6 +1288,7 @@ static const doom_codeptr_t doom_codeptr[] =
 	{(void*)0x0002DB40, A_Light0, NULL},
 	{(void*)0x0002DB50, A_Light1, NULL},
 	{(void*)0x0002DB60, A_Light2, NULL},
+	{(void*)0x000288D0, A_Explode, &def_Explode},
 	{(void*)0x0002D550, wpn_codeptr, (void*)0x0002D550}, // A_Punch
 	{(void*)0x0002D600, wpn_codeptr, (void*)0x0002D600}, // A_Saw
 	{(void*)0x0002D890, A_OldBullets, (void*)1}, // A_FirePistol

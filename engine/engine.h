@@ -1525,10 +1525,11 @@ void P_AddActiveCeiling(ceiling_t*) __attribute((regparm(2),no_caller_saved_regi
 uint32_t EV_DoDoor(line_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_enemy
-void doom_A_Look(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void doom_A_Chase(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void doom_A_VileChase(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void doom_A_BrainAwake(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t P_LookForPlayers(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_map
 uint32_t P_TryMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));

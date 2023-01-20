@@ -93,6 +93,7 @@ uint32_t act_cc_tick;
 static uint32_t bombflags;
 static fixed_t bombdist;
 static fixed_t bombfist;
+static int_fast8_t bombdmgtype = -1;
 
 static mobj_t *enemy_look_pick;
 static mobj_t *enemy_looker;
@@ -174,6 +175,96 @@ fixed_t reslove_fixed_rng(fixed_t value)
 		ret += P_Random() * ((value << 5) & 0x001FFFE0);
 
 	return ret;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t PIT_Explode(mobj_t *thing)
+{
+	fixed_t dx, dy, dz;
+	fixed_t dist;
+	uint32_t damage;
+
+	if(!(thing->flags & MF_SHOOTABLE))
+		return 1;
+
+	if(thing->flags1 & MF1_NORADIUSDMG)
+		return 1;
+
+	if(thing == bombsource && !(bombflags & XF_HURTSOURCE))
+		return 1;
+
+	dx = abs(thing->x - bombspot->x);
+	dy = abs(thing->y - bombspot->y);
+
+	dist = dx > dy ? dx : dy;
+
+	dz = thing->z + thing->height;
+
+	if(	!(thing->flags2 & MF2_OLDRADIUSDMG) &&
+		(!bombsource || !(bombsource->flags2 & MF2_OLDRADIUSDMG)) &&
+		(bombspot->z < thing->z || bombspot->z >= dz)
+	){
+		if(bombspot->z > thing->z)
+			dz = bombspot->z - dz;
+		else
+			dz = thing->z - bombspot->z;
+
+		if(dz > dist)
+			dist = dz;
+	}
+
+	if(dist > bombdist)
+		return 1;
+
+	if(!P_CheckSight(bombspot, thing))
+		return 1;
+
+	dist -= thing->radius;
+	if(dist < 0)
+		dist = 0;
+
+	if(dist)
+	{
+		if(bombfist)
+		{
+			if(dist > bombfist)
+			{
+				dist -= bombfist;
+				dist = FixedDiv(dist, (bombdist - bombfist));
+			} else
+				dist = 0;
+		} else
+			dist = FixedDiv(dist, bombdist);
+
+		dist = bombdamage - ((dist * bombdamage) >> FRACBITS);
+	} else
+		dist = bombdamage;
+
+	if(bombdmgtype >= 0)
+		damage = DAMAGE_WITH_TYPE(dist, bombdmgtype);
+	else
+		damage = dist;
+
+	mobj_damage(thing, bombspot, bombsource, damage, NULL);
+
+	if(!(bombflags & XF_THRUSTZ))
+		return 1;
+
+	if(thing->flags1 & MF1_DONTTHRUST)
+		return 1;
+
+	dist = (dist * 50) / thing->info->mass;
+	dz = (thing->z + thing->height / 2) - bombspot->z;
+	dz = FixedMul(dz, dist * 655);
+
+	if(thing == bombsource)
+		dz = FixedMul(dz, 0xCB00);
+	else
+		dz /= 2;
+
+	thing->momz += dz;
+
+	return 1;
 }
 
 //
@@ -1904,7 +1995,7 @@ void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	{
 		mobj_t *item;
 
-		if(drop->chance < 255 && drop->chance > P_Random())
+		if(drop->chance < 255 && drop->chance <= P_Random())
 			continue;
 
 		item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), drop->type);
@@ -1923,15 +2014,40 @@ void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_Look(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	mobj_t *th = mo->subsector->sector->soundtarget;
+	mobj_t *targ;
 
-	// workaround for self-targetting and NOTARGET
-	if(th == mo || (th && th->flags1 & MF1_NOTARGET))
-		mo->subsector->sector->soundtarget = NULL;
+	mo->threshold = 0;
+	targ = mo->subsector->sector->soundtarget;
 
-	doom_A_Look(mo);
+	if(	targ && targ != mo &&
+		(targ->flags & MF_SHOOTABLE) &&
+		!(targ->flags1 & MF1_NOTARGET) &&
+		targ->render_style < RS_INVISIBLE
+	){
+		mo->target = targ;
+		if(mo->flags & MF_AMBUSH)
+		{
+			if(P_CheckSight(mo, mo->target))
+				goto seeyou;
+		} else
+			goto seeyou;
+	}
 
-	mo->subsector->sector->soundtarget = th;
+	if(!P_LookForPlayers(mo, 0))
+		return;
+
+	if(	mo->target->flags1 & MF1_NOTARGET ||
+		mo->target->render_style >= RS_INVISIBLE
+	){
+		mo->target = NULL;
+		return;
+	}
+
+seeyou:
+	if(mo->info->seesound)
+		S_StartSound(mo->flags & MF1_BOSS ? NULL : mo, mo->info->seesound);
+
+	mobj_set_animation(mo, ANIM_SEE);
 }
 
 //
@@ -1953,6 +2069,34 @@ void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	// workaround for non-fixed speed
 	mo->info->speed = (speed + (FRACUNIT / 2)) >> FRACBITS;
 	doom_A_Chase(mo);
+	mo->info->speed = speed;
+
+	// HACK - move other sound slots
+	mo->sound_body.x = mo->x;
+	mo->sound_body.y = mo->y;
+	mo->sound_weapon.x = mo->x;
+	mo->sound_weapon.y = mo->y;
+}
+
+//
+// A_VileChase
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_VileChase(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	fixed_t speed;
+
+	if(mo->target == mo || (mo->target && mo->target->flags1 & MF1_NOTARGET))
+		mo->target = NULL;
+
+	if(mo->info->fast_speed && fastparm || gameskill == sk_nightmare)
+		speed = mo->info->fast_speed;
+	else
+		speed = mo->info->speed;
+
+	// workaround for non-fixed speed
+	mo->info->speed = (speed + (FRACUNIT / 2)) >> FRACBITS;
+	doom_A_VileChase(mo);
 	mo->info->speed = speed;
 
 	// HACK - move other sound slots
@@ -2238,6 +2382,126 @@ void A_CustomMeleeAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	damage = DAMAGE_WITH_TYPE(damage, arg->damage_type);
 
 	mobj_damage(mo->target, mo, mo, damage, NULL);
+}
+
+//
+// A_VileTarget
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_VileTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleType_t *arg = st->arg;
+	mobj_t *th;
+
+	if(!mo->target)
+		return;
+
+	A_FaceTarget(mo, NULL, NULL);
+
+	th = P_SpawnMobj(mo->target->x, mo->target->y, mo->target->z, arg->type);
+	mo->tracer = th;
+	th->target = mo;
+	th->tracer = mo->target;
+}
+
+//
+// A_VileAttack
+
+static const dec_arg_flag_t flags_VileAttack[] =
+{
+	MAKE_FLAG(VAF_DMGTYPEAPPLYTODIRECT),
+	// terminator
+	{NULL}
+};
+
+const args_VileAttack_t def_VileAttack =
+{
+	.sound = 82,
+	.damage_direct = 10,
+	.damage_blast = 70,
+	.blast_radius = 70 * FRACUNIT,
+	.thrust_factor = FRACUNIT,
+	.damage_type = DAMAGE_FIRE,
+};
+
+static const dec_args_t args_VileAttack =
+{
+	.size = sizeof(args_VileAttack_t),
+	.def = &def_VileAttack,
+	.arg =
+	{
+		{handle_sound, offsetof(args_VileAttack_t, sound), 1},
+		{handle_damage, offsetof(args_VileAttack_t, damage_direct), 1},
+		{handle_damage, offsetof(args_VileAttack_t, damage_blast), 1},
+		{handle_fixed, offsetof(args_VileAttack_t, blast_radius), 1},
+		{handle_fixed, offsetof(args_VileAttack_t, thrust_factor), 1},
+		{handle_damage_type, offsetof(args_VileAttack_t, damage_type), 1},
+		{handle_flags, offsetof(args_VileAttack_t, flags), 1, flags_VileAttack},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_VileAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_VileAttack_t *arg = st->arg;
+	int32_t xl, xh, yl, yh;
+	uint32_t damage;
+	mobj_t *fire;
+	angle_t an;
+	fixed_t	dist;
+
+	if(!mo->target)
+		return;
+
+	A_FaceTarget(mo, NULL, NULL);
+
+	if(!P_CheckSight(mo, mo->target))
+		return;
+
+	damage = arg->damage_direct;
+	if(damage & DAMAGE_IS_CUSTOM)
+		damage = mobj_calc_damage(damage);
+
+	if(arg->flags & VAF_DMGTYPEAPPLYTODIRECT)
+		damage = DAMAGE_WITH_TYPE(damage, arg->damage_type);
+
+	S_StartSound(mo, arg->sound);
+	mobj_damage(mo->target, mo, mo, damage, 0);
+
+	mo->target->momz = FixedMul(1000 * FRACUNIT / mo->target->info->mass, arg->thrust_factor);
+
+	an = mo->angle >> ANGLETOFINESHIFT;
+
+	fire = mo->tracer;
+	if(!fire)
+		return;
+
+	fire->x = mo->target->x - FixedMul(24*FRACUNIT, finecosine[an]);
+	fire->y = mo->target->y - FixedMul(24*FRACUNIT, finesine[an]);	
+
+	dist = arg->blast_radius + MAXRADIUS;
+	yh = (fire->y + dist - bmaporgy) >> MAPBLOCKSHIFT;
+	yl = (fire->y - dist - bmaporgy) >> MAPBLOCKSHIFT;
+	xh = (fire->x + dist - bmaporgx) >> MAPBLOCKSHIFT;
+	xl = (fire->x - dist - bmaporgx) >> MAPBLOCKSHIFT;
+
+	bombsource = mo;
+	bombspot = fire;
+	bombdist = arg->blast_radius;
+	bombfist = 0;
+	bombflags = 0;
+	bombdamage = arg->damage_blast;
+
+	if(bombdamage & DAMAGE_IS_CUSTOM)
+		bombdamage = mobj_calc_damage(bombdamage);
+
+	bombdmgtype = arg->damage_type;
+
+	for(int32_t y = yl; y <= yh; y++)
+		for(int32_t x = xl; x <= xh; x++)
+			P_BlockThingsIterator(x, y, PIT_Explode);
 }
 
 //
@@ -2702,9 +2966,8 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(!delta)
 	{
-		if(dir == mo->angle)
-			return;
-		delta = ANG180;
+		if(dir != mo->angle)
+			delta = ANG180;
 	}
 
 	if(delta > arg->threshold)
@@ -2973,7 +3236,7 @@ void A_DropItem(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	const args_DropItem_t *arg = st->arg;
 	mobj_t *item;
 
-	if(arg->chance < 255 && arg->chance > P_Random())
+	if(arg->chance < 255 && arg->chance <= P_Random())
 		return;
 
 	item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), arg->type);
@@ -3538,7 +3801,9 @@ void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 const args_Explode_t def_Explode =
 {
-	.flags = XF_HURTSOURCE,
+	.damage = 128,
+	.distance = 128 * FRACUNIT,
+	.flags = XF_HURTSOURCE | XF_THRUSTZ,
 };
 
 static const dec_arg_flag_t flags_Explode[] =
@@ -3567,96 +3832,14 @@ static const dec_args_t args_Explode =
 	}
 };
 
-static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t PIT_Explode(mobj_t *thing)
-{
-	fixed_t dx, dy, dz;
-	fixed_t dist;
-
-	if(!(thing->flags & MF_SHOOTABLE))
-		return 1;
-
-	if(thing->flags1 & MF1_NORADIUSDMG)
-		return 1;
-
-	if(thing == bombsource && !(bombflags & XF_HURTSOURCE))
-		return 1;
-
-	dx = abs(thing->x - bombspot->x);
-	dy = abs(thing->y - bombspot->y);
-
-	dist = dx > dy ? dx : dy;
-
-	dz = thing->z + thing->height;
-
-	if(	!(thing->flags2 & MF2_OLDRADIUSDMG) &&
-		(!bombsource || !(bombsource->flags2 & MF2_OLDRADIUSDMG)) &&
-		(bombspot->z < thing->z || bombspot->z >= dz)
-	){
-		if(bombspot->z > thing->z)
-			dz = bombspot->z - dz;
-		else
-			dz = thing->z - bombspot->z;
-
-		if(dz > dist)
-			dist = dz;
-	}
-
-	if(dist > bombdist)
-		return 1;
-
-	if(!P_CheckSight(bombspot, thing))
-		return 1;
-
-	dist -= thing->radius;
-	if(dist < 0)
-		dist = 0;
-
-	if(dist)
-	{
-		if(bombfist)
-		{
-			if(dist > bombfist)
-			{
-				dist -= bombfist;
-				dist = FixedDiv(dist, (bombdist - bombfist));
-			} else
-				dist = 0;
-		} else
-			dist = FixedDiv(dist, bombdist);
-
-		dist = bombdamage - ((dist * bombdamage) >> FRACBITS);
-	} else
-		dist = bombdamage;
-
-	mobj_damage(thing, bombspot, bombsource, dist, NULL);
-
-	if(!(bombflags & XF_THRUSTZ))
-		return 1;
-
-	if(thing->flags1 & MF1_DONTTHRUST)
-		return 1;
-
-	dist = (dist * 50) / thing->info->mass;
-	dz = (thing->z + thing->height / 2) - bombspot->z;
-	dz = FixedMul(dz, dist * 655);
-
-	if(thing == bombsource)
-		dz = FixedMul(dz, 0xCB00);
-	else
-		dz /= 2;
-
-	thing->momz += dz;
-
-	return 1;
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
+__attribute((regparm(2),no_caller_saved_registers))
 void A_Explode(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_Explode_t *arg = st->arg;
 	int32_t xl, xh, yl, yh;
 	fixed_t	dist;
+
+	bombdmgtype = -1;
 
 	bombflags = arg->flags;
 
@@ -4403,10 +4586,13 @@ static const dec_action_t mobj_action[] =
 	// "AI"
 	{"a_look", A_Look},
 	{"a_chase", A_Chase},
+	{"a_vilechase", A_VileChase},
 	// enemy attack
 	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
 	{"a_custombulletattack", A_CustomBulletAttack, &args_CustomBulletAttack},
 	{"a_custommeleeattack", A_CustomMeleeAttack, &args_CustomMeleeAttack},
+	{"a_viletarget", A_VileTarget, &args_SingleMobjtype},
+	{"a_vileattack", A_VileAttack, &args_VileAttack},
 	// player attack
 	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
 	{"a_firebullets", A_FireBullets, &args_FireBullets},

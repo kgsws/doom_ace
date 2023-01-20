@@ -823,6 +823,12 @@ P_BulletSlope:
 P_NoiseAlert:
 	.byte	0xE9
 	.4byte	0x00027020
+////////////////////////////////// P_LookForPlayers
+.section .text.P_LookForPlayers
+.global P_LookForPlayers
+P_LookForPlayers:
+	.byte	0xE9
+	.4byte	0x00027570
 ////////////////////////////////// M_ClearMenus
 .section .text.M_ClearMenus
 .global M_ClearMenus
@@ -901,18 +907,18 @@ M_ClearBox:
 EV_DoDoor:
 	.byte	0xE9
 	.4byte	0x00026AB0
-////////////////////////////////// doom_A_Look
-.section .text.doom_A_Look
-.global doom_A_Look
-doom_A_Look:
-	.byte	0xE9
-	.4byte	0x000276C0
 ////////////////////////////////// doom_A_Chase
 .section .text.doom_A_Chase
 .global doom_A_Chase
 doom_A_Chase:
 	.byte	0xE9
 	.4byte	0x00027790
+////////////////////////////////// doom_A_VileChase
+.section .text.doom_A_VileChase
+.global doom_A_VileChase
+doom_A_VileChase:
+	.byte	0xE9
+	.4byte	0x00028100
 ////////////////////////////////// doom_A_BrainAwake
 .section .text.doom_A_BrainAwake
 .global doom_A_BrainAwake

@@ -92,6 +92,21 @@ typedef struct
 
 //
 
+#define VAF_DMGTYPEAPPLYTODIRECT	1
+
+typedef struct
+{
+	uint16_t sound;
+	uint16_t flags;
+	uint32_t damage_direct;
+	uint32_t damage_blast;
+	fixed_t blast_radius;
+	fixed_t thrust_factor;
+	uint8_t damage_type;
+} args_VileAttack_t;
+
+//
+
 #define WRF_NOBOB	1
 #define WRF_NOFIRE	(WRF_NOPRIMARY | WRF_NOSECONDARY)
 #define WRF_NOSWITCH	2
@@ -378,6 +393,7 @@ typedef struct
 //
 
 extern const args_singleU16_t def_LowerRaise;
+extern const args_Explode_t def_Explode;
 
 extern uint32_t act_cc_tick;
 
@@ -399,6 +415,7 @@ void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc) __attribute((regparm(2),
 void A_Light0(mobj_t *mo, state_t *st, stfunc_t stfunc) __attribute((regparm(2),no_caller_saved_registers));
 void A_Light1(mobj_t *mo, state_t *st, stfunc_t stfunc) __attribute((regparm(2),no_caller_saved_registers));
 void A_Light2(mobj_t *mo, state_t *st, stfunc_t stfunc) __attribute((regparm(2),no_caller_saved_registers));
+void A_Explode(mobj_t *mo, state_t *st, stfunc_t stfunc) __attribute((regparm(2),no_caller_saved_registers));
 
 void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc) __attribute((regparm(2),no_caller_saved_registers));
 void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc) __attribute((regparm(2),no_caller_saved_registers));

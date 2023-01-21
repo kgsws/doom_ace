@@ -1465,7 +1465,7 @@ static const dec_args_t args_LowerRaise =
 	.def = &def_LowerRaise,
 	.arg =
 	{
-		{handle_u16, offsetof(args_singleFixed_t, value), 2},
+		{handle_u16, offsetof(args_singleU16_t, value), 2},
 		// terminator
 		{NULL}
 	}
@@ -3765,6 +3765,61 @@ void A_BrainDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_KeenDie
+
+const args_singleU16_t def_KeenDie =
+{
+	.value = 6
+};
+
+static const dec_args_t args_KeenDie =
+{
+	.size = sizeof(args_singleU16_t),
+	.def = &def_KeenDie,
+	.arg =
+	{
+		{handle_u16, offsetof(args_singleFixed_t, value), 2},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_KeenDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleU16_t *arg = st->arg;
+
+	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+	{
+		mobj_t *mt;
+
+		if(th->function != (void*)P_MobjThinker)
+			continue;
+
+		mt = (mobj_t*)th;
+
+		if(mt->type != mo->type)
+			continue;
+
+		if(mt->health > 0)
+			return;
+	}
+
+	if(arg)
+		spec_arg[0] = arg->value;
+	else
+		spec_arg[0] = 666;
+
+	spec_special = 12;
+	spec_arg[1] = 16;
+	spec_arg[2] = 0;
+	spec_arg[3] = 0;
+	spec_arg[4] = 0;
+
+	spec_activate(NULL, mo, 0);
+}
+
+//
 // A_DamageTarget
 
 static const dec_args_t args_DamageTarget =
@@ -4626,6 +4681,7 @@ static const dec_action_t mobj_action[] =
 	{"a_settics", A_SetTics, &args_SetTics},
 	{"a_rearrangepointers", A_RearrangePointers, &args_RearrangePointers},
 	{"a_braindie", A_BrainDie},
+	{"a_keendie", A_KeenDie, &args_KeenDie},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	{"a_explode", A_Explode, &args_Explode},

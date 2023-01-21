@@ -579,7 +579,7 @@ void think_poly_move(poly_move_t *pm)
 		if(seq && seq->move)
 		{
 			S_StartSound((mobj_t*)&poly->soundorg, seq->move);
-			pm->sndwait = seq->repeat;
+			pm->sndwait = seq->repeat & SSQ_REP_MASK;
 		}
 	}
 
@@ -620,6 +620,7 @@ void think_poly_move(poly_move_t *pm)
 			if(seq && seq->stop)
 				S_StartSound((mobj_t*)&poly->soundorg, seq->stop);
 			else
+			if(!(seq->repeat & SSQ_NO_STOP))
 				S_StopSound((mobj_t*)&poly->soundorg);
 		}
 
@@ -742,7 +743,7 @@ void think_poly_rotate(poly_rotate_t *pr)
 		if(seq && seq->move)
 		{
 			S_StartSound((mobj_t*)&poly->soundorg, seq->move);
-			pr->sndwait = seq->repeat;
+			pr->sndwait = seq->repeat & SSQ_REP_MASK;
 		}
 	}
 
@@ -783,6 +784,7 @@ void think_poly_rotate(poly_rotate_t *pr)
 			if(seq && seq->stop)
 				S_StartSound((mobj_t*)&poly->soundorg, seq->stop);
 			else
+			if(!(seq->repeat & SSQ_NO_STOP))
 				S_StopSound((mobj_t*)&poly->soundorg);
 		}
 

@@ -2902,7 +2902,10 @@ void hook_RenderPlayerView(player_t *pl)
 
 	// text message
 	if(pl->text_data)
+	{
+		font_color = NULL; // TODO: 'bold' text has different color
 		font_center_text(SCREENHEIGHT / 2, pl->text_data->text, font_load(pl->text_data->font), pl->text_data->lines);
+	}
 }
 
 // expanded drawseg limit

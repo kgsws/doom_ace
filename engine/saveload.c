@@ -36,7 +36,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFB5	// increment with updates
+#define SAVE_VERSION	0xE58BAFB7	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -182,6 +182,7 @@ typedef struct
 	fixed_t height;
 	fixed_t gravity;
 	fixed_t mx, my, mz;
+	fixed_t scale;
 	//
 	int32_t health;
 	int32_t movedir;
@@ -236,7 +237,6 @@ typedef struct
 	fixed_t viewheight;
 	fixed_t deltaviewheight;
 	//
-	int32_t powers[NUMPOWERS];
 	int32_t health;
 	int32_t armor_points;
 	uint64_t armor_type;
@@ -253,6 +253,9 @@ typedef struct
 	fixed_t	pspx;
 	fixed_t	pspy;
 	save_pspr_t pspr[NUMPSPRITES];
+	// powers
+	int32_t powers[NUMPOWERS];
+	uint8_t power_color[NUMPOWERS];
 	//
 	int16_t killcount;
 	uint16_t itemcount;
@@ -1203,6 +1206,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 	thing.radius = mo->radius;
 	thing.height = mo->height;
 	thing.gravity = mo->gravity;
+	thing.scale = mo->scale;
 	thing.mx = mo->momx;
 	thing.my = mo->momy;
 	thing.mz = mo->momz;
@@ -1307,7 +1311,10 @@ static inline void sv_put_players()
 		plr.deltaviewheight = pl->deltaviewheight;
 
 		for(uint32_t j = 0; j < NUMPOWERS; j++)
+		{
 			plr.powers[j] = pl->powers[j];
+			plr.power_color[j] = pl->power_color[j];
+		}
 
 		plr.health = pl->health;
 		plr.armor_points = pl->armorpoints;
@@ -2293,6 +2300,7 @@ static inline uint32_t ld_get_things()
 		mo->radius = thing.radius;
 		mo->height = thing.height;
 		mo->gravity = thing.gravity;
+		mo->scale = thing.scale;
 		mo->momx = thing.mx;
 		mo->momy = thing.my;
 		mo->momz = thing.mz;
@@ -2429,7 +2437,10 @@ static inline uint32_t ld_get_players()
 		pl->deltaviewheight = plr.deltaviewheight;
 
 		for(uint32_t i = 0; i < NUMPOWERS; i++)
+		{
 			pl->powers[i] = plr.powers[i];
+			pl->power_color[i] = plr.power_color[i];
+		}
 
 		pl->health = plr.health;
 		pl->armorpoints = plr.armor_points;

@@ -44,7 +44,6 @@ uint32_t mobj_netid;
 
 static fixed_t oldfloorz;
 static mobj_t *hit_thing;
-static uint_fast8_t teleblock;
 
 //
 // state changes
@@ -988,10 +987,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 	// ignore when teleporting
 	if(tmthing->flags & MF_TELEPORT)
-	{
-		teleblock = !!(thing->flags & (MF_SOLID | MF_SHOOTABLE));
-		return 1;
-	}
+		return !(thing->flags & (MF_SOLID | MF_SHOOTABLE));
 
 	if(tmthing->flags & MF_SKULLFLY)
 	{
@@ -1033,19 +1029,16 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		if(thing->flags1 & MF1_GHOST & tmthing->flags1 & MF1_THRUGHOST)
 			return 1;
 
+		if(!(thing->flags & MF_SHOOTABLE))
+			return !(thing->flags & MF_SOLID);
+
 		if(	!dehacked.no_species &&
 			(map_level_info->flags & (MAP_FLAG_TOTAL_INFIGHTING | MAP_FLAG_NO_INFIGHTING)) != MAP_FLAG_TOTAL_INFIGHTING &&
 			tmthing->target && thing->info->extra_type != ETYPE_PLAYERPAWN
 		){
-			mobj_t *target = tmthing->target;
-			if(target->type == thing->type)
-				return 0;
-			if(thing->info->species == target->info->species)
+			if(thing->info->species == tmthing->target->info->species)
 				return 0;
 		}
-
-		if(!(thing->flags & MF_SHOOTABLE))
-			return !(thing->flags & MF_SOLID);
 
 		if(!(thing->flags1 & MF1_DONTRIP) && tmthing->flags1 & MF1_RIPPER)
 		{
@@ -1292,11 +1285,6 @@ uint32_t pit_change_sector(mobj_t *thing)
 					state = thing->info->state_crush;
 
 				thing->flags &= ~MF_SOLID;
-				if(map_format == MAP_FORMAT_DOOM)
-				{
-					thing->radius = 0;
-					thing->height = 0;
-				}
 
 				P_SetMobjState(thing, state, 0);
 			}
@@ -1367,6 +1355,8 @@ uint32_t check_position_extra(sector_t *sec)
 	tmceilingz = sec->ceilingheight;
 	tmfloorz = sec->floorheight;
 	tmdropoffz = tmfloorz;
+
+	tmflags = tmthing->flags;
 
 	if(tmflags & MF_NOCLIP)
 		return 1;
@@ -2526,10 +2516,8 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 
 	P_SetThingPosition(mo);
 
-	teleblock = 0;
-
 	mo->flags |= MF_TELEPORT;
-	blocked = !P_TryMove(mo, mo->x, mo->y) | teleblock;
+	blocked = !P_TryMove(mo, mo->x, mo->y);
 	mo->flags &= ~MF_TELEPORT;
 	if(blocked)
 	{

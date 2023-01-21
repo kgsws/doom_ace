@@ -44,6 +44,8 @@ static void invis_start(mobj_t*,mobjinfo_t*);
 static void invis_stop(mobj_t*);
 static void buddha_start(mobj_t*,mobjinfo_t*);
 static void buddha_stop(mobj_t*);
+static void flight_start(mobj_t*,mobjinfo_t*);
+static void flight_stop(mobj_t*);
 static const powerup_t powerup[] =
 {
 	[pw_invulnerability] = {"invulnerable", -1, invul_start, invul_stop},
@@ -54,7 +56,7 @@ static const powerup_t powerup[] =
 	[pw_infrared] = {"lightamp", -1},
 	[pw_buddha] = {"buddha", -1, buddha_start, buddha_stop},
 	[pw_attack_speed] = {"doublefiringspeed", -1},
-	[pw_flight] = {"flight", -1}, // TODO
+	[pw_flight] = {"flight", -1, flight_start, flight_stop},
 	[pw_reserved0] = {NULL},
 	[pw_reserved1] = {NULL},
 	[pw_reserved2] = {NULL},
@@ -120,6 +122,19 @@ static void buddha_stop(mobj_t *mo)
 	mo->flags1 |= mo->info->flags1 & MF1_BUDDHA;
 }
 
+//
+// POWER: flight
+
+static void flight_start(mobj_t *mo, mobjinfo_t *info)
+{
+	mo->flags1 |= MF_NOGRAVITY;
+}
+
+static void flight_stop(mobj_t *mo)
+{
+	mo->flags1 &= ~MF_NOGRAVITY;
+	mo->flags1 |= mo->info->flags1 & MF_NOGRAVITY;
+}
 
 //
 // powerup giver

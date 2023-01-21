@@ -181,7 +181,7 @@ void think_ceiling(generic_mover_t *gm)
 		if(!gm->sndwait && gm->up_seq && gm->up_seq->move)
 		{
 			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->move);
-			gm->sndwait = gm->up_seq->repeat;
+			gm->sndwait = gm->up_seq->repeat & SSQ_REP_MASK;
 		}
 
 		if(plane_movement(sec, dist, 0, 1, 1))
@@ -216,7 +216,8 @@ void think_ceiling(generic_mover_t *gm)
 			if(!gm->up_seq || !gm->up_seq->stop)
 			{
 				gm->sndwait = 0;
-				S_StopSound((mobj_t*)&gm->sector->soundorg);
+				if(!(gm->up_seq->repeat & SSQ_NO_STOP))
+					S_StopSound((mobj_t*)&gm->sector->soundorg);
 			} else
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
 
@@ -241,7 +242,7 @@ void think_ceiling(generic_mover_t *gm)
 		if(!gm->sndwait && gm->dn_seq && gm->dn_seq->move)
 		{
 			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->move);
-			gm->sndwait = gm->dn_seq->repeat;
+			gm->sndwait = gm->dn_seq->repeat & SSQ_REP_MASK;
 		}
 
 		if(plane_movement(sec, dist, gm->crush, 1, gm->flags & (MVF_BLOCK_STAY|MVF_BLOCK_GO_UP)))
@@ -277,7 +278,8 @@ void think_ceiling(generic_mover_t *gm)
 			if(!gm->dn_seq || !gm->dn_seq->stop)
 			{
 				gm->sndwait = 0;
-				S_StopSound((mobj_t*)&gm->sector->soundorg);
+				if(!(gm->dn_seq->repeat & SSQ_NO_STOP))
+					S_StopSound((mobj_t*)&gm->sector->soundorg);
 			} else
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
 
@@ -357,7 +359,7 @@ void think_floor(generic_mover_t *gm)
 		if(!gm->sndwait && gm->up_seq && gm->up_seq->move)
 		{
 			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->move);
-			gm->sndwait = gm->up_seq->repeat;
+			gm->sndwait = gm->up_seq->repeat & SSQ_REP_MASK;
 		}
 
 		if(plane_movement(sec, dist, gm->crush, 2, gm->flags & (MVF_BLOCK_STAY|MVF_BLOCK_GO_DN)))
@@ -390,7 +392,8 @@ void think_floor(generic_mover_t *gm)
 			if(!gm->up_seq || !gm->up_seq->stop)
 			{
 				gm->sndwait = 0;
-				S_StopSound((mobj_t*)&gm->sector->soundorg);
+				if(!(gm->up_seq->repeat & SSQ_NO_STOP))
+					S_StopSound((mobj_t*)&gm->sector->soundorg);
 			} else
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
 
@@ -415,7 +418,7 @@ void think_floor(generic_mover_t *gm)
 		if(!gm->sndwait && gm->dn_seq && gm->dn_seq->move)
 		{
 			S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->move);
-			gm->sndwait = gm->dn_seq->repeat;
+			gm->sndwait = gm->dn_seq->repeat & SSQ_REP_MASK;
 		}
 
 		if(plane_movement(sec, dist, 0, 2, 1))
@@ -447,7 +450,8 @@ void think_floor(generic_mover_t *gm)
 			if(!gm->dn_seq || !gm->dn_seq->stop)
 			{
 				gm->sndwait = 0;
-				S_StopSound((mobj_t*)&gm->sector->soundorg);
+				if(!(gm->dn_seq->repeat & SSQ_NO_STOP))
+					S_StopSound((mobj_t*)&gm->sector->soundorg);
 			} else
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
 

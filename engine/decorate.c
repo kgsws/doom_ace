@@ -2961,7 +2961,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 			memcpy(info, inheritance[etp].def, sizeof(mobjinfo_t));
 			info->extra_type = etp;
 			// default species
-			info->species = info->alias;
+			info->species = alias;
 			// default damage factors
 			memset(info->damage_factor, 0xFF, NUM_DAMAGE_TYPES * sizeof(uint16_t));
 			// reset custom states

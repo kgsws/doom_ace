@@ -6,6 +6,10 @@
 
 //
 
+extern uint8_t *font_color;
+
+//
+
 void font_generate();
 void *font_load(int32_t lump);
 

@@ -10,10 +10,13 @@
 
 // SNDSEQ
 #define	SEQ_IS_DOOR	0x8000
+#define SSQ_NO_STOP	0x8000
+#define SSQ_REP_MASK	0x0FFF
 
 enum
 {
 	SFX_QUAKE = NUMSFX,
+	SFX_SECRET,
 	SFX_FREEZE,
 	SFX_ICEBREAK,
 	//

@@ -136,7 +136,7 @@ static const uint8_t colortable[] =
 };
 
 static uint8_t *font_palidx;
-static uint8_t *font_color;
+uint8_t *font_color;
 
 static void *smallfont;
 
@@ -318,6 +318,10 @@ void font_center_text(int32_t y, const uint8_t *text, void *font, uint32_t linec
 	bmf_head_t *head = font;
 	bmf_char_t *bc;
 
+	if(!font)
+		// TODO: use original small font
+		return;
+
 	linecount *= head->line_height;
 	y -= linecount / 2;
 
@@ -459,6 +463,9 @@ void *font_load(int32_t lump)
 	uint8_t *ptr, *dst;
 	bmf_head_t *head;
 
+	if(!lump)
+		return smallfont;
+
 	if(lumpcache[lump])
 		// font is already processed
 		return lumpcache[lump];
@@ -523,6 +530,7 @@ uint32_t font_message_to_print()
 		text++;
 	}
 
+	font_color = NULL;
 	font_center_text(SCREENHEIGHT / 2, messageString, smallfont, linecount);
 	skip_menu_draw();
 }
@@ -534,6 +542,7 @@ void hu_draw_text_line(hu_textline_t *l, uint32_t cursor)
 	bmf_char_t *bc;
 	bmf_head_t *head;
 
+	font_color = NULL;
 	x = font_draw_text(l->x, l->y, l->l, smallfont);
 
 	if(!cursor)
@@ -550,8 +559,9 @@ void font_menu_text(int32_t x, int32_t y, const uint8_t *text)
 {
 	if(draw_patch_color)
 		font_color = &render_tables->fmap[FONT_COLOR_COUNT * 9];
+	else
+		font_color = NULL;
 	font_draw_text(x, y, text, smallfont);
-	font_color = NULL;
 	return;
 }
 
@@ -622,6 +632,7 @@ void finale_text()
 
 	bkup = *ptr;
 	*ptr = 0;
+	font_color = NULL;
 	font_draw_text(10, 10, finaletext, smallfont);
 	*ptr = bkup;
 }
@@ -629,7 +640,14 @@ void finale_text()
 static __attribute((regparm(2),no_caller_saved_registers))
 void cast_text(uint8_t *text)
 {
+	font_color = NULL;
 	font_center_text(180, text, smallfont, 0);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t dummy_string_width()
+{
+	return 0;
 }
 
 //
@@ -643,6 +661,8 @@ static const hook_t patch_smallfont[] =
 	{0x00022FA1, CODE_HOOK | HOOK_UINT16, 0xD989},
 	{0x00022FA3, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)font_menu_text},
 	{0x00022FA8, CODE_HOOK | HOOK_UINT16, 0xC359},
+	// dummy 'M_StringWidth'
+	{0x00022F00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)dummy_string_width},
 	// fix 'F_TextWrite'
 	{0x0001C645, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)finale_text},
 	{0x0001C64A, CODE_HOOK | HOOK_JMP_DOOM, 0x0001C6DA},

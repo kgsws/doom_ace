@@ -42,6 +42,11 @@ static const new_sfx_t new_sfx[NEW_NUMSFX - NUMSFX] =
 		.alias = 0x5AE1D71BE4B32BF5,
 		.lump = "dsquake",
 	},
+	[SFX_SECRET - NUMSFX] =
+	{
+		.alias = 0x49728E5CEF8F3A6E,
+		.lump = "dssecret",
+	},
 	[SFX_FREEZE - NUMSFX] =
 	{
 		.alias = 0x5EA59729AF8F3A6F,
@@ -91,9 +96,13 @@ static const sound_seq_t def_sndseq[NUMSNDSEQ] =
 	[SNDSEQ_DOOR] =
 	{
 		.norm_open.start = 20,
+		.norm_open.repeat = SSQ_NO_STOP,
 		.norm_close.start = 21,
+		.norm_close.repeat = SSQ_NO_STOP,
 		.fast_open.start = 88,
+		.fast_open.repeat = SSQ_NO_STOP,
 		.fast_close.start = 89,
+		.fast_close.repeat = SSQ_NO_STOP,
 	},
 	[SNDSEQ_PLAT] =
 	{
@@ -461,6 +470,7 @@ static void cb_sndseq(lumpinfo_t *li)
 	uint8_t *kw, *wk, *name;
 	sound_seq_t *seq;
 	uint32_t value;
+	uint16_t do_stop;
 
 	tp_load_lump(li);
 
@@ -557,6 +567,7 @@ static void cb_sndseq(lumpinfo_t *li)
 		memset(seq, 0, sizeof(sound_seq_t));
 		seq->alias = tp_hash64(name);
 		seq->number = 256;
+		do_stop = 0;
 
 		while(1)
 		{
@@ -566,6 +577,7 @@ static void cb_sndseq(lumpinfo_t *li)
 
 			if(!strcmp(wk, "end"))
 			{
+				seq->norm_open.repeat |= do_stop;
 				seq->norm_close = seq->norm_open;
 				seq->fast_open = seq->norm_open;
 				seq->fast_close = seq->norm_open;
@@ -609,13 +621,17 @@ static void cb_sndseq(lumpinfo_t *li)
 				kw = tp_get_keyword();
 				if(!kw)
 					goto error_end;
-				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value > 0xFFFF)
+				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value > 0x0FFF)
 					goto error_value;
 				seq->norm_open.repeat = value;
 			} else
 			if(!strcmp(wk, "stopsound"))
 			{
 				seq->norm_open.stop = sfx_by_alias(tp_hash64(kw));
+			} else
+			if(!strcmp(wk, "nostopcutoff"))
+			{
+				do_stop = SSQ_NO_STOP;
 			} else
 				engine_error("SNDSEQ", "Unknown keyword '%s' in '%s'!", wk, name);
 		}

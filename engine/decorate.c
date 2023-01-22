@@ -568,6 +568,7 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"maxstepheight", DT_FIXED, offsetof(mobjinfo_t, step_height)},
 	{"maxdropoffheight", DT_FIXED, offsetof(mobjinfo_t, dropoff)},
+	{"meleerange", DT_FIXED, offsetof(mobjinfo_t, range_melee)},
 	//
 	{"scale", DT_FIXED, offsetof(mobjinfo_t, scale)},
 	//

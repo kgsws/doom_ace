@@ -2419,6 +2419,9 @@ static inline uint32_t ld_get_players()
 		if(reader_get(&plr, sizeof(plr)))
 			return 1;
 
+		memset(pl, 0, sizeof(player_t));
+		pl->info_flags = player_info[idx].flags;
+
 		if(plr.state >= PST_REBORN)
 			return 1;
 

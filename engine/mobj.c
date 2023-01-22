@@ -743,6 +743,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->inventory = NULL;
 	pl->stbar_update = 0;
 	pl->inv_tick = 0;
+	pl->text_data = NULL;
 	pl->info_flags = player_info[idx].flags;
 
 	cheat_player_flags(pl);

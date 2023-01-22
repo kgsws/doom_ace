@@ -84,10 +84,14 @@ typedef struct
 #define CHAN_WEAPON	1
 #define CHAN_VOICE	2
 
+#define ATTN_NORM	0
+#define ATTN_NONE	1
+
 typedef struct
 {
 	uint16_t sound;
-	uint32_t slot;
+	uint16_t slot;
+	uint16_t attn;
 } args_StartSound_t;
 
 //

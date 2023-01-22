@@ -345,13 +345,6 @@ static uint8_t *handle_skip(uint8_t *kw, const dec_arg_t *arg)
 	return tp_get_keyword();
 }
 
-static uint8_t *handle_skip_zero(uint8_t *kw, const dec_arg_t *arg)
-{
-	if(strcmp(kw, "0"))
-		return NULL;
-	return tp_get_keyword();
-}
-
 static uint8_t *handle_forced_string(uint8_t *kw, const dec_arg_t *arg)
 {
 	if(arg->offset <= 1 && tp_is_string != arg->offset)
@@ -1897,6 +1890,14 @@ static const dec_arg_flag_t flags_StartSound[] =
 	{NULL}
 };
 
+static const dec_arg_flag_t attn_StartSound[] =
+{
+	MAKE_FLAG(ATTN_NORM), // default, 0
+	MAKE_FLAG(ATTN_NONE),
+	// terminator
+	{NULL}
+};
+
 static const dec_args_t args_StartSound =
 {
 	.size = sizeof(args_StartSound_t),
@@ -1904,6 +1905,9 @@ static const dec_args_t args_StartSound =
 	{
 		{handle_sound, offsetof(args_StartSound_t, sound)},
 		{handle_flags, offsetof(args_StartSound_t, slot), 1, flags_StartSound},
+		{handle_forced_string, 0, 1, .string = "0"},
+		{handle_forced_string, 0, 1, .string = "1"},
+		{handle_flags, offsetof(args_StartSound_t, attn), 1, attn_StartSound},
 		// terminator
 		{NULL}
 	}
@@ -1915,6 +1919,9 @@ void A_StartSound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	const args_StartSound_t *arg = st->arg;
 	void *origin;
 
+	if(arg->attn)
+		origin = NULL;
+	else
 	switch(arg->slot)
 	{
 		case CHAN_WEAPON:
@@ -2830,7 +2837,7 @@ static const dec_args_t args_BFGSpray =
 		{handle_u16, offsetof(args_BFGSpray_t, damagecnt), 1},
 		{handle_angle, offsetof(args_BFGSpray_t, angle), 1},
 		{handle_fixed, offsetof(args_BFGSpray_t, range), 1},
-		{handle_forced_string, 0, 0, .string = "32"},
+		{handle_forced_string, 0, 1, .string = "32"},
 		{handle_damage, offsetof(args_BFGSpray_t, damage)},
 		// terminator
 		{NULL}
@@ -3223,7 +3230,7 @@ static const dec_args_t args_DropItem =
 	.arg =
 	{
 		{handle_mobjtype, offsetof(args_DropItem_t, type)},
-		{handle_skip_zero, 0, 1},
+		{handle_forced_string, 0, 1, .string = "0"},
 		{handle_u16, offsetof(args_DropItem_t, chance), 1},
 		// terminator
 		{NULL}

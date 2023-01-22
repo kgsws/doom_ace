@@ -10,6 +10,7 @@
 #include "render.h"
 #include "weapon.h"
 #include "stbar.h"
+#include "sound.h"
 #include "cheat.h"
 #include "config.h"
 #include "controls.h"
@@ -349,6 +350,40 @@ void P_CalcHeight(player_t *player)
 		player->viewz = player->mo->ceilingz - 4 * FRACUNIT;
 }
 
+static void player_sector_damage(player_t *pl, sector_extra_t *se)
+{
+	uint32_t damage;
+
+	if(se->damage.tics > 1 && leveltime % se->damage.tics)
+		return;
+
+	if(se->damage.amount < 0)
+	{
+		uint32_t health = pl->mo->health;
+		health -= se->damage.amount;
+		if(health > pl->mo->info->spawnhealth)
+			health = pl->mo->info->spawnhealth;
+		pl->mo->health = health;
+		pl->health = health;
+		return;
+	}
+
+	if(	!(se->damage.type & 0x80) &&
+		pl->powers[pw_ironfeet] &&
+		(!se->damage.leak || P_Random() >= se->damage.leak)
+	)
+		return;
+
+	if(se->damage.amount == 0x7FFF)
+		damage = 1000000;
+	else
+		damage = se->damage.amount;
+
+	damage = DAMAGE_WITH_TYPE(damage, se->damage.type & 0x7F);
+
+	mobj_damage(pl->mo, NULL, NULL, damage, NULL);
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void player_think(player_t *pl)
 {
@@ -518,8 +553,31 @@ void player_think(player_t *pl)
 	if(pl->mo->subsector->sector->special)
 	{
 		if(map_format == MAP_FORMAT_DOOM)
+		{
+			uint32_t special = pl->mo->subsector->sector->special;
 			P_PlayerInSpecialSector(pl);
-		// TODO: ZDoom specials
+			if(special == 9 && !pl->mo->subsector->sector->special)
+			{
+				pl->message = "Secret!";
+				if(idx == consoleplayer)
+					S_StartSound(NULL, SFX_SECRET);
+			}
+		} else
+		{
+			sector_t *sec = pl->mo->subsector->sector;
+			if(pl->mo->z == sec->floorheight)
+			{
+				if(sec->special & 1024)
+				{
+					pl->message = "Secret!";
+					if(idx == consoleplayer)
+						S_StartSound(NULL, SFX_SECRET);
+					sec->special &= ~1024;
+				}
+				if(sec->extra->damage.amount)
+					player_sector_damage(pl, sec->extra);
+			}
+		}
 	}
 
 	if(pl->inv_tick)

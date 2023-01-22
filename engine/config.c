@@ -5,6 +5,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "wadfile.h"
+#include "font.h"
 #include "player.h"
 #include "map.h"
 #include "stbar.h"
@@ -61,6 +62,11 @@ mod_config_t mod_config =
 	.enable_decorate = 1,
 	.enable_dehacked = 1,
 	.wipe_type = 255, // = use user preference
+	.menu_font_height = 255, // = use font default
+	.menu_save_empty = FCOL_DARKGRAY,
+	.menu_save_valid = FCOL_WHITE,
+	.menu_save_error = FCOL_RED,
+	.menu_save_mismatch = FCOL_YELLOW,
 	.mem_min = 1,
 	.game_mode = 255, // = IWAD based
 	.color_fullbright = 1, // = use fullbright in colored light
@@ -144,6 +150,12 @@ static config_entry_t config_mod[] =
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
 	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
+	// menu
+	{"menu.font.height", &mod_config.menu_font_height, TYPE_U8},
+	{"menu.color.save.empty", &mod_config.menu_save_empty, TYPE_U8},
+	{"menu.color.save.valid", &mod_config.menu_save_valid, TYPE_U8},
+	{"menu.color.save.error", &mod_config.menu_save_error, TYPE_U8},
+	{"menu.color.save.mismatch", &mod_config.menu_save_mismatch, TYPE_U8},
 	// RAM
 	{"ram.min", &mod_config.mem_min, TYPE_U8},
 	// game

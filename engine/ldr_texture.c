@@ -302,10 +302,7 @@ static void cb_tx_count(lumpinfo_t *li)
 	uint32_t size;
 	patch_t patch;
 
-	wad_read_lump(&patch, li - lumpinfo, sizeof(patch_t));
-
-	if(*((uint64_t*)&patch) == 0xA1A0A0D474E5089)
-		engine_error("TEXTURE", "Patch '%.8s' is a PNG!", li->name);
+	ldr_get_patch_header(li - lumpinfo, &patch);
 
 	texturewidthmask[tmp_count] = patch.width;
 	textureheight[tmp_count] = patch.height;

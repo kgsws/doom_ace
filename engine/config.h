@@ -10,6 +10,12 @@ typedef struct
 	uint8_t enable_decorate;
 	uint8_t enable_dehacked;
 	uint8_t wipe_type;
+	// menu
+	uint8_t menu_font_height;
+	int8_t menu_save_empty;
+	int8_t menu_save_valid;
+	int8_t menu_save_error;
+	int8_t menu_save_mismatch;
 	// memory
 	uint8_t mem_min;
 	// game

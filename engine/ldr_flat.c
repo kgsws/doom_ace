@@ -6,6 +6,8 @@
 #include "engine.h"
 #include "utils.h"
 #include "wadfile.h"
+#include "render.h"
+#include "draw.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 
@@ -119,6 +121,7 @@ void flat_init_data()
 			}
 		}
 
+		flattexture_mask[i] = r_color_duplicate;
 		for(uint32_t j = 0; j < 256; j++)
 		{
 			if(!colors[j])
@@ -247,58 +250,12 @@ void *flat_generate_composite(uint32_t idx)
 		{
 			texpatch_t *tp = tex->patch + i;
 			patch_t *patch;
-			int32_t xx, x0, x1;
 
 			if(tp->patch < 0)
 				continue;
 
 			patch = W_CacheLumpNum(tp->patch, PU_CACHE);
-			x0 = tp->originx;
-			x1 = x0 + patch->width;
-
-			if(x0 < 0)
-				xx = 0;
-			else
-				xx = x0;
-
-			if(x1 > 64)
-				x1 = 64;
-
-			for( ; xx < x1; xx++)
-			{
-				column_t *column = (column_t*)((uint8_t*)patch + patch->offs[xx - x0]);
-				while(column->topdelta != 0xFF)
-				{
-					int32_t count, topdelta;
-					uint8_t *source;
-					uint8_t *dest;
-
-					topdelta = column->topdelta + tp->originy;
-
-					source = (uint8_t*)column + 3;
-					count = column->length;
-
-					if(topdelta < 0)
-					{
-						source -= topdelta;
-						count += topdelta;
-					}
-
-					dest = data + xx + topdelta * 64;
-
-					if(count + topdelta > 64)
-						count = 64 - topdelta;
-
-					while(count > 0)
-					{
-						*dest = *source++;
-						dest += 64;
-						count--;
-					}
-
-					column = (column_t*)((uint8_t*)column + column->length + 4);
-				}
-			}
+			draw_patch_to_memory(patch, tp->originx, tp->originy, data, 64, 64);
 		}
 
 		Z_ChangeTag2(data, PU_CACHE);

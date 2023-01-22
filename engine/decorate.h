@@ -86,6 +86,8 @@ extern dec_damage_type damage_type_config[NUM_DAMAGE_TYPES];
 
 extern void *dec_es_ptr;
 
+extern uint32_t dec_mod_csum;
+
 //
 extern const dec_flag_t mobj_flags0[];
 extern const dec_flag_t mobj_flags1[];

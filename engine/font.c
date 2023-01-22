@@ -3,10 +3,15 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "filebuf.h"
 #include "render.h"
 #include "wadfile.h"
+#include "config.h"
+#include "menu.h"
 #include "draw.h"
 #include "font.h"
+
+#define PAL_SRC	(sizeof(bmf_head_t) - 2) // compensate missing transparent color
 
 typedef struct
 {
@@ -17,20 +22,19 @@ typedef struct
 	int8_t size_under;
 	int8_t space;
 	int8_t size_inner;
-	union
-	{
-		struct
-		{
-			uint8_t colors_used;
-			uint8_t color_max;
-		};
-		uint16_t num_chars; // overwritten
-	};
-	uint32_t reserved; // overwritten with data offset
+	uint8_t colors_used;
+	uint8_t color_max;
+	uint32_t reserved;
 	uint8_t pal_count;
-	//
-	uint8_t pal_src[];
 } __attribute__((packed)) bmf_head_t;
+
+typedef struct
+{ // this one replaces bmf_head_t after processing
+	uint32_t offset;
+	int8_t space;
+	uint8_t height; // overlaps line_height
+	uint16_t num_chars;
+} font_head_t;
 
 typedef struct
 {
@@ -143,8 +147,6 @@ static void *smallfont;
 static patch_t fake_stcfn;
 
 static bmf_char_t *finale_bc;
-
-static const hook_t patch_smallfont[];
 
 //
 // range generator
@@ -315,17 +317,17 @@ static void font_draw_char(int32_t x, int32_t y, bmf_char_t *bc)
 void font_center_text(int32_t y, const uint8_t *text, void *font, uint32_t linecount)
 {
 	int32_t x = SCREENWIDTH / 2;
-	bmf_head_t *head = font;
+	font_head_t *head = font;
 	bmf_char_t *bc;
 
 	if(!font)
 		// TODO: use original small font
 		return;
 
-	linecount *= head->line_height;
+	linecount *= head->height;
 	y -= linecount / 2;
 
-	font_palidx = head->pal_src - 2; // compensate missing transparent color
+	font_palidx = font + PAL_SRC;
 
 	while(1)
 	{
@@ -344,9 +346,10 @@ void font_center_text(int32_t y, const uint8_t *text, void *font, uint32_t linec
 					break;
 			} else
 			{
-				bc = find_char(font + head->reserved, head->num_chars, *ptr);
+				bc = find_char(font + head->offset, head->num_chars, *ptr);
 				if(bc)
-					xx += head->space + bc->space;
+					xx += bc->space;
+				xx += head->space;
 			}
 
 			ptr++;
@@ -365,12 +368,13 @@ void font_center_text(int32_t y, const uint8_t *text, void *font, uint32_t linec
 				change_color(color);
 			} else
 			{
-				bc = find_char(font + head->reserved, head->num_chars, *ptr);
+				bc = find_char(font + head->offset, head->num_chars, *ptr);
 				if(bc)
 				{
 					font_draw_char(xx, y, bc);
-					xx += head->space + bc->space;
+					xx += bc->space;
 				}
+				xx += head->space;
 			}
 
 			ptr++;
@@ -383,24 +387,24 @@ void font_center_text(int32_t y, const uint8_t *text, void *font, uint32_t linec
 		// next line
 		font_color = NULL;
 		text = ptr + 1;
-		y += head->line_height;
+		y += head->height;
 	}
 }
 
 uint32_t font_draw_text(int32_t x, int32_t y, const uint8_t *text, void *font)
 {
 	int32_t xx = x;
-	bmf_head_t *head = font;
+	font_head_t *head = font;
 	bmf_char_t *bc;
 
-	font_palidx = head->pal_src - 2; // compensate missing transparent color
+	font_palidx = font + PAL_SRC;
 
 	while(*text)
 	{
 		if(*text == '\n')
 		{
 			x = xx;
-			y += head->line_height;
+			y += head->height;
 			text++;
 			continue;
 		}
@@ -414,12 +418,13 @@ uint32_t font_draw_text(int32_t x, int32_t y, const uint8_t *text, void *font)
 			continue;
 		}
 
-		bc = find_char(font + head->reserved, head->num_chars, *text);
+		bc = find_char(font + head->offset, head->num_chars, *text);
 		if(bc)
 		{
 			font_draw_char(x, y, bc);
-			x += head->space + bc->space;
+			x += bc->space;
 		}
+		x += head->space;
 
 		text++;
 	}
@@ -462,6 +467,7 @@ void *font_load(int32_t lump)
 	void *data;
 	uint8_t *ptr, *dst;
 	bmf_head_t *head;
+	font_head_t *fead;
 
 	if(!lump)
 		return smallfont;
@@ -499,10 +505,11 @@ void *font_load(int32_t lump)
 
 	ptr += (uint32_t)*ptr + 1; // font description
 
-	head->num_chars = *((uint16_t*)ptr);
+	fead = (void*)head;
+	fead->num_chars = *((uint16_t*)ptr);
+	fead->space = head->space;
 	ptr += sizeof(uint16_t);
-
-	head->reserved = (void*)ptr - data;
+	fead->offset = (void*)ptr - data;
 
 	return data;
 }
@@ -518,9 +525,6 @@ uint32_t font_message_to_print()
 	if(!messageToPrint)
 		return 0;
 
-	if(!smallfont)
-		return 1;
-
 	text = messageString;
 	linecount = 1;
 	while(*text)
@@ -532,6 +536,7 @@ uint32_t font_message_to_print()
 
 	font_color = NULL;
 	font_center_text(SCREENHEIGHT / 2, messageString, smallfont, linecount);
+
 	skip_menu_draw();
 }
 
@@ -540,7 +545,7 @@ void hu_draw_text_line(hu_textline_t *l, uint32_t cursor)
 {
 	int32_t x;
 	bmf_char_t *bc;
-	bmf_head_t *head;
+	font_head_t *head;
 
 	font_color = NULL;
 	x = font_draw_text(l->x, l->y, l->l, smallfont);
@@ -549,53 +554,136 @@ void hu_draw_text_line(hu_textline_t *l, uint32_t cursor)
 		return;
 
 	head = smallfont;
-	bc = find_char(smallfont + head->reserved, head->num_chars, '_');
+	bc = find_char(smallfont + head->offset, head->num_chars, '_');
 	if(bc)
 		font_draw_char(x, l->y, bc);
 }
 
-static __attribute((regparm(3),no_caller_saved_registers)) // three!
+__attribute((regparm(3),no_caller_saved_registers)) // three!
 void font_menu_text(int32_t x, int32_t y, const uint8_t *text)
 {
-	if(draw_patch_color)
-		font_color = &render_tables->fmap[FONT_COLOR_COUNT * 9];
-	else
+	if(menu_font_color < 0)
 		font_color = NULL;
+	else
+		font_color = &render_tables->fmap[FONT_COLOR_COUNT * menu_font_color];
 	font_draw_text(x, y, text, smallfont);
-	return;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void hud_font_init()
 {
-	uint8_t buffer[32];
 	int32_t lump;
-	bmf_head_t *head;
+	patch_t patch[HU_FONTSIZE];
+	font_head_t *head;
 
 	lump = wad_check_lump("SMALLFNT");
 	if(lump < 0)
 	{
-		// load the original font
-		for(uint32_t i = 0; i < HU_FONTSIZE; i++)
+		// generate small font from STCFN
+		uint32_t count = 0;
+		uint32_t csize = sizeof(bmf_head_t) + 256 * 2;
+		uint8_t *ptr;
+
+		for(uint32_t i = HU_FONTSTART; i <= HU_FONTEND; i++)
 		{
-			doom_sprintf(buffer, dtxt_stcfn, i + HU_FONTSTART);
-			hu_font[i] = (patch_t*)W_CacheLumpName(buffer, PU_STATIC);
+			patch_t *p = patch + i - HU_FONTSTART;
+
+			p->width = 0;
+
+			if(i == ' ')
+				continue;
+
+			doom_sprintf(file_buffer, dtxt_stcfn, i);
+			lump = wad_check_lump(file_buffer);
+			if(lump < 0)
+				continue;
+
+			ldr_get_patch_header(lump, p);
+
+			count++;
+			csize += p->width * p->height + sizeof(bmf_char_t);
 		}
-		return;
+
+		smallfont = Z_Malloc(csize, PU_STATIC, NULL);
+		head = smallfont;
+
+		head->space = 4;
+		head->height = 12;
+		head->num_chars = count;
+		head->offset = sizeof(bmf_head_t) + 256 * 2;
+
+		ptr = smallfont + sizeof(bmf_head_t);
+
+		for(uint32_t i = 0; i < 256; i++)
+		{
+			uint32_t top;
+
+			// dont use r_palette[i].l here
+			top = r_palette[i].r;
+			if(top < r_palette[i].g)
+				top = r_palette[i].g;
+			if(top < r_palette[i].b)
+				top = r_palette[i].b;
+
+			ptr[0] = i; // same palette index
+			ptr[1] = 1 + (top * 30) / 255;
+
+			ptr += 2;
+		}
+
+		for(uint32_t i = HU_FONTSTART; i <= HU_FONTEND; i++)
+		{
+			patch_t *p = patch + i - HU_FONTSTART;
+			bmf_char_t *bc;
+
+			if(!p->width)
+				continue;
+
+			bc = (bmf_char_t*)ptr;
+			ptr += sizeof(bmf_char_t);
+
+			bc->code = i;
+			bc->width = p->width;
+			bc->height = p->height;
+			bc->ox = -p->x;
+			bc->oy = -p->y;
+			bc->space = p->width - 4;
+
+			csize = p->width * p->height;
+			memset(ptr, r_color_duplicate, csize);
+
+			doom_sprintf(file_buffer, dtxt_stcfn, i);
+			p = W_CacheLumpName(file_buffer, PU_STATIC);
+
+			draw_patch_to_memory(p, 0, 0, ptr, p->width, p->height);
+
+			for(uint32_t j = 0; j < csize; j++)
+			{
+				if(*ptr == 0)
+					*ptr = r_color_duplicate;
+				else
+				if(*ptr == r_color_duplicate)
+					*ptr = 0;
+				ptr++;
+			}
+
+			Z_Free(p);
+		}
+	} else
+	{
+		// load font as STATIC
+		smallfont = font_load(lump);
+		head = smallfont;
+		Z_ChangeTag2(smallfont, PU_STATIC);
 	}
 
-	// load font as STATIC
-	smallfont = font_load(lump);
-	Z_ChangeTag2(smallfont, PU_STATIC);
-
 	// fake hu_font[0] as it is used for size calulations
-	head = smallfont;
 	fake_stcfn.width = head->space;
-	fake_stcfn.height = head->line_height;
+	fake_stcfn.height = head->height;
 	hu_font[0] = &fake_stcfn;
 
-	// patch some extra stuff
-	utils_install_hooks(patch_smallfont, 0);
+	if(mod_config.menu_font_height > 32)
+		mod_config.menu_font_height = head->height;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -653,8 +741,11 @@ uint32_t dummy_string_width()
 //
 // hooks
 
-static const hook_t patch_smallfont[] =
+static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
+	// replace font loading in 'HU_Init'
+	{0x0003B4D5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hud_font_init},
+	{0x0003B4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0003B50D},
 	// replace 'HUlib_drawTextLine'
 	{0x0003BDA0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hu_draw_text_line},
 	// replace 'M_WriteText'
@@ -668,14 +759,5 @@ static const hook_t patch_smallfont[] =
 	{0x0001C64A, CODE_HOOK | HOOK_JMP_DOOM, 0x0001C6DA},
 	// replace call to 'F_CastPrint'
 	{0x0001CD3B, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)cast_text},
-	// terminator
-	{0}
-};
-
-static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
-{
-	// replace font loading in 'HU_Init'
-	{0x0003B4D5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hud_font_init},
-	{0x0003B4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0003B50D},
 };
 

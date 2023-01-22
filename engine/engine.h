@@ -883,6 +883,13 @@ typedef struct
 	plane_link_t *plink;
 	uint16_t color;
 	uint16_t fade;
+	struct
+	{
+		int16_t amount;
+		uint16_t tics;
+		uint8_t type;
+		uint8_t leak;
+	} damage;
 } sector_extra_t;
 
 typedef struct sector_s
@@ -1458,10 +1465,12 @@ fixed_t FixedDiv(fixed_t, fixed_t) __attribute((regparm(2),no_caller_saved_regis
 
 // main.c
 extern uint8_t *ldr_alloc_message;
+extern uint_fast8_t dev_mode;
 void gfx_progress(int32_t step);
 void *ldr_malloc(uint32_t size);
 void *ldr_realloc(void *ptr, uint32_t size);
 void ldr_dump_buffer(const uint8_t *path, void *buff, uint32_t size);
+void ldr_get_patch_header(int32_t lump, patch_t *p);
 void error_message(uint8_t*);
 
 // am_map
@@ -1511,7 +1520,6 @@ void HUlib_drawTextLine(hu_textline_t *l, uint32_t cursor);
 
 // m_menu
 void M_Drawer() __attribute((regparm(2),no_caller_saved_registers));
-void M_WriteText(int32_t,int32_t,const uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void M_ClearMenus() __attribute((regparm(2),no_caller_saved_registers));
 void M_StartMessage(uint8_t*,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 

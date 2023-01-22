@@ -16,9 +16,11 @@
 #include "wipe.h"
 #include "menu.h"
 
-#define CONTROL_Y_BASE	(40 + LINEHEIGHT_SMALL * 3)
+#define CONTROL_Y_BASE	(40 + mod_config.menu_font_height * 3)
 #define CONTROL_X	80
 #define CONTROL_X_DEF	220
+
+int_fast8_t menu_font_color = FCOL_ORIGINAL;
 
 static uint8_t *auto_run;
 
@@ -429,38 +431,38 @@ void display_draw()
 	V_DrawPatchDirect(117, 15, W_CacheLumpNum(title_display, PU_CACHE));
 
 	// 'crosshair' title
-	draw_patch_color = render_tables->cmap + 256 * FONT_COLOR_WHITE;
-	M_WriteText(options_menu.x + 20, -options_menu.y + LINEHEIGHT_SMALL * 6, "CROSSHAIR");
-	draw_patch_color = NULL;
+	menu_font_color = FCOL_WHITE;
+	font_menu_text(options_menu.x + 20, -options_menu.y + mod_config.menu_font_height * 6, "CROSSHAIR");
+	menu_font_color = FCOL_ORIGINAL;
 
 	// messages
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[!!showMessages]);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 0, off_on[!!showMessages]);
 
 	// screen size
 	doom_sprintf(text, "%u", screenblocks);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, text);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 1, text);
 
 	// wipe
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, wipe_name[extra_config.wipe_type]);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 2, wipe_name[extra_config.wipe_type]);
 
 	// FPS
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, off_on[!!extra_config.show_fps]);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 3, off_on[!!extra_config.show_fps]);
 
 	// gamma
 	doom_sprintf(text, "%u", usegamma);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 4, text);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 4, text);
 
 	// crosshair type
 	doom_sprintf(text, "%u", extra_config.crosshair_type);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 7, text);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 7, text);
 
 	// crosshair color
 	doom_sprintf(text, "%u", extra_config.crosshair_red);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 8, text);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 8, text);
 	doom_sprintf(text, "%u", extra_config.crosshair_green);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 9, text);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 9, text);
 	doom_sprintf(text, "%u", extra_config.crosshair_blue);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 10, text);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 10, text);
 }
 
 //
@@ -526,37 +528,37 @@ void controls_draw()
 
 	// extra offset
 	old = control_list[0].group;
-	yy += CONTROL_Y_BASE - control_pos * LINEHEIGHT_SMALL;
+	yy += CONTROL_Y_BASE - control_pos * mod_config.menu_font_height;
 	for(uint32_t i = 0; i < NUM_CONTROLS && i < control_pos+1; i++)
 	{
 		if(control_list[i].group != old)
 		{
 			old = control_list[i].group;
-			yy -= LINEHEIGHT_SMALL * 2;
+			yy -= mod_config.menu_font_height * 2;
 		}
 	}
 
 	// entries
 	old = control_list[0].group - 1;
-	yy -= LINEHEIGHT_SMALL * 2;
+	yy -= mod_config.menu_font_height * 2;
 	for(uint32_t i = 0; i < NUM_CONTROLS; i++)
 	{
 		if(control_list[i].group != old)
 		{
 			old = control_list[i].group;
-			yy += LINEHEIGHT_SMALL;
+			yy += mod_config.menu_font_height;
 
 			if(yy > 160)
 				break;
 
 			if(yy >= 40)
 			{
-				draw_patch_color = render_tables->cmap + 256 * FONT_COLOR_WHITE;
-				M_WriteText(CONTROL_X + 40, yy, ctrl_group[old]);
-				draw_patch_color = NULL;
+				menu_font_color = FCOL_WHITE;
+				font_menu_text(CONTROL_X + 40, yy, ctrl_group[old]);
+				menu_font_color = FCOL_ORIGINAL;
 			}
 
-			yy += LINEHEIGHT_SMALL;
+			yy += mod_config.menu_font_height;
 		}
 
 		if(yy > 160)
@@ -564,11 +566,11 @@ void controls_draw()
 
 		if(yy >= 40)
 		{
-			M_WriteText(CONTROL_X, yy, control_list[i].name);
-			M_WriteText(CONTROL_X_DEF, yy, control_key_name(*control_list[i].ptr));
+			font_menu_text(CONTROL_X, yy, control_list[i].name);
+			font_menu_text(CONTROL_X_DEF, yy, control_key_name(*control_list[i].ptr));
 		}
 
-		yy += LINEHEIGHT_SMALL;
+		yy += mod_config.menu_font_height;
 	}
 }
 
@@ -607,11 +609,11 @@ void mouse_draw()
 
 	// sensitivity
 	doom_sprintf(text, "%u", mouseSensitivity);
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, text);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 0, text);
 
 	// buttons
 	for(uint32_t i = 0; i < NUM_MOUSE_CTRL; i++)
-		M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * (i+2), control_btn_name(i));
+		font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * (i+2), control_btn_name(i));
 }
 
 //
@@ -678,19 +680,19 @@ void player_draw()
 	V_DrawPatchDirect(119, 15, W_CacheLumpNum(title_player, PU_CACHE));
 
 	// auto run
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 0, off_on[*auto_run == 1]);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 0, off_on[*auto_run == 1]);
 
 	// auto switch
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 1, off_on[!!extra_config.auto_switch]);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 1, off_on[!!extra_config.auto_switch]);
 
 	// auto aim
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 2, off_on[!!extra_config.auto_aim]);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 2, off_on[!!extra_config.auto_aim]);
 
 	// mouse look
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 3, off_on[extra_config.mouse_look]);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 3, off_on[extra_config.mouse_look]);
 
 	// center weapon
-	M_WriteText(options_menu.x + 100, -options_menu.y + LINEHEIGHT_SMALL * 4, weapon_mode[extra_config.center_weapon]);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 4, weapon_mode[extra_config.center_weapon]);
 }
 
 //
@@ -713,15 +715,15 @@ void menu_items_draw(menu_t *menu)
 		y = -y;
 
 		if(menu->menuitems[menu_item_now].status == 2)
-			V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * LINEHEIGHT_SMALL, selector_special);
+			V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * mod_config.menu_font_height, selector_special);
 		else
-			V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * LINEHEIGHT_SMALL, selector_normal);
+			V_DrawPatchDirect(x + CURSORX_SMALL, y + menu_item_now * mod_config.menu_font_height, selector_normal);
 
 		for(uint32_t i = 0; i < menu->numitems; i++)
 		{
 			if(menu->menuitems[i].text)
-				M_WriteText(x, y, menu->menuitems[i].text);
-			y += LINEHEIGHT_SMALL;
+				font_menu_text(x, y, menu->menuitems[i].text);
+			y += mod_config.menu_font_height;
 		}
 	} else
 	{

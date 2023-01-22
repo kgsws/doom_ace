@@ -2654,7 +2654,7 @@ void init_render()
 	{
 		// tables have to be generated
 		// this is very slow on old PCs
-		doom_printf("[RENDER] Generating tables ...\n");
+		doom_printf("[RENDER] %s tables ...\n", "Generating");
 		generate_translucent(render_tables->trn0, 60);
 		generate_translucent(render_tables->trn1, 100);
 		generate_additive(render_tables->addt);
@@ -2663,13 +2663,13 @@ void init_render()
 		generate_color(render_tables->cmap + 256 * 1, 255, 0, 0);
 		generate_color(render_tables->cmap + 256 * 2, 200, 255, 180);
 		generate_color(render_tables->cmap + 256 * 3, 0, 0, 255);
-		generate_color(render_tables->cmap + 256 * 4, 255, 255, 255);
 		// font
 		font_generate();
 	} else
 	{
 		// tables are provided in WAD file
 		// beware: tables are based on palette!
+		doom_printf("[RENDER] %s tables ...\n", "Loading");
 		wad_read_lump(render_tables, render_tables_lump, sizeof(render_tables_t));
 	}
 

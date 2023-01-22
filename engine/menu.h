@@ -8,6 +8,10 @@
 
 //
 
+extern int_fast8_t menu_font_color;
+
+//
+
 void init_menu();
 
 void menu_init();

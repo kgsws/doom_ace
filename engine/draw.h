@@ -17,6 +17,7 @@ extern num32_t r_dc_mask;
 //
 
 void init_draw();
+void draw_patch_to_memory(patch_t*, int32_t, int32_t, void*, uint32_t, uint32_t);
 
 void V_DrawPatchDirect(int32_t, int32_t, patch_t*) __attribute((regparm(3),no_caller_saved_registers)); // three!
 void V_DrawPatchTranslated(int32_t, int32_t, patch_t*) __attribute((regparm(3),no_caller_saved_registers)); // three!

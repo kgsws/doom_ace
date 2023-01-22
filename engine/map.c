@@ -763,6 +763,56 @@ static inline void parse_sectors()
 		se->color = 0x0FFF;
 		se->fade = 0x0000;
 
+		se->damage.amount = 0;
+
+		switch(sec->special & 255)
+		{
+			case 82: // dDamage_LavaWimpy
+				se->damage.amount = 5;
+				se->damage.tics = 16;
+				se->damage.type = DAMAGE_FIRE | 0x80;
+			break;
+			case 83: // dDamage_LavaHefty
+				se->damage.amount = 8;
+				se->damage.tics = 16;
+				se->damage.type = DAMAGE_FIRE | 0x80;
+			break;
+			case 85: // hDamage_Sludge
+				se->damage.amount = 4;
+				se->damage.tics = 32;
+				se->damage.type = DAMAGE_NORMAL;
+			break;
+			case 115: // Damage_InstantDeath
+				se->damage.amount = 0x7FFF;
+				se->damage.tics = 1;
+				se->damage.type = DAMAGE_NORMAL;
+			break;
+			case 196: // Sector_Heal
+				se->damage.amount = -1;
+				se->damage.tics = 32;
+			break;
+		}
+
+		switch(sec->special & (256 | 512))
+		{
+			case 256:
+				se->damage.amount = 5;
+				se->damage.tics = 32;
+				se->damage.type = DAMAGE_NORMAL;
+			break;
+			case 512:
+				se->damage.amount = 10;
+				se->damage.tics = 32;
+				se->damage.type = DAMAGE_NORMAL;
+			break;
+			case 256 | 512:
+				se->damage.amount = 20;
+				se->damage.tics = 32;
+				se->damage.type = DAMAGE_NORMAL;
+				se->damage.leak = 5;
+			break;
+		}
+
 		M_ClearBox(se->bbox);
 		for(uint32_t j = 0; j < sec->linecount; j++)
 		{

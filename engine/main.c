@@ -59,7 +59,7 @@ uint8_t *error_module;
 
 static gfx_loading_t *loading;
 
-static uint_fast8_t dev_mode;
+uint_fast8_t dev_mode;
 
 static uint32_t old_zone_size;
 
@@ -127,6 +127,13 @@ void ldr_dump_buffer(const uint8_t *path, void *buff, uint32_t size)
 
 	doom_write(fd, buff, size);
 	doom_close(fd);
+}
+
+void ldr_get_patch_header(int32_t lump, patch_t *patch)
+{
+	wad_read_lump(patch, lump, sizeof(patch_t));
+	if(*((uint64_t*)patch) == 0xA1A0A0D474E5089)
+		engine_error("LOADER", "Patch '%.8s' is a PNG!", lumpinfo[lump].name);
 }
 
 //

@@ -382,70 +382,7 @@ void R_DrawMaskedSpanTint1()
 __attribute((regparm(3),no_caller_saved_registers)) // three!
 void V_DrawPatchDirect(int32_t x, int32_t y, patch_t *patch)
 {
-	int32_t xstop;
-	column_t *column;
-	uint8_t *desttop;
-	uint32_t *coloffs;
-
-	x -= patch->x;
-	y -= patch->y;
-
-	if(x >= SCREENWIDTH)
-		return;
-
-	if(y >= SCREENHEIGHT)
-		return;
-
-	xstop = x + patch->width;
-
-	if(xstop <= 0)
-		return;
-
-	if(xstop > SCREENWIDTH)
-		xstop = SCREENWIDTH;
-
-	coloffs = patch->offs - x;
-
-	if(x < 0)
-		x = 0;
-
-	desttop = screen_buffer + x;
-
-	for( ; x < xstop; x++, desttop++)
-	{
-		column = (column_t *)((uint8_t*)patch + coloffs[x]);
-
-		while(column->topdelta != 0xFF)
-		{
-			uint8_t *source;
-			uint8_t *dest;
-			int32_t yy, ystop;
-
-			source = (uint8_t*)column + 3;
-
-			yy = y + column->topdelta;
-			ystop = yy + column->length;
-
-			column = (column_t *)((uint8_t*)column + column->length + 4);
-
-			if(yy < 0)
-			{
-				source -= yy;
-				yy = 0;
-			}
-
-			if(ystop > SCREENHEIGHT)
-				ystop = SCREENHEIGHT;
-
-			dest = desttop + yy * SCREENWIDTH;
-
-			for( ; yy < ystop; yy++)
-			{
-				*dest = *source++;
-				dest += SCREENWIDTH;
-			}
-		}
-	}
+	draw_patch_to_memory(patch, x - patch->x, y - patch->y, screen_buffer, SCREENWIDTH, SCREENHEIGHT);
 }
 
 __attribute((regparm(3),no_caller_saved_registers)) // three!
@@ -650,6 +587,74 @@ void V_DrawPatchTint1(int32_t x, int32_t y, patch_t *patch)
 			{
 				*dest = dr_tinttab[*dest * 256 + *source++];
 				dest += SCREENWIDTH;
+			}
+		}
+	}
+}
+
+//
+// draw in cache
+
+void draw_patch_to_memory(patch_t *patch, int32_t x, int32_t y, void *dst, uint32_t width, uint32_t height)
+{
+	int32_t xstop;
+	column_t *column;
+	uint8_t *desttop;
+	uint32_t *coloffs;
+
+	if(x >= width)
+		return;
+
+	if(y >= height)
+		return;
+
+	xstop = x + patch->width;
+
+	if(xstop <= 0)
+		return;
+
+	if(xstop > width)
+		xstop = width;
+
+	coloffs = patch->offs - x;
+
+	if(x < 0)
+		x = 0;
+
+	desttop = dst + x;
+
+	for( ; x < xstop; x++, desttop++)
+	{
+		column = (column_t *)((uint8_t*)patch + coloffs[x]);
+
+		while(column->topdelta != 0xFF)
+		{
+			uint8_t *source;
+			uint8_t *dest;
+			int32_t yy, ystop;
+
+			source = (uint8_t*)column + 3;
+
+			yy = y + column->topdelta;
+			ystop = yy + column->length;
+
+			column = (column_t *)((uint8_t*)column + column->length + 4);
+
+			if(yy < 0)
+			{
+				source -= yy;
+				yy = 0;
+			}
+
+			if(ystop > height)
+				ystop = height;
+
+			dest = desttop + yy * width;
+
+			for( ; yy < ystop; yy++)
+			{
+				*dest = *source++;
+				dest += width;
 			}
 		}
 	}

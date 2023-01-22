@@ -191,6 +191,8 @@ static void *extra_stuff_next;
 
 static uint32_t extra_storage_size;
 
+uint32_t dec_mod_csum; // TODO
+
 //
 static uint32_t parse_damage();
 static uint32_t parse_player_sounds();

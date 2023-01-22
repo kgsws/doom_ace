@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "config.h"
 #include "decorate.h"
 #include "inventory.h"
 #include "mobj.h"
@@ -30,13 +31,13 @@
 
 #define SAVE_SLOT_COUNT	6
 #define SAVE_SLOT_FILE	"save%02u.bmp"
-#define SAVE_NAME_SIZE	18
+#define SAVE_NAME_SIZE	17
 #define SAVE_TITLE_SIZE	28
 
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFB7	// increment with updates
+#define SAVE_VERSION	0xE58BAFB8	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -112,6 +113,7 @@ enum
 typedef struct
 { // size must be 24
 	uint8_t text[SAVE_NAME_SIZE + 1];
+	uint8_t color;
 	uint8_t step;
 	uint16_t width;
 	uint16_t pixoffs;
@@ -479,6 +481,8 @@ static inline void prepare_save_slot(int fd, uint32_t idx)
 	save_info_t info;
 	int32_t tmp;
 
+	save_name[idx].color = mod_config.menu_save_error;
+
 	// header
 
 	tmp = doom_read(fd, &head, sizeof(bmp_head_t));
@@ -504,7 +508,20 @@ static inline void prepare_save_slot(int fd, uint32_t idx)
 	// create entry
 	info.title.text[SAVE_NAME_SIZE] = 0;
 	strcpy(save_name[idx].text, info.title.text);
-	LoadMenu[idx].status = 1;
+
+	// version
+	if(info.version == SAVE_VERSION)
+	{
+		if(info.mod_csum == dec_mod_csum)
+		{
+			LoadMenu[idx].status = 1;
+			save_name[idx].color = mod_config.menu_save_valid;
+		} else
+		{
+			LoadMenu[idx].status = dev_mode;
+			save_name[idx].color = mod_config.menu_save_mismatch;
+		}
+	}
 
 	// preview
 
@@ -609,8 +626,10 @@ static void draw_check_preview()
 			x -= 4;
 
 		menu_draw_slot_bg(x, y, 150);
-		M_WriteText(x+1, y, save_name[i].text);
+		menu_font_color = save_name[i].color;
+		font_menu_text(x+1, y, save_name[i].text);
 	}
+	menu_font_color = FCOL_ORIGINAL;
 
 	for(uint32_t i = 0; i < 7; i++)
 		menu_draw_slot_bg(5, 52 + i * 14, 164);
@@ -2708,6 +2727,7 @@ void setup_save_slots()
 		// prepare empty or broken
 		strcpy(save_name[i].text, empty_slot);
 		save_name[i].step = 0;
+		save_name[i].color = mod_config.menu_save_empty;
 		LoadMenu[i].status = 0;
 
 		// try to read

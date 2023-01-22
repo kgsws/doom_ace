@@ -1041,16 +1041,6 @@ M_AddToBox:
 	.4byte	0x000241E0
 	pop	%ebx
 	ret
-////////////////////////////////// M_WriteText
-.section .text.M_WriteText
-.global M_WriteText
-M_WriteText:
-	push	%ebx
-	mov	8(%esp),%ebx
-	.byte	0xE8
-	.4byte	0x00022FA0
-	pop	%ebx
-	ret
 ////////////////////////////////// M_StartMessage
 .section .text.M_StartMessage
 .global M_StartMessage

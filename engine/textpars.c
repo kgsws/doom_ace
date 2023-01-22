@@ -481,7 +481,7 @@ uint32_t tp_skip_code_block(uint32_t depth)
 void tp_load_lump(lumpinfo_t *li)
 {
 	if(li->size > TP_MEMORY_SIZE)
-		engine_error("SCRIPT", "Lump '%.8s' is too large! Limit is %u but size is %u.\n", TP_MEMORY_SIZE, li->size);
+		engine_error("SCRIPT", "Lump '%.8s' is too large! Limit is %u but size is %u.\n", li->name, TP_MEMORY_SIZE, li->size);
 
 	tp_text_ptr = TP_MEMORY_ADDR;
 	tp_text_ptr[li->size] = 0;

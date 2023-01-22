@@ -299,6 +299,16 @@ void init_config()
 	if(extra_config.wipe_type >= NUM_WIPE_TYPES)
 		extra_config.wipe_type = 0;
 
+	// menu colors
+	if(mod_config.menu_save_empty >= FCOL_COUNT)
+		mod_config.menu_save_empty = -1;
+	if(mod_config.menu_save_valid >= FCOL_COUNT)
+		mod_config.menu_save_valid = -1;
+	if(mod_config.menu_save_error >= FCOL_COUNT)
+		mod_config.menu_save_error = -1;
+	if(mod_config.menu_save_mismatch >= FCOL_COUNT)
+		mod_config.menu_save_mismatch = -1;
+
 	// game mode
 	switch(mod_config.game_mode)
 	{

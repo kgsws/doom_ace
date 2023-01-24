@@ -1350,7 +1350,7 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		state = pl->readyweapon->st_weapon.flash;
 		state += P_Random() & 1;
 		pl->psprites[1].state = states + state;
-		pl->psprites[1].tics = 0;
+		pl->psprites[1].tics = states[state].tics;
 	}
 
 	inventory_take(mo, ammo, count);
@@ -1419,7 +1419,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mobj_set_animation(mo, ANIM_MISSILE);
 
 	pl->psprites[1].state = state;
-	pl->psprites[1].tics = 0;
+	pl->psprites[1].tics = state->tics;
 
 	angle = mo->angle;
 
@@ -1572,7 +1572,7 @@ static const dec_args_t args_GunFlash =
 	}
 };
 
-__attribute((regparm(2),no_caller_saved_registers))
+static __attribute((regparm(2),no_caller_saved_registers))
 void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
@@ -1620,6 +1620,28 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl->psprites[1].state = states + state;
 	pl->psprites[1].tics = 0;
 }
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_DoomGunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	// replacement for Doom codeptr
+	player_t *pl = mo->player;
+	uint32_t state;
+
+	if(!mo->player)
+		return;
+
+	state = pl->readyweapon->st_weapon.flash;
+	if(!state)
+		return;
+
+	// just hope that this is called in 'weapon PSPR'
+	pl->psprites[1].state = states + state;
+	pl->psprites[1].tics = 1;//states[state].tics;
+}
+
+//
+// A_CheckReload
 
 __attribute((regparm(2),no_caller_saved_registers))
 void A_CheckReload(mobj_t *mo, state_t *st, stfunc_t stfunc)

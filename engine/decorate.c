@@ -1302,7 +1302,7 @@ static const doom_codeptr_t doom_codeptr[] =
 	{(void*)0x0002D700, A_OldProjectile, (void*)33}, // A_FireMissile
 	{(void*)0x0002D730, A_OldProjectile, (void*)35}, // A_FireBFG
 	{(void*)0x0002D760, A_OldProjectile, (void*)34}, // A_FirePlasma
-	{(void*)0x0002D510, A_GunFlash, NULL},
+	{(void*)0x0002D510, A_DoomGunFlash, NULL},
 	{(void*)0x0002D460, A_CheckReload, NULL},
 	{(void*)0x00028A80, wpn_sound, (void*)5}, // A_OpenShotgun2
 	{(void*)0x00028A90, wpn_sound, (void*)7}, // A_LoadShotgun2

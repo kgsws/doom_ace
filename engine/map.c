@@ -11,6 +11,7 @@
 #include "think.h"
 #include "player.h"
 #include "hitscan.h"
+#include "saveload.h"
 #include "config.h"
 #include "demo.h"
 #include "sound.h"
@@ -177,6 +178,7 @@ static const map_attr_t clst_attr[] =
 	{.name = "flat", .type = IT_FLAT_LUMP, .offset = offsetof(map_cluster_t, lump_flat)},
 	{.name = "entertext", .type = IT_TEXT_CHAIN, .offset = offsetof(map_cluster_t, text_enter)},
 	{.name = "exittext", .type = IT_TEXT_CHAIN, .offset = offsetof(map_cluster_t, text_leave)},
+	{.name = "hub", .type = IT_FLAG, .offset = offsetof(map_cluster_t, flags), .flag = CLST_FLAG_HUB},
 	// terminator
 	{.name = NULL}
 };
@@ -293,7 +295,7 @@ static map_level_t *map_get_info(int32_t lump)
 	return &map_info_unnamed;
 }
 
-static map_cluster_t *map_find_cluster(uint32_t num)
+map_cluster_t *map_find_cluster(uint32_t num)
 {
 	if(!num)
 		return NULL;
@@ -371,7 +373,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		playerstarts[idx].angle = mt->angle;
 		playerstarts[idx].type = mt->type;
 		playerstarts[idx].options = mt->arg[0];
-		if(!deathmatch && !map_skip_stuff)
+		if(!deathmatch && map_skip_stuff != 1)
 			mobj_spawn_player(idx, mt->x * FRACUNIT, mt->y * FRACUNIT, angle);
 
 		return;
@@ -489,7 +491,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	mo = P_SpawnMobj(x, y, z, idx);
 	mo->spawnpoint.x = mt->x;
 	mo->spawnpoint.y = mt->y;
-	mo->spawnpoint.type = hack;
+	mo->spawnpoint.type = hack != mt->type ? hack : mo->type;
 	mo->angle = angle;
 
 	if(mt->flags & MTF_AMBUSH)
@@ -1045,9 +1047,9 @@ static inline void P_LoadVertexes(int32_t lump)
 	Z_Free(data);
 }
 
-__attribute((regparm(2),no_caller_saved_registers))
-uint32_t map_load_setup()
+uint32_t map_load_setup(uint32_t new_game)
 {
+	map_cluster_t *cluster;
 	uint32_t cache;
 
 	if(paused) 
@@ -1140,6 +1142,13 @@ uint32_t map_load_setup()
 	{
 		gameepisode = 1;
 		gamemap = 1;
+	}
+
+	if(new_game)
+	{
+		cluster = map_find_cluster(map_level_info->cluster);
+		if(cluster && cluster->flags & CLST_FLAG_HUB)
+			saveload_clear_cluster(cluster->idx);
 	}
 
 	// music
@@ -1243,6 +1252,10 @@ uint32_t map_load_setup()
 		// colored light
 		render_setup_light_color(0);
 	}
+
+	// autosave
+	if(!is_title_map && !map_skip_stuff)
+		save_auto(new_game);
 
 	// in the level
 	gamestate = GS_LEVEL;
@@ -1412,7 +1425,7 @@ void map_start_title()
 	memset(playeringame, 0, sizeof(uint32_t) * MAXPLAYERS);
 	playeringame[0] = 1;
 
-	map_load_setup();
+	map_load_setup(1);
 }
 
 //
@@ -2446,7 +2459,7 @@ static void do_new_game()
 	map_start_id = 0;
 	map_start_facing = 0;
 
-	map_load_setup();
+	map_load_setup(1);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -2475,7 +2488,7 @@ static void do_autostart_game()
 	map_start_id = 0;
 	map_start_facing = 0;
 
-	map_load_setup();
+	map_load_setup(1);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -2525,7 +2538,12 @@ static void set_world_done()
 			finaleflat = old_cl->lump_flat;
 			music_lump = old_cl->lump_music;
 		}
-	}
+		// check for cluster-hub
+		if(new_cl->flags & CLST_FLAG_HUB)
+			saveload_clear_cluster(new_cl->idx);
+	} else
+	if(old_cl && old_cl->flags & CLST_FLAG_HUB)
+		save_hub_level();
 
 	// finale?
 	if(finaletext || next > MAP_END_TO_TITLE)
@@ -2678,6 +2696,8 @@ static void do_completed()
 __attribute((regparm(2),no_caller_saved_registers))
 static void do_world_done()
 {
+	map_cluster_t *cluster;
+
 	if(!map_next_info)
 	{
 		// there's no next level
@@ -2687,7 +2707,10 @@ static void do_world_done()
 
 	gameaction = ga_nothing;
 	map_lump.wame = lumpinfo[map_next_info->lump].wame;
-	map_load_setup();
+
+	cluster = map_find_cluster(map_level_info->cluster);
+	if(!cluster || !(cluster->flags & CLST_FLAG_HUB) || load_hub_level())
+		map_load_setup(0);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -2852,6 +2875,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00032F83, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B40C},
 	{0x00032F88, CODE_HOOK | HOOK_UINT8, 0x74},
 	// replace call to 'P_SetupLevel' in 'G_DoLoadLevel'
+	{0x000200A9, CODE_HOOK | HOOK_UINT8, 0xC0},
 	{0x000200AA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)map_load_setup},
 	// disable line scroller and stuff cleanup in 'P_SpawnSpecials'
 	{0x00030155, CODE_HOOK | HOOK_JMP_DOOM, 0x000301E1},

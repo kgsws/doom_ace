@@ -15,6 +15,7 @@ void *writer_write(void *data, uint32_t size);
 void writer_add_u32(uint32_t value);
 void writer_add_u16(uint16_t value);
 void writer_add_wame(uint64_t *wame);
+void writer_add_from_fd(int32_t fd, uint32_t size);
 
 // reader
 

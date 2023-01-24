@@ -72,6 +72,8 @@ int32_t doom_lseek(int32_t,int32_t,int32_t) __attribute((regparm(2),no_caller_sa
 int32_t doom_filelength(int32_t) __attribute((regparm(2),no_caller_saved_registers));
 void *doom_fopen(const uint8_t*,const uint8_t*) __attribute((regparm(2),no_caller_saved_registers));
 void doom_fclose(void*) __attribute((regparm(2),no_caller_saved_registers));
+int32_t doom_unlink(void*) __attribute((regparm(2),no_caller_saved_registers));
+int32_t doom_access(void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 void doom_free(void*) __attribute((regparm(2),no_caller_saved_registers));
 void *doom_malloc(uint32_t) __attribute((regparm(2),no_caller_saved_registers));

@@ -1975,7 +1975,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		if(player->armortype && !mo_dmg_skip_armor)
 		{
 			uint32_t saved;
-			saved = ((damage * mobjinfo[player->armortype].armor.percent) + 75) / 100;
+			saved = ((damage * mobjinfo[player->armortype].armor.percent) + 50) / 100;
 			if(player->armorpoints <= saved)
 			{
 				saved = player->armorpoints;
@@ -2829,8 +2829,11 @@ void P_MobjThinker(mobj_t *mo)
 		if(mo->tics <= 0)
 			if(!P_SetMobjState(mo, mo->state->nextstate, mo->state->next_extra))
 				return;
-	} /* else
+	} else
 	{
+		if(mo->spawnpoint.type != mo->type)
+			return;
+
 		if(!(mo->flags1 & MF1_ISMONSTER))
 			return;
 
@@ -2838,18 +2841,17 @@ void P_MobjThinker(mobj_t *mo)
 			return;
 
 		mo->movecount++;
-
 		if(mo->movecount < 12*35)
 			return;
 
 		if(leveltime & 31)
 			return;
 
-		if(P_Random () > 4)
+		if(P_Random() > 4)
 			return;
 
 		P_NightmareRespawn(mo);
-	}*/
+	}
 }
 
 //

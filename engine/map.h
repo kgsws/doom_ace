@@ -49,6 +49,8 @@
 #define MAP_FLAG_SPAWN_WITH_WEAPON_RAISED	0x2000
 #define MAP_FLAG_NO_MONSTER_ACTIVATION	0x4000
 
+#define CLST_FLAG_HUB	0x0001
+
 enum
 {
 	CLUSTER_D1_EPISODE1,
@@ -255,6 +257,7 @@ typedef struct
 	int32_t lump_music;
 //	int32_t lump_patch; // TODO: make it work
 	int32_t lump_flat;
+	uint16_t flags;
 	uint8_t idx;
 } map_cluster_t;
 
@@ -299,6 +302,8 @@ extern map_lump_name_t map_lump;
 extern int32_t map_lump_idx;
 extern uint_fast8_t map_format;
 extern map_level_t *map_level_info;
+extern uint32_t num_maps;
+extern map_level_t *map_info;
 extern uint8_t map_start_id;
 extern uint8_t map_start_facing;
 extern uint16_t map_next_levelnum;
@@ -321,8 +326,10 @@ void init_map();
 
 void map_start_title();
 
-uint32_t map_load_setup() __attribute((regparm(2),no_caller_saved_registers));
+uint32_t map_load_setup(uint32_t);
 void map_setup_old(uint32_t skill, uint32_t episode, uint32_t level);
+
+map_cluster_t *map_find_cluster(uint32_t num);
 
 // thinker
 void think_line_scroll(line_scroll_t *ls) __attribute((regparm(2),no_caller_saved_registers));

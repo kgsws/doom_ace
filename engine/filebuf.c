@@ -245,3 +245,24 @@ void writer_add_u16(uint16_t value)
 	writer_add(&value, sizeof(uint16_t));
 }
 
+void writer_add_from_fd(int32_t fd, uint32_t size)
+{
+	writer_flush();
+
+	while(size)
+	{
+		uint32_t len = size > BUFFER_SIZE ? BUFFER_SIZE : size;
+		uint32_t ret;
+
+		ret = doom_read(fd, file_buffer, len);
+		if(ret != len)
+			engine_error("WRITER", "Read failed!");
+
+		ret = doom_write(ffd, file_buffer, len);
+		if(ret != len)
+			engine_error("WRITER", "Write failed!");
+
+		size -= len;
+	}
+}
+

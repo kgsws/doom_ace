@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "decorate.h"
 #include "inventory.h"
+#include "saveload.h"
 #include "mobj.h"
 #include "render.h"
 #include "weapon.h"
@@ -835,6 +836,10 @@ uint32_t respawn_check(uint32_t idx)
 	}
 	if(netgame)
 		return 1;
+
+	gameaction = ga_loadlevel;
+	load_auto();
+
 	return 0;
 }
 
@@ -852,6 +857,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace netgame check in 'G_DoReborn'
 	{0x00020C57, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)respawn_check},
 	{0x00020C5C, CODE_HOOK | HOOK_UINT16, 0xC085},
+	{0x00020C60, CODE_HOOK | HOOK_UINT16, 0x08EB},
 	{0x00020C71, CODE_HOOK | HOOK_UINT8, 0xF5},
 	// replace call to 'G_BuildTiccmd'
 	{0x0001D5B2, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)build_ticcmd},

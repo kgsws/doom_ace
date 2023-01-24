@@ -361,6 +361,18 @@ doom_fopen:
 doom_fclose:
 	.byte	0xE9
 	.4byte	0x0004043A
+////////////////////////////////// doom_unlink
+.section .text.doom_unlink
+.global doom_unlink
+doom_unlink:
+	.byte	0xE9
+	.4byte	0x000444FE
+////////////////////////////////// doom_access
+.section .text.doom_access
+.global doom_access
+doom_access:
+	.byte	0xE9
+	.4byte	0x0004107F
 ////////////////////////////////// dpmi_get_ram
 .section .text.dpmi_get_ram
 .global dpmi_get_ram
@@ -805,6 +817,12 @@ P_DeathThink:
 P_SpawnPlayerMissile:
 	.byte	0xE9
 	.4byte	0x00031D50
+////////////////////////////////// P_NightmareRespawn
+.section .text.P_NightmareRespawn
+.global P_NightmareRespawn
+P_NightmareRespawn:
+	.byte	0xE9
+	.4byte	0x00031390
 ////////////////////////////////// P_LineOpening
 .section .text.P_LineOpening
 .global P_LineOpening

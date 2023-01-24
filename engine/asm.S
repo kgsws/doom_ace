@@ -373,6 +373,12 @@ doom_unlink:
 doom_access:
 	.byte	0xE9
 	.4byte	0x0004107F
+////////////////////////////////// doom_mkdir
+.section .text.doom_mkdir
+.global doom_mkdir
+doom_mkdir:
+	.byte	0xE9
+	.4byte	0x000413F1
 ////////////////////////////////// dpmi_get_ram
 .section .text.dpmi_get_ram
 .global dpmi_get_ram

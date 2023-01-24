@@ -3,6 +3,8 @@
 
 #define SAVE_DIR	"ace_data"
 
+void init_saveload();
+
 void saveload_clear_cluster(uint32_t);
 
 void save_auto(uint32_t);

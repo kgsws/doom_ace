@@ -8,6 +8,7 @@
 #include "decorate.h"
 #include "animate.h"
 #include "render.h"
+#include "saveload.h"
 #include "draw.h"
 #include "sound.h"
 #include "map.h"
@@ -286,6 +287,9 @@ uint32_t ace_main()
 
 	// dehacked
 	init_dehacked();
+
+	// savedir
+	init_saveload();
 
 	//
 	// count EVERYTHING

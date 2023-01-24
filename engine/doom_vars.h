@@ -65,7 +65,7 @@ extern patch_t *hu_font[];
 // save / load
 extern uint8_t savename[];
 extern uint8_t savedesc[];
-extern uint32_t saveslot;
+extern int32_t saveslot;
 
 // game play
 extern uint32_t nomonsters;

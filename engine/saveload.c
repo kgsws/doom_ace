@@ -37,7 +37,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFBA	// increment with updates
+#define SAVE_VERSION	0xE58BAFBC	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -156,7 +156,8 @@ typedef struct
 	uint32_t kills;
 	uint32_t items;
 	uint32_t secret;
-	uint32_t rng;
+	uint16_t rng;
+	uint16_t playerstart;
 	// version is last
 	uint32_t version;
 } save_info_t;
@@ -169,7 +170,8 @@ typedef struct
 	uint32_t kills;
 	uint32_t items;
 	uint32_t secret;
-	uint32_t rng;
+	uint16_t rng;
+	uint16_t playerstart;
 	// version is last
 	uint32_t version;
 } save_level_t;
@@ -276,10 +278,6 @@ typedef struct
 	int16_t killcount;
 	uint16_t itemcount;
 	uint16_t secretcount;
-	//
-	int16_t spawn_x;
-	int16_t spawn_y;
-	int16_t spawn_a;
 	//
 	uint8_t extralight;
 	uint8_t usedown;
@@ -464,8 +462,7 @@ static save_name_t *save_name;
 
 static patch_t *preview_patch;
 static uint_fast8_t show_save_slot = -1;
-
-static uint_fast8_t is_hub_save;
+static uint_fast8_t autosave_type;
 
 static const uint8_t empty_slot[] = "[EMPTY]";
 
@@ -486,6 +483,10 @@ static bmp_head_t bmp_header =
 	.colorcount = 256,
 	.icolor = 256,
 };
+
+//
+
+static void do_load() __attribute((regparm(2),no_caller_saved_registers));
 
 //
 // funcs
@@ -1248,9 +1249,6 @@ static uint32_t svcb_thing(mobj_t *mo)
 	uint32_t state;
 	inventory_t *item;
 
-	if(is_hub_save && mo->player)
-		return 0;
-
 	writer_add_wame(&mo->info->alias);
 
 	thing.netid = mo->netid;
@@ -1407,10 +1405,6 @@ static inline void sv_put_players()
 		plr.state = pl->state;
 		plr.didsecret = pl->didsecret;
 
-		plr.spawn_x = playerstarts[i].x;
-		plr.spawn_y = playerstarts[i].y;
-		plr.spawn_a = playerstarts[i].angle;
-
 		if(!pl->mo->inventory || pl->inv_sel < 0)
 			plr.inv_sel = 0;
 		else
@@ -1482,29 +1476,13 @@ static void do_write_level()
 	sv_put_specials();
 	writer_add_u32(SAVE_VERSION);
 
-	// players - HUB (only save netids)
-	if(is_hub_save)
-	{
-		for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		{
-			if(playeringame[i] && players[i].mo)
-				writer_add_u32(players[i].mo->netid);
-			else
-				writer_add_u32(0);
-		}
-		writer_add_u32(SAVE_VERSION);
-	}
-
 	// things
 	sv_put_things();
 	writer_add_u32(SAVE_VERSION);
 
-	// players - normal
-	if(!is_hub_save)
-	{
-		sv_put_players();
-		writer_add_u32(SAVE_VERSION);
-	}
+	// players
+	sv_put_players();
+	writer_add_u32(SAVE_VERSION);
 
 	// mapped lines list
 	sv_put_mapped_lines();
@@ -1519,6 +1497,9 @@ void save_auto(uint32_t clear)
 {
 	uint8_t name[32];
 	save_level_t info;
+
+	// invalidate
+	autosave_type = 0;
 
 	doom_sprintf(name, SAVE_DIR "\\auto.asv");
 
@@ -1543,11 +1524,11 @@ void save_auto(uint32_t clear)
 	info.items = totalitems;
 	info.secret = totalsecret;
 	info.rng = prndindex;
+	info.playerstart = playerstarts[0].options;
 	info.version = SAVE_VERSION;
 	writer_add(&info, sizeof(save_level_t));
 
 	// level stuff
-	is_hub_save = 0;
 	do_write_level();
 
 	// DONE
@@ -1571,11 +1552,11 @@ void save_hub_level()
 	info.items = totalitems;
 	info.secret = totalsecret;
 	info.rng = prndindex;
+	info.playerstart = playerstarts[0].options;
 	info.version = SAVE_VERSION;
 	writer_add(&info, sizeof(save_level_t));
 
 	// level stuff
-	is_hub_save = 1;
 	do_write_level();
 
 	// DONE
@@ -1656,11 +1637,11 @@ void do_save()
 	info.items = totalitems;
 	info.secret = totalsecret;
 	info.rng = prndindex;
+	info.playerstart = playerstarts[0].options;
 
 	writer_add(&info, sizeof(info));
 
 	// level stuff
-	is_hub_save = 0;
 	do_write_level();
 
 	// HUB levels
@@ -2419,7 +2400,7 @@ static uint32_t ldcb_thing(mobj_t *mo)
 	mo->master = mobj_by_netid((uint32_t)mo->master);
 }
 
-static inline uint32_t ld_get_things()
+static inline uint32_t ld_get_things(uint32_t hub_data)
 {
 	save_thing_t thing;
 	uint64_t alias;
@@ -2451,6 +2432,34 @@ static inline uint32_t ld_get_things()
 //		if(thing.sprite != 0x31544E54 && (thing.frame & 0x1F) >= sprites[sprite].numframes)
 //			return 1; // this causes 'invalid save' on sprites with missing frames
 
+		if(thing.netid > mobj_netid)
+			mobj_netid = thing.netid;
+
+		if(hub_data && thing.player)
+		{
+			player_t *pl;
+
+			// skip the thing
+			thing.player--;
+			pl = players + thing.player;
+			if(pl->mo)
+				pl->mo->netid = thing.netid;
+
+			// skip inventory
+			while(1)
+			{
+				uint16_t count;
+				if(reader_get_wame(&alias))
+					return 1;
+				if(!alias)
+					break;
+				if(reader_get_u16(&count))
+					return 1;
+			}
+
+			continue;
+		}
+
 		if(thing.translation & 0x8000)
 		{
 			uint16_t tmp = thing.translation & 0x7FFF;
@@ -2466,9 +2475,6 @@ static inline uint32_t ld_get_things()
 			translation = blood_translation + tmp * 256;
 		} else
 			translation = NULL;
-
-		if(thing.netid > mobj_netid)
-			mobj_netid = thing.netid;
 
 		mo = P_SpawnMobj(thing.x, thing.y, thing.z, type);
 
@@ -2572,12 +2578,15 @@ static inline uint32_t ld_get_things()
 	return reader_get_u32(&type) || type != SAVE_VERSION;
 }
 
-static inline uint32_t ld_get_players()
+static inline uint32_t ld_get_players(uint32_t hub_data)
 {
 	save_player_t plr;
 
-	for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		playeringame[i] = 0;
+	if(!hub_data)
+	{
+		for(uint32_t i = 0; i < MAXPLAYERS; i++)
+			playeringame[i] = 0;
+	}
 
 	while(1)
 	{
@@ -2596,6 +2605,9 @@ static inline uint32_t ld_get_players()
 
 		if(reader_get(&plr, sizeof(plr)))
 			return 1;
+
+		if(hub_data)
+			continue;
 
 		memset(pl, 0, sizeof(player_t));
 		pl->info_flags = player_info[idx].flags;
@@ -2656,10 +2668,6 @@ static inline uint32_t ld_get_players()
 		pl->backpack = plr.backpack;
 		pl->state = plr.state;
 		pl->didsecret = plr.didsecret;
-
-		playerstarts[idx].x = plr.spawn_x;
-		playerstarts[idx].y = plr.spawn_y;
-		playerstarts[idx].angle = plr.spawn_a;
 
 		if(plr.inv_sel)
 		{
@@ -2762,37 +2770,13 @@ static uint32_t do_read_level(uint32_t hub_data)
 	if(ld_get_specials())
 		return 1;
 
-	// players - HUB
-	if(hub_data)
-	{
-		uint32_t value;
-
-		for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		{
-			if(reader_get_u32(&value))
-				return 1;
-			if(players[i].mo)
-				players[i].mo->netid = value;
-			if(value > mobj_netid)
-				mobj_netid = value;
-		}
-
-		if(reader_get_u32(&value))
-			return 1;
-		if(value != SAVE_VERSION)
-			return 1;
-	}
-
 	// things
-	if(ld_get_things())
+	if(ld_get_things(hub_data))
 		return 1;
 
-	// players - normal
-	if(!hub_data)
-	{
-		if(ld_get_players())
-			return 1;
-	}
+	// players
+	if(ld_get_players(hub_data))
+		return 1;
 
 	if(ld_get_mapped_lines())
 		return 1;
@@ -2830,6 +2814,21 @@ void load_auto()
 	uint8_t name[32];
 	save_level_t info;
 
+	// check
+	if(autosave_type)
+	{
+		if(autosave_type == 2)
+		{
+			saveslot = -1;
+			do_load();
+		} else
+		{
+			gameaction = ga_nothing;
+			load_hub_level();
+		}
+		return;
+	}
+
 	// name
 	doom_sprintf(name, SAVE_DIR "\\auto.asv");
 	if(doom_access(name, 4) < 0)
@@ -2848,7 +2847,19 @@ void load_auto()
 	if(info.mod_csum != dec_mod_csum)
 		goto error_fail;
 
+	map_start_id = info.playerstart;
+
 	map_skip_stuff = 1;
+
+	// invalidate player links
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		if(playeringame[i] && players[i].mo)
+		{
+			players[i].mo->player = NULL;
+			players[i].mo = NULL;
+		}
+	}
 
 	// load map
 	if(map_load_setup(0))
@@ -2902,7 +2913,19 @@ uint32_t load_hub_level()
 	if(info.mod_csum != dec_mod_csum)
 		goto error_fail;
 
+	// don't use map_start_id
+
 	map_skip_stuff = 2;
+
+	// invalidate player links
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		if(playeringame[i] && players[i].mo)
+		{
+			players[i].mo->player = NULL;
+			players[i].mo = NULL;
+		}
+	}
 
 	// load map
 	if(map_load_setup(0))
@@ -2923,10 +2946,8 @@ uint32_t load_hub_level()
 	map_skip_stuff = 0;
 	reader_close();
 
-	// also generate autosave
-	// HUD saves do not contain players at all
-	// no-copy approach would be better ...
-	save_auto(0);
+	// set as current autosave
+	autosave_type = 1;
 
 	return 0;
 
@@ -2947,7 +2968,8 @@ void do_load()
 	map_cluster_t *cluster;
 
 	// prepare save slot
-	generate_save_name(saveslot);
+	if(saveslot >= 0)
+		generate_save_name(saveslot);
 	gameaction = ga_nothing;
 
 	// open file
@@ -2969,6 +2991,24 @@ void do_load()
 	if(info.rng >= rng_max)
 		goto error_fail;
 
+	// load map
+	map_skip_stuff = 1;
+	gameepisode = 1;
+	gameskill = info.flags >> 13;
+	fastparm = info.flags & 1;
+	respawnparm = !!(info.flags & 2);
+	nomonsters = !!(info.flags & 4);
+	deathmatch = !!(info.flags & 8);
+	map_start_id = info.playerstart;
+
+	map_lump.wame = info.map_wame;
+
+	if(gameskill > sk_nightmare)
+		goto error_fail;
+
+//	netgame = 0; // TODO: net saves?
+	netdemo = 0;
+
 	// invalidate player links
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
@@ -2979,24 +3019,7 @@ void do_load()
 		}
 	}
 
-	// load map
-	map_skip_stuff = 1;
-	gameepisode = 1;
-	gameskill = info.flags >> 13;
-	fastparm = info.flags & 1;
-	respawnparm = !!(info.flags & 2);
-	nomonsters = !!(info.flags & 4);
-	deathmatch = !!(info.flags & 8);
-
-	map_lump.wame = info.map_wame;
-
-	if(gameskill > sk_nightmare)
-		goto error_fail;
-
-	netgame = 0; // TODO: net saves?
-	netdemo = 0;
-
-	if(map_load_setup(1))
+	if(map_load_setup(saveslot >= 0))
 	{
 		reader_close();
 		return;
@@ -3011,59 +3034,62 @@ void do_load()
 		goto error_fail;
 
 	// HUB levels
-	cluster = map_find_cluster(map_level_info->cluster);
-	if(cluster && cluster->flags & CLST_FLAG_HUB)
-	{
-		while(1)
-		{
-			uint8_t buff[512];
-			uint32_t size;
-			uint64_t wame;
-			int32_t fd;
-
-			if(reader_get_u32(&size))
-				goto error_fail;
-
-			if(!size || size > 64 * 1024 * 1024)
-				break;
-
-			if(reader_get_wame(&wame))
-				goto error_fail;
-
-			doom_sprintf(buff, SAVE_DIR "\\%.8s.asv", &wame);
-			fd = doom_open_WR(buff);
-			if(fd < 0)
-				goto error_fail;
-
-			while(size)
-			{
-				uint32_t len = size > sizeof(buff) ? sizeof(buff) : size;
-				uint32_t ret;
-
-				if(reader_get(buff, len))
-				{
-					doom_close(fd);
-					goto error_fail;
-				}
-
-				ret = doom_write(fd, buff, len);
-				if(ret != len)
-				{
-					doom_close(fd);
-					goto error_fail;
-				}
-
-				size -= len;
-			}
-
-			doom_close(fd);
-		}
-	}
+	if(saveslot >= 0)
 	{
 		uint32_t value;
 
+		cluster = map_find_cluster(map_level_info->cluster);
+		if(cluster && cluster->flags & CLST_FLAG_HUB)
+		{
+			while(1)
+			{
+				uint8_t buff[512];
+				uint32_t size;
+				uint64_t wame;
+				int32_t fd;
+
+				if(reader_get_u32(&size))
+					goto error_fail;
+
+				if(!size || size > 64 * 1024 * 1024)
+					break;
+
+				if(reader_get_wame(&wame))
+					goto error_fail;
+
+				doom_sprintf(buff, SAVE_DIR "\\%.8s.asv", &wame);
+				fd = doom_open_WR(buff);
+				if(fd < 0)
+					goto error_fail;
+
+				while(size)
+				{
+					uint32_t len = size > sizeof(buff) ? sizeof(buff) : size;
+					uint32_t ret;
+
+					if(reader_get(buff, len))
+					{
+						doom_close(fd);
+						goto error_fail;
+					}
+
+					ret = doom_write(fd, buff, len);
+					if(ret != len)
+					{
+						doom_close(fd);
+						goto error_fail;
+					}
+
+					size -= len;
+				}
+
+				doom_close(fd);
+			}
+		}
+
 		if(reader_get_u32(&value))
 			goto error_fail;
+
 		if(value != SAVE_VERSION)
 			goto error_fail;
 	}
@@ -3073,10 +3099,8 @@ void do_load()
 	map_skip_stuff = 0;
 	reader_close();
 
-	// generate new 'auto' save
-	// this is used to avoid constant overwriting of HUD saves
-	// no-copy approach would be better ...
-	save_auto(0);
+	// set as current autosave
+	autosave_type = 2;
 
 	return;
 
@@ -3122,6 +3146,14 @@ void select_load(uint32_t slot)
 	saveslot = slot;
 	gameaction = ga_loadgame;
 	M_ClearMenus();
+}
+
+//
+// init
+
+void init_saveload()
+{
+	doom_mkdir(SAVE_DIR);
 }
 
 //

@@ -191,7 +191,7 @@ static void *extra_stuff_next;
 
 static uint32_t extra_storage_size;
 
-uint32_t dec_mod_csum; // TODO
+uint32_t dec_mod_csum;
 
 //
 static uint32_t parse_damage();
@@ -826,8 +826,11 @@ dec_damage_type damage_type_config[NUM_DAMAGE_TYPES] =
 	[DAMAGE_NORMAL] = {.name = "normal"},
 	[DAMAGE_ICE] = {.name = "ice"},
 	[DAMAGE_FIRE] = {.name = "fire"},
-	[DAMAGE_DISINTEGRATE] = {.name = "disintegrate"},
-	[DAMAGE_ELECTRIC] = {.name = "electric"},
+	[DAMAGE_SLIME] = {.name = "slime"},
+	[DAMAGE_CRUSH] = {.name = "crush"},
+	[DAMAGE_FALLING] = {.name = "falling"},
+	[DAMAGE_INSTANT] = {.name = "instantdeath"},
+	[DAMAGE_TELEFRAG] = {.name = "telefrag"},
 };
 
 // actor inheritance
@@ -2442,6 +2445,10 @@ static uint32_t parse_states()
 	parse_next_state = NULL;
 	unfinished = 0;
 
+	// simple checksum
+	dec_mod_csum ^= parse_mobj_info->alias;
+	dec_mod_csum += num_states;
+
 	while(1)
 	{
 		kw = tp_get_keyword_lc();
@@ -2718,6 +2725,9 @@ skip_math:
 	// this is how ZDoom behaves
 	if(parse_next_state)
 		*parse_next_state = first_state;
+
+	// simple checksum
+	dec_mod_csum += num_states;
 
 	return 0;
 

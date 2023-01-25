@@ -184,6 +184,9 @@ uint32_t PIT_Explode(mobj_t *thing)
 	fixed_t dist;
 	uint32_t damage;
 
+	if(thing == bombspot)
+		return 1;
+
 	if(!(thing->flags & MF_SHOOTABLE))
 		return 1;
 
@@ -1349,8 +1352,7 @@ void A_OldProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		uint32_t state;
 		state = pl->readyweapon->st_weapon.flash;
 		state += P_Random() & 1;
-		pl->psprites[1].state = states + state;
-		pl->psprites[1].tics = states[state].tics;
+		weapon_set_state(pl, 1, pl->readyweapon, state, 0);
 	}
 
 	inventory_take(mo, ammo, count);
@@ -1378,7 +1380,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	player_t *pl = mo->player;
 	uint16_t ammo = pl->readyweapon->weapon.ammo_type[0];
 	uint16_t hs, vs;
-	state_t *state;
+	uint32_t state;
 	angle_t angle;
 
 	if(sound == 4)
@@ -1389,7 +1391,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!inventory_take(mo, ammo, count))
 		return;
 
-	state = states + pl->readyweapon->st_weapon.flash;
+	state = pl->readyweapon->st_weapon.flash;
 
 	switch(sound)
 	{
@@ -1418,8 +1420,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->animation != ANIM_MISSILE && mo->info->state_missile)
 		mobj_set_animation(mo, ANIM_MISSILE);
 
-	pl->psprites[1].state = state;
-	pl->psprites[1].tics = state->tics;
+	weapon_set_state(pl, 1, pl->readyweapon, state, 0);
 
 	angle = mo->angle;
 
@@ -1632,12 +1633,7 @@ void A_DoomGunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 
 	state = pl->readyweapon->st_weapon.flash;
-	if(!state)
-		return;
-
-	// just hope that this is called in 'weapon PSPR'
-	pl->psprites[1].state = states + state;
-	pl->psprites[1].tics = 1;//states[state].tics;
+	weapon_set_state(pl, 1, pl->readyweapon, state, 0);
 }
 
 //

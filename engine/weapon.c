@@ -40,7 +40,7 @@ uint32_t weapon_change_state1(mobj_t *mo, uint32_t state, uint16_t extra)
 	mo->player->psprites[1].extra = extra;
 }
 
-static void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint32_t state, uint16_t extra)
+void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint32_t state, uint16_t extra)
 {
 	// normal state changes
 	state_t *st;

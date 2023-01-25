@@ -37,7 +37,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFBC	// increment with updates
+#define SAVE_VERSION	0xE58BAFBD	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -165,7 +165,6 @@ typedef struct
 typedef struct
 {
 	uint32_t magic;
-	uint32_t mod_csum;
 	uint32_t leveltime;
 	uint32_t kills;
 	uint32_t items;
@@ -1518,7 +1517,6 @@ void save_auto(uint32_t clear)
 
 	// header
 	info.magic = SAVE_MAGIC;
-	info.mod_csum = dec_mod_csum;
 	info.leveltime = leveltime;
 	info.kills = totalkills;
 	info.items = totalitems;
@@ -1546,7 +1544,6 @@ void save_hub_level()
 
 	// header
 	info.magic = SAVE_MAGIC;
-	info.mod_csum = dec_mod_csum;
 	info.leveltime = leveltime;
 	info.kills = totalkills;
 	info.items = totalitems;
@@ -2844,8 +2841,6 @@ void load_auto()
 		goto error_fail;
 	if(info.version != SAVE_VERSION)
 		goto error_fail;
-	if(info.mod_csum != dec_mod_csum)
-		goto error_fail;
 
 	map_start_id = info.playerstart;
 
@@ -2909,8 +2904,6 @@ uint32_t load_hub_level()
 	if(info.magic != SAVE_MAGIC)
 		goto error_fail;
 	if(info.version != SAVE_VERSION)
-		goto error_fail;
-	if(info.mod_csum != dec_mod_csum)
 		goto error_fail;
 
 	// don't use map_start_id

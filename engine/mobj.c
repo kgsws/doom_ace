@@ -1066,11 +1066,12 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 			if(!(thing->flags & MF_NOBLOOD) && !(tmthing->flags2 & MF2_BLOODLESSIMPACT))
 			{
 				mobj_t *mo;
-				mo = P_SpawnMobj(tmthing->x, tmthing->y, tmthing->z + tmthing->height / 2, tmthing->info->blood_type);
+				mo = P_SpawnMobj(thing->x, thing->y, thing->z + thing->height / 2, thing->info->blood_type);
+				mo->inside = thing;
 				mo->momx = (P_Random() - P_Random()) << 12;
 				mo->momy = (P_Random() - P_Random()) << 12;
 				if(!(mo->flags2 & MF2_DONTTRANSLATE))
-					mo->translation = tmthing->info->blood_trns;
+					mo->translation = thing->info->blood_trns;
 			}
 			if(thing->flags1 & MF1_PUSHABLE && !(tmthing->flags1 & MF1_CANNOTPUSH))
 			{
@@ -1307,13 +1308,23 @@ uint32_t pit_change_sector(mobj_t *thing)
 
 	if(crushchange && !(leveltime & 3))
 	{
-		mobj_damage(thing, NULL, NULL, crushchange & 0x8000 ? crushchange & 0x7FFF : 10, NULL); // TODO: 'crushchange' sould contain damage value directly
+		uint32_t damage;
+
+		if(crushchange & 0x8000) // TODO: 'crushchange' sould contain damage value directly
+			damage = crushchange & 0x7FFF;
+		else
+			damage = 10;
+
+		damage = DAMAGE_WITH_TYPE(damage, DAMAGE_CRUSH);
+
+		mobj_damage(thing, NULL, NULL, damage, NULL);
 
 		if(!(thing->flags & MF_NOBLOOD))
 		{
 			mobj_t *mo;
 
 			mo = P_SpawnMobj(thing->x, thing->y, thing->z + thing->height / 2, thing->info->blood_type);
+			mo->inside = thing;
 			mo->momx = (P_Random() - P_Random()) << 12;
 			mo->momy = (P_Random() - P_Random()) << 12;
 			if(!(mo->flags2 & MF2_DONTTRANSLATE))
@@ -2118,7 +2129,7 @@ static void mobj_fall_damage(mobj_t *mo)
 			!(map_level_info->flags & MAP_FLAG_MONSTER_FALL_DMG)
 		)
 	){
-		mobj_damage(mo, NULL, NULL, 1000000, NULL);
+		mobj_damage(mo, NULL, NULL, DAMAGE_WITH_TYPE(1000000, DAMAGE_FALLING), NULL);
 		return;
 	}
 
@@ -2131,7 +2142,7 @@ static void mobj_fall_damage(mobj_t *mo)
 	)
 		damage = mo->health - 1;
 
-	mobj_damage(mo, NULL, NULL, damage, NULL);
+	mobj_damage(mo, NULL, NULL, DAMAGE_WITH_TYPE(damage, DAMAGE_FALLING), NULL);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -2461,7 +2472,7 @@ uint32_t PIT_StompThing(mobj_t *thing)
 	if(abs(thing->y - tmthing->y) >= blockdist)
 		return 1;
 
-	mobj_damage(thing, tmthing, tmthing, 1000000, NULL);
+	mobj_damage(thing, tmthing, tmthing, DAMAGE_WITH_TYPE(1000000, DAMAGE_TELEFRAG), NULL);
 
 	return 1;
 }
@@ -2831,7 +2842,7 @@ void P_MobjThinker(mobj_t *mo)
 				return;
 	} else
 	{
-		if(mo->spawnpoint.type != mo->type)
+		if(mo->spawnpoint.options != mo->type)
 			return;
 
 		if(!(mo->flags1 & MF1_ISMONSTER))

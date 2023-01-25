@@ -375,10 +375,8 @@ static void player_sector_damage(player_t *pl, sector_extra_t *se)
 	)
 		return;
 
-	if(se->damage.amount == 0x7FFF)
+	if((se->damage.type & 0x7F) == DAMAGE_INSTANT)
 		damage = 1000000;
-	else
-		damage = se->damage.amount;
 
 	damage = DAMAGE_WITH_TYPE(damage, se->damage.type & 0x7F);
 

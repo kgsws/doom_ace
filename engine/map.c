@@ -491,7 +491,8 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	mo = P_SpawnMobj(x, y, z, idx);
 	mo->spawnpoint.x = mt->x;
 	mo->spawnpoint.y = mt->y;
-	mo->spawnpoint.type = hack != mt->type ? hack : mo->type;
+	mo->spawnpoint.type = hack;
+	mo->spawnpoint.options = mo->type;
 	mo->angle = angle;
 
 	if(mt->flags & MTF_AMBUSH)
@@ -507,7 +508,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 				mo->state = st;
 				mo->sprite = st->sprite;
 				mo->frame = st->frame;
-				mo->tics = st->tics;
+				mo->tics = st->tics == 0xFFFF ? -1 : st->tics;
 			}
 			mo->flags1 |= MF1_DORMANT;
 		} else
@@ -782,12 +783,12 @@ static inline void parse_sectors()
 			case 85: // hDamage_Sludge
 				se->damage.amount = 4;
 				se->damage.tics = 32;
-				se->damage.type = DAMAGE_NORMAL;
+				se->damage.type = DAMAGE_SLIME;
 			break;
 			case 115: // Damage_InstantDeath
-				se->damage.amount = 0x7FFF;
+				se->damage.amount = 1;
 				se->damage.tics = 1;
-				se->damage.type = DAMAGE_NORMAL;
+				se->damage.type = DAMAGE_INSTANT;
 			break;
 			case 196: // Sector_Heal
 				se->damage.amount = -1;
@@ -800,17 +801,17 @@ static inline void parse_sectors()
 			case 256:
 				se->damage.amount = 5;
 				se->damage.tics = 32;
-				se->damage.type = DAMAGE_NORMAL;
+				se->damage.type = DAMAGE_SLIME;
 			break;
 			case 512:
 				se->damage.amount = 10;
 				se->damage.tics = 32;
-				se->damage.type = DAMAGE_NORMAL;
+				se->damage.type = DAMAGE_SLIME;
 			break;
 			case 256 | 512:
 				se->damage.amount = 20;
 				se->damage.tics = 32;
-				se->damage.type = DAMAGE_NORMAL;
+				se->damage.type = DAMAGE_SLIME;
 				se->damage.leak = 5;
 			break;
 		}

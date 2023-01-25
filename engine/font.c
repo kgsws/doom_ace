@@ -610,20 +610,21 @@ void hud_font_init()
 		head->space = 4;
 		head->height = 12;
 		head->num_chars = count;
-		head->offset = sizeof(bmf_head_t) + 256 * 2;
+		head->offset = sizeof(bmf_head_t) + 255 * 2; // index zero is skipped
 
 		ptr = smallfont + sizeof(bmf_head_t);
 
-		for(uint32_t i = 0; i < 256; i++)
+		for(uint32_t i = 1; i < 256; i++)
 		{
 			uint32_t top;
+			uint32_t ii = i == r_color_duplicate ? 0 : i;
 
-			// dont use r_palette[i].l here
-			top = r_palette[i].r;
-			if(top < r_palette[i].g)
-				top = r_palette[i].g;
-			if(top < r_palette[i].b)
-				top = r_palette[i].b;
+			// dont use r_palette[ii].l here
+			top = r_palette[ii].r;
+			if(top < r_palette[ii].g)
+				top = r_palette[ii].g;
+			if(top < r_palette[ii].b)
+				top = r_palette[ii].b;
 
 			ptr[0] = i; // same palette index
 			ptr[1] = 1 + (top * 30) / 255;

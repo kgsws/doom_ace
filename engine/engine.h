@@ -173,8 +173,8 @@ typedef uint32_t angle_t;
 
 #define MLI_3D_MIDTEX	0x01
 #define MLI_IS_POLY	0x02
-#define MLI_EXTRA_FRONT	0x40
-#define MLI_EXTRA_BACK	0x80
+#define MLI_EXTRA_FRONT	0x04
+#define MLI_EXTRA_BACK	0x08
 
 #define MAXCEILINGS	30
 #define MAXPLATS	30

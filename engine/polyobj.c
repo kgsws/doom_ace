@@ -617,11 +617,14 @@ void think_poly_move(poly_move_t *pm)
 			else
 				seq = pm->up_seq;
 
-			if(seq && seq->stop)
-				S_StartSound((mobj_t*)&poly->soundorg, seq->stop);
-			else
-			if(!(seq->repeat & SSQ_NO_STOP))
-				S_StopSound((mobj_t*)&poly->soundorg);
+			if(seq)
+			{
+				if(seq->stop)
+					S_StartSound((mobj_t*)&poly->soundorg, seq->stop);
+				else
+				if(!(seq->repeat & SSQ_NO_STOP))
+					S_StopSound((mobj_t*)&poly->soundorg);
+			}
 		}
 
 		if(pm->delay && !pm->dir)
@@ -781,11 +784,14 @@ void think_poly_rotate(poly_rotate_t *pr)
 			else
 				seq = pr->up_seq;
 
-			if(seq && seq->stop)
-				S_StartSound((mobj_t*)&poly->soundorg, seq->stop);
-			else
-			if(!(seq->repeat & SSQ_NO_STOP))
-				S_StopSound((mobj_t*)&poly->soundorg);
+			if(seq)
+			{
+				if(seq->stop)
+					S_StartSound((mobj_t*)&poly->soundorg, seq->stop);
+				else
+				if(!(seq->repeat & SSQ_NO_STOP))
+					S_StopSound((mobj_t*)&poly->soundorg);
+			}
 		}
 
 		if(pr->delay && !pr->dir)

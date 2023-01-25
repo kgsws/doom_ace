@@ -376,8 +376,11 @@ uint32_t P_CheckSight(mobj_t *t1, mobj_t *t2)
 	botplane = NULL;
 
 	sightzstart = t1->z + t1->height - (t1->height >> 2);
-	topslope = (t2->z + t2->height) - sightzstart;
 	botslope = t2->z - sightzstart;
+	if(t2->height)
+		topslope = (t2->z + t2->height) - sightzstart;
+	else
+		topslope = botslope + 1;
 
 	pl = t1->subsector->sector->exceiling;
 	while(pl)

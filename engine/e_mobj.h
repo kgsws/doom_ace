@@ -91,6 +91,7 @@ typedef struct
 #define FF_FULLBRIGHT	0x8000
 #define FF_FAST	0x4000
 #define FF_CANRAISE	0x2000
+#define FF_NODELAY	0x1000
 
 // player flags
 #define PF_IS_FROZEN	0x00000001

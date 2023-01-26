@@ -1458,6 +1458,87 @@ static inline uint32_t do_ChangeCamera()
 	return 1;
 }
 
+static inline uint32_t do_GlassBreak(line_t *ln)
+{
+	fixed_t x, y;
+	int32_t type;
+	angle_t angle;
+	mobj_t *mo;
+
+	if(!ln)
+		return 0;
+
+	ln->flags &= ~(ML_BLOCKING | ML_BLOCK_ALL);
+	type = ln->flags & ML_REPEATABLE;
+	do_line_switch(ln, type);
+	if(ln->backsector)
+		do_line_switch(ln, type | 1);
+
+	if(spec_arg[0])
+		return 0;
+
+	if(!spec_arg[1])
+		return 0;
+
+	type = mobj_by_spawnid(spec_arg[1]);
+	if(type < 0)
+		return 0;
+
+	x = ln->v1->x + (ln->v2->x - ln->v1->x) / 2;
+	y = ln->v1->y + (ln->v2->y - ln->v1->y) / 2;
+	angle = R_PointToAngle2(ln->v1->x, ln->v1->y, ln->v2->x, ln->v2->y);
+
+	angle >>= ANGLETOFINESHIFT;
+	x += finesine[angle] * 2;
+	y -= finecosine[angle] * 2;
+
+	for(uint32_t i = 0; i < 7; i++)
+	{
+		mo = P_SpawnMobj(x, y, ONFLOORZ, type);
+		mo->angle = P_Random() << 24;
+		mo->z = mo->subsector->sector->floorheight + 24 * FRACUNIT;
+
+		angle = mo->angle >> ANGLETOFINESHIFT;
+		mo->momx = (finecosine[angle] * P_Random()) >> 6;
+		mo->momy = (finesine[angle] * P_Random()) >> 6;
+		mo->momz = P_Random() << 11;
+
+		mo->tics = P_Random() / 2;
+	}
+
+	return 0;
+}
+
+static uint32_t do_SetBlocking(line_t *li, line_t *ln)
+{
+	static uint16_t flag_table[] =
+	{
+		ML_BLOCKING,
+		ML_BLOCKMONSTERS,
+		ML_BLOCK_PLAYER,
+		0, // unsupported - floaters
+		0, // unsupported - projectile
+		ML_BLOCK_ALL,
+		0xFFFF
+	};
+	uint32_t set = 0;
+	uint32_t clr = 0;
+	uint32_t i, bit;
+
+	for(i = 0, bit = 1; flag_table[i] != 0xFFFF; i++, bit <<= 1)
+	{
+		if(spec_arg[1] & bit)
+			set |= flag_table[i];
+		if(spec_arg[2] & bit)
+			clr |= flag_table[i];
+	}
+
+	li->flags &= ~clr;
+	li->flags |= set;
+
+	return 1;
+}
+
 //
 // tag handler
 
@@ -1511,6 +1592,23 @@ static void handle_tid(line_t *ln, int32_t tid, void (*cb)(mobj_t*))
 
 		cb(mo);
 	}
+}
+
+//
+// lid handler
+
+static uint32_t handle_lid(line_t *ln, uint32_t lid, uint32_t (*cb)(line_t*,line_t*))
+{
+	uint32_t success = 0;
+
+	for(uint32_t i = 0; i < numlines; i++)
+	{
+		line_t *li = lines + i;
+		if(li->id == lid)
+			success |= cb(li, ln);
+	}
+
+	return success;
 }
 
 //
@@ -1721,6 +1819,12 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		break;
 		case 44: // Ceiling_CrushStop
 			spec_success = handle_tag(ln, spec_arg[0], act_Ceiling_CrushStop);
+		break;
+		case 49: // GlassBreak
+			spec_success = do_GlassBreak(ln);
+		break;
+		case 55: // Line_SetBlocking
+			spec_success = handle_lid(ln, spec_arg[0], do_SetBlocking);
 		break;
 		case 62: // Plat_DownWaitUpStay
 			value_mult = -1;

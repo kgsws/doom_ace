@@ -2687,6 +2687,9 @@ skip_math:
 			if(!strcmp(kw, "fast"))
 				flags |= FF_FAST;
 			else
+			if(!strcmp(kw, "nodelay"))
+				flags |= FF_NODELAY;
+			else
 			if(!strcmp(kw, "canraise"))
 				flags |= FF_CANRAISE;
 			else

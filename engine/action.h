@@ -312,6 +312,26 @@ typedef struct
 
 //
 
+#define WARPF_ABSOLUTEOFFSET	0x0001
+#define WARPF_ABSOLUTEANGLE	0x0002
+#define WARPF_ABSOLUTEPOSITION	0x0004
+#define WARPF_USECALLERANGLE	0x0008
+#define WARPF_NOCHECKPOSITION	0x0010
+#define WARPF_STOP	0x0020
+#define WARPF_MOVEPTR	0x0040
+#define WARPF_COPYVELOCITY	0x0080
+#define WARPF_COPYPITCH	0x0100
+
+typedef struct
+{
+	fixed_t x, y, z;
+	angle_t angle;
+	uint16_t flags;
+	uint8_t ptr;
+} args_Warp_t;
+
+//
+
 #define XF_HURTSOURCE	1
 #define XF_NOTMISSILE	2
 #define XF_THRUSTZ	4

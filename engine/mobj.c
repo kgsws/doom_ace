@@ -95,7 +95,7 @@ uint32_t P_SetMobjState(mobj_t *mo, uint32_t state, uint16_t extra)
 		if(st->sprite != 0xFFFF)
 		{
 			mo->sprite = st->sprite;
-			mo->frame = st->frame;
+			mo->frame = st->frame & ~FF_NODELAY;
 		}
 
 		if(st->tics != 0xFFFF)
@@ -2831,6 +2831,14 @@ void P_MobjThinker(mobj_t *mo)
 		P_ZMovement(mo);
 		if(mo->thinker.function == (void*)-1)
 			return;
+	}
+
+	// first state
+	if(mo->frame & FF_NODELAY)
+	{
+		mo->frame &= ~FF_NODELAY;
+		if(mo->state->acp)
+			mo->state->acp(mo, mo->state, P_SetMobjState);
 	}
 
 	// animate

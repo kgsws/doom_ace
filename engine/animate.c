@@ -256,7 +256,7 @@ static uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t d
 			// check for animation
 			animate = frame != swtch->frame + swtch->count - 1;
 
-			if(animate || state)
+			if(animate || (state & ML_REPEATABLE))
 			{
 				if(slot->dest == dest)
 				{
@@ -278,8 +278,11 @@ static uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t d
 			slot->soundorg.y = y;
 			slot->line = line;
 
-			slot->soundtick = BUTTON_SNDTICK;
-			S_StartSound((mobj_t*)&slot->soundorg, swtch->sound);
+			if(!(state & 1))
+			{
+				slot->soundtick = BUTTON_SNDTICK;
+				S_StartSound((mobj_t*)&slot->soundorg, swtch->sound);
+			}
 		}
 
 		// change texture
@@ -783,7 +786,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 void do_line_switch(line_t *ln, uint32_t repeat)
 {
 	void *ptr = switch_ptr;
-	side_t *side = sides + ln->sidenum[0];
+	side_t *side = sides + ln->sidenum[repeat & 1];
 
 	if(!repeat)
 		ln->special = 0;

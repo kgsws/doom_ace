@@ -3803,7 +3803,7 @@ static const dec_args_t args_KeenDie =
 	.def = &def_KeenDie,
 	.arg =
 	{
-		{handle_u16, offsetof(args_singleFixed_t, value), 2},
+		{handle_u16, offsetof(args_singleU16_t, value), 2},
 		// terminator
 		{NULL}
 	}
@@ -3842,6 +3842,140 @@ void A_KeenDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	spec_arg[4] = 0;
 
 	spec_activate(NULL, mo, 0);
+}
+
+//
+// A_Warp
+
+static const dec_arg_flag_t flags_Warp[] =
+{
+	MAKE_FLAG(WARPF_ABSOLUTEOFFSET),
+	MAKE_FLAG(WARPF_ABSOLUTEANGLE),
+	MAKE_FLAG(WARPF_ABSOLUTEPOSITION),
+	MAKE_FLAG(WARPF_USECALLERANGLE),
+	MAKE_FLAG(WARPF_NOCHECKPOSITION),
+	MAKE_FLAG(WARPF_STOP),
+	MAKE_FLAG(WARPF_MOVEPTR),
+	MAKE_FLAG(WARPF_COPYVELOCITY),
+	MAKE_FLAG(WARPF_COPYPITCH),
+	// terminator
+	{NULL}
+};
+
+static const dec_args_t args_Warp =
+{
+	.size = sizeof(args_Warp_t),
+	.arg =
+	{
+		{handle_pointer, offsetof(args_Warp_t, ptr)},
+		{handle_fixed_rng, offsetof(args_Warp_t, x), 1},
+		{handle_fixed_rng, offsetof(args_Warp_t, y), 1},
+		{handle_fixed_rng, offsetof(args_Warp_t, z), 1},
+		{handle_angle, offsetof(args_Warp_t, angle), 1},
+		{handle_flags, offsetof(args_Warp_t, flags), 1, flags_Warp},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_Warp(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_Warp_t *arg = st->arg;
+	mobj_t *target;
+	fixed_t x, y, z;
+	fixed_t bx, by, bz;
+
+	target = resolve_ptr(mo, arg->ptr);
+	if(!target)
+		return;
+
+	if(arg->flags & WARPF_MOVEPTR)
+	{
+		mobj_t *tmp = target;
+		target = mo;
+		mo = tmp;
+	}
+
+	bx = mo->x;
+	by = mo->y;
+	bz = mo->z;
+
+	if(arg->flags & WARPF_ABSOLUTEANGLE)
+		mo->angle = arg->angle;
+	else
+	if(arg->flags & WARPF_USECALLERANGLE)
+		mo->angle += arg->angle;
+	else
+		mo->angle = target->angle + arg->angle;
+
+	if(arg->flags & WARPF_STOP)
+	{
+		mo->momx = 0;
+		mo->momy = 0;
+		mo->momz = 0;
+	} else
+	if(arg->flags & WARPF_COPYVELOCITY)
+	{
+		mo->momx = target->momx;
+		mo->momy = target->momy;
+		mo->momz = target->momz;
+	}
+
+	if(arg->flags & WARPF_COPYPITCH)
+		mo->pitch = target->pitch;
+
+	z = reslove_fixed_rng(arg->z);
+
+	if(arg->flags & WARPF_ABSOLUTEPOSITION)
+	{
+		x = reslove_fixed_rng(arg->x);
+		y = reslove_fixed_rng(arg->y);
+	} else
+	{
+		fixed_t ox, oy;
+
+		ox = reslove_fixed_rng(arg->x);
+		oy = reslove_fixed_rng(arg->y);
+
+		if(arg->flags & WARPF_ABSOLUTEOFFSET)
+		{
+			x = mo->x + ox;
+			y = mo->y + oy;
+		} else
+		{
+			fixed_t cc, ss;
+			angle_t ang = mo->angle >> ANGLETOFINESHIFT;
+			ss = finesine[ang];
+			cc = finecosine[ang];
+			x = FixedMul(ox, cc);
+			x += FixedMul(oy, ss);
+			y = FixedMul(ox, ss);
+			y -= FixedMul(oy, cc);
+			x += mo->x;
+			y += mo->y;
+		}
+	}
+
+	P_UnsetThingPosition(mo);
+	mo->x = x;
+	mo->y = y;
+	P_SetThingPosition(mo);
+
+	if(arg->flags & WARPF_ABSOLUTEPOSITION)
+		mo->z = z;
+	else
+		mo->z += z;
+
+	if(arg->flags & WARPF_NOCHECKPOSITION)
+		return;
+
+	if(P_TryMove(mo, mo->x, mo->y))
+		return;
+
+	mo->x = bx;
+	mo->y = by;
+	mo->z = bz;
 }
 
 //
@@ -4707,6 +4841,7 @@ static const dec_action_t mobj_action[] =
 	{"a_rearrangepointers", A_RearrangePointers, &args_RearrangePointers},
 	{"a_braindie", A_BrainDie},
 	{"a_keendie", A_KeenDie, &args_KeenDie},
+	{"a_warp", A_Warp, &args_Warp},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	{"a_explode", A_Explode, &args_Explode},

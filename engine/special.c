@@ -15,6 +15,7 @@
 #include "animate.h"
 #include "generic.h"
 #include "polyobj.h"
+#include "saveload.h"
 #include "special.h"
 
 enum
@@ -1765,6 +1766,10 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			}
 			if(value_mult)
 				spec_success = handle_tag(ln, spec_arg[0], act_Door_Raise);
+		break;
+		case 15: // Autosave
+			save_auto(0);
+			spec_success = 1;
 		break;
 		case 19: // Thing_Stop
 			handle_tid(ln, spec_arg[0], act_Thing_Stop);

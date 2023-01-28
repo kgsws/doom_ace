@@ -1670,6 +1670,9 @@ void do_save()
 	writer_add_u32(0);
 	writer_add_u32(SAVE_VERSION);
 
+	// set as current autosave
+	autosave_type = 2;
+
 	// DONE
 	writer_close();
 }
@@ -2979,7 +2982,7 @@ void do_load()
 		goto error_fail;
 	if(info.version != SAVE_VERSION)
 		goto error_fail;
-	if(info.mod_csum != dec_mod_csum)
+	if(!dev_mode && info.mod_csum != dec_mod_csum)
 		goto error_fail;
 	if(info.rng >= rng_max)
 		goto error_fail;
@@ -3031,53 +3034,49 @@ void do_load()
 	{
 		uint32_t value;
 
-		cluster = map_find_cluster(map_level_info->cluster);
-		if(cluster && cluster->flags & CLST_FLAG_HUB)
+		while(1)
 		{
-			while(1)
+			uint8_t buff[512];
+			uint32_t size;
+			uint64_t wame;
+			int32_t fd;
+
+			if(reader_get_u32(&size))
+				goto error_fail;
+
+			if(!size || size > 64 * 1024 * 1024)
+				break;
+
+			if(reader_get_wame(&wame))
+				goto error_fail;
+
+			doom_sprintf(buff, SAVE_DIR "\\%.8s.asv", &wame);
+			fd = doom_open_WR(buff);
+			if(fd < 0)
+				goto error_fail;
+
+			while(size)
 			{
-				uint8_t buff[512];
-				uint32_t size;
-				uint64_t wame;
-				int32_t fd;
+				uint32_t len = size > sizeof(buff) ? sizeof(buff) : size;
+				uint32_t ret;
 
-				if(reader_get_u32(&size))
-					goto error_fail;
-
-				if(!size || size > 64 * 1024 * 1024)
-					break;
-
-				if(reader_get_wame(&wame))
-					goto error_fail;
-
-				doom_sprintf(buff, SAVE_DIR "\\%.8s.asv", &wame);
-				fd = doom_open_WR(buff);
-				if(fd < 0)
-					goto error_fail;
-
-				while(size)
+				if(reader_get(buff, len))
 				{
-					uint32_t len = size > sizeof(buff) ? sizeof(buff) : size;
-					uint32_t ret;
-
-					if(reader_get(buff, len))
-					{
-						doom_close(fd);
-						goto error_fail;
-					}
-
-					ret = doom_write(fd, buff, len);
-					if(ret != len)
-					{
-						doom_close(fd);
-						goto error_fail;
-					}
-
-					size -= len;
+					doom_close(fd);
+					goto error_fail;
 				}
 
-				doom_close(fd);
+				ret = doom_write(fd, buff, len);
+				if(ret != len)
+				{
+					doom_close(fd);
+					goto error_fail;
+				}
+
+				size -= len;
 			}
+
+			doom_close(fd);
 		}
 
 		if(reader_get_u32(&value))

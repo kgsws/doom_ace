@@ -2024,6 +2024,7 @@ void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			continue;
 
 		item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), drop->type);
+		item->inside = mo;
 		item->flags |= MF_DROPPED;
 		item->angle = P_Random() << 24;
 		item->momx = FRACUNIT - (P_Random() << 9);
@@ -2070,7 +2071,7 @@ void A_Look(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 seeyou:
 	if(mo->info->seesound)
-		S_StartSound(mo->flags & MF1_BOSS ? NULL : mo, mo->info->seesound);
+		S_StartSound(mo->flags1 & MF1_BOSS ? NULL : mo, mo->info->seesound);
 
 	mobj_set_animation(mo, ANIM_SEE);
 }
@@ -2175,37 +2176,37 @@ static const dec_args_t args_SpawnProjectile =
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	const args_SpawnProjectile_t *arg = st->arg;
 	angle_t angle = mo->angle;
 	fixed_t pitch = 0;
 	int32_t dist = 0;
 	fixed_t x, y, z, speed;
 	mobj_t *th, *target;
-	const args_SpawnProjectile_t *arg = st->arg;
+	uint32_t flags = arg->flags;
 
 	x = mo->x;
 	y = mo->y;
 	z = mo->z + arg->spawnheight;
 
-	if(arg->flags & CMF_TRACKOWNER && mo->flags & MF_MISSILE)
+	if(flags & CMF_TRACKOWNER && mo->flags & MF_MISSILE)
 	{
 		mo = mo->target;
 		if(!mo)
 			return;
 	}
 
-	if(arg->flags & CMF_AIMDIRECTION)
+	if(flags & CMF_AIMDIRECTION)
 		target = NULL;
 	else
-	{
 		target = resolve_ptr(mo, arg->ptr);
-		if(!target)
-			return;
-	}
 
-	if(target && arg->flags & CMF_CHECKTARGETDEAD && target->health <= 0)
+	if(!target)
+		flags |= CMF_AIMDIRECTION;
+
+	if(flags & CMF_CHECKTARGETDEAD && (!target || target->health <= 0))
 		return;
 
-	if(target && arg->flags & CMF_AIMOFFSET)
+	if(flags & CMF_AIMOFFSET)
 	{
 		angle = R_PointToAngle2(x, y, target->x, target->y);
 		dist = P_AproxDistance(target->x - x, target->y - y);
@@ -2218,13 +2219,13 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		y += FixedMul(arg->spawnofs_xy, finesine[a]);
 	}
 
-	if(!(arg->flags & (CMF_AIMOFFSET|CMF_AIMDIRECTION)))
+	if(!(flags & (CMF_AIMOFFSET|CMF_AIMDIRECTION)))
 	{
 		angle = R_PointToAngle2(x, y, target->x, target->y);
 		dist = P_AproxDistance(target->x - x, target->y - y);
 	}
 
-	if(arg->flags & CMF_ABSOLUTEANGLE)
+	if(flags & CMF_ABSOLUTEANGLE)
 		angle = arg->angle;
 	else
 	{
@@ -2237,7 +2238,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	speed = projectile_speed(th->info);
 
-	if(arg->flags & (CMF_AIMDIRECTION|CMF_ABSOLUTEPITCH))
+	if(flags & (CMF_AIMDIRECTION|CMF_ABSOLUTEPITCH))
 		pitch = -arg->pitch;
 	else
 	if(speed)
@@ -2247,7 +2248,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			dist = 1;
 		dist = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
 		th->momz = FixedDiv(dist, speed);
-		if(arg->flags & CMF_OFFSETPITCH)
+		if(flags & CMF_OFFSETPITCH)
 			pitch = -arg->pitch;
 	}
 
@@ -3265,6 +3266,7 @@ void A_DropItem(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 
 	item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), arg->type);
+	item->inside = mo;
 	item->flags |= MF_DROPPED;
 	item->angle = P_Random() << 24;
 	item->momx = FRACUNIT - (P_Random() << 9);
@@ -3630,9 +3632,9 @@ static const dec_args_t args_ChangeVelocity =
 	.size = sizeof(args_ChangeVelocity_t),
 	.arg =
 	{
-		{handle_fixed, offsetof(args_ChangeVelocity_t, x)},
-		{handle_fixed, offsetof(args_ChangeVelocity_t, y)},
-		{handle_fixed, offsetof(args_ChangeVelocity_t, z)},
+		{handle_fixed_rng, offsetof(args_ChangeVelocity_t, x)},
+		{handle_fixed_rng, offsetof(args_ChangeVelocity_t, y)},
+		{handle_fixed_rng, offsetof(args_ChangeVelocity_t, z)},
 		{handle_flags, offsetof(args_ChangeVelocity_t, flags), 1, flags_ChangeVelocity},
 		{handle_pointer, offsetof(args_ChangeVelocity_t, ptr), 1},
 		// terminator
@@ -3644,11 +3646,16 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_ChangeVelocity_t *arg = st->arg;
+	angle_t ang = mo->angle;
 	fixed_t x, y;
+	fixed_t ax, ay;
 
 	mo = resolve_ptr(mo, arg->ptr);
 	if(!mo)
 		return;
+
+	ax = reslove_fixed_rng(arg->x);
+	ay = reslove_fixed_rng(arg->y);
 
 	if(arg->flags & CVF_REPLACE)
 	{
@@ -3659,20 +3666,23 @@ void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(arg->flags & CVF_RELATIVE)
 	{
-		angle_t a = mo->angle >> ANGLETOFINESHIFT;
-		x = FixedMul(arg->x, finecosine[a]);
-		x -= FixedMul(arg->y, finesine[a]);
-		y = FixedMul(arg->x, finesine[a]);
-		y += FixedMul(arg->y, finecosine[a]);
+		fixed_t cc, ss;
+		ang >>= ANGLETOFINESHIFT;
+		ss = finesine[ang];
+		cc = finecosine[ang];
+		x = FixedMul(ax, cc);
+		x -= FixedMul(ay, ss);
+		y = FixedMul(ax, ss);
+		y += FixedMul(ay, cc);
 	} else
 	{
-		x = arg->x;
-		y = arg->y;
+		x = ax;
+		y = ay;
 	}
 
 	mo->momx += x;
 	mo->momy += y;
-	mo->momz += arg->z;
+	mo->momz += reslove_fixed_rng(arg->z);
 }
 
 //

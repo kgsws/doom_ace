@@ -6,6 +6,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "player.h"
+#include "draw.h"
 #include "mobj.h"
 #include "map.h"
 #include "render.h"
@@ -1768,8 +1769,18 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				spec_success = handle_tag(ln, spec_arg[0], act_Door_Raise);
 		break;
 		case 15: // Autosave
+		{
+			int32_t lump = W_CheckNumForName("WIAUTOSV");
+			if(lump >= 0)
+			{
+				V_DrawPatchDirect(0, 0, W_CacheLumpNum(lump, PU_CACHE));
+				I_FinishUpdate();
+			}
+			if(ln)
+				ln->special = 0;
 			save_auto(0);
 			spec_success = 1;
+		}
 		break;
 		case 19: // Thing_Stop
 			handle_tid(ln, spec_arg[0], act_Thing_Stop);

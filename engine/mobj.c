@@ -2621,6 +2621,7 @@ revert:
 
 void mobj_spawn_puff(divline_t *trace, mobj_t *target, uint32_t puff_type)
 {
+	// hitscan only!
 	mobj_t *mo;
 	uint32_t state = 0;
 
@@ -2680,6 +2681,7 @@ void mobj_spawn_puff(divline_t *trace, mobj_t *target, uint32_t puff_type)
 
 void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage, uint32_t puff_type)
 {
+	// hitscan only!
 	mobj_t *mo;
 	uint32_t state;
 
@@ -2694,24 +2696,29 @@ void mobj_spawn_blood(divline_t *trace, mobj_t *target, uint32_t damage, uint32_
 
 	mo = P_SpawnMobj(trace->x, trace->y, trace->dx, target->info->blood_type);
 	mo->inside = target;
+	mo->angle = shootthing->angle;
 	mo->momz = FRACUNIT * 2;
+
 	if(!(mo->flags2 & MF2_DONTTRANSLATE))
 		mo->translation = target->info->blood_trns;
 
-	state = mo->info->state_spawn;
+	if(mo->flags2 & MF2_PUFFGETSOWNER)
+		mo->target = target;
 
 	if(damage < 9)
-		state += 2;
+		state = 2;
 	else
 	if(damage <= 12)
-		state += 1;
+		state = 1;
+	else
+		return;
+
+	state += mo->info->state_spawn;
 
 	if(state >= num_states) // TODO: this is not correct
 		state = num_states - 1;
 
 	P_SetMobjState(mo, state, 0);
-
-	mo->angle = shootthing->angle;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))

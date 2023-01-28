@@ -1091,8 +1091,7 @@ uint32_t map_load_setup(uint32_t new_game)
 		lump = W_CheckNumForName("WILOADIN");
 		if(lump >= 0)
 		{
-			patch_t *patch;
-			patch = W_CacheLumpNum(lump, PU_CACHE);
+			patch_t *patch = W_CacheLumpNum(lump, PU_CACHE);
 			V_DrawPatchDirect(0, 0, patch);
 			I_FinishUpdate();
 		}

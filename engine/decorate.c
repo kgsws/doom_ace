@@ -3380,6 +3380,7 @@ void init_decorate()
 			states[i].tics = deh_states[i].tics;
 		states[i].action = deh_states[i].action;
 		states[i].nextstate = deh_states[i].nextstate;
+		states[i].next_extra = 0;
 		states[i].misc1 = deh_states[i].misc1;
 		states[i].misc2 = deh_states[i].misc2;
 

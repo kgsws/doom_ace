@@ -805,9 +805,11 @@ void init_sound()
 	for(uint32_t i = NUMSFX; i < NEW_NUMSFX; i++)
 	{
 		sfxinfo[i].alias = new_sfx[i - NUMSFX].alias;
+		sfxinfo[i].priority = SFX_PRIORITY;
 		sfxinfo[i].lumpnum = wad_check_lump(new_sfx[i - NUMSFX].lump);
 		sfxinfo[i].usefulness = -1;
 		sfxinfo[i].rng_count = 0;
+		sfxinfo[i].data = NULL;
 	}
 
 	// add extra RNG sounds

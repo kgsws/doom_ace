@@ -389,7 +389,45 @@ static void splash_sound(terrain_splash_t *spl, fixed_t x, fixed_t y, mobj_t *th
 	}
 }
 
-static uint32_t splash_spawn(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, int32_t flat)
+//
+// API
+
+void init_terrain()
+{
+	void *ptr;
+	uint32_t size;
+
+	ldr_alloc_message = "Terrain";
+
+	//
+	// PASS 1
+
+	wad_handle_lump("TERRAIN", cb_count_stuff);
+
+	if(!num_terrain)
+		// no terrain definitions
+		return;
+
+	// terrain detection
+	flatterrain = ldr_malloc(numflats + num_texture_flats);
+	memset(flatterrain, 0xFF, numflats + num_texture_flats);
+
+	size = num_terrain * sizeof(terrain_terrain_t) + num_terrain_splash * sizeof(terrain_splash_t);
+	ptr = ldr_malloc(size);
+	memset(ptr, 0, size);
+	terrain = ptr;
+	terrain_splash = ptr + num_terrain * sizeof(terrain_terrain_t);
+
+	//
+	// PASS 2
+
+	num_terrain_splash = 0;
+	num_terrain = 0;
+
+	wad_handle_lump("TERRAIN", cb_terrain);
+}
+
+uint32_t terrain_hit_splash(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, int32_t flat)
 {
 	terrain_terrain_t *trn;
 	terrain_splash_t *spl;
@@ -455,89 +493,6 @@ static uint32_t splash_spawn(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, int32_
 	return 1;
 }
 
-//
-// API
-
-void init_terrain()
-{
-	void *ptr;
-	uint32_t size;
-
-	ldr_alloc_message = "Terrain";
-
-	//
-	// PASS 1
-
-	wad_handle_lump("TERRAIN", cb_count_stuff);
-
-	if(!num_terrain)
-		// no terrain definitions
-		return;
-
-	// terrain detection
-	flatterrain = ldr_malloc(numflats + num_texture_flats);
-	memset(flatterrain, 0xFF, numflats + num_texture_flats);
-
-	size = num_terrain * sizeof(terrain_terrain_t) + num_terrain_splash * sizeof(terrain_splash_t);
-	ptr = ldr_malloc(size);
-	memset(ptr, 0, size);
-	terrain = ptr;
-	terrain_splash = ptr + num_terrain * sizeof(terrain_terrain_t);
-
-	//
-	// PASS 2
-
-	num_terrain_splash = 0;
-	num_terrain = 0;
-
-	wad_handle_lump("TERRAIN", cb_terrain);
-}
-
-uint32_t terrain_mobj_splash(mobj_t *mo)
-{
-	sector_t *sec;
-	extraplane_t *pl;
-	uint32_t ret;
-
-	if(!flatterrain)
-		return 0;
-
-	if(mo->flags2 & MF2_DONTSPLASH)
-		return 0;
-
-	if(mo->iflags & MFI_MOBJONMOBJ)
-		return 0;
-
-	sec = mo->subsector->sector;
-
-	// normal floor
-	if(mo->z <= sec->floorheight)
-		ret = splash_spawn(mo, mo->x, mo->y, mo->floorz, sec->floorpic);
-	else
-		ret = 0;
-
-	// extra floors
-	pl = sec->exfloor;
-	while(pl)
-	{
-		if(mo->floorz == *pl->height)
-			ret |= splash_spawn(mo, mo->x, mo->y, mo->floorz, pl->source->ceilingpic);
-		pl = pl->next;
-	}
-
-	return ret;
-}
-
-void terrain_hit_splash(fixed_t x, fixed_t y, fixed_t z, int32_t flat)
-{
-	subsector_t *ss;
-
-	if(!flatterrain)
-		return;
-
-	splash_spawn(NULL, x, y, z, flat);
-}
-
 
 void terrain_explosion_splash(mobj_t *mo, fixed_t dist)
 {
@@ -568,14 +523,14 @@ void terrain_explosion_splash(mobj_t *mo, fixed_t dist)
 	{
 		if(mo->z - *select->height > dist)
 			return;
-		splash_spawn(mo, mo->x, mo->y, *select->height, select->source->ceilingpic);
+		terrain_hit_splash(NULL, mo->x, mo->y, *select->height, select->source->ceilingpic);
 		return;
 	}
 
 	if(mo->z - sec->floorheight > dist)
 		return;
 
-	splash_spawn(mo, mo->x, mo->y, sec->floorheight, sec->floorpic);
+	terrain_hit_splash(NULL, mo->x, mo->y, sec->floorheight, sec->floorpic);
 }
 
 void terrain_sound()

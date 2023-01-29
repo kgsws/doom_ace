@@ -2295,6 +2295,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 static void P_ZMovement(mobj_t *mo)
 {
 	fixed_t oldz = mo->z;
+	uint32_t splash = 0;
 
 	// check for smooth step up
 	if(mo->player && mo->z < mo->floorz)
@@ -2333,17 +2334,51 @@ static void P_ZMovement(mobj_t *mo)
 		}
 	}
 
+	// splash
+	if(flatterrain && mo->momz < 0 && !(mo->flags2 & MF2_DONTSPLASH))
+	{
+		extraplane_t *pl;
+		uint32_t remove = 0;
+
+		pl = mo->subsector->sector->exfloor;
+		while(pl)
+		{
+			if(	!(pl->flags & E3D_SWAP_PLANES) &&
+				mo->z <= *pl->height && oldz > *pl->height &&
+				pl->source->ceilingpic < numflats + num_texture_flats &&
+				flatterrain[pl->source->ceilingpic] != 255 &&
+				terrain[flatterrain[pl->source->ceilingpic]].splash != 255
+			){
+				int32_t flat = pl->source->ceilingpic;
+				if(mo->info->mass < 10)
+					flat = -flat;
+				if(terrain_hit_splash(mo, mo->x, mo->y, *pl->height, flat))
+				{
+					splash |= 1;
+					remove = !!(pl->flags & E3D_SOLID);
+				}
+			}
+			pl = pl->next;
+		}
+
+		if(	!(mo->iflags & MFI_MOBJONMOBJ) &&
+			mo->z <= mo->floorz &&
+			mo->floorz == mo->subsector->sector->floorheight
+		){
+			if(terrain_hit_splash(mo, mo->x, mo->y, mo->floorz, mo->subsector->sector->floorpic))
+			{
+				splash |= 1;
+				remove = 1;
+			}
+		}
+	}
+
 	// clip movement
 	if(mo->z <= mo->floorz)
 	{
 		// hit the floor
 		if(mo->momz < 0)
 		{
-			uint32_t splash = terrain_mobj_splash(mo);
-
-			if(mo->thinker.function == (void*)-1)
-				return;
-
 			if(mo->momz < mo->gravity * -8)
 			{
 				if(mo->player && mo->health > 0)
@@ -2428,34 +2463,12 @@ static void P_ZMovement(mobj_t *mo)
 			}
 		}
 	} else
+	if(!(mo->flags & MF_NOGRAVITY))
 	{
-		if(flatterrain && !(mo->flags2 & MF2_DONTSPLASH))
-		{
-			extraplane_t *pl = mo->subsector->sector->exfloor;
-			while(pl)
-			{
-				if(	!(pl->flags & E3D_SWAP_PLANES) &&
-					((mo->z <= *pl->height && oldz > *pl->height) || (mo->z >= *pl->height && oldz < *pl->height)) &&
-					pl->source->ceilingpic < numflats + num_texture_flats &&
-					flatterrain[pl->source->ceilingpic] != 255 &&
-					terrain[flatterrain[pl->source->ceilingpic]].splash != 255
-				){
-					int32_t flat = pl->source->ceilingpic;
-					if(mo->info->mass < 10)
-						flat = -flat;
-					terrain_hit_splash(mo->x, mo->y, *pl->height, flat);
-				}
-				pl = pl->next;
-			}
-		}
-
-		if(!(mo->flags & MF_NOGRAVITY))
-		{
-			if(mo->momz == 0 && (oldfloorz > mo->floorz && mo->z == oldfloorz))
-				mo->momz = mo->gravity * -2;
-			else
-				mo->momz -= mo->gravity;
-		}
+		if(mo->momz == 0 && (oldfloorz > mo->floorz && mo->z == oldfloorz))
+			mo->momz = mo->gravity * -2;
+		else
+			mo->momz -= mo->gravity;
 	}
 
 	if(mo->z + mo->height > mo->ceilingz)

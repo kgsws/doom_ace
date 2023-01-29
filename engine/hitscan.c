@@ -415,6 +415,7 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 			if(hitscanz > *pl->height && z < *pl->height)
 			{
 				if(	flatterrain &&
+					!(mobjinfo[mo_puff_type].flags2 & MF2_DONTSPLASH) &&
 					 !(pl->flags & E3D_SWAP_PLANES) &&
 					pl->source->ceilingpic < numflats + num_texture_flats &&
 					flatterrain[pl->source->ceilingpic] != 255 &&
@@ -424,7 +425,7 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 					ff = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
 					x = trace.x + FixedMul(trace.dx, ff);
 					y = trace.y + FixedMul(trace.dy, ff);
-					terrain_hit_splash(x, y, *pl->height, pl->source->ceilingpic);
+					terrain_hit_splash(NULL, x, y, *pl->height, pl->source->ceilingpic);
 				}
 				if(pl->flags & E3D_BLOCK_HITSCAN)
 				{
@@ -440,7 +441,7 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 	{
 		extraplane_t *pl;
 
-		if(flatterrain)
+		if(flatterrain && !(mobjinfo[mo_puff_type].flags2 & MF2_DONTSPLASH))
 		{
 			pl = sec->exfloor;
 			while(pl)
@@ -455,7 +456,7 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 					ff = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
 					x = trace.x + FixedMul(trace.dx, ff);
 					y = trace.y + FixedMul(trace.dy, ff);
-					terrain_hit_splash(x, y, *pl->height, pl->source->ceilingpic);
+					terrain_hit_splash(NULL, x, y, *pl->height, pl->source->ceilingpic);
 				}
 				pl = pl->next;
 			}
@@ -505,8 +506,13 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 
 		dist = FixedMul(attackrange, in->frac);
 
-		if(li->frontsector->floorheight != li->backsector->floorheight)
-		{
+		if(	(li->frontsector->floorheight != li->backsector->floorheight) ||
+			(
+				flatterrain &&
+				li->frontsector->floorpic != li->backsector->floorpic &&
+				!(mobjinfo[mo_puff_type].flags2 & MF2_DONTSPLASH)
+			)
+		){
 			if(FixedDiv(openbottom - shootz, dist) > aimslope)
 				goto hitline;
 		}
@@ -640,8 +646,8 @@ do_puff:
 		trace.y += FixedMul(trace.dy, frac);
 		trace.dx = z;
 
-		if(flat_pic >= 0)
-			terrain_hit_splash(trace.x, trace.y, z, flat_pic);
+		if(flatterrain && !(mobjinfo[mo_puff_type].flags2 & MF2_DONTSPLASH) && flat_pic >= 0)
+			terrain_hit_splash(NULL, trace.x, trace.y, z, flat_pic);
 
 		mobj_spawn_puff(&trace, NULL, mo_puff_type);
 

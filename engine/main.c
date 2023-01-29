@@ -9,6 +9,7 @@
 #include "animate.h"
 #include "render.h"
 #include "saveload.h"
+#include "terrain.h"
 #include "draw.h"
 #include "sound.h"
 #include "map.h"
@@ -390,6 +391,9 @@ uint32_t ace_main()
 	_hack_show_ram();
 	doom_printf("\n");
 #endif
+
+	// terrain
+	init_terrain();
 
 	// animations
 	init_animations();

@@ -1147,7 +1147,7 @@ typedef struct mobj_s
 	struct mobj_s *tracer;
 	// new pointers
 	struct mobj_s *master;
-	struct mobj_s *inside; // for A_SpawnItemEx
+	struct mobj_s *inside; // for A_SpawnItemEx and similar
 	// more flags
 	uint32_t flags1;
 	uint32_t flags2;
@@ -1446,7 +1446,7 @@ void hook_path_traverse();
 void hook_sound_adjust();
 void hook_masked_range_draw();
 void hook_bluescreen();
-void engine_error(uint8_t*,uint8_t*, ...) __attribute((noreturn));
+void engine_error(const uint8_t*,const uint8_t*, ...) __attribute((noreturn));
 uint32_t dpmi_get_ram(); // this is modified I_ZoneBase
 void skip_message_cancel() __attribute((noreturn));
 void skip_menu_draw() __attribute((noreturn));

@@ -678,6 +678,7 @@ const dec_flag_t mobj_flags2[] =
 	{"bloodlessimpact", MF2_BLOODLESSIMPACT},
 	{"synchronized", MF2_SYNCHRONIZED},
 	{"dontmorph", MF2_DONTMORPH},
+	{"dontsplash", MF2_DONTSPLASH},
 	// terminator
 	{NULL}
 };
@@ -1660,7 +1661,7 @@ static uint32_t spr_add_name(uint32_t name)
 	return i;
 }
 
-uint32_t dec_get_custom_damage(const uint8_t *name)
+uint32_t dec_get_custom_damage(const uint8_t *name, const uint8_t *mmod)
 {
 	for(uint32_t i = 0; i < NUM_DAMAGE_TYPES; i++)
 	{
@@ -1668,7 +1669,10 @@ uint32_t dec_get_custom_damage(const uint8_t *name)
 			return i;
 	}
 
-	engine_error("DECORATE", "Unknown damage type '%s' in '%s'!", name, parse_actor_name);
+	if(!mmod)
+		engine_error("DECORATE", "Unknown damage type '%s' in '%s'!", name, parse_actor_name);
+	else
+		engine_error(mmod, "Unknown damage type '%s'!", name);
 }
 
 int32_t dec_get_powerup_type(const uint8_t *name)
@@ -1784,7 +1788,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 
 			if(wk[0] == ',')
 			{
-				idx = dec_get_custom_damage(kw);
+				idx = dec_get_custom_damage(kw, NULL);
 				wk = tp_get_keyword();
 				if(!wk)
 					return 1;
@@ -1805,7 +1809,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			parse_mobj_info->damage_type = dec_get_custom_damage(kw);
+			parse_mobj_info->damage_type = dec_get_custom_damage(kw, NULL);
 		break;
 		case DT_DAMAGE_FACTOR:
 		{
@@ -1813,7 +1817,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			type = dec_get_custom_damage(kw);
+			type = dec_get_custom_damage(kw, NULL);
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
@@ -1909,6 +1913,9 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 					// 'Fuzzy' is default so it's not listed
 					if(!strcmp("translucent", kw))
 						parse_mobj_info->powerup.mode = 1;
+					else
+					if(!strcmp("cumulative", kw))
+						parse_mobj_info->powerup.mode = 2;
 					else
 						return 1;
 				break;

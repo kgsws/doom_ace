@@ -51,10 +51,10 @@ typedef struct
 
 typedef struct
 {
+	uint8_t cmap[256*4]; // gold, red, green, blue; used for extra colormap and translation
 	uint8_t trn0[256*256];
 	uint8_t trn1[256*256];
 	uint8_t addt[256*256];
-	uint8_t cmap[256*4]; // gold, red, green, blue; used for extra colormap and translation
 	uint8_t fmap[FONT_TRANSLATION_COUNT * FONT_COLOR_COUNT]; // ZDoom font colors
 } render_tables_t;
 

@@ -499,9 +499,9 @@ void e3d_draw_height(fixed_t height)
 				dr_tinttab = render_trn0;
 			}
 			// masked?
-			if(pl->picnum > numflats)
+			if(pl->picnum >= numflats)
 			{
-				ds_maskcolor = flattexture_mask[pl->picnum - numflats - 1];
+				ds_maskcolor = flattexture_mask[pl->picnum - numflats];
 				if(spanfunc == R_DrawSpan)
 					spanfunc = R_DrawMaskedSpan;
 				else

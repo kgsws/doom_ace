@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "terrain.h"
 #include "decorate.h"
 #include "inventory.h"
 #include "saveload.h"
@@ -15,6 +16,9 @@
 #include "cheat.h"
 #include "config.h"
 #include "controls.h"
+#include "extra3d.h"
+#include "ldr_texture.h"
+#include "ldr_flat.h"
 #include "demo.h"
 #include "map.h"
 #include "player.h"
@@ -22,7 +26,8 @@
 typedef struct
 {
 	const uint8_t *name;
-	int32_t direction;
+	int16_t direction;
+	uint16_t repeatable;
 	void (*start)(mobj_t*,mobjinfo_t*);
 	void (*stop)(mobj_t*);
 } powerup_t;
@@ -50,15 +55,15 @@ static void flight_start(mobj_t*,mobjinfo_t*);
 static void flight_stop(mobj_t*);
 static const powerup_t powerup[] =
 {
-	[pw_invulnerability] = {"invulnerable", -1, invul_start, invul_stop},
+	[pw_invulnerability] = {"invulnerable", -1, 0, invul_start, invul_stop},
 	[pw_strength] = {"strength", 1},
-	[pw_invisibility] = {"invisibility", -1, invis_start, invis_stop},
+	[pw_invisibility] = {"invisibility", -1, 1, invis_start, invis_stop},
 	[pw_ironfeet] = {"ironfeet", -1},
 	[pw_allmap] = {NULL},
 	[pw_infrared] = {"lightamp", -1},
-	[pw_buddha] = {"buddha", -1, buddha_start, buddha_stop},
-	[pw_attack_speed] = {"doublefiringspeed", -1},
-	[pw_flight] = {"flight", -1, flight_start, flight_stop},
+	[pw_buddha] = {"buddha", -1, 0, buddha_start, buddha_stop},
+	[pw_attack_speed] = {"doublefiringspeed", -1, 0},
+	[pw_flight] = {"flight", -1, 0, flight_start, flight_stop},
 	[pw_reserved0] = {NULL},
 	[pw_reserved1] = {NULL},
 	[pw_reserved2] = {NULL},
@@ -94,7 +99,16 @@ static void invis_start(mobj_t *mo, mobjinfo_t *info)
 		return;
 	}
 
-	mo->render_alpha = 255 - ((uint32_t)info->powerup.strength * 255) / 100;
+	if(info->powerup.mode > 1 && mo->player->powers[pw_invisibility])
+	{
+		int32_t alpha = mo->render_alpha;
+		alpha -= 255 - ((uint32_t)info->powerup.strength * 255) / 100;
+		if(alpha < 0)
+			mo->render_alpha = 0;
+		else
+			mo->render_alpha = alpha;
+	} else
+		mo->render_alpha = 255 - ((uint32_t)info->powerup.strength * 255) / 100;
 
 	if(!mo->render_alpha)
 		mo->render_style = RS_INVISIBLE;
@@ -145,7 +159,12 @@ void powerup_give(player_t *pl, mobjinfo_t *info)
 {
 	const powerup_t *pw = powerup + info->powerup.type;
 
-	pl->power_color[info->powerup.type] = info->powerup.colorstuff;
+	if(pl->powers[info->powerup.type])
+	{
+		if(!pw->repeatable)
+			return;
+	} else
+		pl->power_color[info->powerup.type] = info->powerup.colorstuff;
 
 	if(!pw->start)
 		return;
@@ -377,10 +396,60 @@ static void player_sector_damage(player_t *pl, sector_extra_t *se)
 
 	if((se->damage.type & 0x7F) == DAMAGE_INSTANT)
 		damage = 1000000;
+	else
+		damage = se->damage.amount;
 
 	damage = DAMAGE_WITH_TYPE(damage, se->damage.type & 0x7F);
-
 	mobj_damage(pl->mo, NULL, NULL, damage, NULL);
+}
+
+static void player_terrain_damage(player_t *pl, uint16_t flat)
+{
+	terrain_terrain_t *trn;
+	uint32_t tics;
+	uint32_t damage;
+
+	if(!flatterrain)
+		return;
+
+	if(flat >= numflats + num_texture_flats)
+		return;
+
+	if(flatterrain[flat] == 255)
+		return;
+
+	trn = terrain + flatterrain[flat];
+
+	if(!trn->damageamount)
+		return;
+
+	if(trn->flags & TRN_FLAG_PROTECT && pl->powers[pw_ironfeet])
+		return;
+
+	tics = trn->damagetimemask;
+	tics++;
+
+	if(leveltime % tics)
+		return;
+
+	damage = DAMAGE_WITH_TYPE(trn->damageamount, trn->damagetype);
+	mobj_damage(pl->mo, NULL, NULL, damage, NULL);
+}
+
+static void handle_sector_special(player_t *pl, sector_t *sec, uint32_t texture)
+{
+	if(sec->special & 1024)
+	{
+		pl->message = "Secret!";
+		if(pl == &players[consoleplayer])
+			S_StartSound(NULL, SFX_SECRET);
+		sec->special &= ~1024;
+	}
+
+	if(sec->extra->damage.amount)
+		player_sector_damage(pl, sec->extra);
+
+	player_terrain_damage(pl, texture);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -549,9 +618,9 @@ void player_think(player_t *pl)
 
 	P_CalcHeight(pl);
 
-	if(pl->mo->subsector->sector->special)
+	if(map_format == MAP_FORMAT_DOOM)
 	{
-		if(map_format == MAP_FORMAT_DOOM)
+		if(pl->mo->subsector->sector->special)
 		{
 			uint32_t special = pl->mo->subsector->sector->special;
 			P_PlayerInSpecialSector(pl);
@@ -561,20 +630,25 @@ void player_think(player_t *pl)
 				if(idx == consoleplayer)
 					S_StartSound(NULL, SFX_SECRET);
 			}
-		} else
+		}
+	} else
+	{
+		sector_t *sec = pl->mo->subsector->sector;
+		if(!(pl->mo->iflags & MFI_MOBJONMOBJ))
 		{
-			sector_t *sec = pl->mo->subsector->sector;
-			if(pl->mo->z == sec->floorheight)
+			extraplane_t *pp;
+
+			// normal sector
+			if(pl->mo->z <= sec->floorheight)
+				handle_sector_special(pl, sec, sec->floorpic);
+
+			// extra floors
+			pp = sec->exfloor;
+			while(pp)
 			{
-				if(sec->special & 1024)
-				{
-					pl->message = "Secret!";
-					if(idx == consoleplayer)
-						S_StartSound(NULL, SFX_SECRET);
-					sec->special &= ~1024;
-				}
-				if(sec->extra->damage.amount)
-					player_sector_damage(pl, sec->extra);
+				if(pl->mo->z + pl->mo->height > pp->source->floorheight && pl->mo->z <= pp->source->ceilingheight)
+					handle_sector_special(pl, pp->source, pp->source->ceilingpic);
+				pp = pp->next;
 			}
 		}
 	}

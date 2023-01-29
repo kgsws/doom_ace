@@ -1271,14 +1271,17 @@ void r_draw_plane(visplane_t *pl)
 	if(pl->minx > pl->maxx)
 		return;
 
-	if(pl->picnum == numflats)
+	if(pl->picnum >= numflats + num_texture_flats)
 	{
+		// unknown flat; sorry, no transparency
 		oldfunc = spanfunc;
 		spanfunc = R_DrawUnknownSpan;
 	} else
-	if(pl->picnum > numflats)
- 		ds_source = flat_generate_composite(pl->picnum - numflats - 1);
+	if(pl->picnum >= numflats)
+		// flat from texture
+ 		ds_source = flat_generate_composite(pl->picnum - numflats);
 	else
+		// regular flat
 		ds_source = W_CacheLumpNum(flatlump[flattranslation[pl->picnum]], PU_CACHE);
 
 	planeheight = abs(pl->height - viewz);
@@ -2656,7 +2659,7 @@ void init_render()
 		// this is very slow on old PCs
 		doom_printf("[RENDER] %s tables ...\n", "Generating");
 		generate_translucent(render_tables->trn0, 60);
-		generate_translucent(render_tables->trn1, 100);
+		generate_translucent(render_tables->trn1, 104);
 		generate_additive(render_tables->addt);
 		// these color translations are not perfect matches ...
 		generate_color(render_tables->cmap + 256 * 0, 255, 200, 0);

@@ -6,6 +6,7 @@ extern uint16_t *flatlump;
 extern uint8_t **flattexture_data;
 extern uint16_t *flattexture_idx;
 extern uint8_t *flattexture_mask;
+extern uint32_t num_texture_flats;
 
 //
 

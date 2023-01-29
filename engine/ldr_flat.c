@@ -20,7 +20,7 @@ static uint32_t tmp_count;
 uint8_t **flattexture_data;
 uint16_t *flattexture_idx;
 uint8_t *flattexture_mask; // transparent color
-static uint32_t num_texture_flats;
+uint32_t num_texture_flats;
 
 //
 // callbacks
@@ -72,9 +72,11 @@ int32_t flat_num_get(const uint8_t *name)
 		{
 			texture_t *tex = textures[flattexture_idx[i]];
 			if(tex->wame == wame)
-				return numflats + i + 1;
+				// flat from texture
+				return numflats + i;
 		}
-		return numflats;
+		// unknown flat texture
+		return numflats + num_texture_flats;
 	}
 
 	return ret;
@@ -162,12 +164,14 @@ uint64_t flat_get_name(uint32_t idx)
 {
 	lumpinfo_t *li;
 
-	if(idx == numflats)
+	if(idx > numflats + num_texture_flats)
+		// unknown flat
 		return 0xFFFFFFFFFFFFFFFF;
 
 	if(idx > numflats)
 	{
-		texture_t *tex = textures[flattexture_idx[idx - numflats - 1]];
+		// flat from texture
+		texture_t *tex = textures[flattexture_idx[idx - numflats]];
 		return tex->wame;
 	}
 

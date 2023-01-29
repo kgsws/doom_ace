@@ -787,7 +787,7 @@ static uint8_t *handle_damage_type(uint8_t *kw, const dec_arg_t *arg)
 
 	strlwr(kw);
 
-	*((uint8_t*)(parse_action_arg + arg->offset)) = dec_get_custom_damage(kw);
+	*((uint8_t*)(parse_action_arg + arg->offset)) = dec_get_custom_damage(kw, NULL);
 
 	return tp_get_keyword();
 }
@@ -4491,6 +4491,15 @@ __attribute((regparm(2),no_caller_saved_registers))
 void A_IceSetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	mo->tics = 70 + (P_Random() & 63);
+	switch(mo->subsector->sector->extra->damage.type & 0x7F)
+	{
+		case DAMAGE_ICE:
+			mo->tics <<= 1;
+		break;
+		case DAMAGE_FIRE:
+			mo->tics >>= 2;
+		break;
+	}
 }
 
 //

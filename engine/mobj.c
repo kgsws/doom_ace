@@ -290,8 +290,7 @@ static uint32_t give_power(mobj_t *mo, mobjinfo_t *info)
 	if(!(info->eflags & MFE_INVENTORY_ALWAYSPICKUP) && mo->player->powers[info->powerup.type])
 		return 0;
 
-	if(!mo->player->powers[info->powerup.type])
-		powerup_give(mo->player, info);
+	powerup_give(mo->player, info);
 
 	if(info->eflags & MFE_INVENTORY_ADDITIVETIME)
 		mo->player->powers[info->powerup.type] += duration;

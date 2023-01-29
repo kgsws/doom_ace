@@ -335,7 +335,7 @@ typedef struct
 #define XF_HURTSOURCE	1
 #define XF_NOTMISSILE	2
 #define XF_THRUSTZ	4
-#define XF_NOSPLASH	8 // not used
+#define XF_NOSPLASH	8
 
 typedef struct
 {

@@ -538,6 +538,46 @@ void terrain_hit_splash(fixed_t x, fixed_t y, fixed_t z, int32_t flat)
 	splash_spawn(NULL, x, y, z, flat);
 }
 
+
+void terrain_explosion_splash(mobj_t *mo, fixed_t dist)
+{
+	sector_t *sec;
+	extraplane_t *pl;
+	extraplane_t *select;
+
+	if(!flatterrain)
+		return;
+
+	if(mo->flags2 & MF2_DONTSPLASH)
+		return;
+
+	sec = mo->subsector->sector;
+	select = NULL;
+
+	pl = sec->exfloor;
+	while(pl)
+	{
+		if(pl->flags & E3D_SOLID && mo->z >= *pl->height)
+			select = pl;
+		if(mo->z < *pl->height)
+			break;
+		pl = pl->next;
+	}
+
+	if(select)
+	{
+		if(mo->z - *select->height > dist)
+			return;
+		splash_spawn(mo, mo->x, mo->y, *select->height, select->source->ceilingpic);
+		return;
+	}
+
+	if(mo->z - sec->floorheight > dist)
+		return;
+
+	splash_spawn(mo, mo->x, mo->y, sec->floorheight, sec->floorpic);
+}
+
 void terrain_sound()
 {
 	if(terrain_tick != leveltime)

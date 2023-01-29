@@ -13,6 +13,7 @@
 #include "weapon.h"
 #include "hitscan.h"
 #include "inventory.h"
+#include "terrain.h"
 #include "sound.h"
 #include "stbar.h"
 #include "font.h"
@@ -4094,6 +4095,11 @@ void A_Explode(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(arg->alert && bombsource && bombsource->player)
 		P_NoiseAlert(bombsource, mo);
+
+	if(arg->flags & XF_NOSPLASH)
+		return;
+
+	terrain_explosion_splash(mo, arg->distance);
 }
 
 //

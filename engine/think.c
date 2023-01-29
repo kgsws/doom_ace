@@ -6,6 +6,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "animate.h"
+#include "terrain.h"
 #include "think.h"
 
 thinker_t thcap;
@@ -62,6 +63,9 @@ void run_thinkers()
 
 	// run original after
 	P_RunThinkers();
+
+	// terrain splash sound
+	terrain_sound();
 }
 
 //

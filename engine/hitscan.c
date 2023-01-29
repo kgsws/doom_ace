@@ -11,6 +11,8 @@
 #include "map.h"
 #include "extra3d.h"
 #include "special.h"
+#include "terrain.h"
+#include "ldr_flat.h"
 #include "sight.h"
 #include "hitscan.h"
 
@@ -410,18 +412,56 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 		extraplane_t *pl = sec->exfloor;
 		while(pl)
 		{
-			if(pl->flags & E3D_BLOCK_HITSCAN && hitscanz > *pl->height && z < *pl->height)
+			if(hitscanz > *pl->height && z < *pl->height)
 			{
-				frac = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
-				*zz = *pl->height;
-				return frac;
+				if(	flatterrain &&
+					 !(pl->flags & E3D_SWAP_PLANES) &&
+					pl->source->ceilingpic < numflats + num_texture_flats &&
+					flatterrain[pl->source->ceilingpic] != 255 &&
+					terrain[flatterrain[pl->source->ceilingpic]].splash != 255
+				){
+					fixed_t x, y, ff;
+					ff = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
+					x = trace.x + FixedMul(trace.dx, ff);
+					y = trace.y + FixedMul(trace.dy, ff);
+					terrain_hit_splash(x, y, *pl->height, pl->source->ceilingpic);
+				}
+				if(pl->flags & E3D_BLOCK_HITSCAN)
+				{
+					frac = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
+					*zz = *pl->height;
+					return frac;
+				}
 			}
 			pl = pl->next;
 		}
 	} else
 	if(aimslope > 0)
 	{
-		extraplane_t *pl = sec->exceiling;
+		extraplane_t *pl;
+
+		if(flatterrain)
+		{
+			pl = sec->exfloor;
+			while(pl)
+			{
+				if(	!(pl->flags & E3D_SWAP_PLANES) &&
+					hitscanz < *pl->height && z > *pl->height &&
+					pl->source->ceilingpic < numflats + num_texture_flats &&
+					flatterrain[pl->source->ceilingpic] != 255 &&
+					terrain[flatterrain[pl->source->ceilingpic]].splash != 255
+				){
+					fixed_t x, y, ff;
+					ff = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
+					x = trace.x + FixedMul(trace.dx, ff);
+					y = trace.y + FixedMul(trace.dy, ff);
+					terrain_hit_splash(x, y, *pl->height, pl->source->ceilingpic);
+				}
+				pl = pl->next;
+			}
+		}
+
+		pl = sec->exceiling;
 		while(pl)
 		{
 			if(pl->flags & E3D_BLOCK_HITSCAN && hitscanz < *pl->height && z > *pl->height)
@@ -453,6 +493,7 @@ uint32_t hs_shoot_traverse(intercept_t *in)
 		sector_t *backsector;
 		uint_fast8_t activate = map_format != MAP_FORMAT_DOOM;
 		uint_fast8_t in_sky = 0;
+		int32_t flat_pic = -1;
 
 		if(li->special && !activate)
 			P_ShootSpecialLine(shootthing, li);
@@ -567,6 +608,7 @@ hitline:
 				frac = -FixedDiv(FixedMul(frac, shootz - frontsector->floorheight), dz);
 				z = frontsector->floorheight;
 				activate = 0;
+				flat_pic = frontsector->floorpic;
 			}
 		} else
 		if(aimslope > 0)
@@ -594,9 +636,12 @@ hitline:
 			return 0;
 
 do_puff:
-		trace.x = trace.x + FixedMul(trace.dx, frac);
-		trace.y = trace.y + FixedMul(trace.dy, frac);
+		trace.x += FixedMul(trace.dx, frac);
+		trace.y += FixedMul(trace.dy, frac);
 		trace.dx = z;
+
+		if(flat_pic >= 0)
+			terrain_hit_splash(trace.x, trace.y, z, flat_pic);
 
 		mobj_spawn_puff(&trace, NULL, mo_puff_type);
 

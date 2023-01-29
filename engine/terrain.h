@@ -6,13 +6,19 @@
 
 typedef struct
 {
+	// internal
+	fixed_t sound_dist;
+	uint32_t sound_tick;
+	mobj_t *sound_source;
+	uint16_t sound_id;
+	// properties
 	uint16_t smallclass;
 	uint16_t smallsound;
 	uint16_t baseclass;
 	uint16_t chunkclass;
 	uint16_t sound;
-	uint8_t sx, sy, sz;
 	fixed_t bz;
+	uint8_t sx, sy, sz;
 	uint8_t smallclip; // must be zero to spawn, but default is not zero
 	uint8_t flags;
 } terrain_splash_t;
@@ -29,8 +35,6 @@ typedef struct
 
 //
 
-extern uint32_t num_terrain_splash;
-extern terrain_splash_t *terrain_splash;
 extern uint32_t num_terrain;
 extern terrain_terrain_t *terrain;
 
@@ -39,4 +43,7 @@ extern uint8_t *flatterrain;
 //
 
 void init_terrain();
+uint32_t terrain_mobj_splash(mobj_t *mo);
+void terrain_hit_splash(fixed_t x, fixed_t y, fixed_t z, int32_t flat);
+void terrain_sound();
 

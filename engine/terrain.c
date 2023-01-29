@@ -9,6 +9,7 @@
 #include "textpars.h"
 #include "ldr_flat.h"
 #include "decorate.h"
+#include "extra3d.h"
 #include "sound.h"
 #include "terrain.h"
 
@@ -44,10 +45,13 @@ typedef struct
 
 //
 
-uint32_t num_terrain_splash;
-terrain_splash_t *terrain_splash;
+static uint32_t num_terrain_splash;
+static terrain_splash_t *terrain_splash;
+
 uint32_t num_terrain;
 terrain_terrain_t *terrain;
+
+uint32_t terrain_tick;
 
 uint8_t *flatterrain;
 
@@ -66,8 +70,8 @@ static const attr_t splash_attr[] =
 	{.name = "smallclass", .type = IT_MOBJ_TYPE, .offset = offsetof(terrain_splash_t, smallclass)},
 	{.name = "smallsound", .type = IT_SOUND, .offset = offsetof(terrain_splash_t, smallsound)},
 	{.name = "smallclip", .type = IT_U8, .offset = offsetof(terrain_splash_t, smallclip)},
-	{.name = "baseclass", .type = IT_MOBJ_TYPE, .offset = offsetof(terrain_splash_t, smallclass)},
-	{.name = "chunkclass", .type = IT_MOBJ_TYPE, .offset = offsetof(terrain_splash_t, smallclass)},
+	{.name = "baseclass", .type = IT_MOBJ_TYPE, .offset = offsetof(terrain_splash_t, baseclass)},
+	{.name = "chunkclass", .type = IT_MOBJ_TYPE, .offset = offsetof(terrain_splash_t, chunkclass)},
 	{.name = "chunkxvelshift", .type = IT_U8, .offset = offsetof(terrain_splash_t, sx)},
 	{.name = "chunkyvelshift", .type = IT_U8, .offset = offsetof(terrain_splash_t, sy)},
 	{.name = "chunkzvelshift", .type = IT_U8, .offset = offsetof(terrain_splash_t, sz)},
@@ -364,6 +368,94 @@ static void cb_terrain(lumpinfo_t *li)
 }
 
 //
+// splash
+
+static void splash_sound(terrain_splash_t *spl, fixed_t x, fixed_t y, mobj_t *th, uint32_t id)
+{
+	// Limit emmited sounds during single tics.
+	fixed_t dist;
+
+	terrain_tick = leveltime;
+
+	dist = P_AproxDistance(x - th->x, y - th->y);
+
+	if(	spl->sound_tick != leveltime ||
+		spl->sound_dist > dist
+	){
+		spl->sound_tick = leveltime;
+		spl->sound_dist = dist;
+		spl->sound_source = th;
+		spl->sound_id = id;
+	}
+}
+
+static uint32_t splash_spawn(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, int32_t flat)
+{
+	terrain_terrain_t *trn;
+	terrain_splash_t *spl;
+	mobj_t *th;
+	uint32_t is_small;
+
+	if(flat < 0)
+	{
+		flat = -flat;
+		is_small = 1;
+	} else
+		is_small = 0;
+
+	if(flat >= numflats + num_texture_flats)
+		return 0;
+
+	if(flatterrain[flat] == 255)
+		return 0;
+
+	trn = terrain + flatterrain[flat];
+	if(trn->splash == 255)
+		return 0;
+
+	if(mo)
+	{
+		if((mo->flags1 & MF1_ISMONSTER || mo->player) && mo->momz > -6 * FRACUNIT)
+				return 1;
+
+		if(mo->player && trn->flags & TRN_SPLASH_NOALERT)
+			P_NoiseAlert(mo, mo);
+	}
+
+	spl = terrain_splash + trn->splash;
+
+	if(is_small || (mo && mo->info->mass < 10))
+	{
+		if(!spl->smallclass)
+			return 1;
+		if(spl->smallclip)
+			// this is not what ZDoom does but floorclip is not supported
+			return 1;
+		th = P_SpawnMobj(x, y, z, spl->smallclass);
+		if(spl->smallsound)
+			splash_sound(spl, x, y, th, spl->smallsound);
+	} else
+	{
+		if(spl->chunkclass)
+		{
+			th = P_SpawnMobj(x, y, z, spl->chunkclass);
+			th->target = mo;
+			th->momx = P_Random() << spl->sx;
+			th->momy = P_Random() << spl->sy;
+			th->momz = spl->bz + (P_Random() << spl->sz);
+		}
+		if(spl->baseclass)
+		{
+			th = P_SpawnMobj(x, y, z, spl->baseclass);
+			if(spl->sound)
+				splash_sound(spl, x, y, th, spl->sound);
+		}
+	}
+
+	return 1;
+}
+
+//
 // API
 
 void init_terrain()
@@ -399,5 +491,66 @@ void init_terrain()
 	num_terrain = 0;
 
 	wad_handle_lump("TERRAIN", cb_terrain);
+}
+
+uint32_t terrain_mobj_splash(mobj_t *mo)
+{
+	sector_t *sec;
+	extraplane_t *pl;
+	uint32_t ret;
+
+	if(!flatterrain)
+		return 0;
+
+	if(mo->flags2 & MF2_DONTSPLASH)
+		return 0;
+
+	if(mo->iflags & MFI_MOBJONMOBJ)
+		return 0;
+
+	sec = mo->subsector->sector;
+
+	// normal floor
+	if(mo->z <= sec->floorheight)
+		ret = splash_spawn(mo, mo->x, mo->y, mo->floorz, sec->floorpic);
+	else
+		ret = 0;
+
+	// extra floors
+	pl = sec->exfloor;
+	while(pl)
+	{
+		if(mo->floorz == *pl->height)
+			ret |= splash_spawn(mo, mo->x, mo->y, mo->floorz, pl->source->ceilingpic);
+		pl = pl->next;
+	}
+
+	return ret;
+}
+
+void terrain_hit_splash(fixed_t x, fixed_t y, fixed_t z, int32_t flat)
+{
+	subsector_t *ss;
+
+	if(!flatterrain)
+		return;
+
+	splash_spawn(NULL, x, y, z, flat);
+}
+
+void terrain_sound()
+{
+	if(terrain_tick != leveltime)
+		return;
+
+	for(uint32_t i = 0; i < num_terrain_splash; i++)
+	{
+		terrain_splash_t *spl = terrain_splash + i;
+
+		if(spl->sound_tick != leveltime)
+			continue;
+
+		S_StartSound(spl->sound_source, spl->sound_id);
+	}
 }
 

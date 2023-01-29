@@ -8,6 +8,7 @@
 #include "dehacked.h"
 #include "decorate.h"
 #include "inventory.h"
+#include "ldr_flat.h"
 #include "mobj.h"
 #include "sight.h"
 #include "action.h"
@@ -15,6 +16,7 @@
 #include "weapon.h"
 #include "hitscan.h"
 #include "special.h"
+#include "terrain.h"
 #include "map.h"
 #include "stbar.h"
 #include "sound.h"
@@ -2292,6 +2294,8 @@ void P_XYMovement(mobj_t *mo)
 __attribute((regparm(2),no_caller_saved_registers))
 static void P_ZMovement(mobj_t *mo)
 {
+	fixed_t oldz = mo->z;
+
 	// check for smooth step up
 	if(mo->player && mo->z < mo->floorz)
 	{
@@ -2335,12 +2339,18 @@ static void P_ZMovement(mobj_t *mo)
 		// hit the floor
 		if(mo->momz < 0)
 		{
+			uint32_t splash = terrain_mobj_splash(mo);
+
+			if(mo->thinker.function == (void*)-1)
+				return;
+
 			if(mo->momz < mo->gravity * -8)
 			{
 				if(mo->player && mo->health > 0)
 				{
 					mo->player->deltaviewheight = mo->momz >> 3;
-					S_StartSound(SOUND_CHAN_BODY(mo), mo->info->player.sound.land);
+					if(!splash)
+						S_StartSound(SOUND_CHAN_BODY(mo), mo->info->player.sound.land);
 				}
 
 				if(mo->flags2 & MF2_ICECORPSE)
@@ -2349,6 +2359,7 @@ static void P_ZMovement(mobj_t *mo)
 					mo->iflags |= MFI_SHATTERING;
 				}
 			}
+
 			if(mo->momz < -23 * FRACUNIT)
 			{
 				if(mo->player)
@@ -2364,10 +2375,13 @@ static void P_ZMovement(mobj_t *mo)
 						mobj_fall_damage(mo);
 				}
 			}
+
 			mo->momz = 0;
 		}
+
 		mo->z = mo->floorz;
-		if((mo->flags & MF_MISSILE) && !(mo->flags & MF_NOCLIP))
+
+		if(mo->flags & MF_MISSILE && !(mo->flags & MF_NOCLIP))
 		{
 			if(	mo->flags1 & MF1_SKYEXPLODE ||
 				!mo->subsector ||
@@ -2381,6 +2395,7 @@ static void P_ZMovement(mobj_t *mo)
 				mobj_remove(mo);
 			return;
 		}
+
 		if(mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
 		{
 			uint32_t state = 0;
@@ -2413,12 +2428,34 @@ static void P_ZMovement(mobj_t *mo)
 			}
 		}
 	} else
-	if(!(mo->flags & MF_NOGRAVITY))
 	{
-		if(mo->momz == 0 && (oldfloorz > mo->floorz && mo->z == oldfloorz))
-			mo->momz = mo->gravity * -2;
-		else
-			mo->momz -= mo->gravity;
+		if(flatterrain && !(mo->flags2 & MF2_DONTSPLASH))
+		{
+			extraplane_t *pl = mo->subsector->sector->exfloor;
+			while(pl)
+			{
+				if(	!(pl->flags & E3D_SWAP_PLANES) &&
+					((mo->z <= *pl->height && oldz > *pl->height) || (mo->z >= *pl->height && oldz < *pl->height)) &&
+					pl->source->ceilingpic < numflats + num_texture_flats &&
+					flatterrain[pl->source->ceilingpic] != 255 &&
+					terrain[flatterrain[pl->source->ceilingpic]].splash != 255
+				){
+					int32_t flat = pl->source->ceilingpic;
+					if(mo->info->mass < 10)
+						flat = -flat;
+					terrain_hit_splash(mo->x, mo->y, *pl->height, flat);
+				}
+				pl = pl->next;
+			}
+		}
+
+		if(!(mo->flags & MF_NOGRAVITY))
+		{
+			if(mo->momz == 0 && (oldfloorz > mo->floorz && mo->z == oldfloorz))
+				mo->momz = mo->gravity * -2;
+			else
+				mo->momz -= mo->gravity;
+		}
 	}
 
 	if(mo->z + mo->height > mo->ceilingz)

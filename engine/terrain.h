@@ -4,6 +4,8 @@
 
 #define TRN_SPLASH_NOALERT	1
 
+#define TERRAIN_LOW_MASS	10
+
 typedef struct
 {
 	// internal

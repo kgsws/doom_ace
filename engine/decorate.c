@@ -43,6 +43,7 @@ enum
 	DT_ICON,
 	DT_SKIP1,
 	DT_PAINCHANCE,
+	DT_BOUNCE_TYPE,
 	DT_DAMAGE_TYPE,
 	DT_DAMAGE_FACTOR,
 	DT_RENDER_STYLE,
@@ -551,6 +552,8 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"fastspeed", DT_FIXED, offsetof(mobjinfo_t, fast_speed)},
 	{"vspeed", DT_FIXED, offsetof(mobjinfo_t, vspeed)},
+	//
+	{"bouncetype", DT_BOUNCE_TYPE},
 	//
 	{"species", DT_ALIAS64, offsetof(mobjinfo_t, species)},
 	//
@@ -1203,6 +1206,13 @@ static const char *render_style[NUM_RENDER_STYLES] =
 	[RS_INVISIBLE] = "none",
 };
 
+// bounce types
+static const char *bounce_type[NUM_BOUNCE_TYPES] =
+{
+	[BOUNCETYPE_NONE] = "none",
+	[BOUNCETYPE_HERETIC] = "heretic",
+};
+
 // special inventory
 static const uint8_t *powerup_special[] =
 {
@@ -1803,6 +1813,21 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 				return 1;
 
 			parse_mobj_info->painchance[idx] = num.u32 | 0x8000;
+		}
+		break;
+		case DT_BOUNCE_TYPE:
+		{
+			kw = tp_get_keyword_lc();
+			if(!kw)
+				return 1;
+			for(num.u32 = 0; num.u32 < NUM_BOUNCE_TYPES; num.u32++)
+			{
+				if(!strcmp(bounce_type[num.u32], kw))
+					break;
+			}
+			if(num.u32 >= NUM_BOUNCE_TYPES)
+				engine_error("DECORATE", "Unknown bounce type '%s' in '%s'!", kw, parse_actor_name);
+			parse_mobj_info->bounce_type = num.u32;
 		}
 		break;
 		case DT_DAMAGE_TYPE:

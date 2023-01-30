@@ -28,6 +28,15 @@ enum
 	NUM_DAMAGE_TYPES
 };
 
+// bounce type
+enum
+{
+	BOUNCETYPE_NONE, // must be zero
+	BOUNCETYPE_HERETIC,
+	//
+	NUM_BOUNCE_TYPES
+};
+
 // basic animations
 enum
 {

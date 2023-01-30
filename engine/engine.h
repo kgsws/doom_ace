@@ -682,7 +682,8 @@ typedef struct mobjinfo_s
 	int32_t mass;
 	int32_t damage;
 	uint16_t activesound;
-	uint16_t __free_68;
+	uint8_t bounce_type;
+	uint8_t __free_69;
 	uint32_t flags;
 	uint32_t state_raise;
 	// new stuff

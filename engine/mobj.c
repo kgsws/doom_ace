@@ -1724,6 +1724,13 @@ void mobj_remove(mobj_t *mo)
 	P_RemoveThinker((thinker_t*)mo);
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void mobj_plane_bounce(mobj_t *mo, fixed_t momz)
+{
+	mo->momz = -momz;
+	mobj_set_animation(mo, ANIM_DEATH);
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 void mobj_explode_missile(mobj_t *mo)
 {
@@ -2295,6 +2302,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 static void P_ZMovement(mobj_t *mo)
 {
 	fixed_t oldz = mo->z;
+	fixed_t momz = mo->momz;
 	uint32_t splash = 0;
 
 	// check for smooth step up
@@ -2350,7 +2358,7 @@ static void P_ZMovement(mobj_t *mo)
 				terrain[flatterrain[pl->source->ceilingpic]].splash != 255
 			){
 				int32_t flat = pl->source->ceilingpic;
-				if(mo->info->mass < 10)
+				if(mo->info->mass < TERRAIN_LOW_MASS)
 					flat = -flat;
 				if(terrain_hit_splash(mo, mo->x, mo->y, *pl->height, flat))
 				{
@@ -2370,6 +2378,12 @@ static void P_ZMovement(mobj_t *mo)
 				splash |= 1;
 				remove = 1;
 			}
+		}
+
+		if(remove && mo->info->bounce_type)
+		{
+			mobj_remove(mo);
+			return;
 		}
 	}
 
@@ -2425,12 +2439,19 @@ static void P_ZMovement(mobj_t *mo)
 				mo->subsector->sector->floorpic != skyflatnum
 			){
 				hit_thing = NULL;
-				mobj_explode_missile(mo);
+				if(mo->info->bounce_type)
+				{
+					mobj_plane_bounce(mo, momz);
+					if(!mo->momz)
+						goto try_crash;
+				} else
+					mobj_explode_missile(mo);
 			} else
 				mobj_remove(mo);
 			return;
 		}
 
+try_crash:
 		if(mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
 		{
 			uint32_t state = 0;
@@ -2488,7 +2509,10 @@ static void P_ZMovement(mobj_t *mo)
 				mo->subsector->sector->ceilingpic != skyflatnum
 			){
 				hit_thing = NULL;
-				mobj_explode_missile(mo);
+				if(mo->info->bounce_type)
+					mobj_plane_bounce(mo, momz);
+				else
+					mobj_explode_missile(mo);
 			} else
 				mobj_remove(mo);
 			return;
@@ -2958,8 +2982,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002A3C8, CODE_HOOK | HOOK_UINT16, 0xD889},
 	{0x0002A3CA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)kill_animation},
 	{0x0002A3CF, CODE_HOOK | HOOK_JMP_DOOM, 0x0002A40D},
-	// replace 'P_ExplodeMissile'
-	{0x00030F00, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_explode_missile},
 	// replace 'P_ChangeSector'
 	{0x0002BF90, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_change_sector},
 	// replace 'P_SpawnMissile'

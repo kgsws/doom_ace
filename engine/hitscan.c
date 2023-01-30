@@ -422,10 +422,13 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 					terrain[flatterrain[pl->source->ceilingpic]].splash != 255
 				){
 					fixed_t x, y, ff;
+					int32_t flat = pl->source->ceilingpic;
 					ff = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
 					x = trace.x + FixedMul(trace.dx, ff);
 					y = trace.y + FixedMul(trace.dy, ff);
-					terrain_hit_splash(NULL, x, y, *pl->height, pl->source->ceilingpic);
+					if(mobjinfo[mo_puff_type].mass < TERRAIN_LOW_MASS)
+						flat = -flat;
+					terrain_hit_splash(NULL, x, y, *pl->height, flat);
 				}
 				if(pl->flags & E3D_BLOCK_HITSCAN)
 				{
@@ -453,10 +456,13 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 					terrain[flatterrain[pl->source->ceilingpic]].splash != 255
 				){
 					fixed_t x, y, ff;
+					int32_t flat = pl->source->ceilingpic;
 					ff = -FixedDiv(FixedMul(frac, shootz - *pl->height), dz);
 					x = trace.x + FixedMul(trace.dx, ff);
 					y = trace.y + FixedMul(trace.dy, ff);
-					terrain_hit_splash(NULL, x, y, *pl->height, pl->source->ceilingpic);
+					if(mobjinfo[mo_puff_type].mass < TERRAIN_LOW_MASS)
+						flat = -flat;
+					terrain_hit_splash(NULL, x, y, *pl->height, flat);
 				}
 				pl = pl->next;
 			}
@@ -647,7 +653,7 @@ do_puff:
 		trace.dx = z;
 
 		if(flatterrain && !(mobjinfo[mo_puff_type].flags2 & MF2_DONTSPLASH) && flat_pic >= 0)
-			terrain_hit_splash(NULL, trace.x, trace.y, z, flat_pic);
+			terrain_hit_splash(NULL, trace.x, trace.y, z, mobjinfo[mo_puff_type].mass < TERRAIN_LOW_MASS ? -flat_pic : flat_pic);
 
 		mobj_spawn_puff(&trace, NULL, mo_puff_type);
 

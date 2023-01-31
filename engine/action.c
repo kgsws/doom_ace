@@ -3687,6 +3687,35 @@ void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_ScaleVelocity
+
+static const dec_args_t args_ScaleVelocity =
+{
+	.size = sizeof(args_ScaleVelocity_t),
+	.arg =
+	{
+		{handle_fixed, offsetof(args_ScaleVelocity_t, scale)},
+		{handle_pointer, offsetof(args_ScaleVelocity_t, ptr), 1},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_ScaleVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_ScaleVelocity_t *arg = st->arg;
+
+	mo = resolve_ptr(mo, arg->ptr);
+	if(!mo)
+		return;
+
+	mo->momx = FixedMul(mo->momx, arg->scale);
+	mo->momy = FixedMul(mo->momy, arg->scale);
+	mo->momz = FixedMul(mo->momz, arg->scale);
+}
+
+//
 // A_Stop
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -4325,6 +4354,28 @@ void A_CheckFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_CheckFloor
+
+static const dec_args_t args_CheckFloor =
+{
+	.size = sizeof(args_singleState_t),
+	.arg =
+	{
+		{handle_state, offsetof(args_singleState_t, state)},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_CheckFloor(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleState_t *arg = st->arg;
+	if(mo->z <= mo->floorz)
+		stfunc(mo, arg->state.next, arg->state.extra);
+}
+
+//
 // A_MonsterRefire
 
 static const dec_args_t args_MonsterRefire =
@@ -4861,6 +4912,7 @@ static const dec_action_t mobj_action[] =
 	{"a_setpitch", A_SetPitch, &args_SetAngle}, // using 'SetAngle' is not ideal
 	{"a_changeflag", A_ChangeFlag, &args_ChangeFlag},
 	{"a_changevelocity", A_ChangeVelocity, &args_ChangeVelocity},
+	{"a_scalevelocity", A_ScaleVelocity, &args_ScaleVelocity},
 	{"a_stop", A_Stop},
 	{"a_settics", A_SetTics, &args_SetTics},
 	{"a_rearrangepointers", A_RearrangePointers, &args_RearrangePointers},
@@ -4886,6 +4938,7 @@ static const dec_action_t mobj_action[] =
 	{"a_jumpiftargetinsidemeleerange", A_JumpIfTargetInsideMeleeRange, &args_ReFire},
 	{"a_jumpiftargetoutsidemeleerange", A_JumpIfTargetOutsideMeleeRange, &args_ReFire},
 	{"a_checkflag", A_CheckFlag, &args_CheckFlag},
+	{"a_checkfloor", A_CheckFloor, &args_CheckFloor},
 	{"a_monsterrefire", A_MonsterRefire, &args_MonsterRefire},
 	// terminator
 	{NULL}

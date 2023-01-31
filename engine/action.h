@@ -305,6 +305,14 @@ typedef struct
 
 typedef struct
 {
+	fixed_t scale;
+	uint8_t ptr;
+} args_ScaleVelocity_t;
+
+//
+
+typedef struct
+{
 	uint8_t target;
 	uint8_t master;
 	uint8_t tracer;

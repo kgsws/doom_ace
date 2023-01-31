@@ -43,7 +43,6 @@ enum
 	DT_ICON,
 	DT_SKIP1,
 	DT_PAINCHANCE,
-	DT_BOUNCE_TYPE,
 	DT_DAMAGE_TYPE,
 	DT_DAMAGE_FACTOR,
 	DT_RENDER_STYLE,
@@ -61,6 +60,7 @@ enum
 	DT_DROPITEM,
 	DT_PP_WPN_SLOT,
 	DT_PP_INV_SLOT,
+	DT_COLOR_RANGE,
 	DT_STATES,
 };
 
@@ -233,6 +233,7 @@ static const mobjinfo_t default_mobj =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -252,6 +253,7 @@ static const mobjinfo_t default_player =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -278,6 +280,7 @@ static const mobjinfo_t default_plrchunk =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -304,6 +307,7 @@ static const mobjinfo_t default_health =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -328,6 +332,7 @@ static mobjinfo_t default_inventory =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -353,6 +358,7 @@ static const mobjinfo_t default_weapon =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -379,6 +385,7 @@ static mobjinfo_t default_ammo =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -404,6 +411,7 @@ static const mobjinfo_t default_key =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -429,6 +437,7 @@ static mobjinfo_t default_armor =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -455,6 +464,7 @@ static mobjinfo_t default_armor_bonus =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -482,6 +492,7 @@ static mobjinfo_t default_powerup =
 	.telefog[0] = 39,
 	.telefog[1] = 39,
 	.gravity = FRACUNIT,
+	.bounce_factor = 0xB333,
 	.scale = FRACUNIT,
 	.range_melee = 44 * FRACUNIT,
 	.render_alpha = 255,
@@ -553,7 +564,8 @@ static const dec_attr_t attr_mobj[] =
 	{"fastspeed", DT_FIXED, offsetof(mobjinfo_t, fast_speed)},
 	{"vspeed", DT_FIXED, offsetof(mobjinfo_t, vspeed)},
 	//
-	{"bouncetype", DT_BOUNCE_TYPE},
+	{"bouncecount", DT_U16, offsetof(mobjinfo_t, bounce_count)},
+	{"bouncefactor", DT_FIXED, offsetof(mobjinfo_t, bounce_factor)},
 	//
 	{"species", DT_ALIAS64, offsetof(mobjinfo_t, species)},
 	//
@@ -570,6 +582,7 @@ static const dec_attr_t attr_mobj[] =
 	{"deathsound", DT_SOUND, offsetof(mobjinfo_t, deathsound)},
 	{"painsound", DT_SOUND, offsetof(mobjinfo_t, painsound)},
 	{"seesound", DT_SOUND, offsetof(mobjinfo_t, seesound)},
+	{"bouncesound", DT_SOUND, offsetof(mobjinfo_t, bouncesound)},
 	//
 	{"maxstepheight", DT_FIXED, offsetof(mobjinfo_t, step_height)},
 	{"maxdropoffheight", DT_FIXED, offsetof(mobjinfo_t, dropoff)},
@@ -682,6 +695,8 @@ const dec_flag_t mobj_flags2[] =
 	{"synchronized", MF2_SYNCHRONIZED},
 	{"dontmorph", MF2_DONTMORPH},
 	{"dontsplash", MF2_DONTSPLASH},
+	{"bounceonfloors", MF2_BOUNCEONFLOORS},
+	{"bounceonceilings", MF2_BOUNCEONCEILINGS},
 	// terminator
 	{NULL}
 };
@@ -734,6 +749,8 @@ static const dec_attr_t attr_player[] =
 	//
 	{"player.weaponslot", DT_PP_WPN_SLOT},
 	{"player.startitem", DT_PP_INV_SLOT},
+	//
+	{"player.colorrange", DT_COLOR_RANGE},
 	//
 	{"player.displayname", DT_SKIP1},
 	{"player.crouchsprite", DT_SKIP1},
@@ -1066,6 +1083,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.telefog[0] = 39,
 		.telefog[1] = 39,
 		.gravity = FRACUNIT,
+		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_NOGRAVITY,
@@ -1084,6 +1102,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.telefog[0] = 39,
 		.telefog[1] = 39,
 		.gravity = FRACUNIT,
+		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_SPECIAL,
@@ -1108,6 +1127,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.telefog[0] = 39,
 		.telefog[1] = 39,
 		.gravity = FRACUNIT,
+		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_SPECIAL,
@@ -1130,6 +1150,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.telefog[0] = 39,
 		.telefog[1] = 39,
 		.gravity = (FRACUNIT * 128) / 1000,
+		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_DROPOFF | MF_NOBLOCKMAP,
@@ -1148,6 +1169,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.telefog[0] = 39,
 		.telefog[1] = 39,
 		.gravity = (FRACUNIT * 128) / 1000,
+		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_DROPOFF,
@@ -1204,13 +1226,6 @@ static const char *render_style[NUM_RENDER_STYLES] =
 	[RS_TRANSLUCENT] = "translucent",
 	[RS_ADDITIVE] = "add",
 	[RS_INVISIBLE] = "none",
-};
-
-// bounce types
-static const char *bounce_type[NUM_BOUNCE_TYPES] =
-{
-	[BOUNCETYPE_NONE] = "none",
-	[BOUNCETYPE_HERETIC] = "heretic",
 };
 
 // special inventory
@@ -1815,21 +1830,6 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			parse_mobj_info->painchance[idx] = num.u32 | 0x8000;
 		}
 		break;
-		case DT_BOUNCE_TYPE:
-		{
-			kw = tp_get_keyword_lc();
-			if(!kw)
-				return 1;
-			for(num.u32 = 0; num.u32 < NUM_BOUNCE_TYPES; num.u32++)
-			{
-				if(!strcmp(bounce_type[num.u32], kw))
-					break;
-			}
-			if(num.u32 >= NUM_BOUNCE_TYPES)
-				engine_error("DECORATE", "Unknown bounce type '%s' in '%s'!", kw, parse_actor_name);
-			parse_mobj_info->bounce_type = num.u32;
-		}
-		break;
 		case DT_DAMAGE_TYPE:
 			kw = tp_get_keyword_lc();
 			if(!kw)
@@ -2020,6 +2020,22 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 		break;
 		case DT_PP_INV_SLOT:
 			return parse_inv_slot();
+		break;
+		case DT_COLOR_RANGE:
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			if(doom_sscanf(kw, "%u", &num.u32) != 1 || num.u32 > 255)
+				return 1;
+			parse_mobj_info->player.color_first = num.u32;
+			if(!tp_must_get(","))
+				return 1;
+			kw = tp_get_keyword();
+			if(!kw)
+				return 1;
+			if(doom_sscanf(kw, "%u", &num.u32) != 1 || num.u32 > 255)
+				return 1;
+			parse_mobj_info->player.color_last = num.u32;
 		break;
 		case DT_STATES:
 			num.u32 = parse_states();

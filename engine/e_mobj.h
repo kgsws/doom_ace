@@ -28,15 +28,6 @@ enum
 	NUM_DAMAGE_TYPES
 };
 
-// bounce type
-enum
-{
-	BOUNCETYPE_NONE, // must be zero
-	BOUNCETYPE_HERETIC,
-	//
-	NUM_BOUNCE_TYPES
-};
-
 // basic animations
 enum
 {
@@ -189,6 +180,8 @@ typedef struct
 #define MF2_SYNCHRONIZED	0x00002000
 #define MF2_DONTMORPH		0x00004000
 #define MF2_DONTSPLASH		0x00008000
+#define MF2_BOUNCEONFLOORS	0x00010000
+#define MF2_BOUNCEONCEILINGS	0x00020000
 
 // internal FLAGS
 #define MFI_SHATTERING	0x00000001

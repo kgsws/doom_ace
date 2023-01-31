@@ -585,6 +585,8 @@ typedef struct
 	fixed_t view_height;
 	fixed_t attack_offs;
 	fixed_t jump_z;
+	uint8_t color_first;
+	uint8_t color_last;
 	union
 	{
 		struct
@@ -668,7 +670,7 @@ typedef struct mobjinfo_s
 	uint16_t damage_type;
 	uint16_t blood_type;
 	uint16_t painsound;
-	uint16_t __free_38;
+	uint16_t bouncesound;
 	uint32_t state_melee;
 	uint32_t state_missile;
 	uint32_t state_death;
@@ -682,8 +684,7 @@ typedef struct mobjinfo_s
 	int32_t mass;
 	int32_t damage;
 	uint16_t activesound;
-	uint8_t bounce_type;
-	uint8_t __free_69;
+	uint16_t bounce_count;
 	uint32_t flags;
 	uint32_t state_raise;
 	// new stuff
@@ -700,6 +701,7 @@ typedef struct mobjinfo_s
 	fixed_t gravity;
 	fixed_t range_melee;
 	fixed_t scale;
+	fixed_t bounce_factor;
 	uint64_t species;
 	uint16_t telefog[2];
 	uint8_t *translation;
@@ -1181,6 +1183,8 @@ typedef struct mobj_s
 	// to avoid mutiple rip damage per tick
 	struct mobj_s *rip_thing;
 	uint32_t rip_tick;
+	// bounce
+	uint16_t bounce_count;
 	// frozen corpse
 	uint32_t freeze_tick;
 	// special

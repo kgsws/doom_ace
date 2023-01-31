@@ -854,6 +854,7 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	mo->gravity = info->gravity;
 	mo->scale = info->scale;
 	mo->damage_type = info->damage_type;
+	mo->bounce_count = info->bounce_count;
 	mo->netid = mobj_netid;
 
 	// vertical speed
@@ -1727,8 +1728,17 @@ void mobj_remove(mobj_t *mo)
 static __attribute((regparm(2),no_caller_saved_registers))
 void mobj_plane_bounce(mobj_t *mo, fixed_t momz)
 {
-	mo->momz = -momz;
-	mobj_set_animation(mo, ANIM_DEATH);
+	if(mo->bounce_count && !--mo->bounce_count)
+	{
+		mobj_explode_missile(mo);
+		return;
+	}
+
+	mo->angle = R_PointToAngle2(mo->x, mo->y, mo->x + mo->momx, mo->y + mo->momy);
+
+	mo->momz = FixedMul(-momz, mo->info->bounce_factor);
+
+	S_StartSound(mo, mo->info->bouncesound);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1738,7 +1748,10 @@ void mobj_explode_missile(mobj_t *mo)
 
 	mo->momx = 0;
 	mo->momy = 0;
-	mo->momz = 0;
+	if(mo->flags & MF_NOGRAVITY)
+		mo->momz = 0;
+	else
+		mo->momz = -mo->gravity; // workaround
 
 	mo->flags &= ~MF_SHOOTABLE;
 
@@ -1994,7 +2007,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		if(player->armortype && !mo_dmg_skip_armor)
 		{
 			uint32_t saved;
-			saved = ((damage * mobjinfo[player->armortype].armor.percent) + 50) / 100;
+			saved = ((damage * mobjinfo[player->armortype].armor.percent) + 25) / 100;
 			if(player->armorpoints <= saved)
 			{
 				saved = player->armorpoints;
@@ -2380,7 +2393,7 @@ static void P_ZMovement(mobj_t *mo)
 			}
 		}
 
-		if(remove && mo->info->bounce_type)
+		if(remove && mo->flags2 & MF2_BOUNCEONFLOORS && mo->flags & MF_MISSILE)
 		{
 			mobj_remove(mo);
 			return;
@@ -2439,19 +2452,15 @@ static void P_ZMovement(mobj_t *mo)
 				mo->subsector->sector->floorpic != skyflatnum
 			){
 				hit_thing = NULL;
-				if(mo->info->bounce_type)
-				{
+				if(mo->flags2 & MF2_BOUNCEONFLOORS)
 					mobj_plane_bounce(mo, momz);
-					if(!mo->momz)
-						goto try_crash;
-				} else
+				else
 					mobj_explode_missile(mo);
 			} else
 				mobj_remove(mo);
 			return;
 		}
 
-try_crash:
 		if(mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
 		{
 			uint32_t state = 0;
@@ -2509,7 +2518,7 @@ try_crash:
 				mo->subsector->sector->ceilingpic != skyflatnum
 			){
 				hit_thing = NULL;
-				if(mo->info->bounce_type)
+				if(mo->flags2 & MF2_BOUNCEONCEILINGS)
 					mobj_plane_bounce(mo, momz);
 				else
 					mobj_explode_missile(mo);

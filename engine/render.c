@@ -2622,12 +2622,16 @@ void init_render()
 	render_translation = ptr + COLORMAP_SIZE + sizeof(render_tables_t);
 
 	// extra translations
+	generate_empty_range(render_translation + TRANSLATION_DEHPLR2 * 256);
+	generate_translation(render_translation + TRANSLATION_DEHPLR2 * 256, 112, 127, 96, 111);
+	generate_empty_range(render_translation + TRANSLATION_DEHPLR3 * 256);
+	generate_translation(render_translation + TRANSLATION_DEHPLR3 * 256, 112, 127, 64, 79);
+	generate_empty_range(render_translation + TRANSLATION_DEHPLR4 * 256);
+	generate_translation(render_translation + TRANSLATION_DEHPLR4 * 256, 112, 127, 32, 47);
+	generate_empty_range(render_translation + TRANSLATION_PLAYER0 * 256);
+	generate_empty_range(render_translation + TRANSLATION_PLAYER1 * 256);
 	generate_empty_range(render_translation + TRANSLATION_PLAYER2 * 256);
-	generate_translation(render_translation + TRANSLATION_PLAYER2 * 256, 112, 127, 96, 111);
 	generate_empty_range(render_translation + TRANSLATION_PLAYER3 * 256);
-	generate_translation(render_translation + TRANSLATION_PLAYER3 * 256, 112, 127, 64, 79);
-	generate_empty_range(render_translation + TRANSLATION_PLAYER4 * 256);
-	generate_translation(render_translation + TRANSLATION_PLAYER4 * 256, 112, 127, 32, 47);
 	generate_color2(render_translation + TRANSLATION_ICE * 256, 148, 148, 172);
 
 	translation_alias[TRANSLATION_ICE] = 0x00000000000258E9;

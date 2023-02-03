@@ -600,6 +600,7 @@ void stbar_set_xhair()
 {
 	uint32_t type;
 	uint8_t color;
+	uint8_t r, g, b;
 
 	if(extra_config.crosshair_type == 0xFF)
 		extra_config.crosshair_type = 6;
@@ -690,7 +691,10 @@ void stbar_set_xhair()
 	xhair = (patch_t*)&xhair_data;
 
 	// recolor
-	color = r_find_color(extra_config.crosshair_red, extra_config.crosshair_green, extra_config.crosshair_blue);
+	r = extra_config.crosshair_color & 15;
+	g = (extra_config.crosshair_color >> 4) & 15;
+	b = (extra_config.crosshair_color >> 8) & 15;
+	color = r_find_color((r << 4) | r, (g << 4) | g, (b << 4) | b);
 
 	for(uint32_t i = 0; i < xhair->width; i++)
 	{

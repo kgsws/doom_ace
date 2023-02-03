@@ -240,6 +240,7 @@ static menu_t mouse_menu =
 // PLAYER
 
 static void player_change(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+static void player_color(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 static menuitem_t player_items[] =
 {
 	{
@@ -271,6 +272,27 @@ static menuitem_t player_items[] =
 		.status = 2,
 		.func = player_change,
 		.key = 'c'
+	},
+	{
+		.status = -1
+	},
+	{
+		.status = -1
+	},
+	{
+		.text = "Red",
+		.status = 2,
+		.func = player_color
+	},
+	{
+		.text = "Green",
+		.status = 2,
+		.func = player_color
+	},
+	{
+		.text = "Blue",
+		.status = 2,
+		.func = player_color
 	},
 };
 
@@ -368,33 +390,42 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void xhair_color(uint32_t dir)
 {
 	uint8_t *ptr;
+	uint32_t shift;
+	uint32_t value = extra_config.crosshair_color;
+	uint32_t color;
 
 	switch(menu_item_now)
 	{
 		case 8:
-			ptr = &extra_config.crosshair_red;
+			shift = 0;
 		break;
 		case 9:
-			ptr = &extra_config.crosshair_green;
+			shift = 4;
 		break;
 		case 10:
-			ptr = &extra_config.crosshair_blue;
+			shift = 8;
 		break;
 		default:
 			return;
 	}
 
+	color = (value >> shift) & 15;
+	value &= ~(15 << shift);
+
 	if(dir)
 	{
-		if(*ptr == 0xFF)
+		if(color == 15)
 			return;
-		*ptr = *ptr + 1;
+		color = color + 1;
 	} else
 	{
-		if(!*ptr)
+		if(!color)
 			return;
-		*ptr = *ptr - 1;
+		color = color - 1;
 	}
+
+	value |= color << shift;
+	extra_config.crosshair_color = value;
 
 	stbar_set_xhair();
 }
@@ -457,11 +488,11 @@ void display_draw()
 	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 7, text);
 
 	// crosshair color
-	doom_sprintf(text, "%u", extra_config.crosshair_red);
+	doom_sprintf(text, "%u", extra_config.crosshair_color & 15);
 	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 8, text);
-	doom_sprintf(text, "%u", extra_config.crosshair_green);
+	doom_sprintf(text, "%u", (extra_config.crosshair_color >> 4) & 15);
 	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 9, text);
-	doom_sprintf(text, "%u", extra_config.crosshair_blue);
+	doom_sprintf(text, "%u", (extra_config.crosshair_color >> 8) & 15);
 	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 10, text);
 }
 
@@ -674,10 +705,63 @@ void player_change(uint32_t dir)
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
+void player_color(uint32_t dir)
+{
+	uint8_t *ptr;
+	uint32_t shift;
+	uint32_t value = extra_config.player_color;
+	uint32_t color;
+
+	switch(menu_item_now)
+	{
+		case 7:
+			shift = 0;
+		break;
+		case 8:
+			shift = 4;
+		break;
+		case 9:
+			shift = 8;
+		break;
+		default:
+			return;
+	}
+
+	color = (value >> shift) & 15;
+	value &= ~(15 << shift);
+
+	if(dir)
+	{
+		if(color == 15)
+			return;
+		color = color + 1;
+	} else
+	{
+		if(!color)
+			return;
+		color = color - 1;
+	}
+
+	value |= color << shift;
+	extra_config.player_color = value;
+
+	// TODO: multiplayer update; but only on menu exit
+	player_info[consoleplayer].color = value;
+	r_generate_player_color(consoleplayer);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
 void player_draw()
 {
+	uint8_t text[16];
+
 	// title
 	V_DrawPatchDirect(119, 15, W_CacheLumpNum(title_player, PU_CACHE));
+
+	// 'crosshair' title
+	menu_font_color = FCOL_WHITE;
+	font_menu_text(options_menu.x + 20, -options_menu.y + mod_config.menu_font_height * 6, "COLOR");
+	menu_font_color = FCOL_ORIGINAL;
 
 	// auto run
 	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 0, off_on[*auto_run == 1]);
@@ -693,6 +777,14 @@ void player_draw()
 
 	// center weapon
 	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 4, weapon_mode[extra_config.center_weapon]);
+
+	// player color
+	doom_sprintf(text, "%u", extra_config.player_color & 15);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 7, text);
+	doom_sprintf(text, "%u", (extra_config.player_color >> 4) & 15);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 8, text);
+	doom_sprintf(text, "%u", (extra_config.player_color >> 8) & 15);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 9, text);
 }
 
 //

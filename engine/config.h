@@ -43,13 +43,12 @@ typedef struct
 	uint8_t auto_aim;
 	uint8_t mouse_look;
 	uint8_t center_weapon;
+	uint16_t player_color;
 	// display
 	uint8_t show_fps;
 	uint8_t wipe_type;
+	uint16_t crosshair_color;
 	uint8_t crosshair_type;
-	uint8_t crosshair_red;
-	uint8_t crosshair_green;
-	uint8_t crosshair_blue;
 } extra_config_t;
 
 //

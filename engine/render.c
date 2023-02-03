@@ -12,6 +12,7 @@
 #include "ldr_flat.h"
 #include "ldr_texture.h"
 #include "ldr_sprite.h"
+#include "decorate.h"
 #include "extra3d.h"
 #include "draw.h"
 #include "textpars.h"
@@ -2482,6 +2483,56 @@ uint32_t r_add_blood_color(uint32_t color)
 	return ret;
 }
 
+void *r_generate_player_color(uint32_t idx)
+{
+	player_info_t *pi = player_info + idx;
+	ei_player_t *pc = &mobjinfo[player_class[player_info[idx].playerclass]].player;
+	uint8_t *dest = render_translation + (TRANSLATION_PLAYER0 + idx) * 256;
+	int32_t count = 1 + pc->color_last - pc->color_first;
+	uint32_t i;
+	uint32_t r, g, b, l;
+
+	if(!pc->color_first && !pc->color_last)
+	{
+		for(i = 0; i < 255; i++)
+			dest[i] = i;
+		return NULL;
+	}
+
+	r = pi->color & 15;
+	g = (pi->color >> 4) & 15;
+	b = (pi->color >> 8) & 15;
+
+	// expand
+	r |= r << 4;
+	g |= g << 4;
+	b |= b << 4;
+
+	// generate
+	for(i = 0; i < pc->color_first; i++)
+		dest[i] = i;
+
+	l = 0xFF00;
+	count = 0xFF00 / count;
+	for( ; i <= pc->color_last; i++)
+	{
+		uint32_t rr, gg, bb, ll;
+
+		// (16 + 239 * c) * l
+		rr = (1048576 + 61423 * r) * (l >> 8);
+		gg = (1048576 + 61423 * g) * (l >> 8);
+		bb = (1048576 + 61423 * b) * (l >> 8);
+		l -= count;
+
+		dest[i] = r_find_color(rr >> 24, gg >> 24, bb >> 24);
+	}
+
+	for( ; i < 255; i++)
+		dest[i] = i;
+
+	return dest;
+}
+
 uint8_t *r_get_blood_color(uint32_t idx)
 {
 	idx &= 0xFFFF;
@@ -2500,6 +2551,7 @@ void render_preinit(uint8_t *palette)
 		pal->g = *palette++;
 		pal->b = *palette++;
 
+		// This calculation when used for sector light does not match ZDoom but it looks much better.
 		pal->l = pal->r;
 		if(pal->l < pal->g)
 			pal->l = pal->g;

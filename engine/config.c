@@ -46,15 +46,14 @@ typedef struct
 
 extra_config_t extra_config =
 {
+	.player_color = 0x6F6,
 	.auto_switch = 0,
 	.auto_aim = 0,
 	.mouse_look = 1,
 	.wipe_type = WIPE_MELT,
 	.center_weapon = 1,
 	.crosshair_type = 1,
-	.crosshair_red = 255,
-	.crosshair_green = 255,
-	.crosshair_blue = 0,
+	.crosshair_color = 0x0FF,
 };
 
 mod_config_t mod_config =
@@ -128,10 +127,9 @@ static config_entry_t config_game[] =
 	{"display.fps", &extra_config.show_fps, TYPE_U8},
 	{"display.wipe", &extra_config.wipe_type, TYPE_U8},
 	{"display.xhair.type", &extra_config.crosshair_type, TYPE_U8},
-	{"display.xhair.red", &extra_config.crosshair_red, TYPE_U8},
-	{"display.xhair.green", &extra_config.crosshair_green, TYPE_U8},
-	{"display.xhair.blue", &extra_config.crosshair_blue, TYPE_U8},
+	{"display.xhair.color", &extra_config.crosshair_color, TYPE_U16},
 	// player
+	{"player.color", &extra_config.player_color, TYPE_U16},
 	{"player.autorun", (void*)0x0001FBC5, TYPE_U8, 1},
 	{"player.autoaim", &extra_config.auto_aim, TYPE_U8},
 	{"player.mouselook", &extra_config.mouse_look, TYPE_U8},
@@ -331,11 +329,12 @@ void init_config()
 		extra_config.center_weapon = 0;
 /*
 	// PLAYER FLAGS ARE FORCED TO UPDATE WHEN GAME STARTS
-	// TODO: do this when sending net-game info, with player class
+	// TODO: do this when sending net-game info, with player class and color
 	pli->flags |= (uint32_t)extra_config.auto_switch << plf_auto_switch;
 	pli->flags |= (uint32_t)extra_config.auto_aim << plf_auto_aim;
 	pli->flags |= (uint32_t)!!(extra_config.mouse_look) << plf_mouse_look;
 */
+	pli->color = extra_config.player_color;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

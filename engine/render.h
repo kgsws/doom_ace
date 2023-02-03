@@ -106,5 +106,7 @@ uint8_t *r_translation_by_name(const uint8_t *name);
 uint32_t r_add_blood_color(uint32_t color);
 uint8_t *r_get_blood_color(uint32_t idx);
 
+void *r_generate_player_color(uint32_t idx);
+
 void render_player_view(player_t *pl);
 

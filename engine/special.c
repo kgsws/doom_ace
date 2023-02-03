@@ -1471,10 +1471,10 @@ static inline uint32_t do_GlassBreak(line_t *ln)
 		return 0;
 
 	ln->flags &= ~(ML_BLOCKING | ML_BLOCK_ALL);
-	type = ln->flags & ML_REPEATABLE;
+	type = !!(ln->flags & ML_REPEATABLE);
 	do_line_switch(ln, type);
 	if(ln->backsector)
-		do_line_switch(ln, type | 1);
+		do_line_switch(ln, type | 0x80000000);
 
 	if(spec_arg[0])
 		return 0;
@@ -2069,7 +2069,7 @@ thing_spawn:
 	}
 
 	if(ln && spec_success)
-		do_line_switch(ln, ln->flags & ML_REPEATABLE);
+		do_line_switch(ln, !!(ln->flags & ML_REPEATABLE));
 }
 
 //

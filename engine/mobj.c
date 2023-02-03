@@ -607,10 +607,10 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		return NULL;
 
 	pl = players + idx;
-	info = mobjinfo + player_class[0]; // TODO
+	info = mobjinfo + player_class[player_info[idx].playerclass];
 
 	// create body
-	mo = P_SpawnMobj(x, y, 0x80000000, player_class[0]);
+	mo = P_SpawnMobj(x, y, 0x80000000, player_class[player_info[idx].playerclass]);
 	mo->angle = angle;
 
 	if(pl->inventory)
@@ -726,8 +726,6 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		}
 	}
 
-	// TODO: translation - player color; not if MF2_DONTTRANSLATE is set
-
 	mo->player = pl;
 	mo->health = pl->health;
 
@@ -746,6 +744,9 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->inv_tick = 0;
 	pl->text_data = NULL;
 	pl->info_flags = player_info[idx].flags;
+
+	if(!(pl->mo->flags2 & MF2_DONTTRANSLATE))
+		pl->mo->translation = r_generate_player_color(idx);
 
 	cheat_player_flags(pl);
 
@@ -966,6 +967,10 @@ static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 {
 	uint32_t damage;
+
+	if(tmthing->flags2 & MF2_THRUACTORS)
+		// this should just skip PIT_CheckThing completely
+		return 1;
 
 	if(/*map_format != MAP_FORMAT_DOOM && */thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->flags & MF_TELEPORT))
 	{

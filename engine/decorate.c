@@ -695,6 +695,7 @@ const dec_flag_t mobj_flags2[] =
 	{"synchronized", MF2_SYNCHRONIZED},
 	{"dontmorph", MF2_DONTMORPH},
 	{"dontsplash", MF2_DONTSPLASH},
+	{"thruactors", MF2_THRUACTORS},
 	{"bounceonfloors", MF2_BOUNCEONFLOORS},
 	{"bounceonceilings", MF2_BOUNCEONCEILINGS},
 	// terminator

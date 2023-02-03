@@ -616,18 +616,10 @@ void hud_font_init()
 
 		for(uint32_t i = 1; i < 256; i++)
 		{
-			uint32_t top;
 			uint32_t ii = i == r_color_duplicate ? 0 : i;
 
-			// dont use r_palette[ii].l here
-			top = r_palette[ii].r;
-			if(top < r_palette[ii].g)
-				top = r_palette[ii].g;
-			if(top < r_palette[ii].b)
-				top = r_palette[ii].b;
-
 			ptr[0] = i; // same palette index
-			ptr[1] = 1 + (top * 30) / 255;
+			ptr[1] = 1 + (r_palette[ii].l * 30) / 255;
 
 			ptr += 2;
 		}

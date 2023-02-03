@@ -21,6 +21,7 @@ enum
 typedef struct
 {
 	uint16_t color;
+	uint16_t playerclass;
 	uint16_t flags;
 } player_info_t;
 

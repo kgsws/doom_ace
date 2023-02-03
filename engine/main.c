@@ -750,8 +750,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001AA7A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)ldr_restore},
 	// add custom loading, skip "commercial" text and PWAD warning
 	{0x0001E4DA, CODE_HOOK | HOOK_JMP_DOOM, 0x0001E70C},
-	// change '-config' to '-cfg'
-	{0x00022B0A, DATA_HOOK | HOOK_UINT32, 0x6766},
 	// disable title text update
 	{0x0001D8D0, CODE_HOOK | HOOK_UINT8, 0xC3},
 	// disable call to 'I_InitGraphics' in 'D_DoomLoop'

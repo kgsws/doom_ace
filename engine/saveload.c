@@ -37,7 +37,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFBD	// increment with updates
+#define SAVE_VERSION	0xE58BAFBE	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -277,6 +277,8 @@ typedef struct
 	int16_t killcount;
 	uint16_t itemcount;
 	uint16_t secretcount;
+	//
+	uint16_t playerclass;
 	//
 	uint8_t extralight;
 	uint8_t usedown;
@@ -1403,6 +1405,7 @@ static inline void sv_put_players()
 		plr.backpack = pl->backpack;
 		plr.state = pl->state;
 		plr.didsecret = pl->didsecret;
+		plr.playerclass = player_info[i].playerclass;
 
 		if(!pl->mo->inventory || pl->inv_sel < 0)
 			plr.inv_sel = 0;
@@ -2668,6 +2671,11 @@ static inline uint32_t ld_get_players(uint32_t hub_data)
 		pl->backpack = plr.backpack;
 		pl->state = plr.state;
 		pl->didsecret = plr.didsecret;
+
+		if(plr.playerclass >= num_player_classes)
+			return 1;
+
+		player_info[idx].playerclass = plr.playerclass;
 
 		if(plr.inv_sel)
 		{

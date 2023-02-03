@@ -2247,7 +2247,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		dist /= speed;
 		if(dist <= 0)
 			dist = 1;
-		dist = ((target->z + 32 * FRACUNIT) - z) / dist; // TODO: maybe aim for the middle?
+		dist = ((target->z + (target->height / 2)) - z) / dist; // TODO: propper aim for the middle?
 		th->momz = FixedDiv(dist, speed);
 		if(flags & CMF_OFFSETPITCH)
 			pitch = -arg->pitch;
@@ -2306,6 +2306,12 @@ void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mo->angle = angle;
 	} else
 		angle = mo->angle;
+
+	if(mo->target->flags & MF_SHADOW)
+	{
+		angle += (P_Random() - P_Random()) << 20;
+		mo->angle = angle;
+	}
 
 	if(arg->pufftype)
 		mo_puff_type = arg->pufftype;
@@ -3043,7 +3049,8 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 static const dec_arg_flag_t flags_SpawnItemEx[] =
 {
-	MAKE_FLAG(SXF_ISTRACER), // first flag must be > 65535 to indicate 32bits
+	MAKE_FLAG(SXF_MULTIPLYSPEED), // first flag must be > 65535 to indicate 32bits
+	MAKE_FLAG(SXF_ISTRACER),
 	MAKE_FLAG(SXF_ISMASTER),
 	MAKE_FLAG(SXF_ISTARGET),
 	MAKE_FLAG(SXF_ORIGINATOR),
@@ -3147,6 +3154,14 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	th->momz = reslove_fixed_rng(arg->vz);
 	th->angle = mo->angle;
 	th->special.tid = arg->tid;
+
+	if(arg->flags & SXF_MULTIPLYSPEED)
+	{
+		fixed_t speed = projectile_speed(th->info);
+		th->momx = FixedMul(mx, speed);
+		th->momy = FixedMul(my, speed);
+		th->momz = FixedMul(th->momz, speed);
+	}
 
 	if(arg->flags & SXF_TRANSFERPITCH)
 		th->pitch = mo->pitch;

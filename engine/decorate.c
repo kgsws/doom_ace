@@ -207,6 +207,8 @@ static const ei_player_t ei_player =
 {
 	.view_height = 41 * FRACUNIT,
 	.attack_offs = 8 * FRACUNIT,
+	.view_bob = FRACUNIT,
+	.name = "Marine",
 	.sound =
 	{
 		.death = 57,
@@ -264,6 +266,7 @@ static const mobjinfo_t default_player =
 	.player.view_height = 41 << FRACBITS,
 	.player.attack_offs = 8 << FRACBITS,
 	.player.jump_z = 8 << FRACBITS,
+	.player.view_bob = FRACUNIT,
 };
 
 // default 'PlayerChunk'
@@ -290,6 +293,7 @@ static const mobjinfo_t default_plrchunk =
 	.player.view_height = 41 << FRACBITS,
 	.player.attack_offs = 8 << FRACBITS,
 	.player.jump_z = 8 << FRACBITS,
+	.player.view_bob = FRACUNIT,
 };
 
 // default 'Health'
@@ -733,6 +737,7 @@ static const dec_flag_t weapon_flags[] =
 	{"weapon.primary_uses_both", MFE_WEAPON_PRIMARY_USES_BOTH},
 	{"weapon.alt_uses_both", MFE_WEAPON_ALT_USES_BOTH},
 	{"weapon.noautoaim", MFE_WEAPON_NOAUTOAIM},
+	{"weapon.dontbob", MFE_WEAPON_DONTBOB},
 	// dummy
 	{"weapon.wimpy_weapon", 0},
 	{"weapon.meleeweapon", 0},
@@ -746,6 +751,8 @@ static const dec_attr_t attr_player[] =
 	{"player.viewheight", DT_FIXED, offsetof(mobjinfo_t, player.view_height)},
 	{"player.attackzoffset", DT_FIXED, offsetof(mobjinfo_t, player.attack_offs)},
 	{"player.jumpz", DT_FIXED, offsetof(mobjinfo_t, player.jump_z)},
+	{"player.viewbob", DT_FIXED, offsetof(mobjinfo_t, player.view_bob)},
+	{"player.displayname", DT_STRING, offsetof(mobjinfo_t, player.name)},
 	{"player.soundclass", DT_SOUND_CLASS},
 	//
 	{"player.weaponslot", DT_PP_WPN_SLOT},
@@ -753,7 +760,6 @@ static const dec_attr_t attr_player[] =
 	//
 	{"player.colorrange", DT_COLOR_RANGE},
 	//
-	{"player.displayname", DT_SKIP1},
 	{"player.crouchsprite", DT_SKIP1},
 	// terminator
 	{NULL}
@@ -3339,6 +3345,8 @@ void init_decorate()
 		mobjinfo[0].player.wpn_slot[i] = (uint16_t*)doom_weapon_slots[i];
 	mobjinfo[0].start_item.start = (void*)doom_start_items;
 	mobjinfo[0].start_item.end = (void*)doom_start_items + sizeof(doom_start_items);
+	if(!mobjinfo[0].speed)
+		mobjinfo[0].speed = FRACUNIT;
 
 	// lost soul stuff
 	mobjinfo[18].flags1 |= MF1_ISMONSTER | MF1_DONTFALL;
@@ -3481,12 +3489,12 @@ void init_decorate()
 		info->extra_stuff[0] = dec_reloc_es(es_ptr, info->extra_stuff[0]);
 		info->extra_stuff[1] = dec_reloc_es(es_ptr, info->extra_stuff[1]);
 
-		// custom damage animations
-//		info->damage_states = dec_reloc_es(es_ptr, info->damage_states);
-
 		// PlayerPawn
 		if(info->extra_type == ETYPE_PLAYERPAWN)
 		{
+			// custom damage animations
+			info->player.name = dec_reloc_es(es_ptr, info->player.name);
+
 			// weapon slots
 			for(uint32_t i = 0; i < NUM_WPN_SLOTS; i++)
 				info->player.wpn_slot[i] = dec_reloc_es(es_ptr, info->player.wpn_slot[i]);

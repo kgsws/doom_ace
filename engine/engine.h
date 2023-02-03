@@ -585,6 +585,8 @@ typedef struct
 	fixed_t view_height;
 	fixed_t attack_offs;
 	fixed_t jump_z;
+	fixed_t view_bob;
+	uint8_t *name;
 	uint8_t color_first;
 	uint8_t color_last;
 	union

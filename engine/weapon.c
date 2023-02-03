@@ -148,11 +148,18 @@ void weapon_move_pspr(player_t *pl)
 
 	if(pl->weapon_ready || extra_config.center_weapon == 2)
 	{
-		// do weapon bob here for smooth chainsaw
-		angle = (128 * leveltime) & FINEMASK;
-		pl->psprites[0].sx = FixedMul(pl->bob, finecosine[angle]) >> FRACBITS;
-		angle &= FINEANGLES / 2 - 1;
-		pl->psprites[0].sy = FixedMul(pl->bob, finesine[angle]) >> FRACBITS;
+		if(pl->readyweapon->eflags & MFE_WEAPON_DONTBOB)
+		{
+			pl->psprites[0].sx = 0;
+			pl->psprites[0].sy = 0;
+		} else
+		{
+			// do weapon bob here for smooth chainsaw
+			angle = (128 * leveltime) & FINEMASK;
+			pl->psprites[0].sx = FixedMul(pl->bob, finecosine[angle]) >> FRACBITS;
+			angle &= FINEANGLES / 2 - 1;
+			pl->psprites[0].sy = FixedMul(pl->bob, finesine[angle]) >> FRACBITS;
+		}
 	} else
 	if(extra_config.center_weapon)
 	{

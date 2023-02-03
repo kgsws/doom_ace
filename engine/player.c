@@ -338,6 +338,8 @@ void P_CalcHeight(player_t *player)
 
 	angle = (FINEANGLES / 20 * leveltime) & FINEMASK;
 	bob = FixedMul(player->bob / 2, finesine[angle]);
+	if(player->mo->info->player.view_bob != FRACUNIT)
+		bob = FixedMul(bob, player->mo->info->player.view_bob);
 
 	if(player->state == PST_LIVE)
 	{
@@ -562,7 +564,7 @@ void player_think(player_t *pl)
 
 		if(pl->mo->flags & MF_NOGRAVITY && pl->mo->pitch)
 		{
-			scale = 2048;
+			scale = (2048 * pl->mo->info->speed) >> FRACBITS;
 
 			if(cmd->forwardmove)
 			{
@@ -580,7 +582,10 @@ void player_think(player_t *pl)
 			}
 		} else
 		{
-			scale = (onground || pl->mo->flags & MF_NOGRAVITY) ? 2048 : 8;
+			if(onground || pl->mo->flags & MF_NOGRAVITY)
+				scale = (2048 * pl->mo->info->speed) >> FRACBITS;
+			else
+				scale = 8;
 
 			if(cmd->forwardmove)
 			{

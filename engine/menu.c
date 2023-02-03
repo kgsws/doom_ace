@@ -9,6 +9,7 @@
 #include "controls.h"
 #include "player.h"
 #include "render.h"
+#include "decorate.h"
 #include "map.h"
 #include "wadfile.h"
 #include "font.h"
@@ -20,6 +21,8 @@
 #define CONTROL_X	80
 #define CONTROL_X_DEF	220
 
+#define PCLASS_Y_BASE	(40 + mod_config.menu_font_height * 3)
+
 int_fast8_t menu_font_color = FCOL_ORIGINAL;
 
 static uint8_t *auto_run;
@@ -29,17 +32,31 @@ static int32_t title_display;
 static int32_t title_controls;
 static int32_t title_mouse;
 static int32_t title_player;
+static int32_t title_pclass;
 static patch_t *selector_normal;
 static patch_t *selector_special;
 
-static uint16_t control_old;
-static int16_t control_pos;
+static uint16_t multi_old;
+static int16_t multi_pos;
 
 static const uint8_t *const off_on[] = {"OFF", "ON", "FAKE"}; // fake is used in mouse look
 static const uint8_t *const weapon_mode[] = {"ORIGINAL", "CENTER", "BOUNCY"};
 
 // episodes
 static menuitem_t episode_items[MAX_EPISODES];
+
+// multi-menu
+
+static void controls_set(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+static void playerclass_set(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+
+static menuitem_t multimenu_items[] =
+{
+	// dummy, just to track cursor movement
+	{.status = 1},
+	{.status = 1},
+	{.status = 1},
+};
 
 // OPTIONS
 
@@ -167,21 +184,12 @@ static menu_t display_menu =
 
 // CONTROLS
 
-static void controls_set(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
-static menuitem_t controls_items[] =
-{
-	// dummy, just to track cursor movement
-	{.status = 1, .func = controls_set},
-	{.status = 1, .func = controls_set},
-	{.status = 1, .func = controls_set},
-};
-
 static void controls_draw() __attribute((regparm(2),no_caller_saved_registers));
 static menu_t controls_menu =
 {
-	.numitems = sizeof(controls_items) / sizeof(menuitem_t),
+	.numitems = sizeof(multimenu_items) / sizeof(menuitem_t),
 	.prev = &options_menu,
-	.menuitems = controls_items,
+	.menuitems = multimenu_items,
 	.draw = controls_draw,
 	.x = -100
 };
@@ -307,6 +315,18 @@ static menu_t player_menu =
 	.y = -50
 };
 
+// PLAYER CLASS
+
+static void playerclass_draw() __attribute((regparm(2),no_caller_saved_registers));
+static menu_t playerclass_menu =
+{
+	.numitems = sizeof(multimenu_items) / sizeof(menuitem_t),
+	.prev = &NewDef,
+	.menuitems = multimenu_items,
+	.draw = playerclass_draw,
+	.x = -100
+};
+
 //
 // functions
 
@@ -314,6 +334,53 @@ static inline void M_SetupNextMenu(menu_t *menu)
 {
 	currentMenu = menu;
 	menu_item_now = menu->last;
+}
+
+static void setup_multimenu(void *func)
+{
+	for(uint32_t i = 0; i < sizeof(multimenu_items) / sizeof(menuitem_t); i++)
+		multimenu_items[i].func = func;
+}
+
+//
+// new game menu
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void sel_episode(uint32_t sel)
+{
+	if(map_episode_def[sel].map_lump < 0)
+		map_lump.wame = 0xFF; // invalid name
+	else
+		strcpy(map_lump.name, lumpinfo[map_episode_def[sel].map_lump].name);
+
+	if(map_episode_def[sel].flags & EPI_FLAG_NO_SKILL_MENU)
+	{
+		G_DeferedInitNew(sk_medium, 0, 0);
+		M_ClearMenus();
+		return;
+	}
+
+	M_SetupNextMenu(&NewDef);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void sel_new_game()
+{
+	if(num_player_classes > 1)
+	{
+		setup_multimenu(playerclass_set);
+		M_SetupNextMenu(&playerclass_menu);
+		multi_old = menu_item_now;
+		return;
+	}
+
+	if(map_episode_count > 1)
+	{
+		M_SetupNextMenu(&EpiDef);
+		return;
+	}
+
+	sel_episode(0);
 }
 
 //
@@ -328,8 +395,9 @@ void options_next(uint32_t sel)
 			M_SetupNextMenu(&display_menu);
 		break;
 		case 3:
+			setup_multimenu(controls_set);
 			M_SetupNextMenu(&controls_menu);
-			control_old = menu_item_now;
+			multi_old = menu_item_now;
 		break;
 		case 4:
 			M_SetupNextMenu(&mouse_menu);
@@ -505,14 +573,14 @@ void control_input(uint8_t key)
 	if(key == 27)
 	{
 		// remove key
-		*control_list[control_pos].ptr = 1;
+		*control_list[multi_pos].ptr = 1;
 		S_StartSound(NULL, 24);
 	} else
 	if(key)
 	{
 		// set new key
 		control_clear_key(key);
-		*control_list[control_pos].ptr = key;
+		*control_list[multi_pos].ptr = key;
 		S_StartSound(NULL, 1);
 	}
 
@@ -532,11 +600,11 @@ void controls_draw()
 	int32_t old;
 
 	// position changes
-	if(menu_item_now != control_old)
+	if(menu_item_now != multi_old)
 	{
-		int32_t diff = menu_item_now - control_old;
+		int32_t diff = menu_item_now - multi_old;
 
-		control_old = menu_item_now;
+		multi_old = menu_item_now;
 
 		if(diff > 1)
 			diff = -1;
@@ -544,11 +612,11 @@ void controls_draw()
 		if(diff < -1)
 			diff = 1;
 
-		control_pos += diff;
-		if(control_pos < 0)
-			control_pos = 0;
-		if(control_pos > NUM_CONTROLS - 1)
-			control_pos = NUM_CONTROLS - 1;
+		multi_pos += diff;
+		if(multi_pos < 0)
+			multi_pos = 0;
+		if(multi_pos > NUM_CONTROLS - 1)
+			multi_pos = NUM_CONTROLS - 1;
 	}
 
 	// title
@@ -559,8 +627,8 @@ void controls_draw()
 
 	// extra offset
 	old = control_list[0].group;
-	yy += CONTROL_Y_BASE - control_pos * mod_config.menu_font_height;
-	for(uint32_t i = 0; i < NUM_CONTROLS && i < control_pos+1; i++)
+	yy += CONTROL_Y_BASE - multi_pos * mod_config.menu_font_height;
+	for(uint32_t i = 0; i < NUM_CONTROLS && i < multi_pos+1; i++)
 	{
 		if(control_list[i].group != old)
 		{
@@ -788,6 +856,73 @@ void player_draw()
 }
 
 //
+// menu 'player class'
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void playerclass_set(uint32_t sel)
+{
+	player_info[consoleplayer].playerclass = multi_pos;
+
+	if(map_episode_count > 1)
+	{
+		M_SetupNextMenu(&EpiDef);
+		return;
+	}
+
+	sel_episode(0);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void playerclass_draw()
+{
+	int32_t yy;
+
+	// position changes
+	if(menu_item_now != multi_old)
+	{
+		int32_t diff = menu_item_now - multi_old;
+
+		multi_old = menu_item_now;
+
+		if(diff > 1)
+			diff = -1;
+		else
+		if(diff < -1)
+			diff = 1;
+
+		multi_pos += diff;
+		if(multi_pos < 0)
+			multi_pos = 0;
+		if(multi_pos > num_player_classes - 1)
+			multi_pos = num_player_classes - 1;
+	}
+
+	// title
+	V_DrawPatchDirect(78, 15, W_CacheLumpNum(title_pclass, PU_CACHE));
+
+	// selector
+	V_DrawPatchDirect(CONTROL_X - 10, PCLASS_Y_BASE, selector_normal);
+
+	// entries
+	yy = PCLASS_Y_BASE + mod_config.menu_font_height * -multi_pos;
+	for(uint32_t i = 0; i < num_player_classes; i++)
+	{
+		if(yy > 160)
+			break;
+
+		if(yy >= 40)
+		{
+			uint8_t *name = mobjinfo[player_class[i]].player.name;
+			if(!name)
+				name = "Unnamed";
+			font_menu_text(CONTROL_X, yy, name);
+		}
+
+		yy += mod_config.menu_font_height;
+	}
+}
+
+//
 // entry drawer
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -837,36 +972,6 @@ void menu_items_draw(menu_t *menu)
 }
 
 //
-// new game menu
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void sel_episode(uint32_t sel)
-{
-	if(map_episode_def[sel].map_lump < 0)
-		map_lump.wame = 0xFF; // invalid name
-	else
-		strcpy(map_lump.name, lumpinfo[map_episode_def[sel].map_lump].name);
-
-	if(map_episode_def[sel].flags & EPI_FLAG_NO_SKILL_MENU)
-	{
-		G_DeferedInitNew(sk_medium, 0, 0);
-		M_ClearMenus();
-		return;
-	}
-
-	M_SetupNextMenu(&NewDef);
-}
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void sel_new_game()
-{
-	if(map_episode_count > 1)
-		M_SetupNextMenu(&EpiDef);
-	else
-		sel_episode(0);
-}
-
-//
 // API
 
 void menu_init()
@@ -898,6 +1003,10 @@ void init_menu()
 	title_player = W_CheckNumForName("M_PLAYER");
 	if(title_player < 0)
 		title_player = title_options;
+
+	title_pclass = W_CheckNumForName("M_PCLASS");
+	if(title_pclass < 0)
+		title_pclass = W_GetNumForName("M_NGAME");
 }
 
 void menu_draw_slot_bg(uint32_t x, uint32_t y, uint32_t width)

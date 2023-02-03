@@ -242,6 +242,7 @@ typedef struct
 #define SXF_ISTARGET	0x10000
 #define SXF_ISMASTER	0x20000
 #define SXF_ISTRACER	0x40000
+#define SXF_MULTIPLYSPEED	0x80000
 
 typedef struct
 {

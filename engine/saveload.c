@@ -1390,8 +1390,8 @@ static inline void sv_put_players()
 		plr.damagecount = pl->damagecount;
 		plr.bonuscount = pl->bonuscount;
 
-		plr.pspx = pl->psprites[0].sx;
-		plr.pspy = pl->psprites[0].sy;
+		plr.pspx = pl->psprites[1].sx;
+		plr.pspy = pl->psprites[1].sy;
 
 		for(uint32_t j = 0; j < NUMPSPRITES; j++)
 		{
@@ -1674,7 +1674,7 @@ void do_save()
 	writer_add_u32(SAVE_VERSION);
 
 	// set as current autosave
-	autosave_type = 2;
+	autosave_type = 1;
 
 	// DONE
 	writer_close();
@@ -2654,8 +2654,8 @@ static inline uint32_t ld_get_players(uint32_t hub_data)
 		pl->damagecount = plr.damagecount;
 		pl->bonuscount = plr.bonuscount;
 
-		pl->psprites[0].sx = plr.pspx;
-		pl->psprites[0].sy = plr.pspy;
+		pl->psprites[1].sx = plr.pspx;
+		pl->psprites[1].sy = plr.pspy;
 
 		for(uint32_t i = 0; i < NUMPSPRITES; i++)
 		{
@@ -2825,15 +2825,8 @@ void load_auto()
 	// check
 	if(autosave_type)
 	{
-		if(autosave_type == 2)
-		{
-			saveslot = -1;
-			do_load();
-		} else
-		{
-			gameaction = ga_nothing;
-			load_hub_level();
-		}
+		saveslot = -1;
+		do_load();
 		return;
 	}
 
@@ -2951,7 +2944,8 @@ uint32_t load_hub_level()
 	reader_close();
 
 	// set as current autosave
-	autosave_type = 1;
+	// (hub data do not contain correct inventory)
+	save_auto(0);
 
 	return 0;
 
@@ -3100,7 +3094,7 @@ void do_load()
 	reader_close();
 
 	// set as current autosave
-	autosave_type = 2;
+	autosave_type = 1;
 
 	return;
 

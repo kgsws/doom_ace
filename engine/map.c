@@ -529,11 +529,13 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		mo->tics = 1 + (P_Random() % mo->tics);
 
 	mo->special.special = mt->special;
-	mo->special.arg[0] = mt->arg[0];
-	mo->special.arg[1] = mt->arg[1];
-	mo->special.arg[2] = mt->arg[2];
-	mo->special.arg[3] = mt->arg[3];
-	mo->special.arg[4] = mt->arg[4];
+	for(uint32_t i = 0; i < 5; i++)
+	{
+		if(i < mo->info->args[5])
+			mo->special.arg[i] = mo->info->args[i];
+		else
+			mo->special.arg[i] = mt->arg[i];
+	}
 	mo->special.tid = mt->tid;
 
 	if(hack == 9044 || hack == 9001)
@@ -2539,7 +2541,7 @@ static void set_world_done()
 			music_lump = old_cl->lump_music;
 		}
 		// check for cluster-hub
-		if(new_cl->flags & CLST_FLAG_HUB)
+		if(new_cl && new_cl->flags & CLST_FLAG_HUB)
 			saveload_clear_cluster(new_cl->idx);
 	} else
 	if(old_cl && old_cl->flags & CLST_FLAG_HUB)

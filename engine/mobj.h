@@ -26,6 +26,8 @@ extern uint_fast8_t mo_dmg_skip_armor;
 
 extern uint_fast8_t reborn_inventory_hack;
 
+extern mobj_t *mobj_hit_thing;
+
 //
 
 void mobj_set_animation(mobj_t*,uint8_t) __attribute((regparm(2),no_caller_saved_registers));

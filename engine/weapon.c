@@ -103,7 +103,7 @@ void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint32_t sta
 // weapon logic
 
 __attribute((regparm(2),no_caller_saved_registers))
-static void hook_lower_weapon(player_t *pl)
+void weapon_lower(player_t *pl)
 {
 	if(!pl->readyweapon)
 		return;
@@ -386,8 +386,6 @@ void wpn_sound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// replace call to 'P_DropWeapon' in 'P_KillMobj'
-	{0x0002A387, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hook_lower_weapon},
 	// replace call to 'P_MovePsprites'
 	{0x00033278, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)weapon_move_pspr},
 	// change size of 'attackdown' in 'ST_updateFaceWidget'

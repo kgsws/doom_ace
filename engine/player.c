@@ -405,7 +405,7 @@ static void player_sector_damage(player_t *pl, sector_extra_t *se)
 	mobj_damage(pl->mo, NULL, NULL, damage, NULL);
 }
 
-static void player_terrain_damage(player_t *pl, uint16_t flat)
+static void player_terrain_damage(player_t *pl, int32_t flat)
 {
 	terrain_terrain_t *trn;
 	uint32_t tics;
@@ -436,6 +436,11 @@ static void player_terrain_damage(player_t *pl, uint16_t flat)
 
 	damage = DAMAGE_WITH_TYPE(trn->damageamount, trn->damagetype);
 	mobj_damage(pl->mo, NULL, NULL, damage, NULL);
+
+	if(pl->mo->info->mass < TERRAIN_LOW_MASS)
+		flat = -flat;
+
+	terrain_hit_splash(NULL, pl->mo->x, pl->mo->y, pl->mo->z, flat);
 }
 
 static void handle_sector_special(player_t *pl, sector_t *sec, uint32_t texture)

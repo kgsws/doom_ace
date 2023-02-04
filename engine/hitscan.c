@@ -335,7 +335,7 @@ uint32_t hs_slide_traverse(intercept_t *in)
 			goto isblocking;
 	} else
 	{
-		if(li->flags & ML_BLOCKMONSTERS)
+		if(li->flags & ML_BLOCKMONSTERS && !(slidemo->flags2 & MF2_NOBLOCKMONST))
 			goto isblocking;
 	}
 

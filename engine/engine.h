@@ -691,6 +691,7 @@ typedef struct mobjinfo_s
 	uint32_t state_raise;
 	// new stuff
 	uint64_t alias;
+	uint8_t args[6];
 	uint16_t replacement;
 	uint32_t flags1;
 	uint32_t flags2;

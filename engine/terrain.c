@@ -21,6 +21,8 @@
 #define terrain_alias	((uint64_t*)TERRAIN_STATE_STORAGE)
 #define splash_alias	((uint64_t*)TERRAIN_STATE_STORAGE + MAX_TERRAIN_COUNT)
 
+#define MAX_SPLASH_SOUNDS	4	// in single tick
+
 //
 
 enum
@@ -43,6 +45,14 @@ typedef struct
 	uint8_t type;
 } attr_t;
 
+typedef struct
+{
+	fixed_t sound_dist;
+	uint32_t sound_tick;
+	mobj_t *sound_source;
+	uint16_t sound_id;
+} splash_sound_t;
+
 //
 
 static uint32_t num_terrain_splash;
@@ -54,6 +64,8 @@ terrain_terrain_t *terrain;
 uint32_t terrain_tick;
 
 uint8_t *flatterrain;
+
+static splash_sound_t splash_slot[MAX_SPLASH_SOUNDS];
 
 static const terrain_splash_t default_splash =
 {
@@ -374,19 +386,42 @@ static void splash_sound(terrain_splash_t *spl, fixed_t x, fixed_t y, mobj_t *th
 {
 	// Limit emmited sounds during single tics.
 	fixed_t dist;
+	uint32_t slot;
 
 	terrain_tick = leveltime;
-
 	dist = P_AproxDistance(x - th->x, y - th->y);
 
-	if(	spl->sound_tick != leveltime ||
-		spl->sound_dist > dist
-	){
-		spl->sound_tick = leveltime;
-		spl->sound_dist = dist;
-		spl->sound_source = th;
-		spl->sound_id = id;
+	// find existing slot
+	for(slot = 0; slot < MAX_SPLASH_SOUNDS ; slot++)
+	{
+		if(splash_slot[slot].sound_tick != leveltime)
+			continue;
+
+		if(splash_slot[slot].sound_id != id)
+			continue;
+
+		if(splash_slot[slot].sound_dist > dist)
+		{
+			splash_slot[slot].sound_dist = dist;
+			splash_slot[slot].sound_source = th;
+		}
+
+		return;
 	}
+
+	// find new slot
+	for(slot = 0; slot < MAX_SPLASH_SOUNDS ; slot++)
+	{
+		if(splash_slot[slot].sound_tick != leveltime)
+			break;
+	}
+	if(slot >= MAX_SPLASH_SOUNDS)
+		return;
+
+	splash_slot[slot].sound_dist = dist;
+	splash_slot[slot].sound_tick = leveltime;
+	splash_slot[slot].sound_source = th;
+	splash_slot[slot].sound_id = id;
 }
 
 //
@@ -543,14 +578,12 @@ void terrain_sound()
 	if(terrain_tick != leveltime)
 		return;
 
-	for(uint32_t i = 0; i < num_terrain_splash; i++)
+	for(uint32_t slot = 0; slot < MAX_SPLASH_SOUNDS ; slot++)
 	{
-		terrain_splash_t *spl = terrain_splash + i;
-
-		if(spl->sound_tick != leveltime)
+		if(splash_slot[slot].sound_tick != leveltime)
 			continue;
 
-		S_StartSound(spl->sound_source, spl->sound_id);
+		S_StartSound(splash_slot[slot].sound_source, splash_slot[slot].sound_id);
 	}
 }
 

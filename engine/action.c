@@ -3354,11 +3354,40 @@ void A_TakeInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_SelectWeapon
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SelectWeapon(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleType_t *arg = st->arg;
+
+	if(!mo->player)
+		return;
+
+	if(mo->player->readyweapon == mobjinfo + arg->type)
+		return;
+
+	if(mobjinfo[arg->type].extra_type != ETYPE_WEAPON)
+		return;
+
+	if(!inventory_check(mo, arg->type))
+		return;
+
+	mo->player->pendingweapon = mobjinfo + arg->type;
+}
+
+//
 // text
+
+static const print_text_t def_Print =
+{
+	.tics = 3 * 35
+};
 
 static const dec_args_t args_Print =
 {
 	.size = sizeof(print_text_t),
+	.def = &def_Print,
 	.arg =
 	{
 		{handle_print_text, 0},
@@ -4421,6 +4450,47 @@ void A_MonsterRefire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_CountdownArg
+
+static const dec_args_t args_CountdownArg =
+{
+	.size = sizeof(args_singleU16_t),
+	.arg =
+	{
+		{handle_u16, offsetof(args_singleU16_t, value)},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_CountdownArg(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleU16_t *arg = st->arg;
+
+	if(arg->value > 4)
+		return;
+
+	if(mo->special.arg[arg->value]--)
+		return;
+
+	if(mo->flags & MF_MISSILE)
+	{
+		mobj_hit_thing = NULL;
+		mobj_explode_missile(mo);
+		return;
+	}
+
+	if(mo->flags & MF_SHOOTABLE)
+	{
+		mobj_damage(mo, NULL, NULL, 1000002, NULL);
+		return;
+	}
+
+	stfunc(mo, 0, STATE_SET_ANIMATION | ANIM_DEATH);
+}
+
+//
 // chunks
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -4940,6 +5010,7 @@ static const dec_action_t mobj_action[] =
 	// inventory
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},
+	{"a_selectweapon", A_SelectWeapon, &args_SingleMobjtype},
 	// text
 	{"a_print", A_Print, &args_Print},
 	{"a_printbold", A_PrintBold, &args_Print},
@@ -4955,6 +5026,7 @@ static const dec_action_t mobj_action[] =
 	{"a_checkflag", A_CheckFlag, &args_CheckFlag},
 	{"a_checkfloor", A_CheckFloor, &args_CheckFloor},
 	{"a_monsterrefire", A_MonsterRefire, &args_MonsterRefire},
+	{"a_countdownarg", A_CountdownArg, &args_CountdownArg},
 	// terminator
 	{NULL}
 };

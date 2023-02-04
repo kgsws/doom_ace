@@ -1474,7 +1474,7 @@ static inline uint32_t do_GlassBreak(line_t *ln)
 	type = !!(ln->flags & ML_REPEATABLE);
 	do_line_switch(ln, type);
 	if(ln->backsector)
-		do_line_switch(ln, type | 0x80000000);
+		do_line_switch(ln, type | 2);
 
 	if(spec_arg[0])
 		return 0;

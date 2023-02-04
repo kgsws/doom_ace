@@ -43,6 +43,7 @@ enum
 	DT_ICON,
 	DT_SKIP1,
 	DT_PAINCHANCE,
+	DT_ARGS,
 	DT_DAMAGE_TYPE,
 	DT_DAMAGE_FACTOR,
 	DT_RENDER_STYLE,
@@ -195,6 +196,7 @@ static uint32_t extra_storage_size;
 uint32_t dec_mod_csum;
 
 //
+static uint32_t parse_args();
 static uint32_t parse_damage();
 static uint32_t parse_player_sounds();
 static uint32_t parse_dropitem();
@@ -594,6 +596,8 @@ static const dec_attr_t attr_mobj[] =
 	//
 	{"scale", DT_FIXED, offsetof(mobjinfo_t, scale)},
 	//
+	{"args", DT_ARGS},
+	//
 	{"renderstyle", DT_RENDER_STYLE},
 	{"alpha", DT_RENDER_ALPHA},
 	{"translation", DT_TRANSLATION},
@@ -702,6 +706,8 @@ const dec_flag_t mobj_flags2[] =
 	{"thruactors", MF2_THRUACTORS},
 	{"bounceonfloors", MF2_BOUNCEONFLOORS},
 	{"bounceonceilings", MF2_BOUNCEONCEILINGS},
+	{"noblockmonst", MF2_NOBLOCKMONST},
+	{"dontcorpse", MF2_DONTCORPSE},
 	// terminator
 	{NULL}
 };
@@ -1789,6 +1795,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 		case DT_ICON:
 		{
 			uint8_t *tmp;
+			patch_t patch;
 
 			kw = tp_get_keyword();
 			if(!kw)
@@ -1797,6 +1804,9 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			num.s32 = wad_check_lump(kw);
 			if(num.s32 < 0)
 				num.s32 = 0;
+			else
+				ldr_get_patch_header(num.s32, &patch);
+
 			*((int32_t*)dest) = num.s32;
 		}
 		break;
@@ -1836,6 +1846,9 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 
 			parse_mobj_info->painchance[idx] = num.u32 | 0x8000;
 		}
+		break;
+		case DT_ARGS:
+			return parse_args();
 		break;
 		case DT_DAMAGE_TYPE:
 			kw = tp_get_keyword_lc();
@@ -2129,6 +2142,40 @@ static uint32_t add_states(uint32_t sprite, uint8_t *frames, int32_t tics, uint1
 //
 // custom parsers
 
+static uint32_t parse_args()
+{
+	uint32_t value;
+	uint8_t *kw;
+
+	parse_mobj_info->args[5] = 0;
+
+	for(uint32_t i = 0; ; i++)
+	{
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+
+		if(doom_sscanf(kw, "%d", &value) != 1 || value > 255)
+			engine_error("DECORATE", "Unable to parse number '%s' in '%s'!", kw, parse_actor_name);
+
+		parse_mobj_info->args[0] = value;
+		parse_mobj_info->args[5] = i + 1;
+
+		if(i == 4)
+			return 0;
+
+		kw = tp_get_keyword();
+		if(!kw)
+			return 1;
+
+		if(kw[0] != ',')
+		{
+			tp_push_keyword(kw);
+			return 0;
+		}
+	}
+}
+
 static uint32_t parse_damage()
 {
 	uint32_t lo, hi, mul, add;
@@ -2319,7 +2366,7 @@ static uint32_t parse_dropitem()
 
 	tmp = mobj_check_type(tp_hash64(kw));
 	if(tmp < 0)
-		drop->type = MOBJ_IDX_UNKNOWN;
+		engine_error("DECORATE", "Unknown drop item '%s' in '%s'!", kw, parse_actor_name);
 	else
 		drop->type = tmp;
 

@@ -256,7 +256,7 @@ static uint32_t switch_line_texture(aswitch_t *swtch, uint16_t *dest, uint32_t d
 			// check for animation
 			animate = frame != swtch->frame + swtch->count - 1;
 
-			if(animate || (state & 2))
+			if(animate || (state & 1))
 			{
 				if(slot->dest == dest)
 				{

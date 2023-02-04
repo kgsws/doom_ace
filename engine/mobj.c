@@ -39,13 +39,14 @@ uint32_t mo_puff_type = 37;
 uint32_t mo_puff_flags;
 
 uint_fast8_t mo_dmg_skip_armor;
-
 uint_fast8_t reborn_inventory_hack;
 
 uint32_t mobj_netid;
 
+static uint_fast8_t teleblock;
+
 static fixed_t oldfloorz;
-static mobj_t *hit_thing;
+mobj_t *mobj_hit_thing;
 
 //
 // state changes
@@ -158,7 +159,7 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 
 	while(1)
 	{
-		state = dec_reslove_state(mo->info, oldstate, state, extra);
+		state = dec_reslove_state(mo->custom_inventory, oldstate, state, extra);
 
 		if(state <= 1)
 		{
@@ -858,6 +859,9 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	mo->bounce_count = info->bounce_count;
 	mo->netid = mobj_netid;
 
+	for(uint32_t i = 0; i < info->args[5]; i++)
+		mo->special.arg[i] = info->args[i];
+
 	// vertical speed
 	mo->momz = info->vspeed;
 
@@ -914,10 +918,57 @@ uint32_t finish_mobj(mobj_t *mo)
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
-static void kill_animation(mobj_t *mo)
+static void mobj_kill(mobj_t *mo, mobj_t *source)
 {
 	uint_fast8_t new_damage_type = DAMAGE_NORMAL;
 	uint32_t state = 0;
+
+	mo->flags &= ~(MF_SHOOTABLE|MF_FLOAT|MF_SKULLFLY|MF_COUNTKILL);
+
+	if(mo->flags & MF_MISSILE)
+	{
+		mo->momx = 0;
+		mo->momy = 0;
+		mo->momz = 0;
+	} else
+	{
+		if(source)
+			mo->target = source;
+
+		if(!(mo->flags1 & MF1_DONTFALL))
+			mo->flags &= ~MF_NOGRAVITY;
+
+		if(mo->special.special)
+		{
+			spec_special = mo->special.special;
+			spec_arg[0] = mo->special.arg[0];
+			spec_arg[1] = mo->special.arg[1];
+			spec_arg[2] = mo->special.arg[2];
+			spec_arg[3] = mo->special.arg[3];
+			spec_arg[4] = mo->special.arg[4];
+			spec_activate(NULL, source, 0);
+		}
+
+		if(!(mo->flags1 & MF1_DONTFALL))
+			mo->flags &= ~MF_NOGRAVITY;
+
+		if(!(mo->flags2 & MF2_DONTCORPSE))
+			mo->flags |= MF_CORPSE;
+
+		mo->flags |= MF_DROPOFF;
+		mo->height >>= 2;
+	}
+
+	// player stuff
+	if(mo->player)
+	{
+		mo->player->extralight = 0;
+		mo->flags &= ~MF_SOLID;
+		mo->player->state = PST_DEAD;
+		weapon_lower(mo->player);
+		if(mo->player == &players[consoleplayer] && automapactive)
+		    AM_Stop();
+	}
 
 	// look for custom damage first
 	if(mo->damage_type)
@@ -961,6 +1012,9 @@ static void kill_animation(mobj_t *mo)
 
 	if(mo->player)
 		mo->player->extralight = 0;
+
+	// spawn original drops
+	P_KillMobj(source, mo); // this function was modified
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -995,7 +1049,10 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 	// ignore when teleporting
 	if(tmthing->flags & MF_TELEPORT)
-		return !(thing->flags & (MF_SOLID | MF_SHOOTABLE));
+	{
+		teleblock |= !!(thing->flags & (MF_SOLID | MF_SHOOTABLE));
+		return 1;
+	}
 
 	if(tmthing->flags & MF_SKULLFLY)
 	{
@@ -1015,7 +1072,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		return 0;
 	}
 
-	hit_thing = thing->flags & MF_SHOOTABLE ? thing : NULL;
+	mobj_hit_thing = thing->flags & MF_SHOOTABLE ? thing : NULL;
 
 	if(tmthing->flags & MF_MISSILE)
 	{
@@ -1161,7 +1218,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 	uint32_t is_safe = 0;
 	fixed_t z;
 
-	hit_thing = NULL; // ideally, this would be outside
+	mobj_hit_thing = NULL; // ideally, this would be outside
 
 	if(!ld->backsector)
 		goto blocked;
@@ -1180,7 +1237,7 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 				goto blocked;
 		} else
 		{
-			if(ld->flags & ML_BLOCKMONSTERS)
+			if(ld->flags & ML_BLOCKMONSTERS && !(tmthing->flags2 & MF2_NOBLOCKMONST))
 				goto blocked;
 		}
 	}
@@ -1760,9 +1817,9 @@ void mobj_explode_missile(mobj_t *mo)
 
 	mo->flags &= ~MF_SHOOTABLE;
 
-	if(hit_thing)
+	if(mobj_hit_thing)
 	{
-		if(hit_thing->flags & MF_NOBLOOD)
+		if(mobj_hit_thing->flags & MF_NOBLOOD)
 		{
 			if(mo->info->state_crash)
 				animation = ANIM_CRASH;
@@ -1773,11 +1830,11 @@ void mobj_explode_missile(mobj_t *mo)
 		}
 
 		if(mo->flags2 & MF2_HITTARGET)
-			mo->target = hit_thing;
+			mo->target = mobj_hit_thing;
 		if(mo->flags2 & MF2_HITMASTER)
-			mo->master = hit_thing;
+			mo->master = mobj_hit_thing;
 		if(mo->flags2 & MF2_HITTRACER)
-			mo->tracer = hit_thing;
+			mo->tracer = mobj_hit_thing;
 	}
 
 	mobj_set_animation(mo, animation);
@@ -1942,7 +1999,10 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	if(!damage && !(target->flags1 & MF1_NODAMAGE))
 		return;
 
-	forced = damage >= 1000000;
+	if(damage >= 1000000)
+		forced = damage - 999999;
+	else
+		forced = 0;
 	if(damage > 1000000)
 		damage = target->health;
 
@@ -2023,15 +2083,15 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			damage -= saved;
 		}
 
-		if(!(target->flags1 & MF1_NODAMAGE))
+		if(!(target->flags1 & MF1_NODAMAGE) || forced > 2)
 		{
 			player->health -= damage;
 			if(player->health < 0)
 				player->health = 0;
 
 			player->damagecount += damage;
-			if(player->damagecount > 60)
-				player->damagecount = 60; // this is a bit less
+			if(player->damagecount > 65)
+				player->damagecount = 65; // this is a bit less
 		}
 
 		player->attacker = source;
@@ -2042,7 +2102,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		// I_Tactile ...
 	}
 
-	if(!(target->flags1 & MF1_NODAMAGE))
+	if(!(target->flags1 & MF1_NODAMAGE) || forced > 2)
 	{
 		target->health -= damage;
 		if(target->health <= 0)
@@ -2069,36 +2129,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 
 				target->damage_type = damage_type; // seems like ZDoom does this
 
-				if(target->flags & MF_MISSILE)
-				{
-					target->momx = 0;
-					target->momy = 0;
-					target->momz = 0;
-				} else
-				{
-					if(source)
-						target->target = source;
-
-					if(!(target->flags1 & MF1_DONTFALL))
-						target->flags &= ~MF_NOGRAVITY;
-
-					if(target->special.special)
-					{
-						spec_special = target->special.special;
-						spec_arg[0] = target->special.arg[0];
-						spec_arg[1] = target->special.arg[1];
-						spec_arg[2] = target->special.arg[2];
-						spec_arg[3] = target->special.arg[3];
-						spec_arg[4] = target->special.arg[4];
-						spec_activate(NULL, source, 0);
-					}
-				}
-
-				P_KillMobj(source, target);
-				target->flags &= ~MF_COUNTKILL;
-
-				if(player)
-					player->extralight = 0;
+				mobj_kill(target, source); // replaces P_KillMobj; swapped arguments!
 
 				return;
 			}
@@ -2456,7 +2487,7 @@ static void P_ZMovement(mobj_t *mo)
 				mo->subsector->sector->floorheight < mo->z ||
 				mo->subsector->sector->floorpic != skyflatnum
 			){
-				hit_thing = NULL;
+				mobj_hit_thing = NULL;
 				if(mo->flags2 & MF2_BOUNCEONFLOORS)
 					mobj_plane_bounce(mo, momz);
 				else
@@ -2522,7 +2553,7 @@ static void P_ZMovement(mobj_t *mo)
 				mo->subsector->sector->ceilingheight > mo->z + mo->height ||
 				mo->subsector->sector->ceilingpic != skyflatnum
 			){
-				hit_thing = NULL;
+				mobj_hit_thing = NULL;
 				if(mo->flags2 & MF2_BOUNCEONCEILINGS)
 					mobj_plane_bounce(mo, momz);
 				else
@@ -2616,9 +2647,10 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 	P_SetThingPosition(mo);
 
 	mo->flags |= MF_TELEPORT;
+	teleblock = 0;
 	blocked = !P_TryMove(mo, mo->x, mo->y);
 	mo->flags &= ~MF_TELEPORT;
-	if(blocked)
+	if(blocked || teleblock)
 	{
 		if(flags & TELEF_NO_KILL)
 			goto revert;
@@ -2898,7 +2930,11 @@ mobj_t *spawn_missile(mobj_t *source, mobj_t *target)
 __attribute((regparm(2),no_caller_saved_registers))
 void P_MobjThinker(mobj_t *mo)
 {
-	if(!mo->momz && !(mo->flags & MF_NOGRAVITY) && mo->z == mo->floorz && mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
+	if(mo->iflags & MFI_CRASHED && !(mo->flags & MF_CORPSE))
+		// archvile ressurection or something
+		mo->iflags &= ~MFI_CRASHED;
+
+	if(!mo->momz && !(mo->flags & MF_NOGRAVITY) && mo->z <= mo->floorz && mo->flags & MF_CORPSE && !(mo->iflags & MFI_CRASHED))
 		// fake some Z movement for crash states
 		mo->momz = -1;
 
@@ -2990,12 +3026,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031660, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_remove},
 	// replace 'P_DamageMobj' - use trampoline
 	{0x0002A460, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)hook_mobj_damage},
-	// disable 'set gravity' in 'P_KillMobj'
-	{0x0002A2C8, CODE_HOOK | HOOK_UINT16, 0x07EB},
-	// extra stuff in 'P_KillMobj' - replaces animation change
-	{0x0002A3C8, CODE_HOOK | HOOK_UINT16, 0xD889},
-	{0x0002A3CA, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)kill_animation},
-	{0x0002A3CF, CODE_HOOK | HOOK_JMP_DOOM, 0x0002A40D},
+	// hollow out 'P_KillMobj' - keep only item drops
+	{0x0002A2B9, CODE_HOOK | HOOK_JMP_DOOM, 0x0002A40D},
 	// replace 'P_ChangeSector'
 	{0x0002BF90, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)mobj_change_sector},
 	// replace 'P_SpawnMissile'

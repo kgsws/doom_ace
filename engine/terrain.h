@@ -8,12 +8,6 @@
 
 typedef struct
 {
-	// internal
-	fixed_t sound_dist;
-	uint32_t sound_tick;
-	mobj_t *sound_source;
-	uint16_t sound_id;
-	// properties
 	uint16_t smallclass;
 	uint16_t smallsound;
 	uint16_t baseclass;

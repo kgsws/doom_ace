@@ -338,6 +338,7 @@ static inline void M_SetupNextMenu(menu_t *menu)
 
 static void setup_multimenu(void *func)
 {
+	multi_pos = 0;
 	for(uint32_t i = 0; i < sizeof(multimenu_items) / sizeof(menuitem_t); i++)
 		multimenu_items[i].func = func;
 }

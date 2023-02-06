@@ -2401,6 +2401,8 @@ static uint32_t parse_dropitem()
 	if(doom_sscanf(kw, "%d", &tmp) != 1 || tmp < 0 || tmp > 65535)
 		return 1;
 
+	drop->amount = tmp;
+
 	return 0;
 
 finished:

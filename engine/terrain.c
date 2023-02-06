@@ -515,9 +515,9 @@ uint32_t terrain_hit_splash(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, int32_t
 			th = P_SpawnMobj(x, y, z, spl->chunkclass);
 			th->target = mo;
 			if(spl->sx != 255)
-				th->momx = P_Random() << spl->sx;
+				th->momx = (128 - (int32_t)P_Random()) << (spl->sx + 1);
 			if(spl->sy != 255)
-				th->momy = P_Random() << spl->sy;
+				th->momy = (128 - (int32_t)P_Random()) << (spl->sy + 1);
 			if(spl->sz != 255)
 				th->momz = P_Random() << spl->sz;
 			th->momz += spl->bz;

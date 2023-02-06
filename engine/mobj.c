@@ -927,6 +927,17 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 	uint_fast8_t new_damage_type = DAMAGE_NORMAL;
 	uint32_t state = 0;
 
+	// TODO: frags
+
+	if(mo->flags & MF_COUNTKILL)
+	{
+		if(source && source->player)
+			source->player->killcount++;
+		else
+		if(!netgame)
+			players[0].killcount++;
+	}
+
 	mo->flags &= ~(MF_SHOOTABLE|MF_FLOAT|MF_SKULLFLY|MF_COUNTKILL);
 
 	if(mo->flags & MF_MISSILE)

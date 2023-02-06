@@ -671,26 +671,28 @@ void player_think(player_t *pl)
 				if(idx == consoleplayer)
 					S_StartSound(NULL, SFX_SECRET);
 			}
+			if(pl->mo->z <= pl->mo->subsector->sector->floorheight)
+				player_terrain_damage(pl, pl->mo->subsector->sector->floorpic);
 		}
 	} else
 	{
 		sector_t *sec = pl->mo->subsector->sector;
-		if(!(pl->mo->iflags & MFI_MOBJONMOBJ))
+		extraplane_t *pp;
+
+		// normal sector
+		if(pl->mo->z <= sec->floorheight)
+			handle_sector_special(pl, sec, sec->floorpic);
+
+		// extra floors
+		pp = sec->exfloor;
+		while(pp)
 		{
-			extraplane_t *pp;
-
-			// normal sector
-			if(pl->mo->z <= sec->floorheight)
-				handle_sector_special(pl, sec, sec->floorpic);
-
-			// extra floors
-			pp = sec->exfloor;
-			while(pp)
-			{
-				if(pl->mo->z + pl->mo->height > pp->source->floorheight && pl->mo->z <= pp->source->ceilingheight)
-					handle_sector_special(pl, pp->source, pp->source->ceilingpic);
-				pp = pp->next;
-			}
+			if(	!(pp->flags & E3D_SWAP_PLANES) &&
+				pl->mo->z + pl->mo->height > pp->source->floorheight &&
+				pl->mo->z <= pp->source->ceilingheight
+			)
+				handle_sector_special(pl, pp->source, pp->source->ceilingpic);
+			pp = pp->next;
 		}
 	}
 

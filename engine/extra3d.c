@@ -600,7 +600,7 @@ void e3d_create()
 		if(ln->special != 160) // Sector_Set3dFloor
 			continue;
 
-		tag = ln->arg1 & ~(4 | 16 | 32);
+		tag = ln->arg1 & ~(4 | 8 | 16 | 32);
 
 		if(	tag < 1 || tag > 3 ||
 			ln->arg2 & ~64
@@ -622,8 +622,15 @@ void e3d_create()
 		if(tag == 2)
 			flags |= E3D_WATER | E3D_DRAW_INISIDE;
 
+		tag = ln->arg0;
+
 		if(ln->arg1 & 4)
 			flags |= E3D_DRAW_INISIDE;
+
+		if(ln->arg1 & 8)
+			ln->id = ln->arg4;
+		else
+			tag += ln->arg4 * 256;
 
 		if(ln->arg1 & 16)
 			flags ^= E3D_BLOCK_SIGHT;
@@ -638,8 +645,6 @@ void e3d_create()
 				alpha++;
 		} else
 			alpha = ln->arg3;
-
-		tag = ln->arg0 + ln->arg4 * 256;
 
 		if(!tag)
 			engine_error("EX3D", "Do not use zero tag!");
@@ -659,7 +664,7 @@ void e3d_create()
 				if(flags & (E3D_WATER | E3D_DRAW_INISIDE))
 				{
 					add_floor_plane(&sec->exfloor, src, ln, E3D_SWAP_PLANES, alpha);
-					add_ceiling_plane(&sec->exceiling, src, ln, E3D_SWAP_PLANES, alpha);
+					add_ceiling_plane(&sec->exceiling, src, ln, E3D_SWAP_PLANES | (flags & E3D_WATER), alpha);
 				}
 			}
 		}

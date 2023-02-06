@@ -424,6 +424,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	seg_t *seg = ds->curline;
 	sector_t *frontsector = seg->frontsector;
 	sector_t *backsector = seg->backsector;
+	uint16_t light = frontsector->lightlevel;
 
 	// texture - extra floors
 	if(	clip_height_top < ONCEILINGZ &&
@@ -462,7 +463,6 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			while(pl)
 			{
 				if(	pl->alpha &&
-					pl->flags & E3D_DRAW_INISIDE &&
 					*pl->texture &&
 					clip_height_top <= pl->source->ceilingheight &&
 					clip_height_top > pl->source->floorheight
@@ -470,7 +470,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 					if(no_inside && (pl->alpha != 255 || pl->flags & E3D_WATER))
 						texnum = 0;
 					else
-					if(!texnum)
+					if(!texnum && pl->flags & E3D_DRAW_INISIDE)
 					{
 						texnum = texturetranslation[*pl->texture];
 						dc_texturemid = pl->source->ceilingheight - viewz;
@@ -481,6 +481,15 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				}
 				pl = pl->next;
 			}
+		}
+
+		// light
+		pl = frontsector->exfloor;
+		while(pl)
+		{
+			if(pl->light && *pl->height >= clip_height_top)
+				light = *pl->light;
+			pl = pl->next;
 		}
 	}
 
@@ -533,7 +542,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	set_column_height(texnum);
 
 	// light
-	calculate_lightnum(frontsector->lightlevel, seg);
+	calculate_lightnum(light, seg);
 
 	// scale
 
@@ -1713,13 +1722,28 @@ void R_Subsector(uint32_t num)
 		}
 
 		// find correct light
-		light = frontsector->lightlevel;
-		pll = frontsector->exfloor;
-		while(pll)
+		if(pl->flags & (E3D_SWAP_PLANES | E3D_WATER))
 		{
-			if(pll->light && *pll->height >= *pl->height)
-				light = *pll->light;
-			pll = pll->next;
+			// in ZDoom, internal water ceiling has different light
+			light = frontsector->lightlevel;
+			pll = frontsector->exfloor;
+			while(pll)
+			{
+				if(pll->light && *pll->height > *pl->height)
+					light = *pll->light;
+				pll = pll->next;
+			}
+		} else
+		{
+			// normal light
+			light = frontsector->lightlevel;
+			pll = frontsector->exfloor;
+			while(pll)
+			{
+				if(pll->light && *pll->height >= *pl->height)
+					light = *pll->light;
+				pll = pll->next;
+			}
 		}
 
 		fakesource = pl;

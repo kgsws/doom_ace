@@ -516,10 +516,10 @@ static const dec_anim_t mobj_anim[] =
 {
 	{"spawn", ANIM_SPAWN, ETYPE_NONE, offsetof(mobjinfo_t, state_spawn)},
 	{"see", ANIM_SEE, ETYPE_NONE, offsetof(mobjinfo_t, state_see)},
-	{"pain", ANIM_PAIN + DAMAGE_NORMAL, ETYPE_NONE, offsetof(mobjinfo_t, state_pain)},
+	{"pain", ANIM_PAIN, ETYPE_NONE, offsetof(mobjinfo_t, state_pain)},
 	{"melee", ANIM_MELEE, ETYPE_NONE, offsetof(mobjinfo_t, state_melee)},
 	{"missile", ANIM_MISSILE, ETYPE_NONE, offsetof(mobjinfo_t, state_missile)},
-	{"death", ANIM_DEATH + DAMAGE_NORMAL, ETYPE_NONE, offsetof(mobjinfo_t, state_death)},
+	{"death", ANIM_DEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_death)},
 	{"xdeath", ANIM_XDEATH, ETYPE_NONE, offsetof(mobjinfo_t, state_xdeath)},
 	{"raise", ANIM_RAISE, ETYPE_NONE, offsetof(mobjinfo_t, state_raise)},
 	{"heal", ANIM_HEAL, ETYPE_NONE, offsetof(mobjinfo_t, state_heal)},
@@ -865,6 +865,7 @@ dec_damage_type damage_type_config[NUM_DAMAGE_TYPES] =
 	[DAMAGE_FALLING] = {.name = "falling"},
 	[DAMAGE_INSTANT] = {.name = "instantdeath"},
 	[DAMAGE_TELEFRAG] = {.name = "telefrag"},
+	[DAMAGE_DROWN] = {.name = "drowning"},
 };
 
 // actor inheritance

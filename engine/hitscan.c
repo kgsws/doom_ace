@@ -416,7 +416,7 @@ static fixed_t check_e3d_hit(sector_t *sec, fixed_t frac, fixed_t *zz)
 			{
 				if(	flatterrain &&
 					!(mobjinfo[mo_puff_type].flags2 & MF2_DONTSPLASH) &&
-					 !(pl->flags & E3D_SWAP_PLANES) &&
+					!(pl->flags & E3D_SWAP_PLANES) &&
 					pl->source->ceilingpic < numflats + num_texture_flats &&
 					flatterrain[pl->source->ceilingpic] != 255 &&
 					terrain[flatterrain[pl->source->ceilingpic]].splash != 255

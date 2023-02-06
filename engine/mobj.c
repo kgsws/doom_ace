@@ -26,8 +26,10 @@
 #include "extra3d.h"
 
 #define STOPSPEED	0x1000
-#define FRICTION	0xe800
+#define FRICTION	0xE800
+#define FRICTION_WATER	0xD000
 #define FLOATSPEED	(FRACUNIT * 4)
+#define SINK_SPEED	(FRACUNIT / 2)
 
 static line_t *ceilingline;
 static line_t *floorline;
@@ -745,6 +747,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->inv_tick = 0;
 	pl->text_data = NULL;
 	pl->info_flags = player_info[idx].flags;
+	pl->airsupply = PLAYER_AIRSUPPLY;
 
 	if(!(pl->mo->flags2 & MF2_DONTTRANSLATE))
 		pl->mo->translation = r_generate_player_color(idx);
@@ -891,6 +894,7 @@ uint32_t finish_mobj(mobj_t *mo)
 		e3d_check_heights(mo, mo->subsector->sector, 1);
 		mo->floorz = tmextrafloor;
 		mo->ceilingz = tmextraceiling;
+		e3d_check_water(mo);
 	}
 
 	// counters
@@ -2069,7 +2073,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			player->armorpoints = 0;
 		}
 
-		if(player->armortype && !mo_dmg_skip_armor)
+		if(damage_type != DAMAGE_DROWN && player->armortype && !mo_dmg_skip_armor)
 		{
 			uint32_t saved;
 			saved = ((damage * mobjinfo[player->armortype].armor.percent) + 25) / 100;
@@ -2302,6 +2306,10 @@ void P_XYMovement(mobj_t *mo)
 	// restore +DROPOFF
 	mo->flags ^= dropoff;
 
+	// check water
+	if(!mo->momz)
+		e3d_check_water(mo);
+
 	// HACK - move other sound slots
 	mo->sound_body.x = mo->x;
 	mo->sound_body.y = mo->y;
@@ -2312,7 +2320,7 @@ void P_XYMovement(mobj_t *mo)
 		// no friction for projectiles
 		return;
 
-	if(mo->z > mo->floorz && (!pl || !(mo->flags & MF_NOGRAVITY)))
+	if(mo->z > mo->floorz && mo->waterlevel <= 1 && (!pl || !(mo->flags & MF_NOGRAVITY)))
 		// no friction in air
 		return;
 
@@ -2342,8 +2350,9 @@ void P_XYMovement(mobj_t *mo)
 	} else
 	{
 		// friction
-		mo->momx = FixedMul(mo->momx, FRICTION);
-		mo->momy = FixedMul(mo->momy, FRICTION);
+		fixed_t friction = mo->waterlevel <= 1 ? FRICTION : FRICTION_WATER;
+		mo->momx = FixedMul(mo->momx, friction);
+		mo->momy = FixedMul(mo->momy, friction);
 	}
 }
 
@@ -2364,13 +2373,47 @@ static void P_ZMovement(mobj_t *mo)
 	// adjust height
 	mo->z += mo->momz;
 
-	// flight friction
-	if(mo->player && mo->flags & MF_NOGRAVITY)
+	// water level
+	if(momz)
+		e3d_check_water(mo);
+
+	// Z movement
+	if(mo->flags & MF_NOGRAVITY)
 	{
-		if(mo->momz > -STOPSPEED && mo->momz < STOPSPEED)
-			mo->momz = 0;
+		if(mo->player)
+		{
+			// flight friction
+			if(mo->momz > -STOPSPEED && mo->momz < STOPSPEED)
+				mo->momz = 0;
+			else
+				mo->momz = FixedMul(mo->momz, FRICTION);
+		}
+	} else
+	if(mo->waterlevel > 1)
+	{
+		// water friction
+		fixed_t speed = SINK_SPEED;
+		fixed_t diff;
+
+		if(!mo->player)
+		{
+			fixed_t mass = mo->info->mass;
+			if(mass > 4000)
+				mass = 4000;
+			else
+			if(mass < 1)
+				mass = 1;
+
+			speed *= mass;
+			speed /= 100;
+		}
+
+		diff = mo->momz + speed;
+
+		if(diff > -STOPSPEED && diff < STOPSPEED)
+			mo->momz = -speed;
 		else
-			mo->momz = FixedMul(mo->momz, FRICTION);
+			mo->momz += FixedMul(diff, -8192);
 	}
 
 	// float down towards target if too close
@@ -2392,47 +2435,74 @@ static void P_ZMovement(mobj_t *mo)
 	}
 
 	// splash
-	if(flatterrain && mo->momz < 0 && !(mo->flags2 & MF2_DONTSPLASH))
+	if(flatterrain && !(mo->flags2 & MF2_DONTSPLASH))
 	{
 		extraplane_t *pl;
-		uint32_t remove = 0;
 
-		pl = mo->subsector->sector->exfloor;
-		while(pl)
+		if(mo->momz < 0)
 		{
-			if(	!(pl->flags & E3D_SWAP_PLANES) &&
-				mo->z <= *pl->height && oldz > *pl->height &&
-				pl->source->ceilingpic < numflats + num_texture_flats &&
-				flatterrain[pl->source->ceilingpic] != 255 &&
-				terrain[flatterrain[pl->source->ceilingpic]].splash != 255
+			uint32_t remove = 0;
+
+			pl = mo->subsector->sector->exfloor;
+			while(pl)
+			{
+				if(	!(pl->flags & E3D_SWAP_PLANES) &&
+					mo->z <= *pl->height && oldz > *pl->height &&
+					pl->source->ceilingpic < numflats + num_texture_flats &&
+					flatterrain[pl->source->ceilingpic] != 255 &&
+					terrain[flatterrain[pl->source->ceilingpic]].splash != 255
+				){
+					int32_t flat = pl->source->ceilingpic;
+					if(mo->info->mass < TERRAIN_LOW_MASS)
+						flat = -flat;
+					if(terrain_hit_splash(mo, mo->x, mo->y, *pl->height, flat))
+					{
+						splash |= 1;
+						remove = !!(pl->flags & E3D_SOLID);
+					}
+				}
+				pl = pl->next;
+			}
+
+			if(	!(mo->iflags & MFI_MOBJONMOBJ) &&
+				mo->z <= mo->floorz &&
+				mo->floorz == mo->subsector->sector->floorheight
 			){
-				int32_t flat = pl->source->ceilingpic;
-				if(mo->info->mass < TERRAIN_LOW_MASS)
-					flat = -flat;
-				if(terrain_hit_splash(mo, mo->x, mo->y, *pl->height, flat))
+				if(terrain_hit_splash(mo, mo->x, mo->y, mo->floorz, mo->subsector->sector->floorpic))
 				{
 					splash |= 1;
-					remove = !!(pl->flags & E3D_SOLID);
+					remove = 1;
 				}
 			}
-			pl = pl->next;
-		}
 
-		if(	!(mo->iflags & MFI_MOBJONMOBJ) &&
-			mo->z <= mo->floorz &&
-			mo->floorz == mo->subsector->sector->floorheight
-		){
-			if(terrain_hit_splash(mo, mo->x, mo->y, mo->floorz, mo->subsector->sector->floorpic))
+			if(remove && mo->flags2 & MF2_BOUNCEONFLOORS && mo->flags & MF_MISSILE)
 			{
-				splash |= 1;
-				remove = 1;
+				mobj_remove(mo);
+				return;
 			}
-		}
-
-		if(remove && mo->flags2 & MF2_BOUNCEONFLOORS && mo->flags & MF_MISSILE)
+		} else
+		if(mo->momz > 0 && mo->flags & MF_MISSILE)
 		{
-			mobj_remove(mo);
-			return;
+			// this is extra - ZDoom does splash only when submerging
+			fixed_t t0 = oldz + mo->height;
+			fixed_t t1 = mo->z + mo->height;
+
+			pl = mo->subsector->sector->exfloor;
+			while(pl)
+			{
+				if(	!(pl->flags & E3D_SWAP_PLANES) &&
+					t0 < *pl->height && t1 >= *pl->height &&
+					pl->source->ceilingpic < numflats + num_texture_flats &&
+					flatterrain[pl->source->ceilingpic] != 255 &&
+					terrain[flatterrain[pl->source->ceilingpic]].splash != 255
+				){
+					int32_t flat = pl->source->ceilingpic;
+					if(mo->info->mass < TERRAIN_LOW_MASS)
+						flat = -flat;
+					terrain_hit_splash(mo, mo->x, mo->y, *pl->height, flat);
+				}
+				pl = pl->next;
+			}
 		}
 	}
 
@@ -2529,7 +2599,7 @@ static void P_ZMovement(mobj_t *mo)
 			}
 		}
 	} else
-	if(!(mo->flags & MF_NOGRAVITY))
+	if(!(mo->flags & MF_NOGRAVITY) && mo->waterlevel <= 1)
 	{
 		if(mo->momz == 0 && (oldfloorz > mo->floorz && mo->z == oldfloorz))
 			mo->momz = mo->gravity * -2;
@@ -2718,6 +2788,8 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 		mo->player->deltaviewheight = 0;
 	}
 
+	e3d_check_water(mo);
+
 	// HACK - move other sound slots
 	mo->sound_body.x = mo->x;
 	mo->sound_body.y = mo->y;
@@ -2875,6 +2947,8 @@ uint32_t mobj_change_sector(sector_t *sec, uint32_t crush)
 		else
 		if(oc)
 			mo->z = tmceilingz - mo->height;
+
+		e3d_check_water(mo);
 	}
 
 	// blockmap

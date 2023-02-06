@@ -215,10 +215,21 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 		{
 			// i don't have a good solution for this
 		} else
-		if(pl->mo->info->player.jump_z && pl->mo->z <= pl->mo->floorz)
+		if(pl->mo->info->player.jump_z)
 		{
-			pl->mo->momz += pl->mo->info->player.jump_z;
-			S_StartSound(pl->mo, pl->mo->info->player.sound.jump);
+			if(pl->mo->waterlevel)
+			{
+				if(pl->mo->momz < pl->mo->info->player.jump_z / 2)
+					pl->mo->momz += pl->mo->info->player.jump_z / 2;
+			} else
+			if(pl->mo->momz < pl->mo->info->player.jump_z)
+			{
+				if(pl->mo->z <= pl->mo->floorz)
+				{
+					pl->mo->momz += pl->mo->info->player.jump_z;
+					S_StartSound(pl->mo, pl->mo->info->player.sound.jump);
+				}
+			}
 		}
 	}
 
@@ -325,7 +336,7 @@ void P_CalcHeight(player_t *player)
 	} else
 		player->bob = 0;
 
-	if(player->cheats & CF_NOMOMENTUM || (!onground && !(player->mo->flags & MF_NOGRAVITY)))
+	if(player->cheats & CF_NOMOMENTUM || (!onground && !(player->mo->flags & MF_NOGRAVITY) && player->mo->waterlevel <= 1))
 	{
 		player->viewz = player->mo->z + viewheight;
 
@@ -560,14 +571,18 @@ void player_think(player_t *pl)
 		ticcmd_t *cmd = &pl->cmd;
 		int32_t scale;
 		angle_t angle;
+		uint32_t flight;
 
 		pl->mo->angle += (cmd->angleturn << 16);
 
+		flight = pl->mo->waterlevel > 1;
+		flight |= pl->mo->flags & MF_NOGRAVITY;
+
 		angle = pl->mo->angle >> ANGLETOFINESHIFT;
 
-		onground = (pl->mo->z <= pl->mo->floorz);
+		onground = (pl->mo->z <= pl->mo->floorz) && pl->mo->waterlevel <= 1;
 
-		if(pl->mo->flags & MF_NOGRAVITY && pl->mo->pitch)
+		if(flight && pl->mo->pitch)
 		{
 			scale = (2048 * pl->mo->info->speed) >> FRACBITS;
 
@@ -587,7 +602,7 @@ void player_think(player_t *pl)
 			}
 		} else
 		{
-			if(onground || pl->mo->flags & MF_NOGRAVITY)
+			if(onground || flight)
 				scale = (2048 * pl->mo->info->speed) >> FRACBITS;
 			else
 				scale = 8;
@@ -627,6 +642,22 @@ void player_think(player_t *pl)
 		pl->mo->reactiontime--;
 
 	P_CalcHeight(pl);
+
+	if(pl->mo->waterlevel >= 3)
+	{
+		if(pl->mo->player->airsupply > 0)
+		{
+			pl->mo->player->airsupply--;
+			if(!pl->mo->player->airsupply)
+				pl->mo->player->airsupply = -2;
+		} else
+		if(!(leveltime & 31))
+		{
+			mobj_damage(pl->mo, NULL, NULL, DAMAGE_WITH_TYPE(-pl->mo->player->airsupply, DAMAGE_DROWN), NULL);
+			pl->mo->player->airsupply--;
+		}
+	} else
+		pl->airsupply = PLAYER_AIRSUPPLY;
 
 	if(map_format == MAP_FORMAT_DOOM)
 	{

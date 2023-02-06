@@ -7,6 +7,8 @@
 #define PLAYER_LOOK_DEAD	0x08000000
 #define PLAYER_LOOK_STEP	0x00800000
 
+#define PLAYER_AIRSUPPLY	(20 * 35)
+
 enum
 {
 	plf_auto_switch,

@@ -463,6 +463,40 @@ void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step)
 	}
 }
 
+void e3d_check_water(mobj_t *mo)
+{
+	extraplane_t *pl = mo->subsector->sector->exfloor;
+	fixed_t zc = mo->z + mo->height / 2;
+	fixed_t zt;
+
+	mo->waterlevel = 0;
+
+	if(mo->player)
+		zt = mo->z + mo->info->player.view_height;
+	else
+		zt = mo->z + mo->height;
+
+	while(pl)
+	{
+		if(pl->flags & E3D_WATER)
+		{
+			if(	mo->z < pl->source->ceilingheight &&
+				zc >= pl->source->floorheight 
+			){
+				mo->waterlevel = 1;
+				if(zc < pl->source->ceilingheight)
+				{
+					if(zt < pl->source->ceilingheight)
+						mo->waterlevel = 3;
+					else
+						mo->waterlevel = 2;
+				}
+			}
+		}
+		pl = pl->next;
+	}
+}
+
 void e3d_draw_height(fixed_t height)
 {
 	for(visplane_t *pl = e3dplanes; pl < cur_plane; pl++)
@@ -568,7 +602,7 @@ void e3d_create()
 
 		tag = ln->arg1 & ~(4 | 16 | 32);
 
-		if(	(tag != 1 && tag != 3) ||
+		if(	tag < 1 || tag > 3 ||
 			ln->arg2 & ~64
 		)
 			engine_error("EX3D", "Unsupported extra floor type!");
@@ -584,6 +618,9 @@ void e3d_create()
 			flags = E3D_SOLID | E3D_BLOCK_HITSCAN | E3D_BLOCK_SIGHT;
 		else
 			flags = 0;
+
+		if(tag == 2)
+			flags |= E3D_WATER | E3D_DRAW_INISIDE;
 
 		if(ln->arg1 & 4)
 			flags |= E3D_DRAW_INISIDE;
@@ -619,7 +656,7 @@ void e3d_create()
 			{
 				add_floor_plane(&sec->exfloor, src, ln, flags, alpha);
 				add_ceiling_plane(&sec->exceiling, src, ln, flags, alpha);
-				if(ln->arg1 & 4)
+				if(flags & (E3D_WATER | E3D_DRAW_INISIDE))
 				{
 					add_floor_plane(&sec->exfloor, src, ln, E3D_SWAP_PLANES, alpha);
 					add_ceiling_plane(&sec->exceiling, src, ln, E3D_SWAP_PLANES, alpha);

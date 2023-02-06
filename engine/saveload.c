@@ -37,7 +37,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFBE	// increment with updates
+#define SAVE_VERSION	0xE58BAFBF	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -277,6 +277,9 @@ typedef struct
 	int16_t killcount;
 	uint16_t itemcount;
 	uint16_t secretcount;
+	//
+	uint16_t flags;
+	int16_t airsupply;
 	//
 	uint16_t playerclass;
 	//
@@ -1386,6 +1389,9 @@ static inline void sv_put_players()
 		plr.killcount = pl->killcount;
 		plr.itemcount = pl->itemcount;
 		plr.secretcount = pl->secretcount;
+
+		plr.flags = pl->flags;
+		plr.airsupply = pl->airsupply;
 
 		plr.damagecount = pl->damagecount;
 		plr.bonuscount = pl->bonuscount;
@@ -2650,6 +2656,9 @@ static inline uint32_t ld_get_players(uint32_t hub_data)
 		pl->killcount = plr.killcount;
 		pl->itemcount = plr.itemcount;
 		pl->secretcount = plr.secretcount;
+
+		pl->flags = plr.flags;
+		pl->airsupply = plr.airsupply;
 
 		pl->damagecount = plr.damagecount;
 		pl->bonuscount = plr.bonuscount;

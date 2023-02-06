@@ -173,7 +173,6 @@ static config_entry_t config_mod[] =
 	{"damage[4].name", &damage_type_config[DAMAGE_CUSTOM_4].name, TYPE_STRING_LC_ALLOC},
 	{"damage[5].name", &damage_type_config[DAMAGE_CUSTOM_5].name, TYPE_STRING_LC_ALLOC},
 	{"damage[6].name", &damage_type_config[DAMAGE_CUSTOM_6].name, TYPE_STRING_LC_ALLOC},
-	{"damage[7].name", &damage_type_config[DAMAGE_CUSTOM_7].name, TYPE_STRING_LC_ALLOC},
 	// terminator
 	{NULL}
 };

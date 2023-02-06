@@ -6,8 +6,9 @@
 #define E3D_BLOCK_SIGHT	4
 #define E3D_ADDITIVE	8
 #define E3D_DRAW_INISIDE	16
+#define E3D_WATER	32
 
-#define E3D_SWAP_PLANES	0x10000
+#define E3D_SWAP_PLANES	0x8000
 
 typedef struct extraplane_s
 {
@@ -54,6 +55,7 @@ void e3d_draw_planes();
 
 extraplane_t *e3d_check_inside(sector_t *sec, fixed_t z, uint32_t flags);
 void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step);
+void e3d_check_water(mobj_t *mo);
 void e3d_check_midtex(mobj_t *mo, line_t *ln, uint32_t no_step);
 
 void e3d_update_top(sector_t *src);

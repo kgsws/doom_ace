@@ -402,9 +402,10 @@ typedef struct player_s
 	int16_t inv_sel; // current selection
 	uint16_t inv_tick; // inventory selection visible
 	uint32_t stbar_update;
-	uint32_t info_flags;
+	uint32_t info_flags; // this is only temporary
 	uint8_t power_color[NUMPOWERS];
-	uint32_t flags;
+	uint16_t flags;
+	int16_t airsupply;
 	struct mobj_s *camera;
 	const print_text_t *text_data;
 	uint32_t text_tics;
@@ -1170,6 +1171,8 @@ typedef struct mobj_s
 	uint8_t intercept_side;
 	// damage type - also set on death
 	uint8_t damage_type;
+	// water level
+	uint8_t waterlevel;
 	// unique identification
 	uint32_t netid;
 	// new orientation

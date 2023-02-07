@@ -459,8 +459,7 @@ static void handle_sector_special(player_t *pl, sector_t *sec, uint32_t texture)
 	if(sec->special & 1024)
 	{
 		pl->message = "Secret!";
-		if(pl == &players[consoleplayer])
-			S_StartSound(NULL, SFX_SECRET);
+		S_StartSound(SOUND_CONSOLEPLAYER, SFX_SECRET);
 		sec->special &= ~1024;
 	}
 
@@ -668,8 +667,7 @@ void player_think(player_t *pl)
 			if(special == 9 && !pl->mo->subsector->sector->special)
 			{
 				pl->message = "Secret!";
-				if(idx == consoleplayer)
-					S_StartSound(NULL, SFX_SECRET);
+				S_StartSound(SOUND_CONSOLEPLAYER, SFX_SECRET);
 			}
 			if(pl->mo->z <= pl->mo->subsector->sector->floorheight)
 				player_terrain_damage(pl, pl->mo->subsector->sector->floorpic);

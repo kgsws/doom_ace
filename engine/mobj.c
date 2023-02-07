@@ -589,8 +589,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	}
 
 	// sound
-	if(pl == players + consoleplayer)
-		S_StartSound(NULL, info->inventory.sound_pickup);
+	S_StartSound(SOUND_CONSOLEPLAYER, info->inventory.sound_pickup);
 
 	// message
 	if(info->inventory.message)

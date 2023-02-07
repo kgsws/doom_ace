@@ -183,7 +183,19 @@ uint32_t sound_start_check(void **mo, uint32_t idx)
 	if(sfx->lumpnum < 0)
 		return 0;
 
-	if(!*mo)
+	if(*mo)
+	{
+		// check for consoleplayer sound
+		count = (uint32_t)*mo;
+		if(count > 0 && count <= MAXPLAYERS)
+		{
+			if(consoleplayer != count - 1)
+				return 0;
+			// play this sound only for local player
+			// this has to be filtered after possible 'P_Random' call
+			*mo = sfxinfo + idx;
+		}
+	} else
 		// each full volume sound has its own slot
 		*mo = sfxinfo + idx;
 

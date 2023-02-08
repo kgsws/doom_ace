@@ -1046,8 +1046,9 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		tmthing->iflags |= MFI_MOBJONMOBJ;
 		thing->iflags |= MFI_MOBJONMOBJ;
 
-		if(tmthing->z >= thing->z + thing->height)
-		{
+		if(	(tmthing->z >= thing->z + thing->height) ||
+			(tmthing->player && tmthing->z + tmthing->info->step_height >= thing->z + thing->height)
+		){
 			if(tmfloorz < thing->z + thing->height)
 				tmfloorz = thing->z + thing->height;
 			return 1;
@@ -1105,7 +1106,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		if(thing->flags1 & MF1_SPECTRAL && !(tmthing->flags1 & MF1_SPECTRAL))
 			return 1;
 
-		if(thing->flags1 & MF1_GHOST & tmthing->flags1 & MF1_THRUGHOST)
+		if(thing->flags1 & MF1_GHOST && tmthing->flags1 & MF1_THRUGHOST)
 			return 1;
 
 		if(!(thing->flags & MF_SHOOTABLE))

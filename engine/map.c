@@ -1114,6 +1114,7 @@ uint32_t map_load_setup(uint32_t new_game)
 
 	// free level memory
 	Z_FreeTags(PU_LEVEL, PU_PURGELEVEL-1);
+	zone_info();
 
 	// find map lump
 	map_lump_idx = W_CheckNumForName(map_lump.name);
@@ -2826,41 +2827,6 @@ static const hook_t patch_hexen[] =
 	{0x0002B340, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_cross},
 	{0x00027286, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by monster
 	{0x0002BCFE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)spec_line_use}, // by player
-	// terminator
-	{0}
-};
-
-static const hook_t patch_old[] =
-{
-	// restore 'A_Tracer'
-	{0x00027E2A, CODE_HOOK | HOOK_ABSADDR_DATA, 0x0002B3BC},
-	// replace 'P_CheckSight' on multiple places
-	{0x0002708A, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x000270AA, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x000275D8, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x000276F0, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x00027907, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x00027B82, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x00027BC2, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x000282B6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x0002838C, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	{0x0002BDC6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002ED60},
-	// restore 'P_PathTraverse' on multiple places
-	{0x0002B5F6, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
-	{0x0002B616, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
-	{0x0002B636, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_SlideMove
-	{0x0002BC89, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_LineAttack
-	{0x0002BD55, CODE_HOOK | HOOK_CALL_DOOM, 0x0002C8A0}, // P_UseLines
-	// restore pointers to 'PTR_SlideTraverse' in 'P_SlideMove'
-	{0x0002B5DD, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
-	{0x0002B5FC, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
-	{0x0002B61C, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B4B0},
-	// restore pointers to 'PTR_ShootTraverse' in 'P_SlideMove'
-	{0x0002BC52, CODE_HOOK | HOOK_ABSADDR_CODE, 0x0002B8E0},
-	// disable sliding on things
-	{0x0002B5EA, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
-	{0x0002B60F, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
-	{0x0002B62C, CODE_HOOK | HOOK_UINT8, PT_ADDLINES},
 	// terminator
 	{0}
 };

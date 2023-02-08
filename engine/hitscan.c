@@ -16,8 +16,6 @@
 #include "sight.h"
 #include "hitscan.h"
 
-#define PIT_AddThingIntercepts	((void*)0x0002C720 + doom_code_segment)
-
 static uint32_t thing_slide_slope;
 
 static fixed_t hitscanz;

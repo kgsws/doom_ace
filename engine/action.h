@@ -267,10 +267,9 @@ typedef struct
 
 typedef struct
 {
+	uint32_t amount;
 	uint16_t type;
-	uint16_t amount;
 	uint8_t ptr;
-	uint8_t sacrifice;
 } args_GiveInventory_t;
 
 //
@@ -287,7 +286,6 @@ typedef struct
 {
 	angle_t angle;
 	uint8_t ptr;
-	uint8_t sacrifice;
 } args_SetAngle_t;
 
 //

@@ -513,6 +513,41 @@ static void debug_func()
 //
 // zone
 
+void zone_info()
+{
+	memblock_t *block;
+	uint32_t used, left;
+
+	used = 0;
+	left = 0;
+
+	for(block = mainzone->blocklist.next; ; block = block->next)
+	{
+//		doom_printf("block %p\n next %p\n prev %p\n size %u\n user %p\n", block, block->next, block->prev, block->size, block->user);
+
+		if(block->user)
+			used += block->size;
+		else
+			left += block->size;
+
+		used += sizeof(memblock_t);
+
+		if(block->next->prev != block)
+			engine_error("ZONE", "Next block doesn't have proper back link.");
+
+		if(!block->user && !block->next->user)
+			engine_error("ZONE", "Two consecutive free blocks.");
+
+		if(block->next == &mainzone->blocklist)
+			break;
+
+		if((void*)block + block->size != (void*)block->next)
+			engine_error("ZONE", "Block size does not touch the next block.");
+	}
+
+	doom_printf("free zone: %u / %u B\n", used, left + used);
+}
+
 static __attribute((regparm(2),no_caller_saved_registers))
 void *zone_alloc(uint32_t *psz)
 {
@@ -688,6 +723,7 @@ void Z_Init()
 		blother->id = 0;
 		blother->prev = blk;
 		blother->next = block->next;
+		block->next->prev = blother;
 
 		block->next = blk;
 	}

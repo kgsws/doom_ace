@@ -3303,7 +3303,7 @@ static const dec_args_t args_GiveInventory =
 	.arg =
 	{
 		{handle_mobjtype, offsetof(args_GiveInventory_t, type)},
-		{handle_u16, offsetof(args_GiveInventory_t, amount), 1},
+		{handle_damage, offsetof(args_GiveInventory_t, amount), 1}, // hijack 'random damage' feature
 		{handle_pointer, offsetof(args_GiveInventory_t, ptr), 1},
 		// terminator
 		{NULL}
@@ -3314,13 +3314,18 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_GiveInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_GiveInventory_t *arg = st->arg;
-	uint32_t count = arg->amount;
+	uint32_t damage = arg->amount;
+
 	mo = resolve_ptr(mo, arg->ptr);
 	if(!mo)
 		return;
-	if(!count)
-		count++;
-	mobj_give_inventory(mo, arg->type, count);
+
+	if(damage & DAMAGE_IS_CUSTOM)
+		damage = mobj_calc_damage(damage);
+
+	if(!damage)
+		damage++;
+	mobj_give_inventory(mo, arg->type, damage);
 }
 
 //
@@ -3333,7 +3338,7 @@ static const dec_args_t args_TakeInventory =
 	{
 		{handle_mobjtype, offsetof(args_GiveInventory_t, type)},
 		{handle_u16, offsetof(args_GiveInventory_t, amount), 1},
-		{handle_s8, offsetof(args_GiveInventory_t, sacrifice), 1}, // ignored
+		{handle_forced_string, 0, 1, .string = "0"},
 		{handle_pointer, offsetof(args_GiveInventory_t, ptr), 1},
 		// terminator
 		{NULL}
@@ -3591,7 +3596,7 @@ static const dec_args_t args_SetAngle =
 	.arg =
 	{
 		{handle_angle_rel, offsetof(args_SetAngle_t, angle)},
-		{handle_s8, offsetof(args_SetAngle_t, sacrifice), 1}, // ignored
+		{handle_forced_string, 0, 1, .string = "0"},
 		{handle_pointer, offsetof(args_SetAngle_t, ptr), 1},
 		// terminator
 		{NULL}

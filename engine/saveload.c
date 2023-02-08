@@ -2670,8 +2670,15 @@ static inline uint32_t ld_get_players(uint32_t hub_data)
 		{
 			if(plr.pspr[i].state >= num_states)
 				return 1;
-			pl->psprites[i].state = states + plr.pspr[i].state;
-			pl->psprites[i].tics = plr.pspr[i].tics;
+			if(plr.pspr[i].state)
+			{
+				pl->psprites[i].state = states + plr.pspr[i].state;
+				pl->psprites[i].tics = plr.pspr[i].tics;
+			} else
+			{
+				pl->psprites[i].state = NULL;
+				pl->psprites[i].tics = -1;
+			}
 		}
 
 		pl->extralight = plr.extralight;

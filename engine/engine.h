@@ -1483,6 +1483,7 @@ void *ldr_realloc(void *ptr, uint32_t size);
 void ldr_dump_buffer(const uint8_t *path, void *buff, uint32_t size);
 void ldr_get_patch_header(int32_t lump, patch_t *p);
 void error_message(uint8_t*);
+void zone_info();
 
 // am_map
 void AM_Stop() __attribute((regparm(2),no_caller_saved_registers));

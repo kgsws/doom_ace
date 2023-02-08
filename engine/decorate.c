@@ -708,6 +708,9 @@ const dec_flag_t mobj_flags2[] =
 	{"bounceonceilings", MF2_BOUNCEONCEILINGS},
 	{"noblockmonst", MF2_NOBLOCKMONST},
 	{"dontcorpse", MF2_DONTCORPSE},
+	{"stealth", MF2_STEALTH},
+	{"explodeonwater", MF2_EXPLODEONWATER},
+	{"canbouncewater", MF2_CANBOUNCEWATER},
 	// terminator
 	{NULL}
 };

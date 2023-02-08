@@ -1162,6 +1162,7 @@ typedef struct mobj_s
 	// render
 	uint8_t render_style;
 	uint8_t render_alpha;
+	int8_t alpha_dir;
 	uint8_t *translation;
 	fixed_t scale;
 	fixed_t e3d_floorz;

@@ -2084,6 +2084,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	fixed_t speed;
+	state_t *state;
 
 	if(mo->target == mo || (mo->target && mo->target->flags1 & MF1_NOTARGET))
 		mo->target = NULL;
@@ -2093,10 +2094,20 @@ void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	else
 		speed = mo->info->speed;
 
+	// attack detection
+	state = mo->state;
+
 	// workaround for non-fixed speed
 	mo->info->speed = (speed + (FRACUNIT / 2)) >> FRACBITS;
 	doom_A_Chase(mo);
 	mo->info->speed = speed;
+
+	// this is not how ZDoom handles stealth
+	if(state != mo->state && mo->flags2 & MF2_STEALTH)
+		mo->alpha_dir = 14;
+	else
+	if(mo->render_alpha)
+		mo->alpha_dir = -10;
 
 	// HACK - move other sound slots
 	mo->sound_body.x = mo->x;

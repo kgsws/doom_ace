@@ -928,6 +928,12 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 
 	// TODO: frags
 
+	if(mo->flags2 & MF2_STEALTH)
+	{
+		mo->render_alpha = 255;
+		mo->alpha_dir = 0;
+	}
+
 	if(mo->flags & MF_COUNTKILL)
 	{
 		if(source && source->player)
@@ -2073,6 +2079,12 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	)
 		return;
 
+	if(target->flags2 & MF2_STEALTH)
+	{
+		target->render_alpha = 255;
+		target->alpha_dir = -10;
+	}
+
 	if(player)
 	{
 		if(target->subsector->sector->special == 11 && damage >= target->health)
@@ -2488,8 +2500,16 @@ static void P_ZMovement(mobj_t *mo)
 
 			if(remove && mo->flags2 & MF2_BOUNCEONFLOORS && mo->flags & MF_MISSILE)
 			{
-				mobj_remove(mo);
-				return;
+				if(mo->flags2 & MF2_EXPLODEONWATER)
+				{
+					mobj_explode_missile(mo);
+					return;
+				} else
+				if(mo->flags2 & MF2_CANBOUNCEWATER)
+				{
+					mobj_remove(mo);
+					return;
+				}
 			}
 		} else
 		if(mo->momz > 0 && mo->flags & MF_MISSILE)
@@ -3046,6 +3066,25 @@ void P_MobjThinker(mobj_t *mo)
 		P_ZMovement(mo);
 		if(mo->thinker.function == (void*)-1)
 			return;
+	}
+
+	// stealth
+	if(mo->flags2 & MF2_STEALTH && mo->alpha_dir)
+	{
+		int32_t alpha;
+		alpha = mo->render_alpha;
+		alpha += mo->alpha_dir;
+		if(alpha >= 255)
+		{
+			alpha = 255;
+			mo->alpha_dir = 0;
+		} else
+		if(alpha <= 0)
+		{
+			alpha = 0;
+			mo->alpha_dir = 0;
+		}
+		mo->render_alpha = alpha;
 	}
 
 	// first state

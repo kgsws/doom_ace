@@ -2505,7 +2505,7 @@ static void P_ZMovement(mobj_t *mo)
 					mobj_explode_missile(mo);
 					return;
 				} else
-				if(mo->flags2 & MF2_CANBOUNCEWATER)
+				if(!(mo->flags2 & MF2_CANBOUNCEWATER))
 				{
 					mobj_remove(mo);
 					return;

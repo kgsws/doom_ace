@@ -949,6 +949,12 @@ doom_A_VileChase:
 doom_A_BrainAwake:
 	.byte	0xE9
 	.4byte	0x00028AC0
+////////////////////////////////// doom_A_BrainSpit
+.section .text.doom_A_BrainSpit
+.global doom_A_BrainSpit
+doom_A_BrainSpit:
+	.byte	0xE9
+	.4byte	0x00028C60
 ////////////////////////////////// doom_V_CopyRect
 .section .text.doom_V_CopyRect
 .global doom_V_CopyRect

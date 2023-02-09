@@ -72,7 +72,7 @@ void weapon_set_state(player_t *pl, uint32_t idx, mobjinfo_t *info, uint32_t sta
 		state = st->nextstate;
 
 		if(pl->powers[pw_attack_speed] && psp->tics > 1)
-			psp->tics >>= 1;
+			psp->tics = (psp->tics + 1) >> 1;
 
 		if(!idx)
 		{

@@ -3879,7 +3879,7 @@ void A_RearrangePointers(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
-// A_BrainDie
+// D2 Boss stuff
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_BrainDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
@@ -5017,6 +5017,8 @@ static const dec_action_t mobj_action[] =
 	{"a_stop", A_Stop},
 	{"a_settics", A_SetTics, &args_SetTics},
 	{"a_rearrangepointers", A_RearrangePointers, &args_RearrangePointers},
+	{"a_brainawake", doom_A_BrainAwake},
+	{"a_brainspit", doom_A_BrainSpit},
 	{"a_braindie", A_BrainDie},
 	{"a_keendie", A_KeenDie, &args_KeenDie},
 	{"a_warp", A_Warp, &args_Warp},

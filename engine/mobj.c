@@ -794,6 +794,7 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 {
 	mobjinfo_t *info = mobjinfo + type;
 	uint32_t hack = 0;
+	uint32_t rng = 0;
 
 	// check for replacement
 	if(info->replacement)
@@ -803,12 +804,15 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 	}
 
 	// check for random
-	if(info->extra_type == ETYPE_RANDOMSPAWN)
+	while(info->extra_type == ETYPE_RANDOMSPAWN)
 	{
 		uint32_t weight = 0;
 		int32_t type = MOBJ_IDX_UNKNOWN;
 		uint32_t rnd = P_Random() % info->random_weight;
 		uint32_t chance;
+
+		if(rng >= 16)
+			engine_error("MOBJ", "Possible recursive RandomSpawner!");
 
 		for(mobj_dropitem_t *drop = info->dropitem.start; drop < (mobj_dropitem_t*)info->dropitem.end; drop++)
 		{
@@ -842,6 +846,8 @@ mobjinfo_t *prepare_mobj(mobj_t *mo, uint32_t type)
 			type = info->replacement;
 			info = mobjinfo + type;
 		}
+
+		rng++;
 	}
 
 	// clear memory

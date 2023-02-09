@@ -1549,6 +1549,7 @@ uint32_t EV_DoDoor(line_t*,uint32_t) __attribute((regparm(2),no_caller_saved_reg
 void doom_A_Chase(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void doom_A_VileChase(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void doom_A_BrainAwake(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void doom_A_BrainSpit(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_NoiseAlert(mobj_t*,mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_LookForPlayers(mobj_t*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 

@@ -339,6 +339,14 @@ typedef struct
 
 //
 
+typedef struct
+{
+	uint16_t arg;
+	uint32_t value;
+} args_SetArg_t;
+
+//
+
 #define XF_HURTSOURCE	1
 #define XF_NOTMISSILE	2
 #define XF_THRUSTZ	4

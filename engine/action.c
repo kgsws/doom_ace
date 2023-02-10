@@ -2213,7 +2213,10 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		target = resolve_ptr(mo, arg->ptr);
 
 	if(!target)
+	{
 		flags |= CMF_AIMDIRECTION;
+		flags &= ~CMF_AIMOFFSET;
+	}
 
 	if(flags & CMF_CHECKTARGETDEAD && (!target || target->health <= 0))
 		return;
@@ -4079,6 +4082,37 @@ void A_Warp(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_SetArg
+
+static const dec_args_t args_SetArg =
+{
+	.size = sizeof(args_SetArg_t),
+	.arg =
+	{
+		{handle_u16, offsetof(args_SetArg_t, arg)},
+		{handle_damage, offsetof(args_SetArg_t, value)},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SetArg(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_SetArg_t *arg = st->arg;
+	uint32_t value;
+
+	if(arg->arg > 4)
+		return;
+
+	value = arg->value;
+	if(value & DAMAGE_IS_CUSTOM)
+		value = mobj_calc_damage(value);
+
+	mo->special.arg[arg->arg] = value;
+}
+
+//
 // A_DamageTarget
 
 static const dec_args_t args_DamageTarget =
@@ -4503,7 +4537,7 @@ void A_CountdownArg(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		return;
 	}
 
-	stfunc(mo, 0, STATE_SET_ANIMATION | ANIM_DEATH);
+	stfunc(mo, 0xFFFFFFFF, STATE_SET_ANIMATION | ANIM_DEATH);
 }
 
 //
@@ -5019,9 +5053,11 @@ static const dec_action_t mobj_action[] =
 	{"a_rearrangepointers", A_RearrangePointers, &args_RearrangePointers},
 	{"a_brainawake", doom_A_BrainAwake},
 	{"a_brainspit", doom_A_BrainSpit},
+	{"a_spawnfly", doom_A_SpawnFly},
 	{"a_braindie", A_BrainDie},
 	{"a_keendie", A_KeenDie, &args_KeenDie},
 	{"a_warp", A_Warp, &args_Warp},
+	{"a_setarg", A_SetArg, &args_SetArg},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	{"a_explode", A_Explode, &args_Explode},

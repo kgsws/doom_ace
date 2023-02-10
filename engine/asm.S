@@ -955,6 +955,12 @@ doom_A_BrainAwake:
 doom_A_BrainSpit:
 	.byte	0xE9
 	.4byte	0x00028C60
+////////////////////////////////// doom_A_SpawnFly
+.section .text.doom_A_SpawnFly
+.global doom_A_SpawnFly
+doom_A_SpawnFly:
+	.byte	0xE9
+	.4byte	0x00028D20
 ////////////////////////////////// doom_V_CopyRect
 .section .text.doom_V_CopyRect
 .global doom_V_CopyRect

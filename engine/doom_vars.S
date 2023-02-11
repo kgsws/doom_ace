@@ -249,6 +249,9 @@ DOOM_VAR 0x0002B6D4, menu_item_now
 DOOM_VAR 0x0002B6E8, usemouse
 DOOM_VAR 0x0002B6EC, usejoystick
 
+DOOM_VAR 0x0002B6F0, myargc
+DOOM_VAR 0x0002B6F4, myargv
+
 DOOM_VAR 0x0002B840, activeceilings
 
 DOOM_VAR 0x0002B960, spechit

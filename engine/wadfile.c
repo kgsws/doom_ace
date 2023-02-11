@@ -138,18 +138,24 @@ static void wad_add(uint8_t *name)
 
 void wad_init()
 {
+	int32_t arg;
+
 	doom_printf("[ACE] wad_init\n");
 
 	ldr_alloc_message = "WAD";
+
+	arg = M_CheckParm("-iwad");
+	if(arg > 0 && arg < myargc-1)
+		wadfiles[0] = myargv[arg+1];
 
 	lumpinfo = ldr_malloc(1);
 
 	for(uint32_t i = 0; i < MAXWADFILES && wadfiles[i]; i++)
 		wad_add(wadfiles[i]);
-#if 0
+
 	if(!numlumps)
-		engine_error("Umm. WADs are empty ...", "WAD");
-#endif
+		engine_error("WAD", "Umm. WADs are empty ...");
+
 	if(numlumps >= 65535)
 		engine_error("WAD", "Wow. Soo many lumps ...");
 

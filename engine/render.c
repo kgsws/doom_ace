@@ -1602,7 +1602,12 @@ void r_add_line(seg_t *line, int32_t x2, int32_t x1)
 	if(!backsector)
 		goto clipsolid;
 
-	if(frontsector->floorheight >= frontsector->ceilingheight)
+	if(	frontsector->floorheight >= frontsector->ceilingheight &&
+		backsector->floorpic != skyflatnum &&
+		backsector->ceilingpic != skyflatnum &&
+		!sides[line->linedef->sidenum[0]].midtexture &&
+		!sides[line->linedef->sidenum[1]].midtexture
+	)
 		goto clipsolid;
 
 	if(backsector->ceilingheight <= frontsector->floorheight || backsector->floorheight >= frontsector->ceilingheight)

@@ -20,6 +20,8 @@ extern memzone_t *mainzone;
 extern uint8_t *screen_buffer;
 extern uint32_t message_is_important;
 extern uint32_t french_version;
+extern int32_t myargc;
+extern uint8_t **myargv;
 
 // game state
 extern uint32_t wipegamestate;

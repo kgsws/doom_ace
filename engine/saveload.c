@@ -37,7 +37,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFC0	// increment with updates
+#define SAVE_VERSION	0xE58BAFC1	// increment with updates
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -216,14 +216,6 @@ typedef struct
 	//
 	mobj_special_t special;
 	//
-	struct
-	{
-		int16_t x;
-		int16_t y;
-		int16_t angle;
-		int16_t type;
-	} spawn;
-	//
 	uint32_t flags;
 	uint32_t flags1;
 	uint32_t flags2;
@@ -232,6 +224,15 @@ typedef struct
 	uint32_t target;
 	uint32_t tracer;
 	uint32_t master;
+	//
+	struct
+	{
+		int16_t x;
+		int16_t y;
+		int16_t angle;
+		int16_t type;
+		int16_t motype;
+	} spawn;
 	//
 	uint8_t animation;
 	uint8_t render_style;
@@ -1290,6 +1291,7 @@ static uint32_t svcb_thing(mobj_t *mo)
 	thing.spawn.y = mo->spawnpoint.y;
 	thing.spawn.angle = mo->spawnpoint.angle;
 	thing.spawn.type = mo->spawnpoint.type;
+	thing.spawn.motype = mo->spawnpoint.options;
 
 	thing.flags = mo->flags;
 	thing.flags1 = mo->flags1;
@@ -2522,6 +2524,7 @@ static inline uint32_t ld_get_things(uint32_t hub_data)
 		mo->spawnpoint.y = thing.spawn.y;
 		mo->spawnpoint.angle = thing.spawn.angle;
 		mo->spawnpoint.type = thing.spawn.type;
+		mo->spawnpoint.options = thing.spawn.motype;
 
 		mo->flags = thing.flags;
 		mo->flags1 = thing.flags1;

@@ -1086,6 +1086,22 @@ static const state_t internal_states[] =
 		.nextstate = STATE_ICE_CHUNK_PLR,
 		.acp = A_CheckPlayerDone,
 	},
+	[STATE_SPECIAL_HIDE - NUMSTATES] =
+	{
+		.sprite = SPR_ICEC,
+		.frame = 0,
+		.tics = 10,
+		.nextstate = STATE_SPECIAL_RESTORE,
+		.acp = A_SpecialHide,
+	},
+	[STATE_SPECIAL_RESTORE - NUMSTATES] =
+	{
+		.sprite = SPR_ICEC,
+		.frame = 0,
+		.tics = 10,
+		.nextstate = 0,
+		.acp = A_SpecialRestore,
+	},
 };
 
 // internal types

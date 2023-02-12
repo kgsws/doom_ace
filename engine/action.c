@@ -1447,6 +1447,55 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// hide / restore items
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_SpecialHide(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	if(!netgame || mo->flags & MF_DROPPED)
+	{
+		mobj_remove(mo);
+		return;
+	}
+
+	P_UnsetThingPosition(mo);
+	mo->flags |= MF_NOBLOCKMAP | MF_NOSECTOR;
+	P_SetThingPosition(mo);
+
+	mo->tics = 1050;
+}
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_SpecialRestore(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	P_UnsetThingPosition(mo);
+
+	mo->flags = mo->info->flags;
+
+	if(mo->spawnpoint.options == mo->type)
+	{
+		mo->x = (fixed_t)mo->spawnpoint.x * FRACUNIT;
+		mo->y = (fixed_t)mo->spawnpoint.y * FRACUNIT;
+	}
+
+	P_SetThingPosition(mo);
+
+	P_CheckPosition(mo, mo->x, mo->y);
+	mo->floorz = tmfloorz;
+	mo->ceilingz = tmceilingz;
+
+	if(mo->z > mo->ceilingz - mo->height)
+		mo->z = mo->ceilingz - mo->height;
+	if(mo->z < mo->floorz)
+		mo->z = mo->floorz;
+
+	P_SpawnMobj(mo->x, mo->y, mo->z, 40); // MT_IFOG
+	S_StartSound(mo, 90); // sfx_itmbk
+
+	stfunc(mo, 0xFFFFFFFF, STATE_SET_ANIMATION | ANIM_SPAWN);
+}
+
+//
 // weapon (logic)
 
 const args_singleU16_t def_LowerRaise =
@@ -2083,13 +2132,15 @@ seeyou:
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	fixed_t speed;
+	fixed_t speed, oldspeed;
 	state_t *state;
 
 	if(mo->target == mo || (mo->target && mo->target->flags1 & MF1_NOTARGET))
 		mo->target = NULL;
 
-	if(mo->info->fast_speed && fastparm || gameskill == sk_nightmare)
+	oldspeed = mo->info->speed;
+
+	if(mo->info->fast_speed && (fastparm || gameskill == sk_nightmare))
 		speed = mo->info->fast_speed;
 	else
 		speed = mo->info->speed;
@@ -2100,7 +2151,7 @@ void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	// workaround for non-fixed speed
 	mo->info->speed = (speed + (FRACUNIT / 2)) >> FRACBITS;
 	doom_A_Chase(mo);
-	mo->info->speed = speed;
+	mo->info->speed = oldspeed;
 
 	// this is not how ZDoom handles stealth
 	if(state != mo->state && mo->flags2 & MF2_STEALTH)
@@ -3328,18 +3379,18 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_GiveInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_GiveInventory_t *arg = st->arg;
-	uint32_t damage = arg->amount;
+	uint32_t amount = arg->amount;
 
 	mo = resolve_ptr(mo, arg->ptr);
 	if(!mo)
 		return;
 
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
+	if(amount & DAMAGE_IS_CUSTOM)
+		amount = mobj_calc_damage(amount);
 
-	if(!damage)
-		damage++;
-	mobj_give_inventory(mo, arg->type, damage);
+	if(!amount)
+		amount++;
+	mobj_give_inventory(mo, arg->type, amount);
 }
 
 //
@@ -4142,6 +4193,41 @@ void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	mo_dmg_skip_armor = 1; // technically, in rare cases, this is broken
 	mobj_damage(mo->target, mo, mo, damage, 0);
 	mo_dmg_skip_armor = 0;
+}
+
+//
+// A_SetHealth
+
+static const dec_args_t args_SetHealth =
+{
+	.size = sizeof(args_singleDamage_t),
+	.arg =
+	{
+		{handle_damage, offsetof(args_singleDamage_t, damage)},
+		// terminator
+		{NULL}
+	}
+};
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_SetHealth(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleDamage_t *arg = st->arg;
+	uint32_t amount;
+
+	amount = arg->damage;
+	if(amount & DAMAGE_IS_CUSTOM)
+		amount = mobj_calc_damage(amount);
+
+	if(!amount)
+		amount++;
+
+	mo->health = amount;
+	if(mo->player)
+	{
+		mo->player->health = amount;
+		mo->player->mo->health = amount;
+	}
 }
 
 //
@@ -5061,6 +5147,8 @@ static const dec_action_t mobj_action[] =
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
 	{"a_explode", A_Explode, &args_Explode},
+	// health
+	{"a_sethealth", A_SetHealth, &args_SetHealth},
 	// inventory
 	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
 	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},

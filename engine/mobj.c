@@ -118,6 +118,8 @@ uint32_t P_SetMobjState(mobj_t *mo, uint32_t state, uint16_t extra)
 		if(st->acp)
 		{
 			st->acp(mo, st, mobj_change_state);
+			if(mo->thinker.function == (void*)-1)
+				return 0;
 			if(mo->next_state || mo->next_extra)
 			{
 				// apply deferred state change
@@ -574,8 +576,8 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		spec_activate(NULL, toucher, 0);
 	}
 
-	// remove // TODO: handle respawn logic (like heretic does)
-	mobj_remove(mo);
+	// remove / hide
+	P_SetMobjState(mo, STATE_SPECIAL_HIDE, 0);
 
 	if(info->eflags & MFE_INVENTORY_QUIET)
 		return;
@@ -747,6 +749,8 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->text_data = NULL;
 	pl->info_flags = player_info[idx].flags;
 	pl->airsupply = PLAYER_AIRSUPPLY;
+
+	memset(&pl->cmd, 0, sizeof(ticcmd_t));
 
 	if(!(pl->mo->flags2 & MF2_DONTTRANSLATE))
 		pl->mo->translation = r_generate_player_color(idx);
@@ -942,11 +946,11 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 
 	if(mo->flags & MF_COUNTKILL)
 	{
-		if(source && source->player)
-			source->player->killcount++;
-		else
 		if(!netgame)
 			players[0].killcount++;
+		else
+		if(source && source->player)
+			source->player->killcount++;
 	}
 
 	mo->flags &= ~(MF_SHOOTABLE|MF_FLOAT|MF_SKULLFLY|MF_COUNTKILL);
@@ -3116,7 +3120,10 @@ void P_MobjThinker(mobj_t *mo)
 		if(!(mo->flags1 & MF1_ISMONSTER))
 			return;
 
-		if(!respawnmonsters)
+		if(!(mo->flags & MF_CORPSE))
+			return;
+
+		if(!respawnmonsters && gameskill < sk_nightmare)
 			return;
 
 		mo->movecount++;

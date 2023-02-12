@@ -575,14 +575,16 @@ void terrain_explosion_splash(mobj_t *mo, fixed_t dist)
 
 void terrain_sound()
 {
-	if(terrain_tick && terrain_tick != leveltime)
+	if(!terrain_tick)
+		return;
+
+	if(terrain_tick != leveltime)
 		return;
 
 	for(uint32_t slot = 0; slot < MAX_SPLASH_SOUNDS; slot++)
 	{
 		if(splash_slot[slot].sound_tick != leveltime)
 			continue;
-
 		S_StartSound(splash_slot[slot].sound_source, splash_slot[slot].sound_id);
 	}
 }

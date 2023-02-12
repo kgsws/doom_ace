@@ -1084,6 +1084,7 @@ uint32_t map_load_setup(uint32_t new_game)
 	automapactive = 0;
 	am_lastlevel = -1;
 	respawnmonsters = gameskill == sk_nightmare || respawnparm;
+	memset(gamekeydown, 0, sizeof(gamekeydown));
 	terrain_reset();
 
 	if(gameepisode)

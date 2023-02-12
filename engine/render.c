@@ -432,6 +432,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 		frontsector->tag != backsector->tag
 	){
 		extraplane_t *pl;
+		sector_t *source = NULL;
 
 		no_inside = 0;
 
@@ -442,10 +443,12 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 			if(	pl->alpha &&
 				*pl->texture &&
 				clip_height_top <= pl->source->ceilingheight &&
-				clip_height_top > pl->source->floorheight
+				clip_height_top > pl->source->floorheight &&
+				pl->source->ceilingheight < backsector->ceilingheight
 			){
 				texnum = texturetranslation[*pl->texture];
 				dc_texturemid = pl->source->ceilingheight - viewz;
+				source = pl->source;
 				height = -1;
 				setup_colfunc_tint(pl->alpha);
 				if(pl->alpha != 255 || pl->flags & E3D_WATER)
@@ -467,7 +470,12 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 					clip_height_top <= pl->source->ceilingheight &&
 					clip_height_top > pl->source->floorheight
 				){
-					if(no_inside && (pl->alpha != 255 || pl->flags & E3D_WATER))
+					if(	source == pl->source ||
+						(
+							no_inside &&
+							(pl->alpha != 255 || pl->flags & E3D_WATER)
+						)
+					)
 						texnum = 0;
 					else
 					if(!texnum && pl->flags & E3D_DRAW_INISIDE)

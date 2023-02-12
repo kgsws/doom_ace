@@ -216,7 +216,7 @@ void think_ceiling(generic_mover_t *gm)
 			if(!gm->up_seq || !gm->up_seq->stop)
 			{
 				gm->sndwait = 0;
-				if(!(gm->up_seq->repeat & SSQ_NO_STOP))
+				if(gm->up_seq && !(gm->up_seq->repeat & SSQ_NO_STOP))
 					S_StopSound((mobj_t*)&gm->sector->soundorg);
 			} else
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
@@ -278,7 +278,7 @@ void think_ceiling(generic_mover_t *gm)
 			if(!gm->dn_seq || !gm->dn_seq->stop)
 			{
 				gm->sndwait = 0;
-				if(!(gm->dn_seq->repeat & SSQ_NO_STOP))
+				if(gm->dn_seq && !(gm->dn_seq->repeat & SSQ_NO_STOP))
 					S_StopSound((mobj_t*)&gm->sector->soundorg);
 			} else
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);
@@ -392,7 +392,7 @@ void think_floor(generic_mover_t *gm)
 			if(!gm->up_seq || !gm->up_seq->stop)
 			{
 				gm->sndwait = 0;
-				if(!(gm->up_seq->repeat & SSQ_NO_STOP))
+				if(gm->up_seq && !(gm->up_seq->repeat & SSQ_NO_STOP))
 					S_StopSound((mobj_t*)&gm->sector->soundorg);
 			} else
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->up_seq->stop);
@@ -450,7 +450,7 @@ void think_floor(generic_mover_t *gm)
 			if(!gm->dn_seq || !gm->dn_seq->stop)
 			{
 				gm->sndwait = 0;
-				if(!(gm->dn_seq->repeat & SSQ_NO_STOP))
+				if(gm->dn_seq && !(gm->dn_seq->repeat & SSQ_NO_STOP))
 					S_StopSound((mobj_t*)&gm->sector->soundorg);
 			} else
 				S_StartSound((mobj_t*)&gm->sector->soundorg, gm->dn_seq->stop);

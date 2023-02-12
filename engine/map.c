@@ -25,6 +25,7 @@
 #include "polyobj.h"
 #include "extra3d.h"
 #include "action.h"
+#include "terrain.h"
 #include "ldr_flat.h"
 #include "ldr_texture.h"
 #include "textpars.h"
@@ -1076,11 +1077,14 @@ uint32_t map_load_setup(uint32_t new_game)
 		players[i].secretcount = 0;
 	}
 
+	// reset stuff
+	mobj_netid = 0;
 	leveltime = 0;
 	viewactive = 1;
 	automapactive = 0;
 	am_lastlevel = -1;
 	respawnmonsters = gameskill == sk_nightmare || respawnparm;
+	terrain_reset();
 
 	if(gameepisode)
 	{
@@ -1159,9 +1163,6 @@ uint32_t map_load_setup(uint32_t new_game)
 
 	// sky
 	skytexture = map_level_info->texture_sky[0];
-
-	// reset netID
-	mobj_netid = 0;
 
 	// think clear
 	P_InitThinkers();

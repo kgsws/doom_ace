@@ -637,6 +637,7 @@ hitline:
 			tf = check_e3d_hit(frontsector, in->frac, &tz);
 			if(tf >= 0)
 			{
+				flat_pic = -1;
 				frac = tf;
 				z = tz;
 			}

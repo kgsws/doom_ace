@@ -61,7 +61,7 @@ static terrain_splash_t *terrain_splash;
 uint32_t num_terrain;
 terrain_terrain_t *terrain;
 
-uint32_t terrain_tick;
+static uint32_t terrain_tick;
 
 uint8_t *flatterrain;
 
@@ -575,15 +575,22 @@ void terrain_explosion_splash(mobj_t *mo, fixed_t dist)
 
 void terrain_sound()
 {
-	if(terrain_tick != leveltime)
+	if(terrain_tick && terrain_tick != leveltime)
 		return;
 
-	for(uint32_t slot = 0; slot < MAX_SPLASH_SOUNDS ; slot++)
+	for(uint32_t slot = 0; slot < MAX_SPLASH_SOUNDS; slot++)
 	{
 		if(splash_slot[slot].sound_tick != leveltime)
 			continue;
 
 		S_StartSound(splash_slot[slot].sound_source, splash_slot[slot].sound_id);
 	}
+}
+
+void terrain_reset()
+{
+	terrain_tick = 0;
+	for(uint32_t slot = 0; slot < MAX_SPLASH_SOUNDS; slot++)
+		splash_slot[slot].sound_tick = 0;
 }
 

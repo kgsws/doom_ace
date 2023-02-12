@@ -37,11 +37,17 @@ void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t 
 {
 	extraplane_t *pl = *dest;
 	extraplane_t *new;
+	fixed_t height;
+
+	if(flags & E3D_SWAP_PLANES)
+		height = sec->floorheight;
+	else
+		height = sec->ceilingheight;
 
 	while(pl)
 	{
 		// sort, top to bottom
-		if(sec->ceilingheight > *pl->height)
+		if(height > *pl->height)
 			break;
 		dest = &pl->next;
 		pl = pl->next;
@@ -73,11 +79,17 @@ void add_ceiling_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_
 {
 	extraplane_t *pl = *dest;
 	extraplane_t *new;
+	fixed_t height;
+
+	if(flags & E3D_SWAP_PLANES)
+		height = sec->ceilingheight;
+	else
+		height = sec->floorheight;
 
 	while(pl)
 	{
 		// sort, bottom to top
-		if(sec->floorheight < *pl->height)
+		if(height < *pl->height)
 			break;
 		dest = &pl->next;
 		pl = pl->next;

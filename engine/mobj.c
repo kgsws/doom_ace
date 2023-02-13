@@ -906,6 +906,16 @@ uint32_t finish_mobj(mobj_t *mo)
 		e3d_check_water(mo);
 	}
 
+	// stealth
+	if(mo->flags2 & MF2_STEALTH)
+	{
+		if(mo->render_alpha < mo->info->stealth_alpha)
+			mo->alpha_dir = 14;
+		else
+		if(mo->render_alpha > mo->info->stealth_alpha)
+			mo->alpha_dir = -10;
+	}
+
 	// counters
 	if(mo->flags & MF_COUNTKILL)
 		totalkills++;
@@ -3089,9 +3099,9 @@ void P_MobjThinker(mobj_t *mo)
 			alpha = 255;
 			mo->alpha_dir = 0;
 		} else
-		if(alpha <= 0)
+		if(alpha <= mo->info->stealth_alpha)
 		{
-			alpha = 0;
+			alpha = mo->info->stealth_alpha;
 			mo->alpha_dir = 0;
 		}
 		mo->render_alpha = alpha;
@@ -3114,6 +3124,9 @@ void P_MobjThinker(mobj_t *mo)
 				return;
 	} else
 	{
+		if(!respawnmonsters)
+			return;
+
 		if(mo->spawnpoint.options != mo->type)
 			return;
 
@@ -3121,9 +3134,6 @@ void P_MobjThinker(mobj_t *mo)
 			return;
 
 		if(!(mo->flags & MF_CORPSE))
-			return;
-
-		if(!respawnmonsters && gameskill < sk_nightmare)
 			return;
 
 		mo->movecount++;

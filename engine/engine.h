@@ -668,7 +668,8 @@ typedef struct mobjinfo_s
 	uint16_t __free_18;
 	int32_t reactiontime;
 	uint16_t attacksound;
-	uint16_t __free_26;
+	uint8_t stealth_alpha;
+	uint8_t __free_27;
 	uint32_t state_pain;
 	uint16_t damage_type;
 	uint16_t blood_type;

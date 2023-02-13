@@ -599,7 +599,8 @@ static const dec_attr_t attr_mobj[] =
 	{"args", DT_ARGS},
 	//
 	{"renderstyle", DT_RENDER_STYLE},
-	{"alpha", DT_RENDER_ALPHA},
+	{"alpha", DT_RENDER_ALPHA, offsetof(mobjinfo_t, render_alpha)},
+	{"stealthalpha", DT_RENDER_ALPHA, offsetof(mobjinfo_t, stealth_alpha)},
 	{"translation", DT_TRANSLATION},
 	//
 	{"monster", DT_MONSTER},
@@ -858,7 +859,7 @@ static const uint8_t *player_sound_slot[NUM_PLAYER_SOUNDS] =
 };
 
 // damage types
-dec_damage_type damage_type_config[NUM_DAMAGE_TYPES] =
+dec_damage_type_t damage_type_config[NUM_DAMAGE_TYPES] =
 {
 	[DAMAGE_NORMAL] = {.name = "normal"},
 	[DAMAGE_ICE] = {.name = "ice"},
@@ -1925,7 +1926,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			num.s32 >>= 8;
 			if(num.s32 > 255)
 				num.s32 = 255;
-			parse_mobj_info->render_alpha = num.s32;
+			*((uint8_t*)dest) = num.s32;
 		break;
 		case DT_TRANSLATION:
 			kw = tp_get_keyword_lc();
@@ -3206,15 +3207,22 @@ static void cb_parse_actors(lumpinfo_t *li)
 		// resolve animation states
 		for(uint32_t i = first_state; i < num_states; i++)
 		{
+			uint32_t next;
 			state_t *st = states + i;
 			if((st->next_extra & STATE_CHECK_MASK) == STATE_SET_ANIMATION)
 			{
 				// resolve animation jumps now, this emulates ZDoom behavior of inherited actors
-				uint32_t next;
 				next = dec_resolve_animation(info, st->next_extra & STATE_EXTRA_MASK, st->nextstate, num_states);
 				st->next_extra &= STATE_CHECK_MASK; // keep type, remove offset
 				st->next_extra |= st->nextstate; // add animation ID
 				st->nextstate = next; // set explicit state number
+			} else
+			if((st->next_extra & STATE_CHECK_MASK) == STATE_SET_CUSTOM)
+			{
+				// resolve custom jumps now, same reason
+				next = dec_reslove_state(info, 0, st->nextstate, st->next_extra);
+				st->nextstate = next; // set explicit state number
+				st->next_extra = 0; // no extra action
 			}
 		}
 	}

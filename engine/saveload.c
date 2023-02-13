@@ -2890,6 +2890,7 @@ void load_auto()
 	totalkills = info.kills;
 	totalitems = info.items;
 	totalsecret = info.secret;
+	respawnmonsters = gameskill == sk_nightmare || respawnparm;
 
 	if(do_read_level(0))
 		goto error_fail;
@@ -2954,6 +2955,7 @@ uint32_t load_hub_level()
 	totalkills = info.kills;
 	totalitems = info.items;
 	totalsecret = info.secret;
+	respawnmonsters = gameskill == sk_nightmare || respawnparm;
 
 	if(do_read_level(1))
 		goto error_fail;
@@ -3046,6 +3048,7 @@ void do_load()
 	totalkills = info.kills;
 	totalitems = info.items;
 	totalsecret = info.secret;
+	respawnmonsters = gameskill == sk_nightmare || respawnparm;
 
 	if(do_read_level(0))
 		goto error_fail;

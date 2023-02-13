@@ -1084,7 +1084,6 @@ uint32_t map_load_setup(uint32_t new_game)
 	automapactive = 0;
 	am_lastlevel = -1;
 	respawnmonsters = gameskill == sk_nightmare || respawnparm;
-	memset(gamekeydown, 0, sizeof(gamekeydown));
 	terrain_reset();
 
 	if(gameepisode)
@@ -1261,6 +1260,10 @@ uint32_t map_load_setup(uint32_t new_game)
 	// autosave
 	if(!is_title_map && !map_skip_stuff)
 		save_auto(new_game);
+
+	// input
+	memset(gamekeydown, 0, sizeof(gamekeydown));
+	memset(mousebuttons, 0, sizeof(mousebuttons));
 
 	// in the level
 	gamestate = GS_LEVEL;

@@ -66,7 +66,7 @@ typedef struct
 	uint32_t xdeath;
 	uint32_t crash;
 	uint32_t xcrash;
-} dec_damage_type;
+} dec_damage_type_t;
 
 //
 
@@ -84,7 +84,7 @@ extern uint16_t player_class[MAX_PLAYER_CLASSES];
 
 extern uint8_t *parse_actor_name;
 
-extern dec_damage_type damage_type_config[NUM_DAMAGE_TYPES];
+extern dec_damage_type_t damage_type_config[NUM_DAMAGE_TYPES];
 
 extern void *dec_es_ptr;
 

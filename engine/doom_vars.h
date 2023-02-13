@@ -339,7 +339,7 @@ extern int32_t keyboxes[];
 
 // controls
 extern uint32_t gamekeydown[256];
-extern uint32_t mousebuttons[];
+extern uint32_t mousebuttons[3];
 extern int32_t mouseb_fire;
 extern int32_t mouseb_strafe;
 extern int32_t mouseb_forward;

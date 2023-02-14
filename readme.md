@@ -10,15 +10,17 @@ The same version is distributed with SHAREWARE.
 
 ## How to run this
 Compile `exploit` and `code`.
-Exploit generates a WAD file with two entries, `ACE_LDR` and `ACE_CODE`. Replace `ACE_CODE` with generated `code.bin` in any WAD editor.
+Exploit generates a WAD file with multiple entries, `ACE_LDR` and `ACE_CODE`. Replace `ACE_CODE` with generated `code.lmp` in any WAD editor.
 
-Resulting WAD file must be run with command `doom2 -config ace.wad`.
+Resulting WAD file must be run with command `doom2 -file ace.wad`.
 
 ## Code
 Code is split into two distinct parts.
 
 ### Exploit
-This file is used as a `config file`. It is specially crafted so it appears as a `WAD` file too.
+There are two bugs used. First is negative memory allocation in ZONE, second is out of bounds read from stack.
+This allows specially crafted WAD file to inject new code into already running game.
+TODO: explain the exploit chain
 
 #### BEWARE
 Resulting WAD file must not contain byte 0x1A in the header. You have to check if `directory offset` or `entry count` does not contain this value.

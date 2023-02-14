@@ -14,6 +14,7 @@
 #define TELEF_USE_ANGLE	2
 #define TELEF_NO_KILL	4
 #define TELEF_FOG	8
+#define TELEF_NOSTOP	16
 
 //
 

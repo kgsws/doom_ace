@@ -581,6 +581,21 @@ void player_think(player_t *pl)
 
 		onground = (pl->mo->z <= pl->mo->floorz) && pl->mo->waterlevel <= 1;
 
+		if(pl->health < pl->mo->info->player.run_health)
+		{
+			if(cmd->forwardmove < -0x19)
+				cmd->forwardmove = -0x19;
+			else
+			if(cmd->forwardmove > 0x19)
+				cmd->forwardmove = 0x19;
+
+			if(cmd->sidemove < -0x18)
+				cmd->sidemove = -0x18;
+			else
+			if(cmd->sidemove > 0x18)
+				cmd->sidemove = 0x18;
+		}
+
 		if(flight && pl->mo->pitch)
 		{
 			scale = (2048 * pl->mo->info->speed) >> FRACBITS;

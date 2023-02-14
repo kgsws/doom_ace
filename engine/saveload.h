@@ -1,7 +1,7 @@
 // kgsws' ACE Engine
 ////
 
-#define SAVE_DIR	"ace_data"
+#define SAVE_DIR	"ace_save"
 
 void init_saveload();
 

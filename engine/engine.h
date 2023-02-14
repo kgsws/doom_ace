@@ -588,6 +588,7 @@ typedef struct
 	fixed_t jump_z;
 	fixed_t view_bob;
 	uint8_t *name;
+	uint16_t run_health;
 	uint8_t color_first;
 	uint8_t color_last;
 	union

@@ -20,6 +20,7 @@ typedef struct
 	uint8_t mem_min;
 	// game
 	uint8_t game_mode;
+	uint8_t save_name[8];
 	// ZDoom compat
 	uint8_t color_fullbright;
 	// status bar

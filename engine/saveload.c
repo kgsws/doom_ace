@@ -30,7 +30,6 @@
 #include "saveload.h"
 
 #define SAVE_SLOT_COUNT	6
-#define SAVE_SLOT_FILE	"save%02u.bmp"
 #define SAVE_NAME_SIZE	17
 #define SAVE_TITLE_SIZE	28
 
@@ -498,7 +497,19 @@ static void do_load() __attribute((regparm(2),no_caller_saved_registers));
 
 static void generate_save_name(uint32_t slot)
 {
-	doom_sprintf(savename, SAVE_SLOT_FILE, slot);
+	uint8_t *ptr = savename;
+
+	doom_sprintf(savename, "%s\\%s.bmp", SAVE_DIR, mod_config.save_name);
+
+	while(*ptr)
+	{
+		if(*ptr == '*')
+		{
+			*ptr = '0' + slot;
+			break;
+		}
+		*ptr++;
+	}
 }
 
 static inline void prepare_save_slot(int fd, uint32_t idx)

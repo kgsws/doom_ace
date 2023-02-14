@@ -2807,15 +2807,17 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 		mo->momy = FixedMul(speed, finesine[angle]);
 	}
 
+	if(!(flags & TELEF_NOSTOP) && !(mo->flags & MF_MISSILE))
+	{
+		mo->momx = 0;
+		mo->momy = 0;
+		mo->momz = 0;
+		if(mo->player)
+			mo->reactiontime = 18;
+	}
+
 	if(flags & TELEF_FOG)
 	{
-		if(!(mo->flags & MF_MISSILE))
-		{
-			mo->momx = 0;
-			mo->momy = 0;
-			mo->momz = 0;
-		}
-
 		if(mo->info->telefog[0])
 			P_SpawnMobj(xx, yy, zz, mo->info->telefog[0]);
 
@@ -2826,9 +2828,6 @@ uint32_t mobj_teleport(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, angle_t angl
 			z = mo->z;
 			P_SpawnMobj(x, y, z, mo->info->telefog[1]);
 		}
-
-		if(mo->player)
-			mo->reactiontime = 18;
 	}
 
 	if(mo->player)

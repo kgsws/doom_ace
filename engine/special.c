@@ -1179,7 +1179,7 @@ static uint32_t do_Teleport()
 {
 	// TODO: other angle modes
 	mobj_t *mo;
-	uint32_t flags = 0;
+	uint32_t flags = TELEF_USE_ANGLE;
 
 	if(activator->flags1 & MF1_NOTELEPORT)
 		return 0;
@@ -1195,7 +1195,7 @@ static uint32_t do_Teleport()
 		flags |= TELEF_USE_Z;
 
 	if(value_mult < 0)
-		flags |= TELEF_USE_ANGLE | TELEF_FOG;
+		flags |= TELEF_FOG;
 
 	return mobj_teleport(activator, mo->x, mo->y, mo->z, mo->angle, flags);
 }
@@ -1216,6 +1216,8 @@ static uint32_t do_TeleportOther()
 
 	if(spec_arg[2])
 		flags |= TELEF_USE_ANGLE | TELEF_FOG;
+	else
+		flags |= TELEF_NOSTOP;
 
 	return mobj_teleport(mo, target->x, target->y, target->z, target->angle, flags);
 }
@@ -1329,6 +1331,8 @@ static uint32_t do_TeleportInSector()
 
 		if(spec_arg[3])
 			flags |= TELEF_USE_ANGLE | TELEF_FOG;
+		else
+			flags |= TELEF_NOSTOP;
 
 		value_offs |= mobj_teleport(mo, x, y, z, 0, flags);
 	}

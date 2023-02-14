@@ -444,7 +444,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				*pl->texture &&
 				clip_height_top <= pl->source->ceilingheight &&
 				clip_height_top > pl->source->floorheight &&
-				pl->source->ceilingheight < backsector->ceilingheight
+				pl->source->floorheight < backsector->ceilingheight
 			){
 				texnum = texturetranslation[*pl->texture];
 				dc_texturemid = pl->source->ceilingheight - viewz;

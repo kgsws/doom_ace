@@ -763,6 +763,7 @@ static const dec_attr_t attr_player[] =
 	{"player.jumpz", DT_FIXED, offsetof(mobjinfo_t, player.jump_z)},
 	{"player.viewbob", DT_FIXED, offsetof(mobjinfo_t, player.view_bob)},
 	{"player.displayname", DT_STRING, offsetof(mobjinfo_t, player.name)},
+	{"player.runhealth", DT_U16, offsetof(mobjinfo_t, player.run_health)},
 	{"player.soundclass", DT_SOUND_CLASS},
 	//
 	{"player.weaponslot", DT_PP_WPN_SLOT},

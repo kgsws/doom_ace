@@ -24,6 +24,8 @@ enum
 	TYPE_S32,
 	TYPE_ALIAS,
 	TYPE_STRING_LC_ALLOC,
+	//
+	TYPE_STR_LEN = 0x80
 };
 
 typedef struct
@@ -68,6 +70,7 @@ mod_config_t mod_config =
 	.menu_save_mismatch = FCOL_YELLOW,
 	.mem_min = 1,
 	.game_mode = 255, // = IWAD based
+	.save_name = "save*",
 	.color_fullbright = 1, // = use fullbright in colored light
 	.ammo_bullet = 0x0000000000C29B03, // Clip
 	.ammo_shell = 0x000000002CB25A13, // Shell
@@ -158,6 +161,7 @@ static config_entry_t config_mod[] =
 	{"ram.min", &mod_config.mem_min, TYPE_U8},
 	// game
 	{"game.mode", &mod_config.game_mode, TYPE_U8},
+	{"game.save.name", &mod_config.save_name, TYPE_STR_LEN | 8},
 	// ZDoom
 	{"zdoom.light.fullbright", &mod_config.color_fullbright, TYPE_U8},
 	// status bar ammo
@@ -201,6 +205,16 @@ static uint32_t parse_value(config_entry_t *conf_def)
 		{
 			if(!strcmp(conf->name, kw))
 			{
+				if(conf->type & TYPE_STR_LEN)
+				{
+					uint32_t len, limit;
+					limit = conf->type & 0x7F;
+					len = strlen(kv);
+					if(len > limit)
+						len = limit;
+					memset(kv, 0, 8);
+					memcpy(conf->ptr, kv, len);
+				} else
 				switch(conf->type)
 				{
 					case TYPE_U8:

@@ -3543,9 +3543,12 @@ void init_decorate()
 
 	// copy extra storage
 	es_size = dec_es_ptr - EXTRA_STORAGE_PTR;
-	es_ptr = ldr_malloc(es_size);
-	memcpy(es_ptr, EXTRA_STORAGE_PTR, es_size);
 	doom_printf("[DECORATE] %uB / %uB extra storage\n", es_size, EXTRA_STORAGE_SIZE);
+	if(es_size)
+	{
+		es_ptr = ldr_malloc(es_size);
+		memcpy(es_ptr, EXTRA_STORAGE_PTR, es_size);
+	}
 
 	// post-init render
 	render_generate_blood();

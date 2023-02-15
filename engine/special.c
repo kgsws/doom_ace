@@ -383,17 +383,22 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 	gm->texture = texture;
 	gm->special = special;
 
+	// apply instant movement
 	if(spec_arg[4] & 8)
 	{
-		if(dest <= sec->floorheight)
-		{
+		// UP
+		if(	dest <= sec->floorheight ||
+			sec->floorheight + gm->speed_now >= dest
+		){
 			gm->sndwait = 2;
 			think_floor(gm);
 		}
 	} else
 	{
-		if(dest >= sec->floorheight)
-		{
+		// DOWN
+		if(	dest >= sec->floorheight ||
+			sec->floorheight - gm->speed_now <= dest
+		){
 			gm->sndwait = 2;
 			think_floor(gm);
 		}
@@ -577,17 +582,22 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 	gm->texture = texture;
 	gm->special = special;
 
+	// apply instant movement
 	if(spec_arg[4] & 8)
 	{
-		if(dest <= sec->ceilingheight)
-		{
+		// UP
+		if(	dest <= sec->ceilingheight ||
+			sec->ceilingheight + gm->speed_now >= dest
+		){
 			gm->sndwait = 2;
 			think_ceiling(gm);
 		}
 	} else
 	{
-		if(dest >= sec->ceilingheight)
-		{
+		// DOWN
+		if(	dest >= sec->ceilingheight ||
+			sec->ceilingheight - gm->speed_now <= dest
+		){
 			gm->sndwait = 2;
 			think_ceiling(gm);
 		}

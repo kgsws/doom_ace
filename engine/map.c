@@ -444,13 +444,18 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		return;
 	}
 
-	// teleport with Z
-	if(mt && mt->type == 9044)
-		mt->type = 14;
-
-	// map spot
-	if(mt && mt->type == 9001)
-		mt->type = 14;
+	// ZDoom types
+	if(mt)
+	{
+		if(	mt->type == 9044 ||	// teleport with Z
+			mt->type == 9001 ||	// map spot
+			mt->type == 9070 ||	// interpolation point
+			mt->type == 9071 ||	// path follower
+			mt->type == 9072 ||	// moving camera
+			mt->type == 9074	// actor mover
+		)
+			mt->type = 14;
+	}
 
 	// backward search for type
 	idx = num_mobj_types;
@@ -539,8 +544,16 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	}
 	mo->special.tid = mt->tid;
 
-	if(hack == 9044 || hack == 9001)
+	if(	hack == 9044 ||
+		hack == 9001 ||
+		hack == 9070 ||
+		hack == 9071 ||
+		hack == 9072 ||
+		hack == 9074
+	)
 		mo->flags |= MF_NOGRAVITY;
+
+//	if(hack == 9072) // TODO: camera pitch from arg0
 }
 
 //

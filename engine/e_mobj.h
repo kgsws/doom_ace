@@ -194,6 +194,8 @@ typedef struct
 #define MFI_CRASHED	0x00000002
 #define MFI_MOBJONMOBJ	0x00000004
 #define MFI_MARKED	0x00000008
+#define MFI_FOLLOW_PATH	0x00000010
+#define MFI_FOLLOW_INIT	0x00000020
 
 // FLAGS extra (inventory) [shared]
 #define MFE_INVENTORY_QUIET	0x00000001

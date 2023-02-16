@@ -1051,6 +1051,14 @@ static void act_ThrustThingZ(mobj_t *th)
 
 static void act_Thing_Activate(mobj_t *th)
 {
+	if(	th->spawnpoint.type == 9071 ||	// path follower
+		th->spawnpoint.type == 9072 ||	// moving camera
+		th->spawnpoint.type == 9074	// actor mover
+	){
+		th->iflags |= MFI_FOLLOW_PATH | MFI_FOLLOW_INIT;
+		return;
+	}
+
 	if(th->info->extra_type == ETYPE_SWITCHABLE)
 	{
 		th->flags1 &= ~MF1_DORMANT;
@@ -1073,6 +1081,14 @@ static void act_Thing_Activate(mobj_t *th)
 
 static void act_Thing_Deactivate(mobj_t *th)
 {
+	if(	th->spawnpoint.type == 9071 ||	// path follower
+		th->spawnpoint.type == 9072 ||	// moving camera
+		th->spawnpoint.type == 9074	// actor mover
+	){
+		th->iflags &= ~(MFI_FOLLOW_PATH | MFI_FOLLOW_INIT);
+		return;
+	}
+
 	if(th->info->extra_type == ETYPE_SWITCHABLE)
 	{
 		th->flags1 |= MF1_DORMANT;

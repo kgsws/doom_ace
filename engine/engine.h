@@ -1144,9 +1144,19 @@ typedef struct mobj_s
 	int32_t tics;
 	state_t *state;
 	uint32_t flags;
-	int32_t health;
-	int32_t movedir;
-	int32_t movecount;
+	union
+	{
+		struct
+		{
+			int32_t health;
+			int32_t movedir;
+			int32_t movecount;
+		};
+		struct
+		{
+			fixed_t x, y, z;
+		} mover;
+	};
 	struct mobj_s *target;
 	int32_t reactiontime;
 	int32_t threshold;

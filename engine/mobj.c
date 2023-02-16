@@ -21,6 +21,7 @@
 #include "stbar.h"
 #include "sound.h"
 #include "render.h"
+#include "mover.h"
 #include "demo.h"
 #include "cheat.h"
 #include "extra3d.h"
@@ -3062,6 +3063,10 @@ void P_MobjThinker(mobj_t *mo)
 		// fake some Z movement for crash states
 		mo->momz = -1;
 
+	// path follower
+	if(mo->iflags & MFI_FOLLOW_PATH)
+		mover_tick(mo);
+
 	// XY movement
 	if(	mo->momx ||
 		mo->momy ||
@@ -3200,7 +3205,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// add extra floor check into 'P_CheckPosition'
 	{0x0002B0D7, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_position_extra},
 	{0x0002B0DC, CODE_HOOK | HOOK_UINT32, 0x16EBC085},
-	// replace pointers to ''
+	// replace pointers to 'P_MobjThinker'
 	{0x0002767F, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
 	{0x000286FA, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},
 	{0x00028979, CODE_HOOK | HOOK_UINT32, (uint32_t)P_MobjThinker},

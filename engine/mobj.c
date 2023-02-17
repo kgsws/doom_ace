@@ -193,6 +193,36 @@ static uint32_t mobj_inv_loop(mobj_t *mo, uint32_t state)
 }
 
 //
+// nightmare
+
+static inline void check_nightmare(mobj_t *mo)
+{
+	if(!respawnmonsters)
+		return;
+
+	if(mo->spawnpoint.options != mo->type)
+		return;
+
+	if(!(mo->flags1 & MF1_ISMONSTER))
+		return;
+
+	if(!(mo->flags & MF_CORPSE))
+		return;
+
+	mo->movecount++;
+	if(mo->movecount < 12*35)
+		return;
+
+	if(leveltime & 31)
+		return;
+
+	if(P_Random() > 4)
+		return;
+
+	P_NightmareRespawn(mo);
+}
+
+//
 // inventory handling
 
 static uint32_t give_ammo(mobj_t *mo, uint16_t type, uint16_t count, uint32_t dropped)
@@ -3055,6 +3085,8 @@ mobj_t *spawn_missile(mobj_t *source, mobj_t *target)
 __attribute((regparm(2),no_caller_saved_registers))
 void P_MobjThinker(mobj_t *mo)
 {
+	angle_t angle;
+
 	if(mo->iflags & MFI_CRASHED && !(mo->flags & MF_CORPSE))
 		// archvile ressurection or something
 		mo->iflags &= ~MFI_CRASHED;
@@ -3065,7 +3097,16 @@ void P_MobjThinker(mobj_t *mo)
 
 	// path follower
 	if(mo->iflags & MFI_FOLLOW_PATH)
+	{
 		mover_tick(mo);
+		goto skip_move;
+	}
+
+	if(mo->iflags & MFI_FOLLOW_MOVE)
+	{
+		angle = mo->angle; // workaround
+		goto skip_move;
+	}
 
 	// XY movement
 	if(	mo->momx ||
@@ -3091,6 +3132,8 @@ void P_MobjThinker(mobj_t *mo)
 		if(mo->thinker.function == (void*)-1)
 			return;
 	}
+
+skip_move:
 
 	// stealth
 	if(mo->flags2 & MF2_STEALTH && mo->alpha_dir)
@@ -3127,31 +3170,10 @@ void P_MobjThinker(mobj_t *mo)
 			if(!P_SetMobjState(mo, mo->state->nextstate, mo->state->next_extra))
 				return;
 	} else
-	{
-		if(!respawnmonsters)
-			return;
+		check_nightmare(mo);
 
-		if(mo->spawnpoint.options != mo->type)
-			return;
-
-		if(!(mo->flags1 & MF1_ISMONSTER))
-			return;
-
-		if(!(mo->flags & MF_CORPSE))
-			return;
-
-		mo->movecount++;
-		if(mo->movecount < 12*35)
-			return;
-
-		if(leveltime & 31)
-			return;
-
-		if(P_Random() > 4)
-			return;
-
-		P_NightmareRespawn(mo);
-	}
+	if(mo->iflags & MFI_FOLLOW_MOVE)
+		mo->angle = angle; // workaround
 }
 
 //

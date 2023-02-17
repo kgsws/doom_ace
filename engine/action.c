@@ -2140,6 +2140,9 @@ void A_Chase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	oldspeed = mo->info->speed;
 
+	if(mo->iflags & MFI_FOLLOW_MOVE)
+		speed = 0;
+	else
 	if(mo->info->fast_speed && (fastparm || gameskill == sk_nightmare))
 		speed = mo->info->fast_speed;
 	else

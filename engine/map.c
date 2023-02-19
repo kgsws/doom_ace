@@ -449,6 +449,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	{
 		if(	mt->type == 9044 ||	// teleport with Z
 			mt->type == 9001 ||	// map spot
+			mt->type == 9025 ||	// security camera
 			mt->type == 9070 ||	// interpolation point
 			mt->type == 9071 ||	// path follower
 			mt->type == 9072 ||	// moving camera
@@ -546,6 +547,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 
 	if(	hack == 9044 ||
 		hack == 9001 ||
+		hack == 9025 ||
 		hack == 9070 ||
 		hack == 9071 ||
 		hack == 9072 ||
@@ -553,7 +555,15 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	)
 		mo->flags |= MF_NOGRAVITY;
 
-//	if(hack == 9072) // TODO: camera pitch from arg0
+	if(	hack == 9070 ||
+		hack == 9025
+	){
+		// mobj pitch
+		int32_t ang = (int8_t)mt->arg[0];
+		ang *= 360;
+		ang /= -256;
+		mo->pitch = ang << 23;
+	}
 }
 
 //
@@ -847,7 +857,7 @@ static inline void parse_sectors()
 				if(	li->frontsector == sec &&
 					li->special == 51 // Sector_SetLink
 				){
-					if(li->arg0 || !li->arg1 || !li->arg3 || li->arg3 & 0xFC)
+					if(li->arg0 || !li->arg1 || li->arg1 == li->frontsector->tag || !li->arg3 || li->arg3 & 0xFC)
 						engine_error("MAP", "Invalid use of 'Sector_SetLink'!");
 
 					for(uint32_t k = 0; k < numsectors; k++)
@@ -1608,7 +1618,11 @@ static uint32_t parse_attributes(const map_attr_t *attr_def, void *dest)
 		}
 
 		if(!attr->name)
+		{
+			if(!strncmp(kw, "compat_", 7)) // ZDoom 'compat_*' hack
+				continue;
 			engine_error("MAPINFO", "Unknown attribute '%s'!", kw);
+		}
 
 		if(attr->type != IT_FLAG)
 		{

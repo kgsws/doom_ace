@@ -620,6 +620,7 @@ const dec_flag_t mobj_flags0[] =
 	// ignored flags
 	{"floorclip", 0},
 	{"noskin", 0},
+	{"noblooddecals", 0},
 	// used flags
 	{"special", MF_SPECIAL},
 	{"solid", MF_SOLID},
@@ -712,6 +713,7 @@ const dec_flag_t mobj_flags2[] =
 	{"stealth", MF2_STEALTH},
 	{"explodeonwater", MF2_EXPLODEONWATER},
 	{"canbouncewater", MF2_CANBOUNCEWATER},
+	{"noverticalmeleerange", MF2_NOVERTICALMELEERANGE},
 	// terminator
 	{NULL}
 };
@@ -2388,8 +2390,11 @@ static uint32_t parse_dropitem()
 
 	tmp = mobj_check_type(tp_hash64(kw));
 	if(tmp < 0)
-		engine_error("DECORATE", "Unknown drop item '%s' in '%s'!", kw, parse_actor_name);
-	else
+	{
+		if(strcmp(kw, "None"))
+			engine_error("DECORATE", "Unknown drop item '%s' in '%s'!", kw, parse_actor_name);
+		drop->type = 0; // HACK
+	} else
 		drop->type = tmp;
 
 	// check for chance

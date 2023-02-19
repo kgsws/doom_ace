@@ -2070,6 +2070,9 @@ void A_NoBlocking(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	{
 		mobj_t *item;
 
+		if(!drop->type) // HACK
+			continue;
+
 		if(drop->chance < 255 && drop->chance <= P_Random())
 			continue;
 

@@ -1154,7 +1154,8 @@ typedef struct mobj_s
 		};
 		struct
 		{
-			fixed_t x, y, z;
+			int32_t angle;
+			int32_t pitch;
 		} mover;
 	};
 	struct mobj_s *target;

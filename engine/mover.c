@@ -15,7 +15,7 @@ void mover_tick(mobj_t *mo)
 	uint32_t next_tid;
 	mobj_t *th;
 	fixed_t xx, yy, zz;
-	angle_t aa;
+	angle_t aa, pp;
 
 	if(mo->iflags & MFI_FOLLOW_INIT)
 	{
@@ -53,18 +53,15 @@ void mover_tick(mobj_t *mo)
 		mo->z = th->z;
 		// TODO: ZDoom sets angle after first delay
 		P_SetThingPosition(mo);
+		mo->floorz = mo->subsector->sector->floorheight;
+		mo->ceilingz = mo->subsector->sector->ceilingheight;
 
 		if(mo->tracer)
 		{
 			fixed_t oldz = mo->tracer->z;
 			mo->tracer->z = mo->z;
-			if(	!(mo->tracer->flags & MF_SOLID) ||
-				P_CheckPosition(mo->tracer, mo->x, mo->y)
-			){
-				P_UnsetThingPosition(mo->tracer);
-				mo->tracer->x = mo->x;
-				mo->tracer->y = mo->y;
-				P_SetThingPosition(mo->tracer);
+			if(P_TryMove(mo->tracer, mo->x, mo->y))
+			{
 				mo->tracer->momx = 0;
 				mo->tracer->momy = 0;
 				mo->tracer->momz = 0;
@@ -87,8 +84,9 @@ void mover_tick(mobj_t *mo)
 		mo->reactiontime--;
 		if(!mo->reactiontime)
 		{
-			// set angle
+			// set angles
 			mo->angle = mo->target->angle;
+			mo->pitch = mo->target->pitch;
 
 			// move time
 			mo->threshold = ((uint32_t)mo->target->special.arg[1] * 35) / 8;
@@ -110,9 +108,9 @@ void mover_tick(mobj_t *mo)
 			mo->target = th;
 
 			// calculate steps
-			mo->mover.x = (th->x - mo->x) / mo->threshold;
-			mo->mover.y = (th->y - mo->y) / mo->threshold;
-			mo->mover.z = (th->z - mo->z) / mo->threshold;
+			mo->momx = (th->x - mo->x) / mo->threshold;
+			mo->momy = (th->y - mo->y) / mo->threshold;
+			mo->momz = (th->z - mo->z) / mo->threshold;
 
 			if(mo->special.arg[2] & 2)
 			{
@@ -122,12 +120,22 @@ void mover_tick(mobj_t *mo)
 					if(angle > 0x80000000)
 					{
 						angle = -angle;
-						mo->lastlook = angle / mo->threshold;
-						mo->lastlook = -mo->lastlook;
+						mo->mover.angle = angle / mo->threshold;
+						mo->mover.angle = -mo->mover.angle;
 					} else
-						mo->lastlook = angle / mo->threshold;
+						mo->mover.angle = angle / mo->threshold;
 				} else
-					mo->lastlook = 0;
+					mo->mover.angle = 0;
+			}
+
+			if(mo->special.arg[2] & 4)
+			{
+				if(th->pitch != mo->pitch)
+				{
+					mo->mover.pitch = (int32_t)(th->pitch + ANG90) - (int32_t)(mo->pitch + ANG90);
+					mo->mover.pitch /= mo->threshold;
+				} else
+					mo->mover.pitch = 0;
 			}
 		} else
 		if(mo->tracer)
@@ -137,28 +145,27 @@ void mover_tick(mobj_t *mo)
 
 	// change position
 
-	xx = mo->x + mo->mover.x;
-	yy = mo->y + mo->mover.y;
-	zz = mo->z + mo->mover.z;
+	xx = mo->x + mo->momx;
+	yy = mo->y + mo->momy;
+	zz = mo->z + mo->momz;
 	if(mo->special.arg[2] & 2)
-		aa = mo->angle + mo->lastlook;
+		aa = mo->angle + mo->mover.angle;
+	if(mo->special.arg[2] & 4)
+		pp = mo->pitch + mo->mover.pitch;
 
 	if(mo->tracer)
 	{
 		fixed_t oldz = mo->tracer->z;
 		mo->tracer->z = zz;
-		if(	!(mo->tracer->flags & MF_SOLID) ||
-			P_CheckPosition(mo->tracer, xx, yy)
-		){
-			P_UnsetThingPosition(mo->tracer);
-			mo->tracer->x = xx;
-			mo->tracer->y = yy;
-			P_SetThingPosition(mo->tracer);
+		if(P_TryMove(mo->tracer, xx, yy))
+		{
 			if(mo->special.arg[2] & 2)
 				mo->tracer->angle = aa;
-			mo->tracer->momx = 0;
-			mo->tracer->momy = 0;
-			mo->tracer->momz = 0;
+			if(mo->special.arg[2] & 4)
+				mo->tracer->pitch = pp;
+			mo->tracer->momx = mo->momx;
+			mo->tracer->momy = mo->momy;
+			mo->tracer->momz = mo->momz;
 			mo->tracer->iflags |= MFI_FOLLOW_MOVE;
 		} else
 		{
@@ -174,9 +181,14 @@ void mover_tick(mobj_t *mo)
 	mo->y = yy;
 	mo->z = zz;
 	P_SetThingPosition(mo);
+	mo->floorz = mo->subsector->sector->floorheight;
+	mo->ceilingz = mo->subsector->sector->ceilingheight;
 
 	if(mo->special.arg[2] & 2)
 		mo->angle = aa;
+
+	if(mo->special.arg[2] & 4)
+		mo->pitch = pp;
 
 	// step
 	mo->threshold--;

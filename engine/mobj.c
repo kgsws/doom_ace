@@ -1097,6 +1097,9 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		// this should just skip PIT_CheckThing completely
 		return 1;
 
+	if(tmthing->inside == thing)
+		return 1;
+
 	if(/*map_format != MAP_FORMAT_DOOM && */thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->flags & MF_TELEPORT))
 	{
 		// thing-over-thing
@@ -1258,8 +1261,10 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		}
 
 		return 0;
-	} else
-	if(tmthing->inside == thing)
+	}
+
+	if(!(tmthing->flags & MF_SOLID))
+		// ZDoom: non-solid things are not blocked
 		return 1;
 
 	if(thing->flags1 & MF1_PUSHABLE && !(tmthing->flags1 & MF1_CANNOTPUSH))
@@ -1964,7 +1969,7 @@ uint32_t mobj_check_melee_range(mobj_t *mo)
 	if(target->flags1 & MF1_NOTARGET)
 		return 0;
 
-	if(!mobj_range_check(mo, target, mo->info->range_melee + target->info->radius, 1))
+	if(!mobj_range_check(mo, target, mo->info->range_melee + target->info->radius, !(mo->flags2 & MF2_NOVERTICALMELEERANGE)))
 		return 0;
 
 	if(!P_CheckSight(mo, mo->target))

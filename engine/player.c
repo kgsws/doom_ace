@@ -323,7 +323,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void P_CalcHeight(player_t *player)
 {
 	uint32_t angle;
-	fixed_t bob;
+	fixed_t bob, limit;
 	fixed_t viewheight = player->mo->info->player.view_height;
 
 	if(onground || !(player->mo->flags & MF_NOGRAVITY))
@@ -336,12 +336,14 @@ void P_CalcHeight(player_t *player)
 	} else
 		player->bob = 0;
 
+	limit = player->viewheight / 10;
+
 	if(player->cheats & CF_NOMOMENTUM || (!onground && !(player->mo->flags & MF_NOGRAVITY) && player->mo->waterlevel <= 1))
 	{
 		player->viewz = player->mo->z + viewheight;
 
-		if(player->viewz > player->mo->ceilingz - 4 * FRACUNIT)
-			player->viewz = player->mo->ceilingz - 4 * FRACUNIT;
+		if(player->viewz > player->mo->ceilingz - limit)
+			player->viewz = player->mo->ceilingz - limit;
 
 		player->viewz = player->mo->z + player->viewheight;
 		return;
@@ -379,8 +381,8 @@ void P_CalcHeight(player_t *player)
 
 	player->viewz = player->mo->z + player->viewheight + bob;
 
-	if(player->viewz > player->mo->ceilingz - 4 * FRACUNIT)
-		player->viewz = player->mo->ceilingz - 4 * FRACUNIT;
+	if(player->viewz > player->mo->ceilingz - limit)
+		player->viewz = player->mo->ceilingz - limit;
 }
 
 static void player_sector_damage(player_t *pl, sector_extra_t *se)

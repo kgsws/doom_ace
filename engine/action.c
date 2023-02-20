@@ -3767,7 +3767,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	const args_ChangeVelocity_t *arg = st->arg;
-	angle_t ang = mo->angle;
+	angle_t ang;
 	fixed_t x, y;
 	fixed_t ax, ay;
 
@@ -3784,6 +3784,8 @@ void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mo->momy = 0;
 		mo->momz = 0;
 	}
+
+	ang = mo->angle;
 
 	if(arg->flags & CVF_RELATIVE)
 	{

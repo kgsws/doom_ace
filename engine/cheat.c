@@ -44,6 +44,7 @@ static void cf_kill(player_t*,uint8_t*);
 static void cf_resurrect(player_t*,uint8_t*);
 static void cf_summon(player_t*,uint8_t*);
 static void cf_freeze(player_t*,uint8_t*);
+static void cf_thaw(player_t*,uint8_t*);
 static void cf_revenge(player_t*,uint8_t*);
 static void cf_save_light(player_t*,uint8_t*);
 static const cheat_func_t cheat_func[] =
@@ -65,6 +66,7 @@ static const cheat_func_t cheat_func[] =
 	{"resurrect", cf_resurrect},
 	{"summon", cf_summon},
 	{"freeze", cf_freeze},
+	{"thaw", cf_thaw},
 	// kg
 	{"kgRevenge", cf_revenge},
 	// dev
@@ -353,6 +355,11 @@ static void cf_freeze(player_t *pl, uint8_t *arg)
 		pl->message = "Freeze mode ON";
 	else
 		pl->message = "Freeze mode OFF";
+}
+
+static void cf_thaw(player_t *pl, uint8_t *arg)
+{
+	pl->prop &= ~((1 << PROP_FROZEN) | (1 << PROP_TOTALLYFROZEN));
 }
 
 static void cf_revenge(player_t *pl, uint8_t *arg)

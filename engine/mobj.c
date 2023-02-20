@@ -642,7 +642,10 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		return NULL;
 
 	pl = players + idx;
-	info = mobjinfo + player_class[player_info[idx].playerclass];
+	if(is_title_map)
+		info = mobjinfo; // default to 'DoomPlayer'
+	else
+		info = mobjinfo + player_class[player_info[idx].playerclass];
 
 	// create body
 	mo = P_SpawnMobj(x, y, 0x80000000, player_class[player_info[idx].playerclass]);
@@ -1651,6 +1654,8 @@ void mobj_use_item(mobj_t *mo, invitem_t *item)
 			if(!mobj_give_health(mo, info->spawnhealth, mo->info->spawnhealth))
 				return;
 		break;
+		default:
+		return;
 	}
 
 	inventory_take(mo, item->type, 1);

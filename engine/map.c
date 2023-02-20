@@ -2743,7 +2743,7 @@ static void do_world_done()
 	gameaction = ga_nothing;
 	map_lump.wame = lumpinfo[map_next_info->lump].wame;
 
-	cluster = map_find_cluster(map_level_info->cluster);
+	cluster = map_find_cluster(map_next_info->cluster);
 	if(!cluster || !(cluster->flags & CLST_FLAG_HUB) || load_hub_level())
 		map_load_setup(0);
 }

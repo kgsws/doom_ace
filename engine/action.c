@@ -4185,22 +4185,41 @@ static const dec_args_t args_DamageTarget =
 	}
 };
 
-static __attribute((regparm(2),no_caller_saved_registers))
-void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
+static void do_act_damage(mobj_t *mo, mobj_t *target, uint32_t damage)
 {
-	const args_singleDamage_t *arg = st->arg;
-	uint32_t damage;
-
-	if(!mo->target)
-		return;
-
-	damage = arg->damage;
 	if(damage & DAMAGE_IS_CUSTOM)
 		damage = mobj_calc_damage(damage);
 
 	mo_dmg_skip_armor = 1; // technically, in rare cases, this is broken
-	mobj_damage(mo->target, mo, mo, damage, 0);
+	mobj_damage(target, mo, mo, damage, 0);
 	mo_dmg_skip_armor = 0;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleDamage_t *arg = st->arg;
+	if(!mo->target)
+		return;
+	do_act_damage(mo, mo->target, arg->damage);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_DamageTracer(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleDamage_t *arg = st->arg;
+	if(!mo->tracer)
+		return;
+	do_act_damage(mo, mo->tracer, arg->damage);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_DamageMaster(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	const args_singleDamage_t *arg = st->arg;
+	if(!mo->master)
+		return;
+	do_act_damage(mo, mo->master, arg->damage);
 }
 
 //
@@ -5154,6 +5173,8 @@ static const dec_action_t mobj_action[] =
 	{"a_setarg", A_SetArg, &args_SetArg},
 	// damage
 	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
+	{"a_damagetracer", A_DamageTracer, &args_DamageTarget},
+	{"a_damagemaster", A_DamageMaster, &args_DamageTarget},
 	{"a_explode", A_Explode, &args_Explode},
 	// health
 	{"a_sethealth", A_SetHealth, &args_SetHealth},

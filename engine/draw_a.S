@@ -84,42 +84,40 @@ R_DrawSpan:
 	mov	%ecx,loop_jump_dst
 
 	// texture setup
-	mov	ds_xfrac,%ecx
-	shl	$10,%ecx
-	and	$0xFFFF0000,%ecx
-	mov	ds_yfrac,%eax
-	shr	$6,%eax
-	and	$0x0000FFFF,%eax
-	or	%eax,%ecx
+	// this version is slower (27 vs 24 FPS) but much more precise
 
-	mov	ds_xstep,%edx
-	shl	$10,%edx
-	and	$0xFFFF0000,%edx
-	mov	ds_ystep,%eax
-	shr	$6,%eax
-	and	$0x0000FFFF,%eax
-	or	%eax,%edx
+	mov	ds_xstep,%ebx
+	shl	$10,%ebx
+	mov	%ebx,ds_xstep
+
+	mov	ds_ystep,%ebx
+	shl	$10,%ebx
+	mov	%ebx,ds_ystep
+
+	mov	ds_xfrac,%ebx
+	shl	$10,%ebx
+	mov	ds_yfrac,%ecx
+	shl	$10,%ecx
 
 	mov	ds_source,%esi
 	mov	ds_colormap,%eax
-
-	mov	$0x0FFF,%ebp
-	shld	$22,%ecx,%ebx
-	shld	$6,%ecx,%ebx
-	and	%ebp,%ebx
-	add	%edx,%ecx
 
 	jmp	*(loop_jump_dst)
 
 	// loop
 .global loop_ds_start
 loop_ds_start:
-	mov	(%esi,%ebx),%al
-	shld	$22,%ecx,%ebx
-	shld	$6,%ecx,%ebx
+	mov	%ecx,%ebp
+	shr	$26,%ebp
+
+	mov	%ebx,%edx
+	shrd	$26,%ebp,%edx
+
+//	and	$0x0FFF,%edx
+	mov	(%esi,%edx),%al
 	mov	(%eax),%al
-	and	%ebp,%ebx
-	add	%edx,%ecx
+	add	ds_xstep,%ebx
+	add	ds_ystep,%ecx
 	mov	%al,0xC0DEFEED(%edi)
 loop_ds_stop:
 

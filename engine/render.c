@@ -2986,7 +2986,7 @@ void custom_SetupFrame(player_t *pl)
 		centeryfrac = cy << FRACBITS;
 
 		// tables for planes
-		for(int i = 0; i < viewheight; i++)
+		for(uint32_t i = 0; i < viewheight; i++)
 		{
 			int dy = ((i - cy) << FRACBITS) + FRACUNIT / 2;
 			dy = abs(dy);

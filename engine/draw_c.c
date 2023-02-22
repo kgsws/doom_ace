@@ -220,159 +220,166 @@ void R_DrawUnknownSpan()
 	uint32_t position, step;
 	uint8_t *dest;
 	uint32_t count;
-
-	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
-	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+	uint32_t px, py;
 
 	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
+	px = ds_xfrac;
+	py = ds_yfrac;
+
 	do
 	{
-		uint32_t xtemp, ytemp;
-		ytemp = (position >> 12) & 2;
-		xtemp = (position >> 29) & 1;
-		*dest++ = ds_colormap[unknown_flat[xtemp | ytemp]];
-		position += step;
+		uint32_t position;
+		position = (px >> 18) & 2;
+		position |= (py >> 19) & 1;
+		*dest++ = ds_colormap[unknown_flat[position]];
+		px += ds_xstep;
+		py += ds_ystep;
 	} while(count--);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 void R_DrawSpanTint0()
 {
-	uint32_t position, step;
 	uint8_t *dest;
 	uint32_t count;
-
-	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
-	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+	uint32_t px, py;
 
 	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
+	px = ds_xfrac;
+	py = ds_yfrac;
+
 	do
 	{
-		uint32_t xtemp, ytemp;
 		uint8_t color;
-		ytemp = (position >> 4) & 0x0fc0;
-		xtemp = (position >> 26);
-		color = ds_colormap[ds_source[xtemp | ytemp]];
+		uint32_t position;
+		position = (py >> 10) & 0x0FC0;
+		position |= (px >> 16) & 0x3F;
+		color = ds_colormap[ds_source[position]];
 		*dest = dr_tinttab[*dest + color * 256];
 		dest++;
-		position += step;
+		px += ds_xstep;
+		py += ds_ystep;
 	} while(count--);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 void R_DrawSpanTint1()
 {
-	uint32_t position, step;
 	uint8_t *dest;
 	uint32_t count;
-
-	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
-	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+	uint32_t px, py;
 
 	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
+	px = ds_xfrac;
+	py = ds_yfrac;
+
 	do
 	{
-		uint32_t xtemp, ytemp;
 		uint8_t color;
-		ytemp = (position >> 4) & 0x0fc0;
-		xtemp = (position >> 26);
-		color = ds_colormap[ds_source[xtemp | ytemp]];
+		uint32_t position;
+		position = (py >> 10) & 0x0FC0;
+		position |= (px >> 16) & 0x3F;
+		color = ds_colormap[ds_source[position]];
 		*dest = dr_tinttab[*dest * 256 + color];
 		dest++;
-		position += step;
+		px += ds_xstep;
+		py += ds_ystep;
 	} while(count--);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 void R_DrawMaskedSpan()
 {
-	uint32_t position, step;
 	uint8_t *dest;
 	uint32_t count;
-
-	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
-	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+	uint32_t px, py;
 
 	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
+	px = ds_xfrac;
+	py = ds_yfrac;
+
 	do
 	{
-		uint32_t xtemp, ytemp;
 		uint8_t color;
-		ytemp = (position >> 4) & 0x0fc0;
-		xtemp = (position >> 26);
-		color = ds_source[xtemp | ytemp];
+		uint32_t position;
+		position = (py >> 10) & 0x0FC0;
+		position |= (px >> 16) & 0x3F;
+		color = ds_source[position];
 		if(color != ds_maskcolor)
 			*dest = ds_colormap[color];
 		dest++;
-		position += step;
+		px += ds_xstep;
+		py += ds_ystep;
 	} while(count--);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 void R_DrawMaskedSpanTint0()
 {
-	uint32_t position, step;
 	uint8_t *dest;
 	uint32_t count;
-
-	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
-	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+	uint32_t px, py;
 
 	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
+	px = ds_xfrac;
+	py = ds_yfrac;
+
 	do
 	{
-		uint32_t xtemp, ytemp;
 		uint8_t color;
-		ytemp = (position >> 4) & 0x0fc0;
-		xtemp = (position >> 26);
-		color = ds_source[xtemp | ytemp];
+		uint32_t position;
+		position = (py >> 10) & 0x0FC0;
+		position |= (px >> 16) & 0x3F;
+		color = ds_source[position];
 		if(color != ds_maskcolor)
 		{
 			color = ds_colormap[color];
 			*dest = dr_tinttab[*dest + color * 256];
 		}
 		dest++;
-		position += step;
+		px += ds_xstep;
+		py += ds_ystep;
 	} while(count--);
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
 void R_DrawMaskedSpanTint1()
 {
-	uint32_t position, step;
 	uint8_t *dest;
 	uint32_t count;
-
-	position = ((ds_xfrac << 10) & 0xffff0000) | ((ds_yfrac >> 6)  & 0x0000ffff);
-	step = ((ds_xstep << 10) & 0xffff0000) | ((ds_ystep >> 6)  & 0x0000ffff);
+	uint32_t px, py;
 
 	dest = ylookup[ds_y] + columnofs[ds_x1];
 	count = ds_x2 - ds_x1;
 
+	px = ds_xfrac;
+	py = ds_yfrac;
+
 	do
 	{
-		uint32_t xtemp, ytemp;
 		uint8_t color;
-		ytemp = (position >> 4) & 0x0fc0;
-		xtemp = (position >> 26);
-		color = ds_source[xtemp | ytemp];
+		uint32_t position;
+		position = (py >> 10) & 0x0FC0;
+		position |= (px >> 16) & 0x3F;
+		color = ds_source[position];
 		if(color != ds_maskcolor)
 		{
 			color = ds_colormap[color];
 			*dest = dr_tinttab[*dest * 256 + color];
 		}
 		dest++;
-		position += step;
+		px += ds_xstep;
+		py += ds_ystep;
 	} while(count--);
 }
 

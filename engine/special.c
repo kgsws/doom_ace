@@ -1214,9 +1214,6 @@ static uint32_t do_Teleport()
 	if(!mo)
 		return 0;
 
-	if(mo->spawnpoint.type != 9044 && mo->spawnpoint.type != 14)
-		return 0;
-
 	if(mo->spawnpoint.type == 9044)
 		flags |= TELEF_USE_Z;
 

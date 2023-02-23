@@ -1417,9 +1417,9 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	S_StartSound(SOUND_CHAN_WEAPON(mo), sound);
 
-	// mobj to 'missile' animation
-	if(mo->animation != ANIM_MISSILE && mo->info->state_missile)
-		mobj_set_animation(mo, ANIM_MISSILE);
+	// mobj to 'melee' animation
+	if(mo->animation != ANIM_MELEE && mo->info->state_melee)
+		mobj_set_animation(mo, ANIM_MELEE);
 
 	weapon_set_state(pl, 1, pl->readyweapon, state, 0);
 
@@ -1452,7 +1452,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_SpecialHide(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	if(!netgame || mo->flags & MF_DROPPED)
+	if(!netgame || mo->spawnpoint.options != mo->type)
 	{
 		mobj_remove(mo);
 		return;
@@ -1649,9 +1649,9 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		flags = 0;
 	}
 
-	// mobj to 'missile' animation
-	if(!(flags & GFF_NOEXTCHANGE) && mo->animation != ANIM_MISSILE && mo->info->state_missile)
-		mobj_set_animation(mo, ANIM_MISSILE);
+	// mobj to 'melee' animation
+	if(!(flags & GFF_NOEXTCHANGE) && mo->info->state_melee)
+		mobj_set_animation(mo, ANIM_MELEE);
 
 	if(!state)
 	{
@@ -2771,8 +2771,8 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			spread = pl->refire;
 	}
 
-	if(!(arg->flags & FBF_NOFLASH) && mo->info->state_missile)
-		mobj_set_animation(mo, ANIM_MISSILE);
+	if(!(arg->flags & FBF_NOFLASH) && mo->info->state_melee)
+		mobj_set_animation(mo, ANIM_MELEE);
 
 	angle = mo->angle;
 	if(!player_aim(pl, &angle, &slope, 0))

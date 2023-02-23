@@ -469,7 +469,7 @@ void *font_load(int32_t lump)
 	bmf_head_t *head;
 	font_head_t *fead;
 
-	if(!lump)
+	if(lump <= 0)
 		return smallfont;
 
 	if(lumpcache[lump])

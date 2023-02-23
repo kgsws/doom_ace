@@ -3013,6 +3013,13 @@ void hook_RenderPlayerView(player_t *pl)
 		font_color = NULL; // TODO: 'bold' text has different color
 		font_center_text(SCREENHEIGHT / 2, pl->text_data->text, font_load(pl->text_data->font), pl->text_data->lines);
 	}
+
+	// error message
+	if(is_net_desync && leveltime & 16)
+	{
+		font_color = &render_tables->fmap[FCOL_RED * FONT_COLOR_COUNT];
+		font_center_text(32, "DESYNCHRONIZED!", font_load(-1), 0);
+	}
 }
 
 // expanded drawseg limit

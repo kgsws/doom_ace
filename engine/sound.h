@@ -7,7 +7,7 @@
 // SOUND_CHAN_VOICE is the default
 #define SOUND_CHAN_BODY(mo)	((void*)(mo) + offsetof(mobj_t,sound_body) - sizeof(thinker_t))
 #define SOUND_CHAN_WEAPON(mo)	((void*)(mo) + offsetof(mobj_t,sound_weapon) - sizeof(thinker_t))
-#define SOUND_CONSOLEPLAYER	((void*)(consoleplayer+1))
+#define SOUND_CONSOLEPLAYER(pl)	((void*)(((pl)-players)+1))
 
 // SNDSEQ
 #define	SEQ_IS_DOOR	0x8000

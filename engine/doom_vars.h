@@ -51,7 +51,7 @@ extern uint32_t am_cheating;
 // menu
 extern uint32_t messageToPrint;
 extern uint8_t *messageString;
-extern uint16_t menu_item_now; // itemOn
+extern uint16_t menu_item_now; // was itemOn
 extern menu_t *currentMenu;
 extern uint32_t showMessages;
 extern uint32_t mouseSensitivity;
@@ -61,8 +61,10 @@ extern menu_t LoadDef;
 extern menuitem_t LoadMenu[];
 
 // HUD
-
 extern patch_t *hu_font[];
+extern uint32_t hu_char_head;
+extern uint32_t hu_char_tail;
+extern cheat_buf_t cheat_buf[]; // was w_inputbuffer, 468 bytes
 
 // save / load
 extern uint8_t savename[];

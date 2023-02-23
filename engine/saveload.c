@@ -1530,6 +1530,10 @@ void save_auto(uint32_t clear)
 		return;
 	}
 
+	// unsavable
+	if(netgame || demoplayback)
+		return;
+
 	// check
 	if(map_level_info->flags & MAP_FLAG_ALLOW_RESPAWN)
 		return;

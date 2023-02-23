@@ -541,6 +541,12 @@ HU_Start:
 HU_dequeueChatChar:
 	.byte	0xE9
 	.4byte	0x0003B920
+////////////////////////////////// HU_queueChatChar
+.section .text.HU_queueChatChar
+.global HU_queueChatChar
+HU_queueChatChar:
+	.byte	0xE9
+	.4byte	0x0003B8E0
 ////////////////////////////////// HUlib_drawTextLine
 .section .text.HUlib_drawTextLine
 .global HUlib_drawTextLine

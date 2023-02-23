@@ -25,10 +25,6 @@ typedef struct
 	void (*func)(player_t*,uint8_t*);
 } cheat_func_t;
 
-//
-
-cheat_buf_t *cheat_buf;
-
 // cheat list
 static void cf_noclip(player_t*,uint8_t*);
 static void cf_iddqd(player_t*,uint8_t*);
@@ -46,6 +42,7 @@ static void cf_summon(player_t*,uint8_t*);
 static void cf_freeze(player_t*,uint8_t*);
 static void cf_thaw(player_t*,uint8_t*);
 static void cf_revenge(player_t*,uint8_t*);
+static void cf_net_desync(player_t*,uint8_t*);
 static void cf_save_light(player_t*,uint8_t*);
 static const cheat_func_t cheat_func[] =
 {
@@ -70,6 +67,7 @@ static const cheat_func_t cheat_func[] =
 	// kg
 	{"kgRevenge", cf_revenge},
 	// dev
+	{"desync", cf_net_desync},
 	{"savelight", cf_save_light},
 	// terminator
 	{NULL}
@@ -371,6 +369,18 @@ static void cf_revenge(player_t *pl, uint8_t *arg)
 		pl->message = "Revenge mode OFF";
 }
 
+static void cf_net_desync(player_t *pl, uint8_t *arg)
+{
+	// deliberately desynchronize local player
+	if(pl != players + consoleplayer)
+		return;
+	if(pl->health > 1)
+	{
+		pl->health ^= 1;
+		pl->mo->health = pl->health;
+	}
+}
+
 static void cf_save_light(player_t *pl, uint8_t *arg)
 {
 	uint32_t fail = 0;
@@ -422,10 +432,10 @@ void cheat_check(uint32_t pidx)
 	player_t *pl = players + pidx;
 	uint8_t *arg;
 
-	if(!cb->len)
+	if(!cb->tpos)
 		return;
 
-	cb->text[cb->len] = 0;
+	cb->text[cb->tpos] = 0;
 
 	// split code and paramenter
 	arg = cb->text;
@@ -453,13 +463,14 @@ void cheat_check(uint32_t pidx)
 	if(!cf->name)
 		pl->message = "Unknown cheat!";
 
-	if(!pl->message && demoplayback)
-		pl->message = "Cheat activated!";
-
-	if(pl->message)
+	if(!pl->message && (demoplayback || netgame || pl != players + consoleplayer))
+	{
 		message_is_important = 1;
+		players[consoleplayer].message = "Cheat activated!";
+	}
 
-	cb->len = -1;
+	if(pl->message && pl == players + consoleplayer)
+		message_is_important = 1;
 }
 
 void cheat_player_flags(player_t *pl)
@@ -472,6 +483,15 @@ void cheat_player_flags(player_t *pl)
 		mo->flags1 |= MF1_INVULNERABLE;
 	if(pl->cheats & CF_BUDDHA)
 		mo->flags1 |= MF1_BUDDHA;
+}
+
+void cheat_reset()
+{
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		cheat_buf[i].tpos = -1;
+		cheat_buf[i].dpos = -1;
+	}
 }
 
 //
@@ -490,7 +510,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003BC1F, CODE_HOOK | HOOK_UINT16, 0x15EB},
 	{0x0003C26B, CODE_HOOK | HOOK_UINT8, 0x7E},
 	// cheat marker (first byte)
-	{0x0003BA34, CODE_HOOK | HOOK_UINT8, CHAT_CHEAT_MARKER},
+	{0x0003BA34, CODE_HOOK | HOOK_UINT8, TIC_CMD_CHEAT},
 	// do not display sent message
 	{0x0003BC6D, CODE_HOOK | HOOK_UINT8, 0xEB},
 	// disable chat macros
@@ -500,7 +520,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// disable chat processing
 	{0x0003B78E, CODE_HOOK | HOOK_JMP_DOOM, 0x0003B8C7},
 	{0x0003B64F, CODE_HOOK | HOOK_UINT16, 0x1AEB},
-	// import variables
-	{0x000756F4, DATA_HOOK | HOOK_IMPORT, (uint32_t)&cheat_buf}, // size: 0x1D4 (w_inputbuffer)
 };
 

@@ -54,6 +54,9 @@ DOOM_VAR 0x00013580, validcount
 DOOM_VAR 0x00013C04, mapnames
 DOOM_VAR 0x00013CBC, mapnames2
 
+DOOM_VAR 0x00013DBC, hu_char_head
+DOOM_VAR 0x00013DC0, hu_char_tail
+
 DOOM_VAR 0x00014448, music_now
 DOOM_VAR 0x0001444C, S_music
 
@@ -492,6 +495,7 @@ DOOM_VAR 0x000753C0, keyboxes
 DOOM_VAR 0x00075458, tallpercent
 
 DOOM_VAR 0x000756F0, message_is_important
+DOOM_VAR 0x000756F4, cheat_buf
 
 DOOM_VAR 0x000758C8, hu_font
 

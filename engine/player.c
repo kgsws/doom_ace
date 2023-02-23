@@ -44,6 +44,9 @@ player_info_t player_info[MAXPLAYERS] =
 	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
 };
 
+// netgame check
+static uint32_t netgame_check[MAXPLAYERS][2];
+
 // powerups
 static void invul_start(mobj_t*,mobjinfo_t*);
 static void invul_stop(mobj_t*);
@@ -278,42 +281,76 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 //
 // cheat buffer
 
-static inline void cheat_char(uint32_t pidx, uint8_t cc)
+static inline void chat_char(uint32_t pidx, uint8_t cc)
 {
-	cheat_buf_t *cb;
+	cheat_buf_t *cb = cheat_buf + pidx;
+
+	// data transfers have priority
+	if(cb->dpos >= 0)
+	{
+		cb->data[cb->dpos++] = cc;
+		if(cb->dpos == cb->dlen)
+		{
+			switch(cb->data[0])
+			{
+				case TIC_DATA_CHECK0:
+				case TIC_DATA_CHECK1:
+					if(cb->dlen != 5)
+						break;
+					if(is_net_desync)
+						break;
+					if(netgame || demoplayback)
+					{
+						uint32_t slot = cb->data[0] & 1;
+						uint32_t magic = *((uint32_t*)(cb->data + 1));
+
+						if(magic != netgame_check[pidx][slot])
+							is_net_desync = 2;
+					}
+				break;
+			}
+			cb->dpos = -1;
+		}
+		return;
+	} else
+	if((cc & TIC_CMD_DATA) == TIC_CMD_DATA)
+	{
+		// ender data transfer mode
+		cb->dlen = cc & ~TIC_CMD_DATA;
+		cb->dpos = 0;
+		return;
+	}
 
 	if(!cc)
 		return;
 
-	cb = cheat_buf + pidx;
-
-	if(cc == CHAT_CHEAT_MARKER)
+	if(cc == TIC_CMD_CHEAT)
 	{
-		cb->len = 0;
+		cb->tpos = 0;
 		return;
 	}
 
-	if(cb->len < 0)
+	if(cb->tpos < 0)
 		return;
 
 	if(cc == 0x0D)
 	{
 		cheat_check(pidx);
+		cb->tpos = -1;
 		return;
 	}
 
 	if(cc == 0x7F)
 	{
-		if(cb->len)
-			cb->len--;
+		if(cb->tpos)
+			cb->tpos--;
 		return;
 	}
 
-	if(cb->len >= MAX_CHEAT_BUFFER)
+	if(cb->tpos >= TIC_CMD_CHEAT_BUFFER)
 		return;
 
-	cb->text[cb->len] = cc;
-	cb->len++;
+	cb->text[cb->tpos++] = cc;
 }
 
 //
@@ -461,7 +498,7 @@ static void handle_sector_special(player_t *pl, sector_t *sec, uint32_t texture)
 	if(sec->special & 1024)
 	{
 		pl->message = "Secret!";
-		S_StartSound(SOUND_CONSOLEPLAYER, SFX_SECRET);
+		S_StartSound(SOUND_CONSOLEPLAYER(pl), SFX_SECRET);
 		sec->special &= ~1024;
 	}
 
@@ -501,7 +538,25 @@ void player_think(player_t *pl)
 		pl->mo->flags &= ~MF_JUSTATTACKED;
 	}
 
-	cheat_char(idx, cmd->chatchar);
+	// network or demo consistency
+	if(!(leveltime & 63))
+	{
+		uint32_t magic;
+		uint32_t slot;
+
+		slot = leveltime >> 6;
+		slot &= 1;
+
+		magic = pl->health;
+		magic ^= pl->mo->x;
+		magic ^= pl->mo->y;
+		magic ^= pl->mo->z;
+
+		netgame_check[idx][slot] = magic;
+	}
+
+	// cheat and network stuff
+	chat_char(idx, cmd->chatchar);
 
 	if(pl->prop & ((1 << PROP_FROZEN) | (1 << PROP_TOTALLYFROZEN)))
 	{
@@ -684,7 +739,7 @@ void player_think(player_t *pl)
 			if(special == 9 && !pl->mo->subsector->sector->special)
 			{
 				pl->message = "Secret!";
-				S_StartSound(SOUND_CONSOLEPLAYER, SFX_SECRET);
+				S_StartSound(SOUND_CONSOLEPLAYER(pl), SFX_SECRET);
 			}
 			if(pl->mo->z <= pl->mo->subsector->sector->floorheight)
 				player_terrain_damage(pl, pl->mo->subsector->sector->floorpic);
@@ -795,6 +850,7 @@ __attribute((regparm(2),no_caller_saved_registers))
 static void build_ticcmd(ticcmd_t *cmd)
 {
 	static uint8_t mouse_inv_use;
+	static uint32_t last_tick;
 
 	// do nothing in titlemap
 	if(is_title_map)
@@ -806,12 +862,41 @@ static void build_ticcmd(ticcmd_t *cmd)
 	// first, use the original function
 	G_BuildTiccmd(cmd);
 
-	// second, modify stuff
-	cmd->chatchar = 0;
+	// second, handle data transfers
+	if(leveltime != last_tick)
+	{
+		last_tick = leveltime;
 
-	// cheat char
-	if(!paused)
+		// consistancy check
+		if(	hu_char_tail == hu_char_head &&
+			(
+				(leveltime & 63) == 63 ||
+				is_net_desync > 1
+			)
+		){
+			uint32_t slot = (leveltime >> 6) & 1;
+			uint32_t magic;
+
+			if(is_net_desync)
+			{
+				is_net_desync = 1;
+				magic = 0xBAD00BAD;
+			} else
+				magic = netgame_check[consoleplayer][slot];
+
+			HU_queueChatChar(TIC_CMD_DATA | 5);
+			HU_queueChatChar(TIC_DATA_CHECK0 | slot);
+			HU_queueChatChar(magic);
+			HU_queueChatChar(magic >> 8);
+			HU_queueChatChar(magic >> 16);
+			HU_queueChatChar(magic >> 24);
+		}
+
+		// transfer one byte
 		cmd->chatchar = HU_dequeueChatChar();
+	}
+
+	// third, modify stuff
 
 	// do nothing on special request
 	if(cmd->buttons & BT_SPECIAL)
@@ -923,6 +1008,8 @@ void player_finish(player_t *pl)
 			if(pw->stop && pl->mo)
 				pw->stop(pl->mo);
 		}
+		if(pl->state == PST_DEAD)
+			pl->state = PST_REBORN;
 	}
 
 	pl->fixedcolormap = 0;

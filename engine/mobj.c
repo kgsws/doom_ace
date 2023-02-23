@@ -622,7 +622,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	}
 
 	// sound
-	S_StartSound(SOUND_CONSOLEPLAYER, info->inventory.sound_pickup);
+	S_StartSound(SOUND_CONSOLEPLAYER(pl), info->inventory.sound_pickup);
 
 	// message
 	if(info->inventory.message)
@@ -1942,10 +1942,10 @@ uint32_t mobj_range_check(mobj_t *mo, mobj_t *target, fixed_t range, uint32_t ch
 
 	if(check_z)
 	{
-		if(target->z > mo->z + mo->height)
+		if(target->z >= mo->z + mo->height)
 			return 0;
 
-		if(target->z + target->height < mo->z)
+		if(target->z + target->height <= mo->z)
 			return 0;
 	}
 

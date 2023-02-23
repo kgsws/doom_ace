@@ -55,6 +55,18 @@ typedef uint32_t angle_t;
 #define HU_FONTEND	'_'
 #define HU_FONTSIZE	(HU_FONTEND - HU_FONTSTART + 1)
 
+// netgame
+#define MAXNETNODES	8
+#define BACKUPTICS	12
+
+// tick data transfer
+#define TIC_CMD_CHEAT_BUFFER	47
+#define TIC_CMD_DATA_BUFFER	63 // maximum limit
+#define TIC_CMD_CHEAT	0x8C
+#define TIC_CMD_DATA	0xC0	// top two bits ON, used as mask
+#define TIC_DATA_CHECK0	0xCC	// consistancy check
+#define TIC_DATA_CHECK1	0xCD	// consistancy check
+
 //
 // tables
 
@@ -1298,6 +1310,19 @@ typedef	struct
 } cliprange_t;
 
 //
+// network
+
+typedef struct
+{
+	uint32_t checksum;
+	uint8_t retransmitfrom;
+	uint8_t starttic;
+	uint8_t player;
+	uint8_t numtics;
+	ticcmd_t cmds[BACKUPTICS];
+} doomdata_t;
+
+//
 // status bar
 
 typedef struct
@@ -1336,6 +1361,15 @@ typedef struct
 	int32_t len;
 	int32_t needsupdate;
 } __attribute__((packed)) hu_textline_t;
+
+typedef struct
+{
+	uint8_t text[TIC_CMD_CHEAT_BUFFER];
+	int8_t tpos;
+	uint8_t data[TIC_CMD_DATA_BUFFER];
+	int8_t dlen;
+	int8_t dpos;
+} cheat_buf_t;
 
 //
 // WI
@@ -1540,6 +1574,7 @@ void ST_doPaletteStuff() __attribute((regparm(2),no_caller_saved_registers));
 // hu_stuff
 void HU_Start() __attribute((regparm(2),no_caller_saved_registers));
 uint8_t HU_dequeueChatChar() __attribute((regparm(2),no_caller_saved_registers));
+void HU_queueChatChar(uint8_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // hu_lib
 void HUlib_drawTextLine(hu_textline_t *l, uint32_t cursor);

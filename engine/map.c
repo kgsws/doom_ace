@@ -22,6 +22,7 @@
 #include "stbar.h"
 #include "render.h"
 #include "draw.h"
+#include "cheat.h"
 #include "polyobj.h"
 #include "extra3d.h"
 #include "action.h"
@@ -84,6 +85,7 @@ uint16_t map_next_levelnum;
 
 uint_fast8_t map_skip_stuff;
 uint_fast8_t is_title_map;
+uint_fast8_t is_net_desync;
 uint_fast8_t xnod_present;
 
 uint32_t num_maps;
@@ -342,7 +344,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		if(ot->options & 16)
 			fake.flags |= 512 | 1024;
 		else
-			fake.flags |= 256;
+			fake.flags |= 256 | 512 | 1024;
 	} else
 		angle = (ANG45 / 45) * mt->angle;
 
@@ -353,7 +355,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		{
 			mapthing_t *dt = deathmatch_p;
 			dt->x = mt->x;
-			dt->y = mt->x;
+			dt->y = mt->y;
 			dt->angle = mt->angle;
 			deathmatch_p++;
 		}
@@ -469,6 +471,16 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	if(!idx)
 		idx = MOBJ_IDX_UNKNOWN;
 	info = mobjinfo + idx;
+
+	// doom map format, coop, only monsters (and keys, lol)
+	if(	ot &&
+		netgame &&
+		!deathmatch &&
+		ot->options & 16 &&
+		!(info->flags1 & MF1_ISMONSTER) &&
+		info->extra_type != ETYPE_KEY
+	)
+		return;
 
 	// 'not in deathmatch'
 	if(deathmatch && info->flags & MF_NOTDMATCH)
@@ -1108,6 +1120,7 @@ uint32_t map_load_setup(uint32_t new_game)
 	am_lastlevel = -1;
 	respawnmonsters = gameskill == sk_nightmare || respawnparm;
 	terrain_reset();
+	cheat_reset();
 
 	if(gameepisode)
 	{
@@ -1294,6 +1307,8 @@ uint32_t map_load_setup(uint32_t new_game)
 	return 0;
 
 map_load_error:
+
+	doom_printf("[Bad map] %s\n", map_lump.name);
 	map_skip_stuff = 0;
 	if(is_title_map)
 	{
@@ -1305,7 +1320,7 @@ map_load_error:
 		map_start_title();
 	wipegamestate = gamestate;
 	M_StartMessage("Requested map is invalid!", NULL, 0);
-	doom_printf("[Bad map] %s\n", map_lump.name);
+
 	return 1;
 }
 
@@ -2472,19 +2487,25 @@ static void do_new_game()
 
 	demoplayback = 0;
 	netdemo = 0;
-	netgame = 0;
-	deathmatch = 0;
-	respawnparm = 0;
+//	netgame = 0;
+//	deathmatch = 0;
+//	respawnparm = 0;
 	fastparm = 0;
 	nomonsters = 0;
-	consoleplayer = 0;
+	is_net_desync = 0;
 
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
-	{
 		players[i].state = PST_REBORN;
-		playeringame[i] = 0;
-	}
-	playeringame[0] = 1;
+
+	if(!netgame)
+	{
+		consoleplayer = 0;
+		for(uint32_t i = 0; i < MAXPLAYERS; i++)
+			playeringame[i] = 0;
+		playeringame[0] = 1;
+	} else
+		// re-synchronize
+		prndindex = 0;
 
 	gameskill = d_skill;
 	gameepisode = 1;
@@ -2941,7 +2962,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003CA80, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	{0x0003CAF0, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	{0x0003CE22, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
-	{0x0003D4CA, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
+	{0x0003D4CB, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	{0x0003D911, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	{0x0003DCCB, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},
 	{0x0003DD1B, CODE_HOOK | HOOK_UINT32, (uint32_t)&fake_game_mode},

@@ -2504,6 +2504,8 @@ static inline uint32_t ld_get_things(uint32_t hub_data)
 
 		mo = P_SpawnMobj(thing.x, thing.y, thing.z, type);
 
+		P_UnsetThingPosition(mo);
+
 		mo->netid = thing.netid;
 
 		mo->angle = thing.angle;
@@ -2556,6 +2558,8 @@ static inline uint32_t ld_get_things(uint32_t hub_data)
 
 		mo->animation = thing.animation;
 		mo->damage_type = thing.damage_type;
+
+		P_SetThingPosition(mo);
 
 		if(thing.damage_type >= NUM_DAMAGE_TYPES)
 			return 1;

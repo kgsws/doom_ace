@@ -512,12 +512,19 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		break;
 		case ETYPE_WEAPON:
 			// weapon
+			if(deathmatch == 1 && mo->spawnpoint.options == mo->type)
+			{
+				if(inventory_check(toucher, mo->type))
+					return;
+			}
 			given = inventory_give(toucher, mo->type, info->inventory.count);
 			if(!given)
 			{
 				pl->stbar_update |= STU_WEAPON_NEW; // evil grin
 				// auto-weapon-switch optional
-				if(pl->info_flags & PLF_AUTO_SWITCH)
+				if(	pl->readyweapon != info &&
+					player_info[pl - players].flags & PLF_AUTO_SWITCH
+				)
 					pl->pendingweapon = info;
 				if(!pl->psprites[0].state)
 					// fix 'no weapon' state
@@ -595,20 +602,24 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		mo->flags &= ~MF_COUNTITEM;
 	}
 
-	// activate special
-	if(mo->special.special)
+	// original deathmatch
+	if(deathmatch != 1 || mo->spawnpoint.options != mo->type || info->extra_type != ETYPE_WEAPON)
 	{
-		spec_special = mo->special.special;
-		spec_arg[0] = mo->special.arg[0];
-		spec_arg[1] = mo->special.arg[1];
-		spec_arg[2] = mo->special.arg[2];
-		spec_arg[3] = mo->special.arg[3];
-		spec_arg[4] = mo->special.arg[4];
-		spec_activate(NULL, toucher, 0);
-	}
+		// activate special
+		if(mo->special.special)
+		{
+			spec_special = mo->special.special;
+			spec_arg[0] = mo->special.arg[0];
+			spec_arg[1] = mo->special.arg[1];
+			spec_arg[2] = mo->special.arg[2];
+			spec_arg[3] = mo->special.arg[3];
+			spec_arg[4] = mo->special.arg[4];
+			spec_activate(NULL, toucher, 0);
+		}
 
-	// remove / hide
-	P_SetMobjState(mo, STATE_SPECIAL_HIDE, 0);
+		// remove / hide
+		P_SetMobjState(mo, STATE_SPECIAL_HIDE, 0);
+	}
 
 	if(info->eflags & MFE_INVENTORY_QUIET)
 		return;
@@ -655,8 +666,10 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		Z_ChangeTag2(pl->inventory, PU_LEVEL_INV);
 
 	// check for reset
-	if(pl->state == PST_REBORN || map_level_info->flags & MAP_FLAG_RESET_INVENTORY)
-	{
+	if(	pl->state == PST_REBORN ||
+		pl->state == PST_SPECTATE ||
+		map_level_info->flags & MAP_FLAG_RESET_INVENTORY
+	){
 		// cleanup
 		uint32_t killcount;
 		uint32_t itemcount;
@@ -781,7 +794,6 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->stbar_update = 0;
 	pl->inv_tick = 0;
 	pl->text_data = NULL;
-	pl->info_flags = player_info[idx].flags;
 	pl->airsupply = PLAYER_AIRSUPPLY;
 
 	memset(&pl->cmd, 0, sizeof(ticcmd_t));
@@ -2056,6 +2068,14 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		}
 		return;
 	}
+
+	if(	no_friendly_fire &&
+		source &&
+		source != target &&
+		source->player &&
+		target->player
+	)
+		return;
 
 	if(damage & DAMAGE_IS_CUSTOM)
 		damage = mobj_calc_damage(damage);

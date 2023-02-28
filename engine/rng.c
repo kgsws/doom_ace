@@ -34,6 +34,6 @@ void init_rng()
 
 static const hook_t hook_rng[] =
 {
-	{0x00024160, CODE_HOOK | HOOK_COPY(28), (uint32_t)rng_asm_code},
+	{0x00024160, CODE_HOOK | HOOK_COPY(32), (uint32_t)rng_asm_code}, // 32 is max
 };
 

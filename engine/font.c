@@ -142,7 +142,7 @@ static const uint8_t colortable[] =
 static uint8_t *font_palidx;
 uint8_t *font_color;
 
-static void *smallfont;
+void *smallfont;
 
 static patch_t fake_stcfn;
 
@@ -314,9 +314,8 @@ static void font_draw_char(int32_t x, int32_t y, bmf_char_t *bc)
 	}
 }
 
-void font_center_text(int32_t y, const uint8_t *text, void *font, uint32_t linecount)
+void font_center_text(int32_t x, int32_t y, const uint8_t *text, void *font, uint32_t linecount)
 {
-	int32_t x = SCREENWIDTH / 2;
 	font_head_t *head = font;
 	bmf_char_t *bc;
 
@@ -415,6 +414,7 @@ uint32_t font_draw_text(int32_t x, int32_t y, const uint8_t *text, void *font)
 			if(!color)
 				break;
 			change_color(color);
+			text++;
 			continue;
 		}
 
@@ -535,7 +535,7 @@ uint32_t font_message_to_print()
 	}
 
 	font_color = NULL;
-	font_center_text(SCREENHEIGHT / 2, messageString, smallfont, linecount);
+	font_center_text(SCREENWIDTH / 2, SCREENHEIGHT / 2, messageString, smallfont, linecount);
 
 	skip_menu_draw();
 }
@@ -722,7 +722,7 @@ static __attribute((regparm(2),no_caller_saved_registers))
 void cast_text(uint8_t *text)
 {
 	font_color = NULL;
-	font_center_text(180, text, smallfont, 0);
+	font_center_text(SCREENWIDTH / 2, 180, text, smallfont, 0);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

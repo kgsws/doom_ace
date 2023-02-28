@@ -242,7 +242,7 @@ uint32_t weapon_fire(player_t *pl, uint32_t secondary, uint32_t refire)
 		return 1;
 
 	// mobj to 'missile' animation (yeah, it's flipped for players)
-	if(pl->mo->animation != ANIM_MISSILE && pl->mo->info->state_melee)
+	if(pl->mo->animation != ANIM_MISSILE && pl->mo->info->state_missile)
 		mobj_set_animation(pl->mo, ANIM_MISSILE);
 
 	if(!(info->eflags & MFE_WEAPON_NOALERT))

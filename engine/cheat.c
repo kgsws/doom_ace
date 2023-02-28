@@ -25,6 +25,10 @@ typedef struct
 	void (*func)(player_t*,uint8_t*);
 } cheat_func_t;
 
+//
+
+uint_fast8_t cheat_disable;
+
 // cheat list
 static void cf_noclip(player_t*,uint8_t*);
 static void cf_iddqd(player_t*,uint8_t*);
@@ -67,7 +71,7 @@ static const cheat_func_t cheat_func[] =
 	// kg
 	{"kgRevenge", cf_revenge},
 	// dev
-	{"desync", cf_net_desync},
+//	{"desync", cf_net_desync}, // this should not be enable in release
 	{"savelight", cf_save_light},
 	// terminator
 	{NULL}
@@ -253,7 +257,7 @@ static void cf_mdk(player_t *pl, uint8_t *arg)
 {
 	fixed_t slope;
 
-	if(pl->info_flags & PLF_AUTO_AIM || map_level_info->flags & MAP_FLAG_NO_FREELOOK)
+	if(player_info[pl - players].flags & PLF_AUTO_AIM || map_level_info->flags & MAP_FLAG_NO_FREELOOK)
 		slope = P_AimLineAttack(pl->mo, pl->mo->angle, 1024 * FRACUNIT);
 	else
 		linetarget = NULL;
@@ -454,22 +458,33 @@ void cheat_check(uint32_t pidx)
 	{
 		if(!strcmp(cf->name, cb->text))
 		{
+			if(cheat_disable && cf->func != cf_map) // allow map changes (and synchronization)
+				return;
 			pl->cheats |= CF_IS_CHEATER; // mark cheaters forever
 			cf->func(pl, arg);
 			break;
 		}
 		cf++;
 	}
-	if(!cf->name)
-		pl->message = "Unknown cheat!";
 
-	if(!pl->message && (demoplayback || netgame || pl != players + consoleplayer))
+	if(cheat_disable)
+		return;
+
+	if(!cf->name)
+	{
+		message_is_important = 1;
+		pl->message = "Unknown cheat!";
+		return;
+	}
+
+	if(pidx != consoleplayer || (!pl->message && (netgame || demoplayback)))
 	{
 		message_is_important = 1;
 		players[consoleplayer].message = "Cheat activated!";
+		return;
 	}
 
-	if(pl->message && pl == players + consoleplayer)
+	if(pl->message && pidx == consoleplayer)
 		message_is_important = 1;
 }
 
@@ -487,6 +502,8 @@ void cheat_player_flags(player_t *pl)
 
 void cheat_reset()
 {
+	hu_char_tail = 0;
+	hu_char_head = 0;
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
 		cheat_buf[i].tpos = -1;

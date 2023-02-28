@@ -20,13 +20,6 @@ enum
 #define PLF_AUTO_AIM	(1 << plf_auto_aim)
 #define PLF_MOUSE_LOOK	(1 << plf_mouse_look)
 
-typedef struct
-{
-	uint16_t color;
-	uint16_t playerclass;
-	uint16_t flags;
-} player_info_t;
-
 //
 
 extern player_info_t player_info[MAXPLAYERS];
@@ -36,6 +29,10 @@ extern uint_fast8_t player_flags_changed;
 //
 
 void powerup_give(player_t *pl, mobjinfo_t *info);
+
+void player_think(uint32_t idx);
+
+void player_chat_char(uint32_t pidx);
 
 void player_finish(player_t *pl);
 

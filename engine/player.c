@@ -34,18 +34,12 @@ typedef struct
 
 //
 
-uint_fast8_t player_flags_changed = 1; // force update
+uint_fast8_t player_flags_changed;
 
-player_info_t player_info[MAXPLAYERS] =
-{
-	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
-	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
-	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
-	{.flags = PLF_AUTO_SWITCH | PLF_AUTO_AIM},
-};
+player_info_t player_info[MAXPLAYERS];
 
 // netgame check
-static uint32_t netgame_check[MAXPLAYERS][2];
+static uint32_t netgame_check[MAXPLAYERS][4];
 
 // powerups
 static void invul_start(mobj_t*,mobjinfo_t*);
@@ -281,9 +275,10 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 //
 // cheat buffer
 
-static inline void chat_char(uint32_t pidx, uint8_t cc)
+void player_chat_char(uint32_t pidx)
 {
 	cheat_buf_t *cb = cheat_buf + pidx;
+	uint8_t cc = players[pidx].cmd.chatchar;
 
 	// data transfers have priority
 	if(cb->dpos >= 0)
@@ -295,18 +290,38 @@ static inline void chat_char(uint32_t pidx, uint8_t cc)
 			{
 				case TIC_DATA_CHECK0:
 				case TIC_DATA_CHECK1:
-					if(cb->dlen != 5)
-						break;
+				case TIC_DATA_CHECK2:
+				case TIC_DATA_CHECK3:
 					if(is_net_desync)
+						break;
+					if(cb->dlen != sizeof(uint32_t) + 1)
 						break;
 					if(netgame || demoplayback)
 					{
-						uint32_t slot = cb->data[0] & 1;
+						uint32_t slot = cb->data[0] & 3;
 						uint32_t magic = *((uint32_t*)(cb->data + 1));
 
 						if(magic != netgame_check[pidx][slot])
 							is_net_desync = 2;
 					}
+				break;
+				case TIC_DATA_PLAYER_INFO:
+				{
+					player_info_t *info;
+					uint32_t update_color = 0;
+
+					if(cb->dlen != sizeof(player_info_t) + 1)
+						break;
+
+					info = (player_info_t*)(cb->data + 1);
+
+					if(info->color != player_info[pidx].color)
+						update_color = 1;
+
+					player_info[pidx] = *info;
+					if(update_color)
+						r_generate_player_color(pidx);
+				}
 				break;
 			}
 			cb->dpos = -1;
@@ -391,7 +406,7 @@ void P_CalcHeight(player_t *player)
 	if(player->mo->info->player.view_bob != FRACUNIT)
 		bob = FixedMul(bob, player->mo->info->player.view_bob);
 
-	if(player->state == PST_LIVE)
+	if(player->state != PST_DEAD)
 	{
 		player->viewheight += player->deltaviewheight;
 
@@ -508,10 +523,9 @@ static void handle_sector_special(player_t *pl, sector_t *sec, uint32_t texture)
 	player_terrain_damage(pl, texture);
 }
 
-static __attribute((regparm(2),no_caller_saved_registers))
-void player_think(player_t *pl)
+void player_think(uint32_t idx)
 {
-	uint32_t idx = pl - players;
+	player_t *pl = players + idx;
 	ticcmd_t *cmd = &pl->cmd;
 
 	if(pl->text_data)
@@ -545,18 +559,16 @@ void player_think(player_t *pl)
 		uint32_t slot;
 
 		slot = leveltime >> 6;
-		slot &= 1;
+		slot &= 3;
 
 		magic = pl->health;
 		magic ^= pl->mo->x;
 		magic ^= pl->mo->y;
 		magic ^= pl->mo->z;
+		magic ^= prndindex << 16;
 
 		netgame_check[idx][slot] = magic;
 	}
-
-	// cheat and network stuff
-	chat_char(idx, cmd->chatchar);
 
 	if(pl->prop & ((1 << PROP_FROZEN) | (1 << PROP_TOTALLYFROZEN)))
 	{
@@ -587,7 +599,7 @@ void player_think(player_t *pl)
 
 	if(pl->state == PST_DEAD)
 	{
-		if(	pl->info_flags & PLF_MOUSE_LOOK &&
+		if(	player_info[idx].flags & PLF_MOUSE_LOOK &&
 			!(map_level_info->flags & MAP_FLAG_NO_FREELOOK) &&
 			!(pl->flags & PF_IS_FROZEN)
 		){
@@ -693,10 +705,10 @@ void player_think(player_t *pl)
 			pl->mo->momy -= FixedMul(power, finecosine[angle]);
 		}
 
-		if((cmd->forwardmove || cmd->sidemove) && pl->mo->animation == ANIM_SPAWN)
+		if((cmd->forwardmove || cmd->sidemove) && pl->mo->animation == ANIM_SPAWN && pl->mo->info->state_see)
 			mobj_set_animation(pl->mo, ANIM_SEE);
 
-		if(pl->info_flags & PLF_MOUSE_LOOK && !(map_level_info->flags & MAP_FLAG_NO_FREELOOK))
+		if(player_info[idx].flags & PLF_MOUSE_LOOK && !(map_level_info->flags & MAP_FLAG_NO_FREELOOK))
 		{
 			if(cmd->pitchturn)
 			{
@@ -713,6 +725,18 @@ void player_think(player_t *pl)
 		pl->mo->reactiontime--;
 
 	P_CalcHeight(pl);
+
+	if(pl->state != PST_LIVE)
+	{
+		// spectator
+		pl->fixedcolormap = 0;
+		pl->fixedpalette = 0;
+		pl->attackdown = 0;
+		pl->usedown = 1;
+		pl->damagecount = 0;
+		pl->bonuscount = 0;
+		return;
+	}
 
 	if(pl->mo->waterlevel >= 3)
 	{
@@ -770,22 +794,7 @@ void player_think(player_t *pl)
 		pl->inv_tick--;
 
 	if(cmd->buttons & BT_SPECIAL)
-	{
-		if(cmd->buttons & BTS_PLAYER_FLAG)
-		{
-			// change player flag
-			uint32_t flag = 1 << (cmd->buttons & 31);
-			player_info_t *pli = player_info + idx;
-
-			if(cmd->buttons & BTS_FLAG_SET)
-				pli->flags |= flag;
-			else
-				pli->flags &= ~flag;
-
-			pl->info_flags = pli->flags;
-		}
 		cmd->buttons = 0;
-	}
 
 	check_buttons(pl, cmd);
 
@@ -846,11 +855,21 @@ void player_think(player_t *pl)
 //
 // input
 
+static void send_data_packet(uint8_t type, void *data, uint32_t len)
+{
+	uint8_t *ptr = data;
+
+	HU_queueChatChar(TIC_CMD_DATA | (len + 1));
+	HU_queueChatChar(type);
+
+	for(uint32_t i = 0; i < len; i++)
+		HU_queueChatChar(ptr[i]);
+}
+
 __attribute((regparm(2),no_caller_saved_registers))
 static void build_ticcmd(ticcmd_t *cmd)
 {
 	static uint8_t mouse_inv_use;
-	static uint32_t last_tick;
 
 	// do nothing in titlemap
 	if(is_title_map)
@@ -859,22 +878,37 @@ static void build_ticcmd(ticcmd_t *cmd)
 		return;
 	}
 
-	// first, use the original function
+	// use the original function
 	G_BuildTiccmd(cmd);
 
-	// second, handle data transfers
-	if(leveltime != last_tick)
+	// packet transfers
+	if(hu_char_tail == hu_char_head)
 	{
-		last_tick = leveltime;
+		// check for menu changes
+		if(player_flags_changed && !menuactive)
+		{
+			player_info_t info;
+
+			info = player_info[consoleplayer];
+			info.color = extra_config.player_color;
+			info.flags = 0;
+
+			if(extra_config.auto_switch)
+				info.flags |= PLF_AUTO_SWITCH;
+			if(extra_config.auto_aim)
+				info.flags |= PLF_AUTO_AIM;
+			if(extra_config.mouse_look)
+				info.flags |= PLF_MOUSE_LOOK;
+
+			send_data_packet(TIC_DATA_PLAYER_INFO, &info, sizeof(player_info_t));
+
+			player_flags_changed = 0;
+		}
 
 		// consistancy check
-		if(	hu_char_tail == hu_char_head &&
-			(
-				(leveltime & 63) == 63 ||
-				is_net_desync > 1
-			)
-		){
-			uint32_t slot = (leveltime >> 6) & 1;
+		if((leveltime & 63) == 15 || is_net_desync > 1)
+		{
+			uint32_t slot = (leveltime >> 6) & 3;
 			uint32_t magic;
 
 			if(is_net_desync)
@@ -884,59 +918,13 @@ static void build_ticcmd(ticcmd_t *cmd)
 			} else
 				magic = netgame_check[consoleplayer][slot];
 
-			HU_queueChatChar(TIC_CMD_DATA | 5);
-			HU_queueChatChar(TIC_DATA_CHECK0 | slot);
-			HU_queueChatChar(magic);
-			HU_queueChatChar(magic >> 8);
-			HU_queueChatChar(magic >> 16);
-			HU_queueChatChar(magic >> 24);
+			send_data_packet(TIC_DATA_CHECK0 | slot, &magic, sizeof(uint32_t));
 		}
-
-		// transfer one byte
-		cmd->chatchar = HU_dequeueChatChar();
 	}
-
-	// third, modify stuff
 
 	// do nothing on special request
 	if(cmd->buttons & BT_SPECIAL)
 		return;
-
-	// check for menu changes
-	if(player_flags_changed)
-	{
-		// send info change over ticcmd
-		// can send only one change at the time
-		player_info_t *pli = player_info + consoleplayer;
-
-		if((pli->flags & PLF_AUTO_SWITCH) != (extra_config.auto_switch << plf_auto_switch))
-		{
-			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
-			if(extra_config.auto_switch)
-				cmd->buttons |= BTS_FLAG_SET;
-			cmd->buttons |= plf_auto_switch;
-			return;
-		} else
-		if((pli->flags & PLF_AUTO_AIM) != (extra_config.auto_aim << plf_auto_aim))
-		{
-			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
-			if(extra_config.auto_aim)
-				cmd->buttons |= BTS_FLAG_SET;
-			cmd->buttons |= plf_auto_aim;
-			return;
-		} else
-		if((pli->flags & PLF_MOUSE_LOOK) != (!!(extra_config.mouse_look) << plf_mouse_look))
-		{
-			cmd->buttons = BT_SPECIAL | BTS_PLAYER_FLAG;
-			if(extra_config.mouse_look)
-				cmd->buttons |= BTS_FLAG_SET;
-			cmd->buttons |= plf_mouse_look;
-			return;
-		}
-
-		// clear after all flags are updated
-		player_flags_changed = 0;
-	}
 
 	// mouse look
 	cmd->pitchturn = mousey * 8;
@@ -1051,8 +1039,47 @@ uint32_t respawn_check(uint32_t idx)
 		reborn_inventory_hack = 1;
 		return 1;
 	}
+
 	if(netgame)
+	{
+		player_t *pl = players + idx;
+
+		if(pl->mo->inventory && net_inventory != 1)
+			inventory_clear(pl->mo);
+
+		if(survival)
+		{
+			mobj_t *mo;
+
+			inventory_clear(pl->mo);
+
+			pl->state = PST_SPECTATE;
+			pl->mo->player = NULL;
+
+			mo = P_SpawnMobj(pl->mo->x, pl->mo->y, pl->mo->z, MOBJ_IDX_ICE_CHUNK_HEAD);
+			mo->flags |= MF_NOGRAVITY | MF_NOCLIP;
+			mo->flags2 |= MF2_DONTSPLASH;
+			mo->render_style = RS_INVISIBLE;
+			mo->angle = pl->mo->angle;
+			mo->player = pl;
+
+			pl->mo = mo;
+			pl->camera = mo;
+			pl->readyweapon = NULL;
+			pl->pendingweapon = NULL;
+
+			return 0;
+		}
+
+		if(net_inventory == 1)
+		{
+			pl->inventory = pl->mo->inventory;
+			pl->mo->inventory = NULL;
+			reborn_inventory_hack = 1;
+		}
+
 		return 1;
+	}
 
 	gameaction = ga_loadlevel;
 	load_auto();
@@ -1067,8 +1094,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
 	// replace 'P_SpawnPlayer'
 	{0x000317F0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)spawn_player},
-	// replace call to 'P_PlayerThink' in 'P_Ticker'
-	{0x00032FBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_think},
 	// replace call to 'P_CalcHeight' in 'P_DeathThink'
 	{0x000332BF, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_CalcHeight},
 	// replace netgame check in 'G_DoReborn'
@@ -1084,8 +1109,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001FF94, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// disable 'consistancy' check in 'G_Ticker'
 	{0x000206BB, CODE_HOOK | HOOK_UINT16, 0x7CEB},
-	// remove call to 'HU_dequeueChatChar' in 'G_BuildTiccmd'
-	{0x0001FD81, CODE_HOOK | HOOK_SET_NOPS, 8},
 	// change 'BT_SPECIAL' check in 'G_Ticker'
 	{0x0002079A, CODE_HOOK | HOOK_UINT8, BT_SPECIALMASK},
 	// use 'fixedpalette' in 'ST_doPaletteStuff'

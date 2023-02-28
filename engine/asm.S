@@ -691,6 +691,24 @@ Z_FreeTags:
 AM_Stop:
 	.byte	0xE9
 	.4byte	0x00024F90
+////////////////////////////////// D_CheckNetGame
+.section .text.D_CheckNetGame
+.global D_CheckNetGame
+D_CheckNetGame:
+	.byte	0xE9
+	.4byte	0x0001F5C0
+////////////////////////////////// HSendPacket
+.section .text.HSendPacket
+.global HSendPacket
+HSendPacket:
+	.byte	0xE9
+	.4byte	0x0001EC30
+////////////////////////////////// HGetPacket
+.section .text.HGetPacket
+.global HGetPacket
+HGetPacket:
+	.byte	0xE9
+	.4byte	0x0001ED70
 ////////////////////////////////// F_StartCast
 .section .text.F_StartCast
 .global F_StartCast

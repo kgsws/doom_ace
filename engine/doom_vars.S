@@ -155,6 +155,8 @@ DOOM_VAR 0x000292A8, finalestage
 
 DOOM_VAR 0x00029730, wadfiles
 
+DOOM_VAR 0x00029F80, events
+
 DOOM_VAR 0x0002A384, demosequence
 DOOM_VAR 0x0002A38C, advancedemo
 
@@ -169,6 +171,12 @@ DOOM_VAR 0x0002A3BC, gamemode
 DOOM_VAR 0x0002A3C0, nomonsters
 DOOM_VAR 0x0002A3C4, fastparm
 DOOM_VAR 0x0002A3C8, respawnparm
+
+DOOM_VAR 0x0002A3CC, eventtail
+DOOM_VAR 0x0002A3D0, eventhead
+
+DOOM_VAR 0x0002A76C, netbuffer
+DOOM_VAR 0x0002A770, doomcom
 
 DOOM_VAR 0x0002A780, savename
 

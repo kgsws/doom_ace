@@ -79,6 +79,7 @@ int32_t map_lump_idx;
 uint_fast8_t map_format;
 map_level_t *map_level_info;
 map_level_t *map_next_info;
+uint16_t map_next_num;
 uint8_t map_start_id;
 uint8_t map_start_facing;
 uint16_t map_next_levelnum;
@@ -87,6 +88,13 @@ uint_fast8_t map_skip_stuff;
 uint_fast8_t is_title_map;
 uint_fast8_t is_net_desync;
 uint_fast8_t xnod_present;
+
+uint_fast8_t survival;
+uint_fast8_t net_inventory;
+uint_fast8_t no_friendly_fire;
+
+static map_cluster_t *old_cl;
+static map_cluster_t *new_cl;
 
 uint32_t num_maps;
 map_level_t *map_info;
@@ -1122,12 +1130,20 @@ uint32_t map_load_setup(uint32_t new_game)
 	terrain_reset();
 	cheat_reset();
 
+	if(is_net_desync)
+	{
+		is_net_desync = 0;
+		prndindex = 0;
+	}
+
 	if(gameepisode)
 	{
 		int32_t lump;
 
 		is_title_map = 0;
 		cache = !demoplayback;
+
+		strupr(map_lump.name);
 
 		// loading
 		lump = W_CheckNumForName("WILOADIN");
@@ -1455,6 +1471,7 @@ void map_start_title()
 	respawnparm = 0;
 	nomonsters = 0;
 	deathmatch = 0;
+	survival = 0;
 	gameepisode = 0;
 	prndindex = 0;
 	netgame = 0;
@@ -2487,25 +2504,23 @@ static void do_new_game()
 
 	demoplayback = 0;
 	netdemo = 0;
-//	netgame = 0;
-//	deathmatch = 0;
-//	respawnparm = 0;
-	fastparm = 0;
-	nomonsters = 0;
 	is_net_desync = 0;
-
-	for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		players[i].state = PST_REBORN;
 
 	if(!netgame)
 	{
+		deathmatch = 0;
+		respawnparm = 0;
+		fastparm = 0;
+		nomonsters = 0;
+
 		consoleplayer = 0;
 		for(uint32_t i = 0; i < MAXPLAYERS; i++)
 			playeringame[i] = 0;
 		playeringame[0] = 1;
-	} else
-		// re-synchronize
-		prndindex = 0;
+	}
+
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		players[i].state = PST_REBORN;
 
 	gameskill = d_skill;
 	gameepisode = 1;
@@ -2550,9 +2565,7 @@ static void do_autostart_game()
 __attribute((regparm(2),no_caller_saved_registers))
 static void set_world_done()
 {
-	map_cluster_t *old_cl, *new_cl;
 	int32_t music_lump = -1;
-	uint16_t next;
 
 	gameaction = ga_worlddone;
 
@@ -2561,22 +2574,7 @@ static void set_world_done()
 	{
 		for(uint32_t i = 0; i < MAXPLAYERS; i++)
 			players[i].didsecret = 1;
-		next = map_level_info->next_secret;
-	} else
-		next = map_level_info->next_normal;
-
-	if(map_next_levelnum)
-	{
-		next = 0;
-		map_next_levelnum = 0;
 	}
-
-	// check for cluser change
-	old_cl = map_find_cluster(map_level_info->cluster);
-	if(map_next_info)
-		new_cl = map_find_cluster(map_next_info->cluster);
-	else
-		new_cl = NULL;
 
 	finaletext = NULL;
 
@@ -2602,7 +2600,7 @@ static void set_world_done()
 		save_hub_level();
 
 	// finale?
-	if(finaletext || next > MAP_END_TO_TITLE)
+	if(finaletext || map_next_num > MAP_END_TO_TITLE)
 	{
 		gameaction = ga_nothing;
 		gamestate = GS_FINALE;
@@ -2615,7 +2613,7 @@ static void set_world_done()
 		else
 			finalestage = 0;
 
-		switch(next)
+		switch(map_next_num)
 		{
 			case MAP_END_BUNNY_SCROLL:
 			{
@@ -2641,7 +2639,7 @@ static void set_world_done()
 				int32_t lump;
 				fake_game_mode = 0;
 				gameepisode = 1;
-				lump = map_level_info->win_lump[next == MAP_END_CUSTOM_PIC_S];
+				lump = map_level_info->win_lump[map_next_num == MAP_END_CUSTOM_PIC_S];
 				if(lump < 0)
 					lump = W_GetNumForName(dtxt_interpic);
 				victory_patch = W_CacheLumpNum(lump, PU_CACHE);
@@ -2685,10 +2683,8 @@ static void do_completed()
 			}
 		}
 		if(i < 0)
-		{
-			map_next_levelnum = 0;
 			map_next_info = NULL;
-		}
+		map_next_levelnum = 0;
 	} else
 	if(secretexit)
 		next = map_level_info->next_secret;
@@ -2699,6 +2695,14 @@ static void do_completed()
 		map_next_info = map_info + next;
 	else
 		map_next_info = NULL;
+	map_next_num = next;
+
+	// check for cluser change
+	old_cl = map_find_cluster(map_level_info->cluster);
+	if(map_next_info)
+		new_cl = map_find_cluster(map_next_info->cluster);
+	else
+		new_cl = NULL;
 
 	// intermission
 	gamestate = GS_INTERMISSION;
@@ -2706,8 +2710,9 @@ static void do_completed()
 
 	// endgame
 
-	if(map_level_info->flags & MAP_FLAG_NO_INTERMISSION)
-	{
+	if(	map_level_info->flags & MAP_FLAG_NO_INTERMISSION ||
+		(old_cl && old_cl == new_cl && old_cl->flags & CLST_FLAG_HUB)
+	){
 		set_world_done();
 		return;
 	}

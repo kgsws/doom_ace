@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "animate.h"
 #include "terrain.h"
+#include "player.h"
 #include "think.h"
 
 thinker_t thcap;
@@ -14,12 +15,34 @@ thinker_t thcap;
 uint_fast8_t think_freeze_mode;
 
 //
-// thinkers
+// ticker
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void run_thinkers()
+void P_Ticker()
 {
 	thinker_t *th;
+
+	// player data transfers - even when paused
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		if(!playeringame[i])
+			continue;
+		player_chat_char(i);
+	}
+
+	if(paused)
+		return;
+
+	if(!netgame && menuactive && !demoplayback && leveltime)
+		return;
+
+	// player thinkers
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
+		if(!playeringame[i])
+			continue;
+		player_think(i);
+	}
 
 	if(think_freeze_mode)
 	{
@@ -66,6 +89,9 @@ void run_thinkers()
 
 	// terrain splash sound
 	terrain_sound();
+
+	// next tic
+	leveltime++;
 }
 
 //
@@ -90,7 +116,7 @@ void think_add(thinker_t *th)
 
 static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 {
-	// replace call to 'P_RunThinkers' in 'P_Ticker'
-	{0x00032FD1, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)run_thinkers},
+	// replace call to 'P_Ticker' in 'G_Ticker'
+	{0x0002081A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_Ticker},
 };
 

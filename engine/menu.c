@@ -729,9 +729,11 @@ void player_change(uint32_t dir)
 			return;
 		case 1:
 			extra_config.auto_switch = !extra_config.auto_switch;
+			player_flags_changed = 1;
 		break;
 		case 2:
 			extra_config.auto_aim = !extra_config.auto_aim;
+			player_flags_changed = 1;
 		break;
 		case 3:
 			if(dir)
@@ -750,6 +752,8 @@ void player_change(uint32_t dir)
 
 			if(extra_config.mouse_look == 2)
 				stbar_set_xhair();
+
+			player_flags_changed = 1;
 		break;
 		case 4:
 			if(dir)
@@ -768,9 +772,6 @@ void player_change(uint32_t dir)
 
 			return;
 	}
-
-	// this has to be sent in tick message
-	player_flags_changed = 1;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -814,9 +815,9 @@ void player_color(uint32_t dir)
 	value |= color << shift;
 	extra_config.player_color = value;
 
-	// TODO: multiplayer update; but only on menu exit
-	player_info[consoleplayer].color = value;
 	r_generate_player_color(consoleplayer);
+
+	player_flags_changed = 1;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

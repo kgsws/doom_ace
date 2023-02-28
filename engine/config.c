@@ -333,20 +333,18 @@ void init_config()
 	}
 
 	// player setup
-	pli = player_info + consoleplayer;
+	pli = player_info; // 'consoleplayer' is not known yet
 	extra_config.auto_switch = !!extra_config.auto_switch;
 	extra_config.auto_aim = !!extra_config.auto_aim;
 	if(extra_config.mouse_look > 2)
 		extra_config.mouse_look = 0;
 	if(extra_config.center_weapon > 2)
 		extra_config.center_weapon = 0;
-/*
-	// PLAYER FLAGS ARE FORCED TO UPDATE WHEN GAME STARTS
-	// TODO: do this when sending net-game info, with player class and color
+
+	// update player info
 	pli->flags |= (uint32_t)extra_config.auto_switch << plf_auto_switch;
 	pli->flags |= (uint32_t)extra_config.auto_aim << plf_auto_aim;
-	pli->flags |= (uint32_t)!!(extra_config.mouse_look) << plf_mouse_look;
-*/
+	pli->flags |= (uint32_t)(!!extra_config.mouse_look) << plf_mouse_look;
 	pli->color = extra_config.player_color;
 }
 

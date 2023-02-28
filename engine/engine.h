@@ -66,6 +66,9 @@ typedef uint32_t angle_t;
 #define TIC_CMD_DATA	0xC0	// top two bits ON, used as mask
 #define TIC_DATA_CHECK0	0xCC	// consistancy check
 #define TIC_DATA_CHECK1	0xCD	// consistancy check
+#define TIC_DATA_CHECK2	0xCE	// consistancy check
+#define TIC_DATA_CHECK3	0xCF	// consistancy check
+#define TIC_DATA_PLAYER_INFO	0xE1	// player info
 
 //
 // tables
@@ -277,9 +280,6 @@ struct inventory_s;
 #define BT_WEAPONMASK	0b00111000
 #define BT_WEAPONSHIFT	3
 
-#define BTS_PLAYER_FLAG	64
-#define BTS_FLAG_SET	32
-
 #define BT_SPECIALMASK	0b01100011
 
 #define BT_ACT_INV_PREV	15
@@ -361,7 +361,8 @@ enum
 {
 	PST_LIVE,
 	PST_DEAD,
-	PST_REBORN
+	PST_REBORN,
+	PST_SPECTATE,
 };
 
 enum
@@ -414,7 +415,7 @@ typedef struct player_s
 	int16_t inv_sel; // current selection
 	uint16_t inv_tick; // inventory selection visible
 	uint32_t stbar_update;
-	uint32_t info_flags; // this is only temporary
+	uint32_t __unused__0;
 	uint8_t power_color[NUMPOWERS];
 	uint16_t flags;
 	int16_t airsupply;
@@ -442,6 +443,13 @@ typedef struct player_s
 	pspdef_t psprites[NUMPSPRITES];
 	uint32_t didsecret;
 } player_t;
+
+typedef struct
+{ // this is not cleared as 'player_t' is
+	uint16_t color;
+	uint8_t playerclass;
+	uint8_t flags;
+} player_info_t;
 
 //
 // video
@@ -1314,13 +1322,60 @@ typedef	struct
 
 typedef struct
 {
+	uint8_t check;
+	uint8_t game_info; // 0-2 skill; 3-4 mode; 5-6 inventory
+	uint8_t flags;
+	uint8_t respawn;
+	uint8_t map_idx;
+	uint16_t prng_idx;
+	player_info_t pi[MAXPLAYERS];
+} dc_net_key_t;
+
+typedef struct
+{
+	uint32_t version;
+	uint32_t mod_csum;
+	uint8_t key_check;
+	uint8_t node_check;
+	player_info_t pi;
+} dc_net_node_t;
+
+typedef struct
+{
 	uint32_t checksum;
 	uint8_t retransmitfrom;
 	uint8_t starttic;
 	uint8_t player;
 	uint8_t numtics;
-	ticcmd_t cmds[BACKUPTICS];
+	union
+	{
+		ticcmd_t cmds[BACKUPTICS];
+		dc_net_key_t net_key;
+		dc_net_node_t net_node;
+	};
 } doomdata_t;
+
+typedef struct
+{
+	uint32_t id; // 0x12345678
+	uint16_t intnum;
+	uint16_t command;
+	uint16_t remotenode;
+	uint16_t datalength;
+	uint16_t numnodes;
+	uint16_t ticdup;
+	uint16_t extratics;
+	uint16_t deathmatch;
+	uint16_t savegame;
+	uint16_t episode;
+	uint16_t map;
+	uint16_t skill;
+	uint16_t consoleplayer;
+	uint16_t numplayers;
+	uint16_t angleoffset;
+	uint16_t drone;
+	doomdata_t data;
+} doomcom_t;
 
 //
 // status bar
@@ -1535,6 +1590,11 @@ void zone_info();
 
 // am_map
 void AM_Stop() __attribute((regparm(2),no_caller_saved_registers));
+
+// d_net
+void D_CheckNetGame() __attribute((regparm(2),no_caller_saved_registers));
+void HSendPacket(uint32_t node, uint32_t flags) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t HGetPacket() __attribute((regparm(2),no_caller_saved_registers));
 
 // f_finale
 void F_StartCast() __attribute((regparm(2),no_caller_saved_registers));

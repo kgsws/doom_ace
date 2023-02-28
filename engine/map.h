@@ -312,6 +312,10 @@ extern uint_fast8_t map_skip_stuff;
 extern uint_fast8_t is_title_map;
 extern uint_fast8_t is_net_desync;
 
+extern uint_fast8_t survival;
+extern uint_fast8_t net_inventory;
+extern uint_fast8_t no_friendly_fire;
+
 extern uint32_t num_clusters;
 extern map_cluster_t *map_cluster;
 

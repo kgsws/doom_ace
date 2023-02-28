@@ -841,6 +841,9 @@ uint32_t PTR_AimTraverse(intercept_t* in)
 	if(th->flags2 & MF2_NOTAUTOAIMED)
 		return 1;
 
+	if(netgame && !deathmatch && shootthing->player && th->player)
+		return 1;
+
 	dist = FixedMul(attackrange, in->frac);
 	thingtopslope = FixedDiv(th->z+th->height - shootz , dist);
 

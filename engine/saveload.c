@@ -2641,7 +2641,6 @@ static inline uint32_t ld_get_players(uint32_t hub_data)
 			continue;
 
 		memset(pl, 0, sizeof(player_t));
-		pl->info_flags = player_info[idx].flags;
 
 		if(plr.state >= PST_REBORN)
 			return 1;

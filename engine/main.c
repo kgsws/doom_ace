@@ -545,7 +545,7 @@ void zone_info()
 			engine_error("ZONE", "Block size does not touch the next block.");
 	}
 
-	doom_printf("free zone: %u / %u B\n", used, left + used);
+	doom_printf("[ZONE] %u / %u B\n", used, left + used);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -753,6 +753,9 @@ void late_init()
 	// call other inits
 	stbar_init();
 	menu_init();
+
+	// network
+	D_CheckNetGame();
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

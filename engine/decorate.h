@@ -2,7 +2,7 @@
 ////
 
 #define MAX_SPRITE_NAMES	1024
-#define MAX_PLAYER_CLASSES	512
+#define MAX_PLAYER_CLASSES	200
 
 #define EXTRA_STORAGE_PTR	((void*)ptr_visplanes)
 #define EXTRA_STORAGE_SIZE	(mod_config.visplane_count * sizeof(visplane_t))

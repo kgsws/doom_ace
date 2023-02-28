@@ -933,8 +933,9 @@ uint32_t PIT_EnemySearch(mobj_t *thing)
 	if(!(thing->flags & MF_SHOOTABLE))
 		return 1;
 
-	if(thing->flags1 & MF1_ISMONSTER)
-	{
+	if(	thing->flags1 & MF1_ISMONSTER ||
+		(thing->player && deathmatch)
+	){
 		enemy_look_pick = thing;
 		return 0;
 	}
@@ -1096,7 +1097,7 @@ static uint32_t player_aim(player_t *pl, angle_t *angle, fixed_t *slope, uint32_
 	cc_player = pl;
 	cc_angle = *angle;
 
-	if(pl->info_flags & PLF_AUTO_AIM || map_level_info->flags & MAP_FLAG_NO_FREELOOK)
+	if(player_info[pl - players].flags & PLF_AUTO_AIM || map_level_info->flags & MAP_FLAG_NO_FREELOOK)
 	{
 		// autoaim enabled
 		sl = P_AimLineAttack(mo, an, AIMRANGE);
@@ -1452,7 +1453,7 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_SpecialHide(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	if(!netgame || mo->spawnpoint.options != mo->type)
+	if(mo->spawnpoint.options != mo->type || !mo->tics)
 	{
 		mobj_remove(mo);
 		return;
@@ -1461,8 +1462,6 @@ void A_SpecialHide(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	P_UnsetThingPosition(mo);
 	mo->flags |= MF_NOBLOCKMAP | MF_NOSECTOR;
 	P_SetThingPosition(mo);
-
-	mo->tics = 1050;
 }
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -1471,12 +1470,8 @@ void A_SpecialRestore(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	P_UnsetThingPosition(mo);
 
 	mo->flags = mo->info->flags;
-
-	if(mo->spawnpoint.options == mo->type)
-	{
-		mo->x = (fixed_t)mo->spawnpoint.x * FRACUNIT;
-		mo->y = (fixed_t)mo->spawnpoint.y * FRACUNIT;
-	}
+	mo->x = (fixed_t)mo->spawnpoint.x * FRACUNIT;
+	mo->y = (fixed_t)mo->spawnpoint.y * FRACUNIT;
 
 	P_SetThingPosition(mo);
 

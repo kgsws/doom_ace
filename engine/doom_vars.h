@@ -23,6 +23,15 @@ extern uint32_t french_version;
 extern int32_t myargc;
 extern uint8_t **myargv;
 
+// netgame
+extern doomcom_t *doomcom;
+extern doomdata_t *netbuffer;
+
+// events
+extern event_t events[];
+extern uint32_t eventtail;
+extern uint32_t eventhead;
+
 // game state
 extern uint32_t wipegamestate;
 extern uint32_t gametic;

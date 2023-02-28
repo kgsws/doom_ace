@@ -269,6 +269,7 @@ static const mobjinfo_t default_player =
 	.player.attack_offs = 8 << FRACBITS,
 	.player.jump_z = 8 << FRACBITS,
 	.player.view_bob = FRACUNIT,
+	.player.name = "UNNAMED",
 };
 
 // default 'PlayerChunk'
@@ -1094,7 +1095,7 @@ static const state_t internal_states[] =
 	{
 		.sprite = SPR_ICEC,
 		.frame = 0,
-		.tics = 10,
+		.tics = 0, // modified later
 		.nextstate = STATE_SPECIAL_RESTORE,
 		.acp = A_SpecialHide,
 	},
@@ -1199,6 +1200,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 	{
 		.alias = 0x1948AEED680E585B,
 		.spawnhealth = 1000,
+		.speed = 1 << FRACBITS, // used as spectator
 		.radius = 3 << FRACBITS,
 		.height = 4 << FRACBITS,
 		.mass = 5,

@@ -1141,9 +1141,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002E9A5, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// replace 'P_ChangeSwitchTexture'
 	{0x00030310, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)do_line_switch},
-	// disable animation loop in 'P_UpdateSpecials'
-	{0x0002FC72, CODE_HOOK | HOOK_JMP_DOOM, 0x0002FCDB},
-	// disable button loop in 'P_UpdateSpecials'
-	{0x0002FD12, CODE_HOOK | HOOK_JMP_DOOM, 0x0002FE06},
 };
 

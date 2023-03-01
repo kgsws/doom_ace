@@ -1327,6 +1327,7 @@ typedef struct
 	uint8_t flags;
 	uint8_t respawn;
 	uint8_t map_idx;
+	uint8_t menu_idx;
 	uint16_t prng_idx;
 	player_info_t pi[MAXPLAYERS];
 } dc_net_key_t;
@@ -1342,6 +1343,12 @@ typedef struct
 
 typedef struct
 {
+	uint16_t offset;
+	uint8_t data[];
+} dc_net_px_t;
+
+typedef struct
+{
 	uint32_t checksum;
 	uint8_t retransmitfrom;
 	uint8_t starttic;
@@ -1352,6 +1359,7 @@ typedef struct
 		ticcmd_t cmds[BACKUPTICS];
 		dc_net_key_t net_key;
 		dc_net_node_t net_node;
+		dc_net_px_t net_px;
 	};
 } doomdata_t;
 

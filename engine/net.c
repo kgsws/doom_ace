@@ -364,9 +364,9 @@ static void menu_node(net_setup_t *ns)
 		font_center_text(mx, my, net_menu[i].title, smallfont, 0);
 		my += ns->menu_yh;
 
-		if(ns->start_check)
+		if(ns->start_check != 0xFF)
 		{
-			font_color = ns->color_menu[2];
+			font_color = ns->color_menu[2 + (ns->start_check == i)];
 			switch(net_menu[i].type)
 			{
 				case TYPE_SIMPLE:
@@ -487,6 +487,7 @@ static void pkt_send(net_setup_t *ns, uint32_t stage)
 		netbuffer->net_key.game_info = ns->menu_sel[MENU_GAME_SKILL] | (ns->menu_sel[MENU_GAME_MODE] << 3) | (ns->menu_sel[MENU_INVENTORY] << 5);
 		netbuffer->net_key.respawn = ns->menu_sel[MENU_ITEM_TIME];
 		netbuffer->net_key.map_idx = ns->menu_sel[MENU_GAME_MAP];
+		netbuffer->net_key.menu_idx = ns->menu_now;
 		netbuffer->net_key.flags = ns->menu_flags;
 
 		// stage
@@ -624,15 +625,13 @@ static void pkt_recv(net_setup_t *ns, uint32_t stage)
 				continue;
 			ns->key_check[0] = netbuffer->net_key.check;
 
-			// info is valid
-			ns->start_check = 1;
-
 			// game info
 			ns->menu_sel[MENU_GAME_MAP] = netbuffer->net_key.map_idx;
 			ns->menu_sel[MENU_GAME_SKILL] = netbuffer->net_key.game_info & 7;
 			ns->menu_sel[MENU_GAME_MODE] = (netbuffer->net_key.game_info >> 3) & 3;
 			ns->menu_sel[MENU_INVENTORY] = (netbuffer->net_key.game_info >> 5) & 3;
 			ns->menu_sel[MENU_ITEM_TIME] = netbuffer->net_key.respawn;
+			ns->start_check = netbuffer->net_key.menu_idx;
 			ns->menu_flags = netbuffer->net_key.flags;
 			ns->prng_idx = netbuffer->net_key.prng_idx;
 
@@ -656,6 +655,22 @@ static void pkt_recv(net_setup_t *ns, uint32_t stage)
 				}
 				if(idx == consoleplayer)
 					ns->player_state[idx] = COLOR_PSTATE_ITSME;
+			}
+		} else
+		if(netbuffer->starttic == 'I')
+		{
+			uint8_t *ptr;
+			uint8_t len;
+
+			ptr = screen_buffer + SCREENWIDTH*SCREENHEIGHT;
+			ptr += netbuffer->net_px.offset;
+
+			len = 1 + (netbuffer->retransmitfrom & 63);
+
+			if(ptr + len < screen_buffer + SCREENWIDTH*SCREENHEIGHT*2)
+			{
+				ns->force_update = netbuffer->retransmitfrom >> 7;
+				memcpy(ptr, netbuffer->net_px.data, len);
 			}
 		}
 	}
@@ -748,7 +763,7 @@ void D_ArbitrateNetStart()
 	if(consoleplayer)
 	{
 		ns.menu_flags = 0;
-		ns.start_check = 0;
+		ns.start_check = 0xFF;
 		ns.node_check[0] = 1;
 		player_info[consoleplayer] = player_info[0];
 
@@ -842,7 +857,7 @@ void D_ArbitrateNetStart()
 						ns.menu_now--;
 						if(ns.menu_now < 0)
 							ns.menu_now = NUM_MENUS-1;
-						update |= 1;
+						update |= 3;
 					break;
 					case 0xAE: // RIGHT
 						if(consoleplayer)
@@ -850,7 +865,7 @@ void D_ArbitrateNetStart()
 						ns.menu_now++;
 						if(ns.menu_now >= NUM_MENUS)
 							ns.menu_now = 0;
-						update |= 1;
+						update |= 3;
 					break;
 					case ' ': // SPACE
 						if(	consoleplayer ||

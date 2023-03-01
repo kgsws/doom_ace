@@ -8,6 +8,7 @@
 #include "animate.h"
 #include "terrain.h"
 #include "player.h"
+#include "map.h"
 #include "think.h"
 
 thinker_t thcap;
@@ -33,7 +34,7 @@ void P_Ticker()
 	if(paused)
 		return;
 
-	if(!netgame && menuactive && !demoplayback && leveltime)
+	if(!netgame && menuactive && !is_title_map && !demoplayback && leveltime)
 		return;
 
 	// player thinkers

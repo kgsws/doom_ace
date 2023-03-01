@@ -39,6 +39,8 @@ static patch_t *selector_special;
 static uint16_t multi_old;
 static int16_t multi_pos;
 
+static uint_fast8_t epi_sel;
+
 static const uint8_t *const off_on[] = {"OFF", "ON", "FAKE"}; // fake is used in mouse look
 static const uint8_t *const weapon_mode[] = {"ORIGINAL", "CENTER", "BOUNCY"};
 
@@ -349,10 +351,20 @@ static void setup_multimenu(void *func)
 static __attribute((regparm(2),no_caller_saved_registers))
 void sel_episode(uint32_t sel)
 {
+	epi_sel = sel; // for player class menu
+
 	if(map_episode_def[sel].map_lump < 0)
 		map_lump.wame = 0xFF; // invalid name
 	else
 		strcpy(map_lump.name, lumpinfo[map_episode_def[sel].map_lump].name);
+
+	if(num_player_classes > 1)
+	{
+		setup_multimenu(playerclass_set);
+		M_SetupNextMenu(&playerclass_menu);
+		multi_old = menu_item_now;
+		return;
+	}
 
 	if(map_episode_def[sel].flags & EPI_FLAG_NO_SKILL_MENU)
 	{
@@ -367,14 +379,6 @@ void sel_episode(uint32_t sel)
 static __attribute((regparm(2),no_caller_saved_registers))
 void sel_new_game()
 {
-	if(num_player_classes > 1)
-	{
-		setup_multimenu(playerclass_set);
-		M_SetupNextMenu(&playerclass_menu);
-		multi_old = menu_item_now;
-		return;
-	}
-
 	if(map_episode_count > 1)
 	{
 		M_SetupNextMenu(&EpiDef);
@@ -865,13 +869,14 @@ void playerclass_set(uint32_t sel)
 {
 	player_info[consoleplayer].playerclass = multi_pos;
 
-	if(map_episode_count > 1)
+	if(map_episode_def[epi_sel].flags & EPI_FLAG_NO_SKILL_MENU)
 	{
-		M_SetupNextMenu(&EpiDef);
+		G_DeferedInitNew(sk_medium, 0, 0);
+		M_ClearMenus();
 		return;
 	}
 
-	sel_episode(0);
+	M_SetupNextMenu(&NewDef);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

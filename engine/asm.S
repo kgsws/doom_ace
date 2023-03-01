@@ -696,6 +696,12 @@ Z_FreeTags:
 AM_Stop:
 	.byte	0xE9
 	.4byte	0x00024F90
+////////////////////////////////// I_StartTic
+.section .text.I_StartTic
+.global I_StartTic
+I_StartTic:
+	.byte	0xE9
+	.4byte	0x0001A1B0
 ////////////////////////////////// D_CheckNetGame
 .section .text.D_CheckNetGame
 .global D_CheckNetGame

@@ -487,6 +487,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 				if(!mo->inventory)
 					return;
 				if(	net_inventory > 2 &&
+					mo->threshold >= 0 &&
 					toucher->player - players != mo->threshold
 				)
 					return;

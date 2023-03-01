@@ -10,6 +10,7 @@
 #include "decorate.h"
 #include "cheat.h"
 #include "font.h"
+#include "mobj.h"
 #include "map.h"
 #include "rng.h"
 #include "net.h"
@@ -1003,6 +1004,7 @@ void D_ArbitrateNetStart()
 			break;
 
 		I_WaitVBL(1);
+		I_StartTic();
 		utick++;
 	}
 
@@ -1049,6 +1051,7 @@ void D_ArbitrateNetStart()
 				update_screen(&ns, 1);
 
 			I_WaitVBL(1);
+			I_StartTic();
 			utick++;
 		}
 	}
@@ -1095,8 +1098,49 @@ void D_ArbitrateNetStart()
 	if(survival && net_inventory == 1)
 		net_inventory = 0;
 
+	autostart = 1;
+
 	// restore stuff
 	menuactive = 0;
+}
+
+//
+// hooks
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void player_left(uint32_t idx)
+{
+	player_t *pl;
+
+	idx &= 3;
+	pl = players + idx;
+
+	if(pl->mo)
+		mobj_damage(pl->mo, NULL, NULL, 1000000, NULL);
+
+	if(net_inventory > 1)
+	{
+		for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+		{
+			mobj_t *mo;
+
+			if(th->function != (void*)P_MobjThinker)
+				continue;
+
+			mo = (mobj_t*)th;
+
+			if(!(mo->iflags & MFI_PLAYER_DROP))
+				continue;
+
+			if(mo->threshold != idx)
+				continue;
+
+			mo->threshold = -1;
+		}
+	}
+
+	if(demorecording)
+		G_CheckDemoStatus();
 }
 
 //
@@ -1108,5 +1152,9 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001F685, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)D_ArbitrateNetStart},
 	// remove call to 'D_CheckNetGame' in 'D_DoomMain'
 	{0x0001E865, CODE_HOOK | HOOK_SET_NOPS, 5},
+	// modify disconnect behavior
+	{0x0001EFE9, CODE_HOOK | HOOK_UINT16, 0xD888},
+	{0x0001EFEB, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_left},
+	{0x0001EFF0, CODE_HOOK | HOOK_JMP_DOOM, 0x0001EF49},
 };
 

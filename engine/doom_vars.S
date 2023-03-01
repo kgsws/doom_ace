@@ -162,6 +162,7 @@ DOOM_VAR 0x0002A38C, advancedemo
 
 DOOM_VAR 0x0002A398, startskill
 DOOM_VAR 0x0002A39C, startmap
+DOOM_VAR 0x0002A3A0, autostart
 DOOM_VAR 0x0002A3A4, startepisode
 
 DOOM_VAR 0x0002A3AC, gamemode_sw

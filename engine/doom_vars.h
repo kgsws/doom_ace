@@ -51,6 +51,7 @@ extern uint32_t d_skill;
 extern uint32_t startskill;
 extern uint32_t startepisode;
 extern uint32_t startmap;
+extern uint32_t autostart;
 
 // automap
 extern uint32_t automapactive;

@@ -36,7 +36,7 @@
 #define BMP_MAGIC	0x4D42
 
 #define SAVE_MAGIC	0xB1E32A5D	// just a random number
-#define SAVE_VERSION	0xE58BAFC1	// increment with updates
+#define SAVE_VERSION	ace_git_version
 
 // doom special thinkers
 #define T_MoveCeiling	0x000263D0
@@ -148,6 +148,7 @@ typedef struct
 typedef struct
 {
 	save_title_t title;
+	uint32_t version;
 	uint32_t mod_csum;
 	uint64_t map_wame;
 	uint16_t flags;
@@ -157,21 +158,18 @@ typedef struct
 	uint32_t secret;
 	uint16_t rng;
 	uint16_t playerstart;
-	// version is last
-	uint32_t version;
 } save_info_t;
 
 typedef struct
 {
 	uint32_t magic;
+	uint32_t version;
 	uint32_t leveltime;
 	uint32_t kills;
 	uint32_t items;
 	uint32_t secret;
 	uint16_t rng;
 	uint16_t playerstart;
-	// version is last
-	uint32_t version;
 } save_level_t;
 
 //

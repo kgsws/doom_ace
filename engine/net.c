@@ -697,8 +697,7 @@ void D_ArbitrateNetStart()
 			ns.mod_csum += lumpinfo[i].same[0];
 			ns.mod_csum += lumpinfo[i].same[1];
 		}
-		// TODO
-		ns.version = 0;
+		ns.version = ace_git_version;
 	} else
 	{
 		// skip the check

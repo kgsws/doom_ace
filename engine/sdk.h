@@ -46,6 +46,7 @@ typedef union
 #define doom_open_WR(n)	doom_open(n, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666)
 
 // vars
+extern uint32_t ace_git_version;
 extern uint32_t old_game_mode;
 
 // asm.S

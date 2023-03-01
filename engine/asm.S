@@ -8,6 +8,11 @@
 // store .bss size at the top of binary
 	.4byte	_size_of_bss
 
+// store version at the top of binary
+.global ace_git_version
+ace_git_version:
+	.4byte	0x00000BAD
+
 //
 // Entry point
 // (%esp) - entry point address
@@ -15,7 +20,7 @@
 // %edi - DATA segment base
 _start:
 	// get ACE base
-	sub	$0x1004,%ecx	// compensate for VMA offset (set in linker script) and bss_size
+	sub	$0x1008,%ecx	// compensate for VMA offset (set in linker script) and start offset
 	mov	%ecx,ace_segment(%ecx)
 
 	// get CODE base

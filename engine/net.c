@@ -77,6 +77,7 @@ typedef struct
 	uint32_t menu_yf;
 	int32_t menu_now;
 	int32_t menu_sel[NUM_MENUS];
+	int32_t menu_top[2]; // class / map
 	void *color_title[2];
 	void *color_menu[4];
 	int16_t flag_x[FLAG_COUNT];
@@ -88,6 +89,7 @@ typedef struct
 	uint8_t key_check[MAXPLAYERS];
 	uint8_t force_update;
 	uint8_t start_check;
+	uint8_t map_string;
 } net_setup_t;
 
 typedef struct
@@ -186,12 +188,70 @@ static net_menu_t net_menu[] =
 //
 // network screen
 
+static void draw_map_menu(net_setup_t *ns, int32_t mx)
+{
+	map_level_t *info = map_info;
+	int32_t sel = ns->menu_sel[MENU_GAME_MAP];
+
+	if(sel > net_menu[MENU_GAME_MAP].maxsel)
+		sel = 0;
+
+	if(ns->menu_top[1] + 6 < sel)
+		ns->menu_top[1] = sel - 6;
+	else
+	if(ns->menu_top[1] > sel)
+		ns->menu_top[1] = sel;
+
+	sel = ns->menu_top[1];
+
+	for(uint32_t i = 0; i < sel; )
+	{
+		if(info->lump >= 0)
+			i++;
+		info++;
+	}
+
+	for(int32_t i = 0; i < 7; i++, sel++)
+	{
+		uint32_t idx = 0;
+		uint8_t *text;
+
+		if(sel >= net_menu[MENU_GAME_MAP].maxsel)
+			break;
+
+		if(sel == ns->menu_sel[MENU_GAME_MAP])
+		{
+			idx++;
+			if(ns->menu_now == MENU_GAME_MAP)
+				idx += 2;
+		}
+
+		font_color = ns->color_menu[idx];
+		if(!info->name || !ns->map_string)
+			text = lumpinfo[info->lump].name; // this assumes info->fd < 16777216
+		else
+			text = info->name;
+
+		font_center_text(mx, ns->menu_y0 + ns->menu_yh * (i + 1) + 5, text, smallfont, 0);
+
+		info++;
+	}
+}
+
 static void draw_class_menu(net_setup_t *ns, int32_t mx, uint32_t left)
 {
-	uint32_t sel = ns->menu_sel[MENU_PLAYER_CLASS];
+	int32_t sel = ns->menu_sel[MENU_PLAYER_CLASS];
 
 	if(sel > net_menu[MENU_PLAYER_CLASS].maxsel)
 		sel = 0;
+
+	if(ns->menu_top[0] + 6 < sel)
+		ns->menu_top[0] = sel - 6;
+	else
+	if(ns->menu_top[0] > sel)
+		ns->menu_top[0] = sel;
+
+	sel = ns->menu_top[0];
 
 	for(int32_t i = 0; i < 7; i++, sel++)
 	{
@@ -248,6 +308,9 @@ static void menu_key(net_setup_t *ns)
 					font_color = ns->color_menu[idx];
 					font_center_text(mx, ns->menu_y0 + ns->menu_yh * (i + 1) + 5, net_menu[mi].options[i], smallfont, 0);
 				}
+			break;
+			case TYPE_MAP:
+				draw_map_menu(ns, mx);
 			break;
 			case TYPE_CLASS:
 				draw_class_menu(ns, mx, 0);
@@ -308,6 +371,21 @@ static void menu_node(net_setup_t *ns)
 			{
 				case TYPE_SIMPLE:
 					text = net_menu[i].options[ns->menu_sel[i]];
+				break;
+				case TYPE_MAP:
+				{
+					map_level_t *info = map_info;
+					for(uint32_t ii = 0; ii < ns->menu_sel[MENU_GAME_MAP]; )
+					{
+						if(info->lump >= 0)
+							ii++;
+						info++;
+					}
+					if(!info->name || !ns->map_string)
+						text = lumpinfo[info->lump].name; // this assumes info->fd < 16777216
+					else
+						text = info->name;
+				}
 				break;
 				case TYPE_NUMERIC:
 					doom_sprintf(ns->text, "%u", ns->menu_sel[i]);
@@ -710,7 +788,15 @@ void D_ArbitrateNetStart()
 	ns.player_state[consoleplayer] = COLOR_PSTATE_ITSME;
 	ns.force_update = 1;
 
+	// classes
 	net_menu[MENU_PLAYER_CLASS].maxsel = num_player_classes;
+
+	// maps
+	for(uint32_t i = 0; i < num_maps; i++)
+	{
+		if(map_info[i].lump >= 0)
+			net_menu[MENU_GAME_MAP].maxsel++;
+	}
 
 	// handle initialization
 	utick = 64;
@@ -767,7 +853,14 @@ void D_ArbitrateNetStart()
 							ns.menu_now = 0;
 						update |= 1;
 					break;
-					case ' ':
+					case ' ': // SPACE
+						if(	consoleplayer ||
+							ns.menu_now == MENU_GAME_MAP
+						){
+							ns.map_string = !ns.map_string;
+							update |= 1;
+							break;
+						}
 						if(net_menu[ns.menu_now].type != TYPE_FLAGS)
 							break;
 						ns.menu_flags ^= 1 << ns.menu_sel[ns.menu_now];
@@ -969,8 +1062,17 @@ void D_ArbitrateNetStart()
 
 	states[STATE_SPECIAL_HIDE].tics = ns.menu_sel[MENU_ITEM_TIME] * 35;
 
-
-	// TODO: map
+	// map
+	{
+		map_level_t *info = map_info;
+		for(uint32_t i = 0; i < ns.menu_sel[MENU_GAME_MAP]; )
+		{
+			if(info->lump >= 0)
+				i++;
+			info++;
+		}
+		memcpy(map_lump.name, lumpinfo[info->lump].name, 8);
+	}
 
 	// checks
 	if(deathmatch)

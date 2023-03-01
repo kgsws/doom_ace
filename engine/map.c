@@ -2539,16 +2539,19 @@ static void do_autostart_game()
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 		players[i].state = PST_REBORN;
 
-	if(!old_game_mode)
+	if(!map_lump.name[0])
 	{
-		if(startmap > 9)
-			startmap = 1;
-		doom_sprintf(map_lump.name, "E%uM%u", startepisode, startmap);
-	} else
-	{
-		if(startmap > 99)
-			startmap = 1;
-		doom_sprintf(map_lump.name, "MAP%02u", startmap);
+		if(!old_game_mode)
+		{
+			if(startmap > 9)
+				startmap = 1;
+			doom_sprintf(map_lump.name, "E%uM%u", startepisode, startmap);
+		} else
+		{
+			if(startmap > 99)
+				startmap = 1;
+			doom_sprintf(map_lump.name, "MAP%02u", startmap);
+		}
 	}
 
 	gameskill = startskill;

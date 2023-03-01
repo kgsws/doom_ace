@@ -736,7 +736,7 @@ static const dec_flag_t inventory_flags[] =
 //	{"inventory.transfer", MFE_INVENTORY_TRANSFER},
 //	{"inventory.noteleportfreeze", MFE_INVENTORY_NOTELEPORTFREEZE},
 //	{"inventory.noscreenblink", MFE_INVENTORY_NOSCREENBLINK},
-	{"inventory.untossable", MFE_INVENTORY_UNTOSSABLE}, // for ZDoom compatibility, might be used later
+	{"inventory.untossable", MFE_INVENTORY_UNTOSSABLE}, // for ZDoom compatibility, also used for items that should not be netgame 'dropped'
 	// terminator
 	{NULL}
 };
@@ -1144,6 +1144,7 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
 		.flags = MF_SPECIAL,
+		.eflags = MFE_INVENTORY_UNTOSSABLE,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
 		.weapon.inventory.max_count = 1,

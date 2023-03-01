@@ -198,8 +198,10 @@ typedef struct
 #define MFI_FOLLOW_PATH	0x00000010
 #define MFI_FOLLOW_INIT	0x00000020
 #define MFI_FOLLOW_MOVE	0x00000040
+#define MFI_PLAYER_DROP	0x00000080
 
 // FLAGS extra (inventory) [shared]
+// bunch of this is not implemented
 #define MFE_INVENTORY_QUIET	0x00000001
 #define MFE_INVENTORY_IGNORESKILL	0x00000002
 #define MFE_INVENTORY_AUTOACTIVATE	0x00000004

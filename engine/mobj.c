@@ -479,6 +479,29 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 				return;
 		break;
 		case ETYPE_INV_SPECIAL:
+			// netgame inventory drop (hack)
+			if(mo->iflags & MFI_PLAYER_DROP)
+			{
+				if(!toucher->player)
+					return;
+				if(!mo->inventory)
+					return;
+				if(	net_inventory > 2 &&
+					toucher->player - players != mo->threshold
+				)
+					return;
+				// backpack
+				toucher->player->backpack |= mo->reactiontime & 1;
+				// move items
+				for(uint32_t i = 0; i < mo->inventory->numslots; i++)
+				{
+					invitem_t *item = mo->inventory->slot + i;
+					if(item->type)
+						inventory_give(toucher, item->type, item->count);
+				}
+				// update status bar
+				toucher->player->stbar_update |= STU_EVERYTHING;
+			} else
 			// special pickup type
 			if(!give_special(toucher, info))
 				// can't pickup
@@ -1054,6 +1077,77 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 		weapon_lower(mo->player);
 		if(mo->player == &players[consoleplayer] && automapactive)
 		    AM_Stop();
+
+		mo->player->extralight = 0;
+
+		if(net_inventory > 1 && mo->inventory)
+		{
+			inventory_t *inv = mo->inventory;
+			mobj_t *thing;
+			uint32_t i;
+
+			// check inventory for droppable items
+			for(i = 0; i < inv->numslots; i++)
+			{
+				invitem_t *item = inv->slot + i;
+				mobjinfo_t *info = mobjinfo + item->type;
+
+				if(!item->type)
+					continue;
+
+				if(!item->count)
+					continue;
+
+				if(info->eflags & MFE_INVENTORY_UNTOSSABLE)
+					continue;
+
+				break;
+			}
+
+			if(i < inv->numslots)
+			{
+				// spawn normal backpack
+				thing = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), 71); // MT_MISC24 (backpack)
+				thing->angle = P_Random() << 24;
+				thing->momx = FRACUNIT - (P_Random() << 9);
+				thing->momy = FRACUNIT - (P_Random() << 9);
+				thing->momz = (4 << 16) + (P_Random() << 10);
+				thing->iflags |= MFI_PLAYER_DROP;
+				thing->threshold = mo->player - players;
+				thing->reactiontime = mo->player->backpack;
+				thing->translation = mo->translation;
+
+				// move inventory pointer
+				thing->inventory = mo->inventory;
+				mo->inventory = NULL;
+				mo->player->inv_sel = -1;
+				mo->player->inv_tick = 0;
+				mo->player->backpack = 0;
+				mo->player->readyweapon = NULL;
+				mo->player->pendingweapon = NULL;
+
+				// move special items back
+				for(uint32_t i = 0; i < inv->numslots; i++)
+				{
+					invitem_t *item = inv->slot + i;
+					mobjinfo_t *info = mobjinfo + item->type;
+
+					if(info->eflags & MFE_INVENTORY_UNTOSSABLE)
+					{
+						// give
+						inventory_give(mo, item->type, item->count);
+						if(info->extra_type == ETYPE_WEAPON)
+							mo->player->readyweapon = info;
+						// clear original
+						item->type = 0;
+						item->count = 0;
+					}
+				}
+
+				// update status bar
+				mo->player->stbar_update |= STU_EVERYTHING;
+			}
+		}
 	}
 
 	// look for custom damage first
@@ -1095,9 +1189,6 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 		if(mo->tics <= 0)
 			mo->tics = 1;
 	}
-
-	if(mo->player)
-		mo->player->extralight = 0;
 
 	// spawn original drops
 	P_KillMobj(source, mo); // this function was modified

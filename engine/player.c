@@ -985,7 +985,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 //
 // level transition
 
-void player_finish(player_t *pl)
+void player_finish(player_t *pl, uint32_t strip)
 {
 	for(uint32_t i = 0; i < NUMPOWERS; i++)
 	{
@@ -1008,7 +1008,8 @@ void player_finish(player_t *pl)
 	if(pl->mo && pl->mo->inventory)
 	{
 		Z_ChangeTag2(pl->mo->inventory, PU_STATIC);
-		inventory_hubstrip(pl->mo);
+		if(strip)
+			inventory_hubstrip(pl->mo);
 		pl->inventory = pl->mo->inventory;
 		pl->mo->inventory = NULL;
 		pl->angle = pl->mo->angle;

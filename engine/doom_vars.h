@@ -192,6 +192,7 @@ extern thinker_t thinkercap;
 
 // render
 extern uint32_t r_setblocks;
+extern uint32_t r_setdetail;
 extern uint8_t *r_rdptr;
 extern uint8_t *r_fbptr;
 

@@ -2669,10 +2669,6 @@ static void do_completed()
 	if(automapactive)
 		AM_Stop();
 
-	// clean-up players
-	for(uint32_t i = 0; i < MAXPLAYERS; i++)
-		player_finish(players + i);
-
 	// check next level
 	if(map_next_levelnum)
 	{
@@ -2706,6 +2702,10 @@ static void do_completed()
 		new_cl = map_find_cluster(map_next_info->cluster);
 	else
 		new_cl = NULL;
+
+	// clean-up players
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		player_finish(players + i, !old_cl || old_cl != new_cl || !(old_cl->flags & CLST_FLAG_HUB));
 
 	// intermission
 	gamestate = GS_INTERMISSION;

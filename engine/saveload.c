@@ -2566,8 +2566,10 @@ static inline uint32_t ld_get_things(uint32_t hub_data)
 		{
 			thing.player--;
 			if(thing.player < MAXPLAYERS)
+			{
 				mo->player = players + thing.player;
-			else
+				mo->player->backpack = 1; // fake backpack for 'inventory_give'; will be overwritten later
+			} else
 				mo->player = NULL;
 		} else
 			mo->player = NULL;
@@ -2730,6 +2732,8 @@ static inline uint32_t ld_get_players(uint32_t hub_data)
 			pl->inv_sel = -1;
 
 		pl->prop = plr.prop;
+
+		pl->stbar_update = STU_EVERYTHING;
 	}
 
 	// version check

@@ -3022,6 +3022,26 @@ void hook_RenderPlayerView(player_t *pl)
 	}
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+void execute_setViewSize()
+{
+	// no lowres mode
+	r_setdetail = 0;
+	// limit screen size
+	if(r_setblocks < 10)
+	{
+		r_setblocks = 10;
+		screenblocks = 10;
+	} else
+	if(r_setblocks > 13)
+	{
+		r_setblocks = 13;
+		screenblocks = 13;
+	}
+	// call the original
+	R_ExecuteSetViewSize();
+}
+
 // expanded drawseg limit
 static hook_t hook_drawseg[] =
 {
@@ -3099,6 +3119,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// skip 'vis->colormap' in 'R_DrawPSprite'; set vis->psp
 	{0x000381B2, CODE_HOOK | HOOK_UINT32, 0x7089 | (offsetof(vissprite_t, psp) << 16)},
 	{0x000381B5, CODE_HOOK | HOOK_UINT16, 0x41EB},
+	// relace call to 'R_ExecuteSetViewSize' in 'D_Display'
+	{0x0001D1FE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)execute_setViewSize},
 	// replace 'yslope' calculation in 'R_ExecuteSetViewSize'
 	{0x00035C10, CODE_HOOK | HOOK_UINT32, 0xFFFFFFB8},
 	{0x00035C14, CODE_HOOK | HOOK_UINT16, 0xA37F},

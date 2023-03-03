@@ -1113,10 +1113,11 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 				thing->momx = FRACUNIT - (P_Random() << 9);
 				thing->momy = FRACUNIT - (P_Random() << 9);
 				thing->momz = (4 << 16) + (P_Random() << 10);
-				thing->iflags |= MFI_PLAYER_DROP;
+				thing->iflags |= MFI_PLAYER_DROP; // override function
 				thing->threshold = mo->player - players;
 				thing->reactiontime = mo->player->backpack;
-				thing->translation = mo->translation;
+				if(!(thing->flags2 & MF2_DONTTRANSLATE))
+					thing->translation = mo->translation;
 
 				// move inventory pointer
 				thing->inventory = mo->inventory;

@@ -395,6 +395,7 @@ DOOM_VAR 0x000323E0, rng_table
 DOOM_VAR 0x000343E0, scalelight
 
 DOOM_VAR 0x00038FE0, r_setblocks
+DOOM_VAR 0x00038FE4, r_setdetail
 
 DOOM_VAR 0x00038FF4, viewsin
 DOOM_VAR 0x00038FFC, fixedcolormap

@@ -346,7 +346,7 @@ static mobjinfo_t default_inventory =
 	.flags = MF_SPECIAL,
 	.inventory.count = 1,
 	.inventory.max_count = 1,
-	.inventory.hub_count = 1,
+	.inventory.hub_count = INV_MAX_COUNT,
 	.inventory.sound_pickup = 32,
 };
 

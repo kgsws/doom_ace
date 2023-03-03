@@ -34,5 +34,5 @@ void player_think(uint32_t idx);
 
 void player_chat_char(uint32_t pidx);
 
-void player_finish(player_t *pl);
+void player_finish(player_t *pl, uint32_t strip);
 

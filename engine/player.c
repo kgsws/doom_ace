@@ -34,7 +34,8 @@ typedef struct
 
 //
 
-uint_fast8_t player_flags_changed;
+uint_fast8_t player_info_changed;
+int_fast16_t player_class_change;
 
 player_info_t player_info[MAXPLAYERS];
 
@@ -885,7 +886,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 	if(hu_char_tail == hu_char_head)
 	{
 		// check for menu changes
-		if(player_flags_changed && !menuactive)
+		if(player_info_changed && !menuactive)
 		{
 			player_info_t info;
 
@@ -900,9 +901,15 @@ static void build_ticcmd(ticcmd_t *cmd)
 			if(extra_config.mouse_look)
 				info.flags |= PLF_MOUSE_LOOK;
 
+			if(player_class_change >= 0)
+			{
+				info.playerclass = player_class_change;
+				player_class_change = -1;
+			}
+
 			send_data_packet(TIC_DATA_PLAYER_INFO, &info, sizeof(player_info_t));
 
-			player_flags_changed = 0;
+			player_info_changed = 0;
 		}
 
 		// consistancy check

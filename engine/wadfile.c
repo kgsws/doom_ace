@@ -107,7 +107,8 @@ static void wad_add(uint8_t *name)
 				memset(lump, 0, size);
 		}
 
-		info->wame = lmp->wame;
+		info->wame = 0; // apparently, there are some WADs that have broken lump names
+		strncpy(info->name, lmp->name, 8);
 		info->fd = fd;
 		info->offset = lmp->offset;
 		info->size = lmp->size;
@@ -149,6 +150,7 @@ void wad_init()
 		wadfiles[0] = myargv[arg+1];
 
 	lumpinfo = ldr_malloc(1);
+	numlumps = 0;
 
 	for(uint32_t i = 0; i < MAXWADFILES && wadfiles[i]; i++)
 		wad_add(wadfiles[i]);
@@ -278,6 +280,18 @@ void *wad_cache_optional(const uint8_t *name, uint32_t *size)
 		*size = li->size;
 
 	return data;
+}
+
+void wad_hide_lump(const uint8_t *name)
+{
+	int32_t lump;
+	lumpinfo_t *li;
+
+	lump = wad_check_lump(name);
+	if(lump < 0)
+		return;
+
+	lumpinfo[lump].wame = 0;
 }
 
 void wad_handle_range(uint16_t ident, void (*cb)(lumpinfo_t*))

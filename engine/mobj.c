@@ -677,10 +677,17 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		return NULL;
 
 	pl = players + idx;
-	if(is_title_map)
-		info = mobjinfo; // default to 'DoomPlayer'
-	else
+	if(!is_title_map)
+	{
 		info = mobjinfo + player_class[player_info[idx].playerclass];
+		if(pl->cheats & CF_CHANGE_CLASS)
+		{
+			pl->cheats &= ~CF_CHANGE_CLASS;
+			pl->state = PST_REBORN;
+			reborn_inventory_hack = 0;
+		}
+	} else
+		info = mobjinfo; // default to 'DoomPlayer'
 
 	// create body
 	mo = P_SpawnMobj(x, y, 0x80000000, player_class[player_info[idx].playerclass]);
@@ -1486,8 +1493,10 @@ uint32_t pit_check_line(mobj_t *tmthing, line_t *ld)
 	if(is_safe != 3 && lowfloor < tmdropoffz)
 		tmdropoffz = lowfloor;
 
-	if(ld->special && numspechit < MAXSPECIALCROSS)
-	{
+	if(	!(tmthing->flags & MF_TELEPORT) &&
+		ld->special &&
+		numspechit < MAXSPECIALCROSS
+	){
 		spechit[numspechit] = ld;
 		numspechit++;
 	}

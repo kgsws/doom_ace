@@ -24,7 +24,8 @@ enum
 
 extern player_info_t player_info[MAXPLAYERS];
 
-extern uint_fast8_t player_flags_changed;
+extern uint_fast8_t player_info_changed;
+extern int_fast16_t player_class_change;
 
 //
 

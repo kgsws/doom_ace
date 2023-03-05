@@ -523,7 +523,7 @@ void zone_info()
 
 	for(block = mainzone->blocklist.next; ; block = block->next)
 	{
-//		doom_printf("block %p\n next %p\n prev %p\n size %u\n user %p\n", block, block->next, block->prev, block->size, block->user);
+//		doom_printf("block %p\n next %p\n prev %p\n tag %u\n size %u\n user %p\n", block, block->next, block->prev, block->tag, block->size, block->user);
 
 		if(block->user)
 			used += block->size;

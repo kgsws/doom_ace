@@ -364,20 +364,28 @@ uint32_t count_textures()
 	//
 	// check what exploit broke first
 
-	if(mod_config.enable_dehacked)
+	wad_hide_lump("PNAMES");
+	wad_hide_lump("TEXTURE1");
+	wad_hide_lump("TEXTURE2");
+
+	if(!mod_config.texture_workaround)
 	{
-		if(!strcmp(dtxt_pnames, "PNAMES"))
-			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_pnames);
-		if(!strcmp(dtxt_texture1, "TEXTURE1"))
-			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_texture1);
-		if(!strcmp(dtxt_texture2, "TEXTURE2"))
-			engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_texture2);
-	} else
-	{
-		// use hardcoded names when DEHACKED is disabled
-		strcpy(dtxt_pnames, "PATCHES");
-		strcpy(dtxt_texture1, "DOOMTEX1");
-		strcpy(dtxt_texture2, "DOOMTEX2");
+		if(mod_config.enable_dehacked)
+		{
+			// DEHACKED must provide alternative names
+			if(!strcmp(dtxt_pnames, "PNAMES"))
+				engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_pnames);
+			if(!strcmp(dtxt_texture1, "TEXTURE1"))
+				engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_texture1);
+			if(!strcmp(dtxt_texture2, "TEXTURE2"))
+				engine_error("TEXTURE", "Rename %s using DEHACKED!", dtxt_texture2);
+		} else
+		{
+			// use hardcoded names when DEHACKED is disabled
+			strcpy(dtxt_pnames, "PATCHES");
+			strcpy(dtxt_texture1, "DOOMTEX1");
+			strcpy(dtxt_texture2, "DOOMTEX2");
+		}
 	}
 
 	//

@@ -2733,6 +2733,7 @@ static inline uint32_t ld_get_players(uint32_t hub_data)
 
 		pl->prop = plr.prop;
 
+		pl->usedown = 1;
 		pl->stbar_update = STU_EVERYTHING;
 	}
 

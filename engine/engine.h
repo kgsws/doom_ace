@@ -202,6 +202,7 @@ typedef uint32_t angle_t;
 #define CF_NOMOMENTUM	4 // REMOVED
 #define CF_BUDDHA	8
 #define CF_REVENGE	16
+#define CF_CHANGE_CLASS	0x40000000
 #define CF_IS_CHEATER	0x80000000
 
 //

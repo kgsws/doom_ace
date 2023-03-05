@@ -45,6 +45,7 @@ static void cf_resurrect(player_t*,uint8_t*);
 static void cf_summon(player_t*,uint8_t*);
 static void cf_freeze(player_t*,uint8_t*);
 static void cf_thaw(player_t*,uint8_t*);
+static void cf_class(player_t*,uint8_t*);
 static void cf_revenge(player_t*,uint8_t*);
 static void cf_net_desync(player_t*,uint8_t*);
 static void cf_save_light(player_t*,uint8_t*);
@@ -68,6 +69,7 @@ static const cheat_func_t cheat_func[] =
 	{"summon", cf_summon},
 	{"freeze", cf_freeze},
 	{"thaw", cf_thaw},
+	{"class", cf_class},
 	// kg
 	{"kgRevenge", cf_revenge},
 	// dev
@@ -362,6 +364,29 @@ static void cf_freeze(player_t *pl, uint8_t *arg)
 static void cf_thaw(player_t *pl, uint8_t *arg)
 {
 	pl->prop &= ~((1 << PROP_FROZEN) | (1 << PROP_TOTALLYFROZEN));
+}
+
+static void cf_class(player_t *pl, uint8_t *arg)
+{
+	uint64_t alias;
+
+	alias = tp_hash64(arg);
+
+	for(uint32_t i = 0; i < num_player_classes; i++)
+	{
+		mobjinfo_t *info = mobjinfo + player_class[i];
+
+		if(info->alias == alias)
+		{
+			player_info_changed = 1;
+			player_class_change = i;
+			pl->cheats |= CF_CHANGE_CLASS;
+			pl->message = "Cheat activated!";
+			return;
+		}
+	}
+
+	pl->message = "Invalid player class!";
 }
 
 static void cf_revenge(player_t *pl, uint8_t *arg)

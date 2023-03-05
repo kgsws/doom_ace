@@ -62,6 +62,7 @@ mod_config_t mod_config =
 {
 	.enable_decorate = 1,
 	.enable_dehacked = 1,
+	.texture_workaround = 0,
 	.wipe_type = 255, // = use user preference
 	.menu_font_height = 255, // = use font default
 	.menu_save_empty = FCOL_DARKGRAY,
@@ -150,6 +151,7 @@ static config_entry_t config_mod[] =
 	{"render.e3dplane.count", &mod_config.e3dplane_count, TYPE_U16},
 	{"decorate.enable", &mod_config.enable_decorate, TYPE_U8},
 	{"dehacked.enable", &mod_config.enable_dehacked, TYPE_U8},
+	{"doomtex.workaround", &mod_config.texture_workaround, TYPE_U8},
 	{"display.wipe", &mod_config.wipe_type, TYPE_U8},
 	// menu
 	{"menu.font.height", &mod_config.menu_font_height, TYPE_U8},

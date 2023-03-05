@@ -9,6 +9,7 @@ typedef struct
 	uint16_t e3dplane_count;
 	uint8_t enable_decorate;
 	uint8_t enable_dehacked;
+	uint8_t texture_workaround;
 	uint8_t wipe_type;
 	// menu
 	uint8_t menu_font_height;

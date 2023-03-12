@@ -15,17 +15,25 @@ uint_fast8_t tp_is_string;
 
 uint_fast8_t tp_enable_math;
 uint_fast8_t tp_enable_script;
+uint_fast8_t tp_enable_array;
 uint_fast8_t tp_enable_newline;
 
-static uint8_t script_char[2];
-static uint8_t backup_char;
+static union
+{
+	uint8_t u8[4];
+	uint16_t u16[2];
+	uint32_t u32[1];
+} script_char;
+
+static uint16_t backup_char;
 static uint8_t *pushed_kw;
 
 //
 // funcs
 
-static uint32_t is_script_char(uint8_t in)
+static uint32_t is_script_char(uint8_t *ptr)
 {
+	uint8_t in = *ptr;
 	if(tp_enable_script)
 	{
 		if(in == '(')
@@ -36,10 +44,13 @@ static uint32_t is_script_char(uint8_t in)
 			return 1;
 		if(in == '}')
 			return 1;
-		if(in == '[')
-			return 1;
-		if(in == ']')
-			return 1;
+		if(tp_enable_array)
+		{
+			if(in == '[')
+				return 1;
+			if(in == ']')
+				return 1;
+		}
 		if(in == '#')
 			return 1;
 		if(in == ',')
@@ -49,7 +60,17 @@ static uint32_t is_script_char(uint8_t in)
 		if(in == ':')
 			return 1;
 		if(in == '|')
+		{
+			if(ptr[1] == '|')
+				return 2;
 			return 1;
+		}
+		if(in == '&')
+		{
+			if(ptr[1] == '&')
+				return 2;
+			return 1;
+		}
 	}
 	if(tp_enable_math)
 	{
@@ -62,7 +83,25 @@ static uint32_t is_script_char(uint8_t in)
 		if(in == '*')
 			return 1;
 		if(in == '=')
+		{
+			if(ptr[1] == '=')
+				return 2;
 			return 1;
+		}
+		if(in == '>')
+		{
+			if(ptr[1] == '=')
+				return 2;
+			return 1;
+		}
+		if(in == '<')
+		{
+			if(ptr[1] == '=')
+				return 2;
+			return 1;
+		}
+		if(in == '!' && ptr[1] == '=')
+			return 2;
 	}
 	return 0;
 }
@@ -123,7 +162,7 @@ uint32_t tp_hash32(const uint8_t *name)
 	return ret;
 }
 
-uint32_t tp_parse_fixed(uint8_t *text, fixed_t *value)
+uint32_t tp_parse_fixed(const uint8_t *text, fixed_t *value, uint32_t fracbits)
 {
 	fixed_t ret = 0;
 	uint_fast8_t is_negative;
@@ -155,7 +194,7 @@ uint32_t tp_parse_fixed(uint8_t *text, fixed_t *value)
 		text++;
 	}
 
-	ret <<= FRACBITS;
+	ret <<= fracbits;
 
 	// decimal part
 	if(*text == '.')
@@ -172,7 +211,7 @@ uint32_t tp_parse_fixed(uint8_t *text, fixed_t *value)
 			{
 				if(*text < '0' || *text > '9')
 					return 1;
-				num += (uint32_t)(*text - '0') << FRACBITS;
+				num += (uint32_t)(*text - '0') << fracbits;
 				num /= 10;
 				text--;
 			}
@@ -201,6 +240,7 @@ uint8_t *tp_get_keyword()
 	// This function returns whitespace-separated keywords.
 	uint8_t *ret;
 	uint8_t *ptr = tp_text_ptr;
+	uint32_t count;
 
 	if(pushed_kw)
 	{
@@ -214,8 +254,8 @@ uint8_t *tp_get_keyword()
 		backup_char = 0;
 		if(tp_enable_newline)
 		{
-			script_char[0] = '\n';
-			return script_char;
+			script_char.u16[0] = '\n';
+			return script_char.u8;
 		}
 	} else
 	if(backup_char == '"')
@@ -226,10 +266,10 @@ uint8_t *tp_get_keyword()
 	} else
 	if(backup_char)
 	{
-		// there's a script character waiting
-		script_char[0] = backup_char;
+		// restore backup
+		script_char.u16[0] = backup_char;
 		backup_char = 0;
-		return script_char;
+		return script_char.u8;
 	}
 
 	ptr = tp_text_ptr;
@@ -250,8 +290,8 @@ try_again:
 		if(*ptr == '\r' || *ptr == '\n')
 		{
 			ptr++;
-			script_char[0] = '\n';
-			return script_char;
+			script_char.u16[0] = '\n';
+			return script_char.u8;
 		}
 	} else
 	{
@@ -343,13 +383,14 @@ parse_string:
 		tp_text_ptr = ptr;
 		goto try_again;
 	} else
-	if(is_script_char(*ptr))
+	if(count = is_script_char(ptr))
 	{
 		// this is a scripting stuff
 		// return just this character
-		script_char[0] = *ptr;
-		ret = script_char;
-		ptr++;
+		ret = script_char.u8;
+		script_char.u16[0] = *ptr++;
+		if(count > 1)
+			script_char.u8[1] = *ptr++;
 	} else
 	{
 		// this is the keyword
@@ -364,12 +405,20 @@ parse_string:
 				// end of file
 				break;
 
-			if(*ptr == '"' || is_script_char(*ptr))
+			count = is_script_char(ptr);
+
+			if(*ptr == '"' || count)
 			{
 				// backup
 				backup_char = *ptr;
 				// terminate string
 				*ptr++ = 0;
+				// double-char
+				if(count > 1)
+				{
+					backup_char |= (uint16_t)*ptr << 8;
+					ptr++;
+				}
 				// stop
 				break;
 			}
@@ -492,6 +541,7 @@ void tp_load_lump(lumpinfo_t *li)
 	pushed_kw = 0;
 
 	tp_enable_script = 1;
+	tp_enable_array = 0;
 	tp_enable_math = 0;
 	tp_enable_newline = 0;
 }
@@ -521,6 +571,7 @@ uint32_t tp_load_file(const uint8_t *path)
 	pushed_kw = 0;
 
 	tp_enable_script = 1;
+	tp_enable_array = 0;
 	tp_enable_math = 0;
 	tp_enable_newline = 0;
 
@@ -538,6 +589,7 @@ void tp_use_text(uint8_t *ptr)
 	pushed_kw = 0;
 
 	tp_enable_script = 1;
+	tp_enable_array = 0;
 	tp_enable_math = 0;
 	tp_enable_newline = 0;
 }

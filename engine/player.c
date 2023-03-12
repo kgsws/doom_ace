@@ -467,7 +467,7 @@ static void player_sector_damage(player_t *pl, sector_extra_t *se)
 	else
 		damage = se->damage.amount;
 
-	damage = DAMAGE_WITH_TYPE(damage, se->damage.type & 0x7F);
+	damage |= DAMAGE_SET_TYPE(se->damage.type & 0x7F);
 	mobj_damage(pl->mo, NULL, NULL, damage, NULL);
 }
 
@@ -749,7 +749,7 @@ void player_think(uint32_t idx)
 		} else
 		if(!(leveltime & 31))
 		{
-			mobj_damage(pl->mo, NULL, NULL, DAMAGE_WITH_TYPE(-pl->mo->player->airsupply, DAMAGE_DROWN), NULL);
+			mobj_damage(pl->mo, NULL, NULL, DAMAGE_WITH_TYPE(-pl->mo->player->airsupply, DAMAGE_DROWN) | DAMAGE_SKIP_ARMOR, NULL);
 			pl->mo->player->airsupply--;
 		}
 	} else

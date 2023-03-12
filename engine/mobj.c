@@ -41,7 +41,6 @@ static uint32_t numspecbump;
 uint32_t mo_puff_type = 37;
 uint32_t mo_puff_flags;
 
-uint_fast8_t mo_dmg_skip_armor;
 uint_fast8_t reborn_inventory_hack;
 
 uint32_t mobj_netid;
@@ -1247,7 +1246,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	if(tmthing->flags & MF_SKULLFLY)
 	{
 		damage = tmthing->info->damage;
-		if(!(damage & DAMAGE_IS_CUSTOM))
+		if(!(damage & DAMAGE_IS_MATH_FUNC))
 			damage |= DAMAGE_IS_PROJECTILE;
 
 		mobj_damage(thing, tmthing, tmthing, damage, NULL);
@@ -1303,13 +1302,13 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 			tmthing->rip_tick = leveltime;
 			is_ripper = 1;
 			damage = tmthing->info->damage;
-			if(!(damage & DAMAGE_IS_CUSTOM))
+			if(!(damage & DAMAGE_IS_MATH_FUNC))
 				damage |= DAMAGE_IS_RIPPER;
 		} else
 		{
 			is_ripper = 0;
 			damage = tmthing->info->damage;
-			if(!(damage & DAMAGE_IS_CUSTOM))
+			if(!(damage & DAMAGE_IS_MATH_FUNC))
 				damage |= DAMAGE_IS_PROJECTILE;
 		}
 
@@ -1573,7 +1572,7 @@ uint32_t pit_change_sector(mobj_t *thing)
 		else
 			damage = 10;
 
-		damage = DAMAGE_WITH_TYPE(damage, DAMAGE_CRUSH);
+		damage |= DAMAGE_SET_TYPE(DAMAGE_CRUSH);
 
 		mobj_damage(thing, NULL, NULL, damage, NULL);
 
@@ -1933,6 +1932,13 @@ mobj_t *mobj_by_netid(uint32_t netid)
 __attribute((regparm(2),no_caller_saved_registers))
 void mobj_remove(mobj_t *mo)
 {
+	for(uint32_t i = 0; i < numsectors; i++)
+	{
+		sector_t *sec = sectors + i;
+		if(sec->soundtarget == mo)
+			sec->soundtarget = NULL;
+	}
+
 	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
 	{
 		mobj_t *om;
@@ -2097,22 +2103,6 @@ uint32_t mobj_check_melee_range(mobj_t *mo)
 	return 1;
 }
 
-uint32_t mobj_calc_damage(uint32_t damage)
-{
-	uint32_t lo = damage & 511;
-	uint32_t hi = (damage >> 9) & 511;
-	uint32_t add = (damage >> 18) & 511;
-	uint32_t mul = ((damage >> 27) & 15) + 1;
-
-	damage = lo;
-	if(lo != hi)
-		damage += P_Random() % ((hi - lo) + 1);
-	damage *= mul;
-	damage += add;
-
-	return damage;
-}
-
 void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t damage, mobjinfo_t *pufftype)
 {
 	// target = what is damaged
@@ -2123,6 +2113,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	uint32_t if_flags1;
 	uint_fast8_t forced;
 	uint_fast8_t damage_type;
+	uint_fast8_t skip_armor;
 
 	if(!(target->flags & MF_SHOOTABLE))
 		return;
@@ -2155,10 +2146,14 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		damage_type = DAMAGE_NORMAL;
 	}
 
-	if((damage & 0xF0000000) == DAMAGE_CUSTOM_TYPE)
+	skip_armor = !!(damage & DAMAGE_SKIP_ARMOR);
+	damage &= ~DAMAGE_SKIP_ARMOR;
+
+	if(damage & (DAMAGE_TYPE_MASK << DAMAGE_TYPE_SHIFT))
 	{
-		damage_type = (damage >> 20) & 0xFF;
-		damage &= 0x000FFFFF;
+		damage_type = (damage >> DAMAGE_TYPE_SHIFT) & DAMAGE_TYPE_MASK;
+		damage_type--;
+		damage &= ~(DAMAGE_TYPE_MASK << DAMAGE_TYPE_SHIFT);
 	}
 
 	if(target->flags2 & MF2_ICECORPSE)
@@ -2179,16 +2174,23 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	)
 		return;
 
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
-	else
 	switch(damage & DAMAGE_TYPE_CHECK)
 	{
+		case DAMAGE_IS_MATH_FUNC:
+		{
+			int32_t temp = damage & 0xFFFF;
+			temp = actarg_integer(inflictor, mobjinfo[temp].damage_func, 0, 0);
+			if(temp < 0)
+				damage = 0;
+			else
+				damage = temp;
+		}
+		break;
 		case DAMAGE_IS_PROJECTILE:
-			damage = ((P_Random() & 7) + 1) * (damage & 0x00FFFFFF);
+			damage = ((P_Random() & 7) + 1) * (damage & 0x003FFFFF);
 		break;
 		case DAMAGE_IS_RIPPER:
-			damage = ((P_Random() & 3) + 2) * (damage & 0x00FFFFFF);
+			damage = ((P_Random() & 3) + 2) * (damage & 0x003FFFFF);
 		break;
 	}
 
@@ -2273,13 +2275,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		if(target->subsector->sector->special == 11 && damage >= target->health)
 			damage = target->health - 1;
 
-		if(forced)
-		{
-			player->armortype = 0;
-			player->armorpoints = 0;
-		}
-
-		if(damage_type != DAMAGE_DROWN && player->armortype && !mo_dmg_skip_armor)
+		if(player->armortype && !forced && !skip_armor)
 		{
 			uint32_t saved;
 			saved = ((damage * mobjinfo[player->armortype].armor.percent) + 25) / 100;

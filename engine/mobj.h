@@ -1,14 +1,16 @@
 // kgsws' ACE Engine
 ////
 
-#define DAMAGE_IS_PROJECTILE	0x40000000
-#define DAMAGE_IS_RIPPER	0x60000000
-#define DAMAGE_TYPE_CHECK	0x60000000
+#define DAMAGE_IS_MATH_FUNC	0x40000000
+#define DAMAGE_IS_PROJECTILE	0x80000000
+#define DAMAGE_IS_RIPPER	0xC0000000
+#define DAMAGE_TYPE_CHECK	0xC0000000
+#define DAMAGE_SKIP_ARMOR	0x20000000
 
-#define DAMAGE_IS_CUSTOM	0x80000000
-#define DAMAGE_CUSTOM_TYPE	0x70000000
-#define DAMAGE_CUSTOM(lo,hi,mul,add)	((lo) | ((hi) << 9) | ((add) << 18) | ((mul) << 27) | DAMAGE_IS_CUSTOM)
-#define DAMAGE_WITH_TYPE(damage,type)	((damage) | ((type) << 20) | DAMAGE_CUSTOM_TYPE)
+#define DAMAGE_TYPE_SHIFT	23
+#define DAMAGE_TYPE_MASK	0x3F
+#define DAMAGE_SET_TYPE(type)	((((type) + 1) << DAMAGE_TYPE_SHIFT))
+#define DAMAGE_WITH_TYPE(dmg,type)	((dmg) | DAMAGE_SET_TYPE(type))
 
 #define TELEF_USE_Z	1
 #define TELEF_USE_ANGLE	2
@@ -22,8 +24,6 @@ extern uint32_t mobj_netid;
 
 extern uint32_t mo_puff_type;
 extern uint32_t mo_puff_flags;
-
-extern uint_fast8_t mo_dmg_skip_armor;
 
 extern uint_fast8_t reborn_inventory_hack;
 

@@ -11,6 +11,7 @@ extern uint_fast8_t tp_is_string;
 
 extern uint_fast8_t tp_enable_math;
 extern uint_fast8_t tp_enable_script;
+extern uint_fast8_t tp_enable_array;
 extern uint_fast8_t tp_enable_newline;
 
 //
@@ -34,5 +35,5 @@ uint32_t tp_skip_code_block(uint32_t depth);
 
 uint64_t tp_hash64(const uint8_t *name);
 uint32_t tp_hash32(const uint8_t *name);
-uint32_t tp_parse_fixed(uint8_t *text, fixed_t *value);
+uint32_t tp_parse_fixed(const uint8_t *text, fixed_t *value, uint32_t fracbits);
 

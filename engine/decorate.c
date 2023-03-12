@@ -22,7 +22,6 @@
 
 #include "decodoom.h"
 
-#define NUM_NEW_TYPES	(NEW_NUMMOBJTYPES - NUMMOBJTYPES)
 #define NUM_NEW_STATES	(NEW_NUMSTATES - NUMSTATES)
 
 #define NUM_STATE_HOOKS	1
@@ -166,7 +165,7 @@ typedef struct
 
 uint32_t sprite_table[MAX_SPRITE_NAMES];
 
-uint32_t num_mobj_types = NEW_NUMMOBJTYPES;
+uint32_t num_mobj_types = NEW_NUM_MOBJTYPES;
 mobjinfo_t *mobjinfo;
 
 uint32_t num_states = NEW_NUMSTATES;
@@ -1110,7 +1109,7 @@ static const state_t internal_states[] =
 };
 
 // internal types
-static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
+static const mobjinfo_t internal_mobj_info[NUM_ACE_MOBJTYPES] =
 {
 	[MOBJ_IDX_UNKNOWN - NUMMOBJTYPES] =
 	{
@@ -1219,6 +1218,20 @@ static const mobjinfo_t internal_mobj_info[NUM_NEW_TYPES] =
 		.player.view_height = 2 << FRACBITS,
 		.player.attack_offs = 2 << FRACBITS,
 	},
+};
+
+// powerup names
+static const uint64_t powerup_alias[] =
+{
+	0xEB35DAC7C0BF0946, // PowerInvulnerable
+	0x7BA5CB44F2975302, // PowerStrength
+	0x9CE9DADBA00C525A, // PowerInvisibility
+	0x51AEBF2272974F46, // PowerIronFeet
+	0, // skipped
+	0x1D289E9332974B64, // PowerLightAmp
+	0x1A249350B2977BD2, // PowerBuddha
+	0x7EB5D216880BD2C3, // PowerDoubleFiringSpeed
+	0x4A27A6C1B2977BD3, // PowerFlight
 };
 
 // powerup types
@@ -1354,14 +1367,14 @@ static const doom_invspec_t doom_invspec[] =
 static const doom_codeptr_t doom_codeptr[] =
 {
 	{(void*)0x000276C0, A_Look, NULL},
-	{(void*)0x0002D490, A_Lower, &def_LowerRaise},
-	{(void*)0x0002D4D0, A_Raise, &def_LowerRaise},
+	{(void*)0x0002D490, A_Lower, NULL},
+	{(void*)0x0002D4D0, A_Raise, NULL},
 	{(void*)0x0002D2F0, A_WeaponReady, NULL},
 	{(void*)0x0002D3F0, A_ReFire, NULL},
 	{(void*)0x0002DB40, A_Light0, NULL},
 	{(void*)0x0002DB50, A_Light1, NULL},
 	{(void*)0x0002DB60, A_Light2, NULL},
-	{(void*)0x000288D0, A_Explode, &def_Explode},
+	{(void*)0x000288D0, A_Explode, NULL},
 	{(void*)0x0002D550, wpn_codeptr, (void*)0x0002D550}, // A_Punch
 	{(void*)0x0002D600, wpn_codeptr, (void*)0x0002D600}, // A_Saw
 	{(void*)0x0002D890, A_OldBullets, (void*)1}, // A_FirePistol
@@ -1785,7 +1798,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword();
 			if(!kw)
 				return 1;
-			if(tp_parse_fixed(kw, &num.s32))
+			if(tp_parse_fixed(kw, &num.s32, FRACBITS))
 				return 1;
 			*((fixed_t*)dest) = num.s32;
 		break;
@@ -1898,7 +1911,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			if(tp_parse_fixed(kw, &num.s32))
+			if(tp_parse_fixed(kw, &num.s32, FRACBITS))
 				return 1;
 			if(num.s32 < 0)
 				num.s32 = FRACUNIT;
@@ -1925,7 +1938,7 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 			kw = tp_get_keyword();
 			if(!kw)
 				return 1;
-			if(tp_parse_fixed(kw, &num.s32))
+			if(tp_parse_fixed(kw, &num.s32, FRACBITS))
 				return 1;
 			if(num.s32 < 0)
 				num.s32 = 0;
@@ -2205,7 +2218,7 @@ static uint32_t parse_args()
 
 static uint32_t parse_damage()
 {
-	uint32_t lo, hi, mul, add;
+	uint32_t temp;
 	uint8_t *kw;
 
 	tp_enable_math = 1;
@@ -2217,131 +2230,18 @@ static uint32_t parse_damage()
 	if(kw[0] != '(')
 	{
 		// just original RNG value
-		if(doom_sscanf(kw, "%u", &add) != 1 || add > 0x7FFFFFFF)
+		if(doom_sscanf(kw, "%u", &temp) != 1 || temp > 2000000)
 			return 1;
-		parse_mobj_info->damage = add;
+
+		parse_mobj_info->damage = temp;
 
 		return 0;
 	}
 
-	lo = 0;
-	hi = 0;
-	mul = 0;
-	add = 0;
+	parse_mobj_info->damage_func = act_handle_arg(-1);
+	parse_mobj_info->damage = DAMAGE_IS_MATH_FUNC | (parse_mobj_info - mobjinfo);
 
-	kw = tp_get_keyword_lc();
-	if(!kw)
-		return 1;
-
-	if(!strcmp(kw, "random"))
-	{
-		// function entry
-		kw = tp_get_keyword();
-		if(!kw)
-			return 1;
-		if(kw[0] != '(')
-			return 1;
-
-		// low
-		kw = tp_get_keyword();
-		if(!kw)
-			return 1;
-
-		if(doom_sscanf(kw, "%u", &lo) != 1 || lo > 511)
-			return 1;
-
-		// comma
-		kw = tp_get_keyword();
-		if(!kw)
-			return 1;
-		if(kw[0] != ',')
-			return 1;
-
-		// high
-		kw = tp_get_keyword();
-		if(!kw)
-			return 1;
-
-		if(doom_sscanf(kw, "%u", &hi) != 1 || hi > 511)
-			return 1;
-
-		// function end
-		kw = tp_get_keyword();
-		if(!kw)
-			return 1;
-		if(kw[0] != ')')
-			return 1;
-
-		// check range
-		if(lo > hi)
-			return 1;
-		if(hi - lo > 255)
-			return 1;
-
-		// next
-		kw = tp_get_keyword();
-		if(!kw)
-			return 1;
-
-		if(kw[0] == '*')
-		{
-			// multiply
-			kw = tp_get_keyword();
-			if(!kw)
-				return 1;
-
-			if(doom_sscanf(kw, "%u", &mul) != 1 || !mul || mul > 16)
-				return 1;
-
-			mul--;
-
-			// next
-			kw = tp_get_keyword();
-			if(!kw)
-				return 1;
-		}
-
-		if(kw[0] == '+')
-		{
-			// add
-			kw = tp_get_keyword();
-			if(!kw)
-				return 1;
-
-			if(doom_sscanf(kw, "%u", &add) != 1 || add > 511)
-				return 1;
-
-			// next
-			kw = tp_get_keyword();
-			if(!kw)
-				return 1;
-		}
-	} else
-	{
-		// direct value
-		if(doom_sscanf(kw, "%u", &add) != 1 || add > 8687)
-			return 1;
-
-		if(add > 511)
-		{
-			// split
-			lo = (add - 496) / 16;
-			hi = lo;
-			add -= lo * 16;
-			mul = 15;
-		}
-
-		// next
-		kw = tp_get_keyword();
-		if(!kw)
-			return 1;
-	}
-
-	// terminator
-	if(kw[0] != ')')
-		return 1;
-
-	parse_mobj_info->damage = DAMAGE_CUSTOM(lo, hi, mul, add);
+	return 0;
 }
 
 static uint32_t parse_player_sounds()
@@ -2950,6 +2850,8 @@ static void cb_count_actors(lumpinfo_t *li)
 		// add new type
 		idx = num_mobj_types;
 		num_mobj_types++;
+		if(num_states >= 0x8000) // 0x8000 is limitation of action parser
+			engine_error("DECORATE", "So. Many. Actors.");
 		mobjinfo = ldr_realloc(mobjinfo, num_mobj_types * sizeof(mobjinfo_t));
 		mobjinfo[idx].alias = alias;
 	}
@@ -3352,7 +3254,7 @@ void init_decorate()
 	spr_add_name(0x43454349); // 'ICEC'
 
 	// mobjinfo
-	mobjinfo = ldr_malloc((NUMMOBJTYPES + NUM_NEW_TYPES) * sizeof(mobjinfo_t));
+	mobjinfo = ldr_malloc(NEW_NUM_MOBJTYPES * sizeof(mobjinfo_t));
 
 	// copy original stuff
 	for(uint32_t i = 0; i < NUMMOBJTYPES; i++)
@@ -3421,6 +3323,17 @@ void init_decorate()
 
 	// copy internal stuff
 	memcpy(mobjinfo + NUMMOBJTYPES, internal_mobj_info, sizeof(internal_mobj_info));
+
+	// generate powerups
+	for(uint32_t i = 0, ii = 0; i < NUM_MOBJTYPE_POWERS; i++)
+	{
+		mobjinfo_t *info = mobjinfo + MOBJ_IDX_POWER_INVULN + i;
+
+		memcpy(info, &default_mobj, sizeof(mobjinfo_t));
+		info->alias = powerup_alias[ii++];
+		if(!powerup_alias[ii])
+			ii++;
+	}
 
 	// player stuff
 	mobjinfo[0].flags |= MF_SLIDE;
@@ -3534,7 +3447,7 @@ void init_decorate()
 			if(doom_codeptr[j].codeptr + doom_code_segment == states[i].action)
 			{
 				states[i].action = doom_codeptr[j].func;
-				states[i].arg = doom_codeptr[j].arg;
+				states[i].arg = (void*)doom_codeptr[j].arg;
 			}
 		}
 	}
@@ -3566,7 +3479,7 @@ void init_decorate()
 	for(uint32_t i = 0; i < num_states; i++)
 		states[i].arg = dec_reloc_es(es_ptr, (void*)states[i].arg);
 
-	for(uint32_t idx = NUMMOBJTYPES + NUM_NEW_TYPES; idx < num_mobj_types; idx++)
+	for(uint32_t idx = NEW_NUM_MOBJTYPES; idx < num_mobj_types; idx++)
 	{
 		mobjinfo_t *info = mobjinfo + idx;
 
@@ -3577,6 +3490,9 @@ void init_decorate()
 		// drop item list / start inventory list
 		info->extra_stuff[0] = dec_reloc_es(es_ptr, info->extra_stuff[0]);
 		info->extra_stuff[1] = dec_reloc_es(es_ptr, info->extra_stuff[1]);
+
+		// damage function
+		info->damage_func = dec_reloc_es(es_ptr, info->damage_func);
 
 		// PlayerPawn
 		if(info->extra_type == ETYPE_PLAYERPAWN)

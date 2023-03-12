@@ -25,69 +25,162 @@
 #include "config.h"
 #include "textpars.h"
 
-#define MAKE_FLAG(x)	{.name = #x, .bits = x}
+#include "act_const.h"
+
+#define MAKE_CONST(x)	{.name = #x, .value = (x)}
+
+#define MATHFRAC	11 // signed 21.11
+
+#define ARG_OFFS_MASK	0x07FF
+#define ARG_MAGIC_MASK	0x7FFF
+#define ARG_TYPE_MASK	0xF800
+#define ARG_DEF_MAGIC	0x8000 // processed string
+#define ARG_DEF_VALUE	0x0000 // this is MATH_VALUE << 11
+#define ARG_DEF_RANDOM	0x0800 // this is MATH_RANDOM << 11
+#define ARG_DEF_MATH	0x7000
+#define ARG_DEF_VAR	0x7800
+
+#define MAX_STR_ARG	3 // currently 3 string arguments is max
+
+#define STRARG(a,t)	(((a) << 4) | (t))
 
 enum
 {
-	AAPTR_DEFAULT,
-	AAPTR_TARGET,
-	AAPTR_TRACER,
-	AAPTR_MASTER,
-	AAPTR_PLAYER1,
-	AAPTR_PLAYER2,
-	AAPTR_PLAYER3,
-	AAPTR_PLAYER4,
-	AAPTR_NULL,
+	AT_U8,
+	AT_U16,
+	AT_S32,
+	AT_FIXED,
+	AT_ANGLE,
+	AT_ALPHA,
+};
+
+enum
+{
+	// 0b00xxxxxx // operators
+	MATH_LOR,
+	MATH_LAND,
+
+	MATH_OR,
+	MATH_XOR,
+	MATH_AND,
+
+	MATH_LESS,
+	MATH_LEQ,
+	MATH_GREAT,
+	MATH_GEQ,
+
+	MATH_EQ,
+	MATH_NEQ,
+
+	MATH_ADD,
+	MATH_SUB,
+
+	MATH_MUL,
+	MATH_DIV,
+
+	MATH_NEG,
+
+	MATH_TERMINATOR, // fake
+
+	// unrecognized
+	MATH_INVALID = 0x6F,
+
+	// check for number is 'type >= MATH_VALUE'
+
+	MATH_VALUE = 0x70,
+	MATH_RANDOM,
+
+	// 0b1xxxxxxx // variables
+	// variable index is 'type & MATH_VAR_MASK'
+
+	MATH_VARIABLE = 0x80,
+	MATH_VAR_MASK = 0x7F
+};
+
+enum
+{
+	STR_NONE,
+	STR_NORMAL,
+	STR_STATE,
 	//
-	NUM_AAPTRS
+	STR_MOBJ_TYPE,
+	STR_MOBJ_FLAG,
+	STR_DAMAGE_TYPE,
+	STR_TRANSLATION,
+	STR_SOUND,
+	STR_LUMP,
 };
 
 typedef struct
 {
-	const uint8_t *name;
-	uint32_t bits;
-} dec_arg_flag_t;
-
-typedef struct dec_arg_s
-{
-	uint8_t *(*handler)(uint8_t*,const struct dec_arg_s*);
-	uint16_t offset;
-	uint16_t optional;
-	union
-	{
-		const dec_arg_flag_t *flags;
-		uint8_t *string;
-		uint32_t extra;
-	};
-} dec_arg_t;
+	uint32_t value;
+	uint8_t text[];
+} act_str_t;
 
 typedef struct
 {
-	uint32_t size;
-	const void *def;
-	dec_arg_t arg[];
-} dec_args_t;
+	uint32_t next;
+	uint16_t extra;
+} act_state_t;
+
+typedef struct
+{
+	uint32_t bits;
+	uint16_t offset;
+} act_moflag_t;
+
+typedef struct
+{
+	uint8_t buff[128];
+	uint8_t *ptr;
+	uint32_t count;
+} math_stack_t;
+
+typedef struct
+{
+	uint8_t *name;
+	uint16_t offset;
+	uint8_t type;
+	uint8_t source;
+} math_var_t;
+
+typedef struct
+{
+	uint8_t *name;
+	int32_t value;
+} math_con_t;
+
+typedef struct
+{
+	uint16_t count;
+	uint16_t offs_type;
+} act_arg_t;
 
 typedef struct
 {
 	const uint8_t *name;
 	void *func;
-	const dec_args_t *args;
-//	void (*check)(const void*);
+	uint8_t maxarg;
+	int8_t minarg;
+	uint8_t strarg[MAX_STR_ARG];
 } dec_action_t;
 
 typedef struct
 {
 	uint8_t special; // so far u8 is enough but ZDoom has types > 255
-	uint64_t alias;
+	uint32_t alias;
 } __attribute__((packed)) dec_linespec_t; // 'packed' for DOS use only
 
 //
 
-static const uint8_t *action_name;
-
 void *parse_action_func;
 void *parse_action_arg;
+
+static const uint8_t *action_name;
+static const dec_action_t *action_parsed;
+
+static int_fast8_t parse_arg_idx;
+static int32_t parse_math_res;
 
 uint32_t act_cc_tick;
 
@@ -102,18 +195,167 @@ static mobj_t *enemy_looker;
 static const dec_action_t mobj_action[];
 static const dec_linespec_t special_action[];
 
-// pointers
-static const uint8_t *pointer_name[NUM_AAPTRS] =
+// line special action
+static void A_LineSpecial(mobj_t *mo, state_t *st, stfunc_t stfunc) __attribute((regparm(2),no_caller_saved_registers));
+static const dec_action_t line_action =
 {
-	[AAPTR_DEFAULT] = "aaptr_default",
-	[AAPTR_TARGET] = "aaptr_target",
-	[AAPTR_TRACER] = "aaptr_tracer",
-	[AAPTR_MASTER] = "aaptr_master",
-	[AAPTR_NULL] = "aaptr_null",
-	[AAPTR_PLAYER1] = "aaptr_player1",
-	[AAPTR_PLAYER2] = "aaptr_player2",
-	[AAPTR_PLAYER3] = "aaptr_player3",
-	[AAPTR_PLAYER4] = "aaptr_player4",
+	.func = A_LineSpecial,
+	.maxarg = 5, // 5 args
+	.minarg = 0, // this is different than in ZDoom
+};
+
+static uint8_t math_op[] =
+{
+	[MATH_LOR] = 1,
+	[MATH_LAND] = 2,
+	[MATH_OR] = 3,
+	[MATH_XOR] = 4,
+	[MATH_AND] = 5,
+	[MATH_EQ] = 6,
+	[MATH_NEQ] = 6,
+	[MATH_LESS] = 7,
+	[MATH_LEQ] = 7,
+	[MATH_GREAT] = 7,
+	[MATH_GEQ] = 7,
+	[MATH_ADD] = 8,
+	[MATH_SUB] = 8,
+	[MATH_MUL] = 9,
+	[MATH_DIV] = 9,
+	[MATH_NEG] = 100,
+	// terminator has to force calculation of stack contents
+	// lowest priority is required
+	[MATH_TERMINATOR] = 0
+};
+
+static const math_var_t math_variable[] =
+{
+	{"X", offsetof(mobj_t, x), AT_FIXED},
+	{"Y", offsetof(mobj_t, y), AT_FIXED},
+	{"Z", offsetof(mobj_t, z), AT_FIXED},
+	{"ANGLE", offsetof(mobj_t, angle), AT_ANGLE},
+	{"CEILINGZ", offsetof(mobj_t, ceilingz), AT_FIXED},
+	{"FLOORZ", offsetof(mobj_t, floorz), AT_FIXED},
+	{"PITCH", offsetof(mobj_t, pitch), AT_ANGLE},
+	{"VELX", offsetof(mobj_t, momx), AT_FIXED},
+	{"VELY", offsetof(mobj_t, momy), AT_FIXED},
+	{"VELZ", offsetof(mobj_t, momz), AT_FIXED},
+	{"ALPHA", offsetof(mobj_t, render_alpha), AT_ALPHA},
+	{"ARGS[0]", offsetof(mobj_t, special.arg[0]), AT_U8},
+	{"ARGS[1]", offsetof(mobj_t, special.arg[1]), AT_U8},
+	{"ARGS[2]", offsetof(mobj_t, special.arg[2]), AT_U8},
+	{"ARGS[3]", offsetof(mobj_t, special.arg[3]), AT_U8},
+	{"ARGS[4]", offsetof(mobj_t, special.arg[4]), AT_U8},
+	{"HEALTH", offsetof(mobj_t, health), AT_S32},
+	{"HEIGHT", offsetof(mobj_t, height), AT_FIXED},
+	{"RADIUS", offsetof(mobj_t, radius), AT_FIXED},
+	{"REACTIONTIME", offsetof(mobj_t, reactiontime), AT_S32},
+	{"SCALEX", offsetof(mobj_t, scale), AT_FIXED},
+	{"SCALEY", offsetof(mobj_t, scale), AT_FIXED},
+	{"SPECIAL", offsetof(mobj_t, special.special), AT_U8},
+	{"TID", offsetof(mobj_t, special.tid), AT_U16},
+	{"THRESHOLD", offsetof(mobj_t, threshold), AT_S32},
+	{"WATERLEVEL", offsetof(mobj_t, waterlevel), AT_U8},
+	//
+	{"MASS", offsetof(mobjinfo_t, mass), AT_FIXED, 1},
+	{"SPEED", offsetof(mobjinfo_t, speed), AT_FIXED, 1},
+	// terminator
+	{NULL}
+};
+
+static const math_con_t math_constant[] =
+{
+	{"TRUE", 1},
+	{"FALSE", 0},
+	{"STYLE_NORMAL", RS_NORMAL},
+	{"STYLE_FUZZY", RS_FUZZ},
+	{"STYLE_SHADOW", RS_SHADOW},
+	{"STYLE_TRANSLUCENT", RS_TRANSLUCENT},
+	{"STYLE_ADD", RS_ADDITIVE},
+	{"STYLE_NONE", RS_INVISIBLE},
+	MAKE_CONST(GFF_NOEXTCHANGE),
+	MAKE_CONST(CHAN_BODY),
+	MAKE_CONST(CHAN_WEAPON),
+	MAKE_CONST(CHAN_VOICE),
+	MAKE_CONST(ATTN_NORM),
+	MAKE_CONST(ATTN_NONE),
+	MAKE_CONST(VAF_DMGTYPEAPPLYTODIRECT),
+	MAKE_CONST(WRF_NOBOB),
+	MAKE_CONST(WRF_NOFIRE),
+	MAKE_CONST(WRF_NOSWITCH),
+	MAKE_CONST(WRF_DISABLESWITCH),
+	MAKE_CONST(WRF_NOPRIMARY),
+	MAKE_CONST(WRF_NOSECONDARY),
+	MAKE_CONST(CMF_AIMOFFSET),
+	MAKE_CONST(CMF_AIMDIRECTION),
+	MAKE_CONST(CMF_TRACKOWNER),
+	MAKE_CONST(CMF_CHECKTARGETDEAD),
+	MAKE_CONST(CMF_ABSOLUTEPITCH),
+	MAKE_CONST(CMF_OFFSETPITCH),
+	MAKE_CONST(CMF_SAVEPITCH),
+	MAKE_CONST(CMF_ABSOLUTEANGLE),
+	MAKE_CONST(FPF_AIMATANGLE),
+	MAKE_CONST(FPF_TRANSFERTRANSLATION),
+	MAKE_CONST(FPF_NOAUTOAIM),
+	MAKE_CONST(FBF_USEAMMO),
+	MAKE_CONST(FBF_NOFLASH),
+	MAKE_CONST(FBF_NORANDOM),
+	MAKE_CONST(FBF_NORANDOMPUFFZ),
+	MAKE_CONST(CBAF_AIMFACING),
+	MAKE_CONST(CBAF_NORANDOM),
+	MAKE_CONST(CBAF_NORANDOMPUFFZ),
+	MAKE_CONST(CPF_USEAMMO),
+	MAKE_CONST(CPF_PULLIN),
+	MAKE_CONST(CPF_NORANDOMPUFFZ),
+	MAKE_CONST(CPF_NOTURN),
+	MAKE_CONST(SMF_LOOK),
+	MAKE_CONST(SMF_PRECISE),
+	MAKE_CONST(SXF_TRANSFERTRANSLATION),
+	MAKE_CONST(SXF_ABSOLUTEPOSITION),
+	MAKE_CONST(SXF_ABSOLUTEANGLE),
+	MAKE_CONST(SXF_ABSOLUTEVELOCITY),
+	MAKE_CONST(SXF_SETMASTER),
+	MAKE_CONST(SXF_NOCHECKPOSITION),
+	MAKE_CONST(SXF_TELEFRAG),
+	MAKE_CONST(SXF_TRANSFERAMBUSHFLAG),
+	MAKE_CONST(SXF_TRANSFERPITCH),
+	MAKE_CONST(SXF_TRANSFERPOINTERS),
+	MAKE_CONST(SXF_USEBLOODCOLOR),
+	MAKE_CONST(SXF_CLEARCALLERTID),
+	MAKE_CONST(SXF_SETTARGET),
+	MAKE_CONST(SXF_SETTRACER),
+	MAKE_CONST(SXF_NOPOINTERS),
+	MAKE_CONST(SXF_ORIGINATOR),
+	MAKE_CONST(SXF_ISTARGET),
+	MAKE_CONST(SXF_ISMASTER),
+	MAKE_CONST(SXF_ISTRACER),
+	MAKE_CONST(SXF_MULTIPLYSPEED),
+	MAKE_CONST(CVF_RELATIVE),
+	MAKE_CONST(CVF_REPLACE),
+	MAKE_CONST(WARPF_ABSOLUTEOFFSET),
+	MAKE_CONST(WARPF_ABSOLUTEANGLE),
+	MAKE_CONST(WARPF_ABSOLUTEPOSITION),
+	MAKE_CONST(WARPF_USECALLERANGLE),
+	MAKE_CONST(WARPF_NOCHECKPOSITION),
+	MAKE_CONST(WARPF_STOP),
+	MAKE_CONST(WARPF_MOVEPTR),
+	MAKE_CONST(WARPF_COPYVELOCITY),
+	MAKE_CONST(WARPF_COPYPITCH),
+	MAKE_CONST(XF_HURTSOURCE),
+	MAKE_CONST(XF_NOTMISSILE),
+	MAKE_CONST(XF_THRUSTZ),
+	MAKE_CONST(XF_NOSPLASH),
+	MAKE_CONST(PTROP_NOSAFEGUARDS),
+	MAKE_CONST(AAPTR_DEFAULT),
+	MAKE_CONST(AAPTR_TARGET),
+	MAKE_CONST(AAPTR_TRACER),
+	MAKE_CONST(AAPTR_MASTER),
+	MAKE_CONST(AAPTR_PLAYER1),
+	MAKE_CONST(AAPTR_PLAYER2),
+	MAKE_CONST(AAPTR_PLAYER3),
+	MAKE_CONST(AAPTR_PLAYER4),
+	MAKE_CONST(AAPTR_NULL),
+	// terminator
+	{NULL}
 };
 
 //
@@ -131,9 +373,401 @@ const dec_flag_t *find_mobj_flag(uint8_t *name, const dec_flag_t *flag)
 	return NULL;
 }
 
-mobj_t *resolve_ptr(mobj_t *mo, uint32_t ptr)
+//
+// math handling
+
+static void stack_push(math_stack_t *ms, uint32_t type, int32_t value)
 {
-	switch(ptr)
+	if(ms->ptr >= ms->buff + sizeof(ms->buff))
+		engine_error("DECORATE", "Stack overflow in equation!");
+
+#if 0
+	if(type >= MATH_VALUE && !(type & MATH_VARIABLE))
+		doom_printf(" push[%u] value %d\n", ms->count, value);
+	else
+		doom_printf(" push[%u] operator %u\n", ms->count, type);
+#endif
+
+	if(type >= MATH_VALUE && !(type & MATH_VARIABLE))
+	{
+		if(ms->ptr + 4 >= ms->buff + sizeof(ms->buff))
+			engine_error("DECORATE", "Stack overflow in equation!");
+		// add value first
+		*((int32_t*)ms->ptr) = value;
+		ms->ptr += sizeof(int32_t);
+	}
+
+	// add type
+	*ms->ptr++ = type;
+
+	// update counter
+	ms->count++;
+}
+
+static uint32_t stack_pop(math_stack_t *ms, int32_t *value)
+{
+	// TODO: check underflow?
+	uint32_t type;
+
+	// read type
+	type = *--ms->ptr;
+
+	if(type >= MATH_VALUE && !(type & MATH_VARIABLE))
+	{
+		// also read value
+		ms->ptr -= sizeof(int32_t);
+		*value = *((int32_t*)ms->ptr);
+	}
+
+	// update counter
+	ms->count--;
+
+#if 0
+	if(type >= MATH_VALUE && !(type & MATH_VARIABLE))
+		doom_printf(" pop[%u] value %d\n", ms->count, *value);
+	else
+		doom_printf(" pop[%u] operator %u\n", ms->count, type);
+#endif
+
+	// done
+	return type;
+}
+
+static int32_t calculate_value(int32_t v0, int32_t v1, uint32_t op)
+{
+//	doom_printf("math: %d and %d; op %u\n", v0, v1, op);
+
+	switch(op)
+	{
+		case MATH_LOR:
+			return v0 || v1;
+		case MATH_LAND:
+			return v0 && v1;
+		case MATH_OR:
+			return v0 | v1;
+		case MATH_XOR:
+			return v0 ^ v1;
+		case MATH_AND:
+			return v0 & v1;
+		case MATH_LESS:
+			return v0 < v1;
+		case MATH_LEQ:
+			return v0 <= v1;
+		case MATH_GREAT:
+			return v0 > v1;
+		case MATH_GEQ:
+			return v0 >= v1;
+		case MATH_EQ:
+			return v0 == v1;
+		case MATH_NEQ:
+			return v0 != v1;
+		case MATH_ADD:
+			return v0 + v1;
+		case MATH_SUB:
+		case MATH_NEG:
+			return v0 - v1;
+		case MATH_MUL:
+			return ((int64_t)v0 * (int64_t)v1) >> MATHFRAC;
+		case MATH_DIV:
+//			return ((int64_t)v0 << MATHFRAC) / v1;
+		{
+			union
+			{
+				int64_t w;
+				struct
+				{
+					uint32_t a, b;
+				};
+			} num;
+			int32_t res;
+
+			num.w = v0;
+			num.w <<= MATHFRAC;
+
+			if(abs(v1) <= abs(num.w >> 31))
+				return (v1 ^ v0) & 0x80000000 ? 0x80000000 : 0x7FFFFFFF;
+
+			asm(	"idiv %%ecx"
+				: "=a" (res)
+				: "a" (num.a), "d" (num.b), "c" (v1)
+				: "cc");
+
+			return res;
+		}
+	}
+
+	return 0;
+}
+
+static int32_t resolve_type(mobj_t *mo, uint32_t type, uint32_t value)
+{
+	const math_var_t *var;
+	union
+	{
+		void *ptr;
+		uint8_t *u8;
+		uint16_t *u16;
+		int32_t *s32;
+		fixed_t *fixed;
+		angle_t *angle;
+	} base;
+
+	if(!mo)
+	{
+		// this is preprocessing stage
+		if(parse_math_res != MATH_INVALID)
+		{
+			if(type & MATH_VARIABLE)
+			{
+				parse_math_res = type;
+				return 1;
+			} else
+			if(type == MATH_RANDOM)
+			{
+				parse_math_res = MATH_RANDOM;
+				// value contains random range
+				// this must be returned
+				return value;
+			}
+		}
+		// return something
+		return 1;
+	}
+
+	if(type == MATH_RANDOM)
+	{
+		uint32_t diff, rng;
+		uint32_t v0, v1;
+
+		v1 = value & 0xFFFF;
+		v0 = (value >> 16) & 0xFFFF;
+
+		if(v0 == v1)
+			return v0;
+
+		if(v0 > v1)
+		{
+			diff = v0;
+			v0 = v1;
+			v1 = diff;
+		}
+
+		diff = v1 - v0;
+
+		rng = P_Random();
+		if(diff > 255)
+			rng = P_Random() << 8;
+
+		v0 += rng % diff;
+
+		return v0 << MATHFRAC;
+	}
+
+	type &= MATH_VAR_MASK;
+
+	var = math_variable + type;
+
+	if(var->source)
+		base.ptr = mo->info;
+	else
+		base.ptr = mo;
+
+	base.ptr += var->offset;
+
+	switch(var->type)
+	{
+		case AT_U8:
+			return *base.u8 << MATHFRAC;
+		case AT_U16:
+			return *base.u16 << MATHFRAC;
+		case AT_S32:
+			return *base.s32 << MATHFRAC;
+		case AT_FIXED:
+			return *base.fixed >> (FRACBITS - MATHFRAC);
+		case AT_ANGLE:
+			return *base.angle / 5826;
+		case AT_ALPHA:
+		{
+			fixed_t tmp = *base.u8 * 257;
+			if(tmp == 0xFFFF)
+				return FRACUNIT;
+			return tmp;
+		}
+	}
+
+	return 0;
+}
+
+static int32_t math_calculate(mobj_t *mo, uint8_t *buff, uint32_t size)
+{
+	math_stack_t stack;
+	uint8_t *end = buff + size;
+
+	stack.ptr = stack.buff;
+	stack.count = 0;
+
+	while(1)
+	{
+		uint32_t type;
+		int32_t value;
+
+		if(buff < end)
+		{
+			type = *buff++;
+			if(type >= MATH_VALUE && !(type & MATH_VARIABLE))
+			{
+				value = *((int32_t*)buff);
+				buff += sizeof(int32_t);
+			}
+		} else
+			// terminate the equation
+			type = MATH_TERMINATOR;
+
+//		doom_printf("arg type %u value %d\n", type, value);
+
+		if(type < MATH_VALUE)
+		{
+			// math operator
+			if(stack.count >= 3)
+			{
+				uint32_t last_type[3];
+				int32_t last_value[3];
+				uint8_t *sp = stack.ptr;
+
+				// this should be value
+				last_type[0] = stack_pop(&stack, last_value + 0);
+				if(last_type[0] < MATH_VALUE)
+					goto math_fail;
+
+				// this should be operator
+				last_type[1] = stack_pop(&stack, last_value + 1);
+				if(last_type[1] >= MATH_VALUE)
+					goto math_fail;
+
+				// check priority
+				if(math_op[last_type[1]] >= math_op[type])
+				{
+					// higher or same priority; process now
+
+					// this should be value
+					last_type[2] = stack_pop(&stack, last_value + 2);
+					if(last_type[2] < MATH_VALUE)
+						goto math_fail;
+
+					// process variables
+					if(last_type[2] != MATH_VALUE)
+						last_value[2] = resolve_type(mo, last_type[2], last_value[2]);
+					if(last_type[0] != MATH_VALUE)
+						last_value[0] = resolve_type(mo, last_type[0], last_value[0]);
+
+					// for preprocessing stage
+					if(!mo && last_type[2] != MATH_VALUE || last_type[0] != MATH_VALUE)
+						// it's no longer possible to avoid math equation
+						parse_math_res = MATH_INVALID;
+
+					// do the operation
+					value = calculate_value(last_value[2], last_value[0], last_type[1]);
+
+					// push the result
+					stack_push(&stack, MATH_VALUE, value);
+				} else
+				{
+					// lower priority; push back
+					stack.ptr = sp;
+					stack.count += 2;
+				}
+			}
+
+			// teminator?
+			if(type == MATH_TERMINATOR)
+			{
+				if(stack.count <= 1)
+					break;
+				continue;
+			}
+		}
+
+		// push value or operator
+		stack_push(&stack, type, value);
+	}
+
+	if(stack.count == 1)
+	{
+		uint32_t last_type;
+		int32_t last_value;
+
+		// this should be value
+		last_type = stack_pop(&stack, &last_value);
+		if(last_type < MATH_VALUE)
+			goto math_fail;
+
+		// process variables
+		if(last_type != MATH_VALUE)
+			last_value = resolve_type(mo, last_type, last_value);
+
+		return last_value;
+	}
+
+math_fail:
+	parse_math_res = -1;
+	return 0;
+}
+
+//
+// argument handlers
+
+int32_t actarg_raw(mobj_t *mo, void *data, uint32_t arg, int32_t def)
+{
+	uint16_t *argoffs;
+	uint16_t type, offs;
+
+	if(!data)
+		return def;
+
+	argoffs = data;
+
+	if(arg >= *argoffs)
+		return def;
+
+	type = argoffs[1 + arg];
+	offs = type & ARG_OFFS_MASK;
+
+	switch(type & ARG_TYPE_MASK)
+	{
+		case ARG_DEF_VAR:
+			return resolve_type(mo, MATH_VARIABLE | offs, 0);
+		case ARG_DEF_MATH:
+			argoffs = data + offs;
+			return math_calculate(mo, (uint8_t*)(argoffs+1), *argoffs);
+		case ARG_DEF_VALUE:
+			return *((int32_t*)(data + offs));
+		case ARG_DEF_RANDOM:
+			return resolve_type(mo, MATH_RANDOM, *((int32_t*)(data + offs)));
+	}
+
+	return def;
+}
+
+fixed_t actarg_fixed(mobj_t *mo, void *data, uint32_t arg, fixed_t def)
+{
+	return actarg_raw(mo, data, arg, def >> (FRACBITS - MATHFRAC)) << (FRACBITS - MATHFRAC);
+}
+
+int32_t actarg_integer(mobj_t *mo, void *data, uint32_t arg, int32_t def)
+{
+	return actarg_raw(mo, data, arg, def << MATHFRAC) >> MATHFRAC;
+}
+
+angle_t actarg_angle(mobj_t *mo, void *data, uint32_t arg)
+{
+	return actarg_raw(mo, data, arg, 0) * 5825;
+}
+
+static mobj_t *actarg_pointer(mobj_t *mo, void *data, uint32_t arg, uint32_t def)
+{
+	def = actarg_raw(mo, data, arg, def);
+
+	switch(def)
 	{
 		case AAPTR_DEFAULT:
 			return mo;
@@ -156,27 +790,80 @@ mobj_t *resolve_ptr(mobj_t *mo, uint32_t ptr)
 	}
 }
 
-fixed_t reslove_fixed_rng(fixed_t value)
+static uint32_t actarg_magic(mobj_t *mo, void *data, uint32_t arg, uint32_t def)
 {
-	fixed_t ret;
+	uint16_t *argoffs;
+	uint16_t type, offs;
 
-	if(!(value & 0x80000000))
+	if(!data)
+		return def;
+
+	argoffs = data;
+
+	if(arg >= *argoffs)
+		return def;
+
+	return argoffs[1 + arg] & ARG_MAGIC_MASK;
+}
+
+static uint32_t actarg_moflag(mobj_t *mo, void *data, uint32_t arg, uint32_t *bits)
+{
+	act_moflag_t *arf;
+	uint16_t *argoffs;
+
+	if(!data)
+		return 0;
+
+	argoffs = data;
+
+	if(arg >= *argoffs)
+		return 0;
+
+	arf = data + (argoffs[1 + arg] & ARG_OFFS_MASK);
+	*bits = arf->bits;
+	return arf->offset;
+}
+
+static uint32_t actarg_state(mobj_t *mo, void *data, uint32_t arg, uint32_t *extra)
+{
+	act_state_t *st;
+	uint16_t *argoffs;
+	uint16_t type, offs;
+
+	if(!data)
 	{
-		value |= (value & 0x40000000) << 1;
-		return value;
+		*extra = 0;
+		return 0;
 	}
 
-	ret = (value >> 4) & 0x01FFF000;
-	if(value & 0x20000000)
-		ret = -ret;
+	argoffs = data;
 
-	if(value & 0x40000000)
-		ret -= P_Random() * ((value << 5) & 0x001FFFE0);
-	else
-		ret += P_Random() * ((value << 5) & 0x001FFFE0);
+	if(arg >= *argoffs)
+	{
+		*extra = 0;
+		return 0;
+	}
 
-	return ret;
+	argoffs += 1 + arg;
+
+	type = *argoffs;
+	offs = type & ARG_OFFS_MASK;
+	type &= ARG_TYPE_MASK;
+
+	if(type != ARG_DEF_MAGIC)
+	{
+		*extra = STATE_SET_OFFSET;
+		return actarg_integer(mo, data, arg, 0);
+	}
+
+	st = data + offs;
+
+	*extra = st->extra;
+	return st->next;
 }
+
+//
+// iterators
 
 static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t PIT_Explode(mobj_t *thing)
@@ -244,10 +931,10 @@ uint32_t PIT_Explode(mobj_t *thing)
 	} else
 		dist = bombdamage;
 
+	damage = dist;
+
 	if(bombdmgtype >= 0)
-		damage = DAMAGE_WITH_TYPE(dist, bombdmgtype);
-	else
-		damage = dist;
+		damage |= DAMAGE_SET_TYPE(bombdmgtype);
 
 	mobj_damage(thing, bombspot, bombsource, damage, NULL);
 
@@ -269,653 +956,6 @@ uint32_t PIT_Explode(mobj_t *thing)
 	thing->momz += dz;
 
 	return 1;
-}
-
-//
-// argument parsers
-
-static uint8_t *handle_sound(uint8_t *kw, const dec_arg_t *arg)
-{
-	*((uint16_t*)(parse_action_arg + arg->offset)) = sfx_by_alias(tp_hash64(kw));
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_mobjtype(uint8_t *kw, const dec_arg_t *arg)
-{
-	int32_t type;
-
-	type = mobj_check_type(tp_hash64(kw));
-	if(type < 0)
-		type = MOBJ_IDX_UNKNOWN;
-
-	*((uint16_t*)(parse_action_arg + arg->offset)) = type;
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_mobjtype_power(uint8_t *kw, const dec_arg_t *arg)
-{
-	uint16_t *ptr = (uint16_t*)(parse_action_arg + arg->offset);
-	uint8_t *ret;
-
-	ret = handle_mobjtype(kw, arg);
-	if(!ret)
-		return NULL;
-
-	if(*ptr == MOBJ_IDX_UNKNOWN && !strncmp(kw, "Power", 5))
-	{
-		int32_t power;
-
-		kw += 5;
-		strlwr(kw);
-
-		power = dec_get_powerup_type(kw);
-		if(power >= 0)
-			*ptr = 0xFFF0 + power;
-	}
-
-	return ret;
-}
-
-static uint8_t *handle_bool(uint8_t *kw, const dec_arg_t *arg)
-{
-	uint32_t tmp;
-
-	if(!strcmp(kw, "true"))
-		tmp = 1;
-	else
-	if(!strcmp(kw, "false"))
-		tmp = 0;
-	else
-	if(doom_sscanf(kw, "%d", &tmp) != 1)
-		return NULL;
-
-	*((uint8_t*)(parse_action_arg + arg->offset)) = !!tmp;
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_bool_invert(uint8_t *kw, const dec_arg_t *arg)
-{
-	kw = handle_bool(kw, arg);
-
-	*((uint8_t*)(parse_action_arg + arg->offset)) ^= 1;
-
-	return kw;
-}
-
-static uint8_t *handle_skip(uint8_t *kw, const dec_arg_t *arg)
-{
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_forced_string(uint8_t *kw, const dec_arg_t *arg)
-{
-	if(arg->offset <= 1 && tp_is_string != arg->offset)
-		return NULL;
-	if(strcmp(kw, arg->string))
-		return NULL;
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_s8(uint8_t *kw, const dec_arg_t *arg)
-{
-	uint32_t tmp;
-
-	uint_fast8_t negate;
-
-	if(kw[0] == '-')
-	{
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-		negate = 1;
-	} else
-		negate = 0;
-
-	if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 127)
-		return NULL;
-
-	if(negate)
-		tmp = -tmp;
-
-	*((int8_t*)(parse_action_arg + arg->offset)) = tmp;
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_u16(uint8_t *kw, const dec_arg_t *arg)
-{
-	uint32_t tmp;
-
-	if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 65535)
-		return NULL;
-
-	*((uint16_t*)(parse_action_arg + arg->offset)) = tmp;
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_fixed(uint8_t *kw, const dec_arg_t *arg)
-{
-	fixed_t value;
-	uint_fast8_t negate;
-
-	if(kw[0] == '-')
-	{
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-		negate = 1;
-	} else
-		negate = 0;
-
-	if(tp_parse_fixed(kw, &value))
-		return NULL;
-
-	if(negate)
-		value = -value;
-
-	*((fixed_t*)(parse_action_arg + arg->offset)) = value;
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_fixed_rng(uint8_t *kw, const dec_arg_t *arg)
-{
-	fixed_t v0, v1;
-	uint32_t tmp;
-	uint_fast8_t negate = 0;
-	uint_fast8_t subtract = 0;
-
-	if(!strcmp(kw, "random"))
-	{
-		v0 = 0;
-		goto skip_v0;
-	}
-
-	if(kw[0] == '-')
-	{
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-		if(!strcmp(kw, "random"))
-		{
-			v0 = 0;
-			subtract = 1;
-			goto skip_v0;
-		}
-		negate = 1;
-	}
-
-	if(tp_parse_fixed(kw, &v0))
-		return NULL;
-
-	kw = tp_get_keyword_lc();
-	if(!kw)
-		return NULL;
-
-	if(kw[0] == ',' || kw[0] == ')')
-	{
-		// just a value
-		if(negate)
-			v0 = -v0;
-		*((fixed_t*)(parse_action_arg + arg->offset)) = v0 & 0x7FFFFFFF;
-		return kw;
-	}
-
-	// there must be specific format now
-	// v0 + random(0, 255) * v1
-	// v0 - random(0, 255) * v1
-	// v1 can't be negative
-
-	if(kw[0] == '-')
-		subtract = 1;
-	else
-	if(kw[0] != '+')
-		return NULL;
-
-	if(!tp_must_get_lc("random"))
-		return NULL;
-
-skip_v0:
-
-	if(!tp_must_get("("))
-		return NULL;
-
-	if(!tp_must_get("0"))
-		return NULL;
-
-	if(!tp_must_get(","))
-		return NULL;
-
-	if(!tp_must_get("255"))
-		return NULL;
-
-	if(!tp_must_get(")"))
-		return NULL;
-
-	kw = tp_get_keyword();
-	if(!kw)
-		return NULL;
-	if(kw[0] == '*')
-	{
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-
-		if(tp_parse_fixed(kw, &v1))
-			return NULL;
-
-		kw = tp_get_keyword();
-	} else
-	if(kw[0] == ',')
-		v1 = FRACUNIT;
-	else
-		return NULL;
-
-	*((fixed_t*)(parse_action_arg + arg->offset)) = 0x80000000 | (subtract << 30) | (negate << 29) | ((v0 & 0x01FFF000) << 4) | ((v1 & 0x001FFFE0) >> 5);
-
-	return kw;
-}
-
-static uint8_t *handle_angle(uint8_t *kw, const dec_arg_t *arg)
-{
-	kw = handle_fixed(kw, arg);
-
-	if(kw)
-	{
-		fixed_t value = *((fixed_t*)(parse_action_arg + arg->offset));
-		value = (11930464 * (int64_t)value) >> 16;
-		*((fixed_t*)(parse_action_arg + arg->offset)) = value;
-	}
-
-	return kw;
-}
-
-static uint8_t *handle_angle_rel(uint8_t *kw, const dec_arg_t *arg)
-{
-	uint32_t flags = 0;
-
-	if(!strcasecmp(kw, "angle"))
-	{
-		flags = 1;
-
-		kw = tp_get_keyword(kw, arg);
-		if(!kw)
-			return NULL;
-
-		if(kw[0] == ',')
-		{
-			*((fixed_t*)(parse_action_arg + arg->offset)) = 0x80000000;
-			return kw;
-		}
-
-		if(kw[0] == '-')
-			flags |= 2;
-
-		if(kw[0] == '-' || kw[0] == '+')
-		{
-			kw = tp_get_keyword(kw, arg);
-			if(!kw)
-				return NULL;
-		}
-	}
-
-	kw = handle_fixed(kw, arg);
-	if(kw)
-	{
-		fixed_t value = *((fixed_t*)(parse_action_arg + arg->offset));
-		value = (11930464 * (int64_t)value) >> 16;
-		if(flags & 2)
-			value = -value;
-		value >>= 1;
-		if(flags & 1)
-			value |= 0x80000000;
-		*((fixed_t*)(parse_action_arg + arg->offset)) = value;
-	}
-
-	return kw;
-}
-
-static uint8_t *handle_pointer(uint8_t *kw, const dec_arg_t *arg)
-{
-	strlwr(kw);
-
-	for(uint32_t i = 0; i < NUM_AAPTRS; i++)
-	{
-		if(!strcmp(kw, pointer_name[i]))
-		{
-			*((uint8_t*)(parse_action_arg + arg->offset)) = i;
-			return tp_get_keyword();
-		}
-	}
-
-	return NULL;
-}
-
-static uint8_t *handle_state(uint8_t *kw, const dec_arg_t *arg)
-{
-	args_singleState_t *state = (args_singleState_t*)(parse_action_arg + arg->offset);
-	uint32_t tmp;
-
-	if(tp_is_string)
-	{
-		const dec_anim_t *anim;
-
-		strlwr(kw);
-
-		// find animation
-		anim = dec_find_animation(kw);
-		if(anim)
-		{
-			// actual animation
-			state->state.extra = STATE_SET_ANIMATION | anim->idx;
-			state->state.next = 0xFFFFFFFF;
-		} else
-		{
-			// custom state
-			state->state.extra = STATE_SET_CUSTOM;
-			state->state.next = tp_hash32(kw);
-		}
-	} else
-	if(!arg->extra)
-	{
-		if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 65535)
-			return NULL;
-		// offset jump
-		state->state.extra = STATE_SET_OFFSET;
-		state->state.next = tmp;
-	} else
-		return NULL;
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_translation(uint8_t *kw, const dec_arg_t *arg)
-{
-	void *ptr = r_translation_by_name(strlwr(kw));
-	*((void**)(parse_action_arg + arg->offset)) = ptr;
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_mobj_flag(uint8_t *kw, const dec_arg_t *arg)
-{
-	act_moflag_t *arf;
-	const dec_flag_t *flag;
-	uint32_t offset;
-	uint32_t more = 0;
-
-	strlwr(kw);
-
-	offset = offsetof(mobj_t, flags);
-	flag = find_mobj_flag(kw, mobj_flags0);
-	if(!flag)
-	{
-		offset = offsetof(mobj_t, flags1);
-		flag = find_mobj_flag(kw, mobj_flags1);
-		if(!flag)
-		{
-			offset = offsetof(mobj_t, flags2);
-			flag = find_mobj_flag(kw, mobj_flags2);
-			if(!flag)
-				return NULL;
-		}
-	} else
-	{
-		if(flag->bits & (MF_NOBLOCKMAP | MF_NOSECTOR))
-			return NULL;
-	}
-
-	arf = (void*)(parse_action_arg + arg->offset);
-	arf->bits = flag->bits;
-	arf->offset = offset;
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_damage(uint8_t *kw, const dec_arg_t *arg)
-{
-	uint32_t lo, hi, mul, add;
-
-	lo = 0;
-	hi = 0;
-	mul = 0;
-	add = 0;
-
-	if(!strcmp(kw, "random"))
-	{
-		// function entry
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-		if(kw[0] != '(')
-			return NULL;
-
-		// low
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-
-		if(doom_sscanf(kw, "%u", &lo) != 1 || lo > 511)
-			return NULL;
-
-		// comma
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-		if(kw[0] != ',')
-			return NULL;
-
-		// high
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-
-		if(doom_sscanf(kw, "%u", &hi) != 1 || hi > 511)
-			return NULL;
-
-		// function end
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-		if(kw[0] != ')')
-			return NULL;
-
-		// check range
-		if(lo > hi)
-			return NULL;
-		if(hi - lo > 255)
-			return NULL;
-
-		// next
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-
-		if(kw[0] == '*')
-		{
-			// multiply
-			kw = tp_get_keyword();
-			if(!kw)
-				return NULL;
-
-			if(doom_sscanf(kw, "%u", &mul) != 1 || !mul || mul > 16)
-				return NULL;
-
-			mul--;
-
-			// next
-			kw = tp_get_keyword();
-			if(!kw)
-				return NULL;
-		}
-
-		if(kw[0] == '+')
-		{
-			// add
-			kw = tp_get_keyword();
-			if(!kw)
-				return NULL;
-
-			if(doom_sscanf(kw, "%u", &add) != 1 || add > 511)
-				return NULL;
-
-			// next
-			kw = tp_get_keyword();
-			if(!kw)
-				return NULL;
-		}
-
-		add = DAMAGE_CUSTOM(lo, hi, mul, add);
-	} else
-	{
-		// direct value
-		if(doom_sscanf(kw, "%u", &add) != 1 || add > 1000000)
-			return NULL;
-		kw = tp_get_keyword();
-	}
-
-	*((uint32_t*)(parse_action_arg + arg->offset)) = add;
-
-	return kw;
-}
-
-static uint8_t *handle_damage_type(uint8_t *kw, const dec_arg_t *arg)
-{
-	if(!tp_is_string)
-		return NULL;
-
-	strlwr(kw);
-
-	*((uint8_t*)(parse_action_arg + arg->offset)) = dec_get_custom_damage(kw, NULL);
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_flags(uint8_t *kw, const dec_arg_t *arg)
-{
-	const dec_arg_flag_t *flag;
-	uint32_t is_16bit = !(arg->flags->bits & 0xFFFF0000);
-	num32_t *value;
-
-	value = parse_action_arg + arg->offset;
-
-	if(is_16bit)
-		value->u16[0] = 0;
-	else
-		value->u32 = 0;
-
-	while(1)
-	{
-		if(kw[0] != '0')
-		{
-			flag = arg->flags;
-			while(flag->name)
-			{
-				if(!strcmp(flag->name, kw))
-					break;
-				flag++;
-			}
-
-			if(!flag->name)
-				engine_error("DECORATE", "Unknown flag '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
-
-			if(is_16bit)
-				value->u16[0] |= flag->bits;
-			else
-				value->u32 |= flag->bits;
-		}
-
-		kw = tp_get_keyword(kw, arg);
-		if(!kw)
-			return NULL;
-
-		if(kw[0] == ',' || kw[0] == ')')
-			return kw;
-
-		if(kw[0] != '|')
-			engine_error("DECORATE", "Unable to parse flags for action '%s' in '%s'!", action_name, parse_actor_name);
-
-		kw = tp_get_keyword(kw, arg);
-		if(!kw)
-			return NULL;
-	}
-}
-
-static uint8_t *handle_ftics(uint8_t *kw, const dec_arg_t *arg)
-{
-	fixed_t value;
-	uint_fast8_t negate;
-
-	if(kw[0] == '-')
-	{
-		kw = tp_get_keyword();
-		if(!kw)
-			return NULL;
-		negate = 1;
-	} else
-		negate = 0;
-
-	if(tp_parse_fixed(kw, &value))
-		return NULL;
-
-	if(negate)
-		value = -value;
-
-	value *= 35;
-	value >>= FRACBITS;
-
-	if(!value)
-		value = 35 * 3;
-
-	*((uint32_t*)(parse_action_arg + arg->offset)) = value;
-
-	return tp_get_keyword();
-}
-
-static uint8_t *handle_font(uint8_t *kw, const dec_arg_t *arg)
-{
-	int32_t lump;
-	uint32_t magic;
-
-	lump = wad_get_lump(kw);
-
-	wad_read_lump(&magic, lump, sizeof(uint32_t));
-	if(magic != FONT_MAGIC_ID)
-		engine_error("FONT", "Invalid font %.8s.", lumpinfo[lump].name);
-
-	*((uint16_t*)(parse_action_arg + arg->offset)) = lump;
-
-	return tp_get_keyword(kw, arg);
-}
-
-static uint8_t *handle_print_text(uint8_t *kw, const dec_arg_t *arg)
-{
-	uint32_t len;
-	uint8_t *dst;
-	print_text_t *pt = parse_action_arg;
-
-	if(!tp_is_string)
-		return NULL;
-
-	len = strlen(kw);
-	len += 4;
-	len &= ~3;
-
-	dst = dec_es_alloc(len);
-	strcpy(dst, kw);
-
-	len = 1;
-	while(*dst)
-	{
-		if(*dst == '\n')
-			len++;
-		dst++;
-	}
-	pt->lines = len;
-
-	return tp_get_keyword(kw, arg);
 }
 
 //
@@ -1315,20 +1355,6 @@ static void shatter_spawn(mobj_t *mo, uint32_t type)
 }
 
 //
-// common args
-
-static const dec_args_t args_SingleMobjtype =
-{
-	.size = sizeof(args_singleType_t),
-	.arg =
-	{
-		{handle_mobjtype, offsetof(args_singleType_t, type)},
-		// terminator
-		{NULL}
-	}
-};
-
-//
 // original weapon attacks
 // these are not available for DECORATE
 // and so are only used in primary fire
@@ -1493,23 +1519,6 @@ void A_SpecialRestore(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // weapon (logic)
 
-const args_singleU16_t def_LowerRaise =
-{
-	.value = 6
-};
-
-static const dec_args_t args_LowerRaise =
-{
-	.size = sizeof(args_singleU16_t),
-	.def = &def_LowerRaise,
-	.arg =
-	{
-		{handle_u16, offsetof(args_singleU16_t, value), 2},
-		// terminator
-		{NULL}
-	}
-};
-
 __attribute((regparm(2),no_caller_saved_registers))
 void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
@@ -1522,12 +1531,7 @@ void A_Lower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->custom_inventory)
 		return;
 
-	if(st->arg)
-	{
-		const args_singleU16_t *arg = st->arg;
-		value = arg->value;
-	} else
-		value = def_LowerRaise.value;
+	value = actarg_integer(mo, st->arg, 0, 6);
 
 	pl->weapon_ready = 0;
 	pl->psprites[1].sy += value;
@@ -1578,12 +1582,7 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->custom_inventory)
 		return;
 
-	if(st->arg)
-	{
-		const args_singleU16_t *arg = st->arg;
-		value = arg->value;
-	} else
-		value = def_LowerRaise.value;
+	value = actarg_integer(mo, st->arg, 0, 6);
 
 	pl->weapon_ready = 0;
 	pl->psprites[1].sy -= value;
@@ -1599,25 +1598,6 @@ void A_Raise(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_GunFlash
 
-static const dec_arg_flag_t flags_GunFlash[] =
-{
-	MAKE_FLAG(GFF_NOEXTCHANGE),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_GunFlash =
-{
-	.size = sizeof(args_GunFlash_t),
-	.arg =
-	{
-		{handle_state, offsetof(args_GunFlash_t, state), 2, .extra = 1},
-		{handle_flags, offsetof(args_GunFlash_t, flags), 1, flags_GunFlash},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
@@ -1631,18 +1611,8 @@ void A_GunFlash(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->custom_inventory)
 		return;
 
-	if(st->arg)
-	{
-		const args_GunFlash_t *arg = st->arg;
-		extra = arg->state.extra;
-		state = arg->state.next;
-		flags = arg->flags;
-	} else
-	{
-		extra = 0;
-		state = 0;
-		flags = 0;
-	}
+	state = actarg_state(mo, st->arg, 0, &extra);
+	flags = actarg_raw(mo, st->arg, 1, 0);
 
 	// mobj to 'melee' animation
 	if(!(flags & GFF_NOEXTCHANGE) && mo->info->state_melee)
@@ -1724,29 +1694,6 @@ void A_Light2(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // weapon (attack)
 
-static const dec_arg_flag_t flags_WeaponReady[] =
-{
-	MAKE_FLAG(WRF_NOBOB),
-	MAKE_FLAG(WRF_NOFIRE),
-	MAKE_FLAG(WRF_NOSWITCH),
-	MAKE_FLAG(WRF_DISABLESWITCH),
-	MAKE_FLAG(WRF_NOPRIMARY),
-	MAKE_FLAG(WRF_NOSECONDARY),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_WeaponReady =
-{
-	.size = sizeof(args_singleFlags_t),
-	.arg =
-	{
-		{handle_flags, offsetof(args_singleFlags_t, flags), 2, flags_WeaponReady},
-		// terminator
-		{NULL}
-	}
-};
-
 __attribute((regparm(2),no_caller_saved_registers))
 void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
@@ -1762,12 +1709,7 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	pl->psprites[1].sx = 1;
 	pl->psprites[1].sy = WEAPONTOP;
 
-	if(st->arg)
-	{
-		const args_singleFlags_t *arg = st->arg;
-		flags = arg->flags;
-	} else
-		flags = 0;
+	flags = actarg_raw(mo, st->arg, 0, 0);
 
 	if(extra_config.center_weapon != 2)
 		pl->weapon_ready = 0;
@@ -1824,17 +1766,6 @@ void A_WeaponReady(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_Refire
 
-static const dec_args_t args_ReFire =
-{
-	.size = sizeof(args_singleState_t),
-	.arg =
-	{
-		{handle_state, offsetof(args_singleState_t, state), 2, .extra = 1},
-		// terminator
-		{NULL}
-	}
-};
-
 __attribute((regparm(2),no_caller_saved_registers))
 void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
@@ -1847,16 +1778,7 @@ void A_ReFire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(mo->custom_inventory)
 		return;
 
-	if(st->arg)
-	{
-		const args_singleState_t *arg = st->arg;
-		extra = arg->state.extra;
-		state = arg->state.next;
-	} else
-	{
-		extra = 0;
-		state = 0;
-	}
+	state = actarg_state(mo, st->arg, 0, &extra);
 
 	state = dec_reslove_state(pl->readyweapon, 0, state, extra);
 
@@ -1944,48 +1866,28 @@ void A_BrainPain(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_StartSound
 
-static const dec_arg_flag_t flags_StartSound[] =
-{
-	MAKE_FLAG(CHAN_BODY), // default, 0
-	MAKE_FLAG(CHAN_WEAPON),
-	MAKE_FLAG(CHAN_VOICE),
-	// terminator
-	{NULL}
-};
-
-static const dec_arg_flag_t attn_StartSound[] =
-{
-	MAKE_FLAG(ATTN_NORM), // default, 0
-	MAKE_FLAG(ATTN_NONE),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_StartSound =
-{
-	.size = sizeof(args_StartSound_t),
-	.arg =
-	{
-		{handle_sound, offsetof(args_StartSound_t, sound)},
-		{handle_flags, offsetof(args_StartSound_t, slot), 1, flags_StartSound},
-		{handle_forced_string, 0, 1, .string = "0"},
-		{handle_forced_string, 0, 1, .string = "1"},
-		{handle_flags, offsetof(args_StartSound_t, attn), 1, attn_StartSound},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_StartSound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_StartSound_t *arg = st->arg;
 	void *origin;
+	uint32_t sound;
+	uint32_t slot;
+	uint32_t attn;
 
-	if(arg->attn)
+	if(actarg_raw(mo, st->arg, 2, 0) != 0)
+		return;
+
+	if(actarg_raw(mo, st->arg, 3, 1 << MATHFRAC) != (1 << MATHFRAC))
+		return;
+
+	sound = actarg_magic(mo, st->arg, 0, 0);
+	slot = actarg_raw(mo, st->arg, 1, CHAN_BODY);
+	attn = actarg_raw(mo, st->arg, 4, ATTN_NORM);
+
+	if(attn != ATTN_NORM)
 		origin = NULL;
 	else
-	switch(arg->slot)
+	switch(slot)
 	{
 		case CHAN_WEAPON:
 			origin = SOUND_CHAN_WEAPON(mo);
@@ -1998,7 +1900,7 @@ void A_StartSound(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		break;
 	}
 
-	S_StartSound(origin, arg->sound);
+	S_StartSound(origin, sound);
 }
 
 //
@@ -2199,58 +2101,22 @@ void A_VileChase(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_SpawnProjectile
 
-static const args_SpawnProjectile_t def_SpawnProjectile =
-{
-	.spawnheight = 32 * FRACUNIT,
-	.ptr = AAPTR_TARGET,
-};
-
-static const dec_arg_flag_t flags_SpawnProjectile[] =
-{
-	MAKE_FLAG(CMF_AIMOFFSET),
-	MAKE_FLAG(CMF_AIMDIRECTION),
-	MAKE_FLAG(CMF_TRACKOWNER),
-	MAKE_FLAG(CMF_CHECKTARGETDEAD),
-	MAKE_FLAG(CMF_ABSOLUTEPITCH),
-	MAKE_FLAG(CMF_OFFSETPITCH),
-	MAKE_FLAG(CMF_SAVEPITCH),
-	MAKE_FLAG(CMF_ABSOLUTEANGLE),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_SpawnProjectile =
-{
-	.size = sizeof(args_SpawnProjectile_t),
-	.def = &def_SpawnProjectile,
-	.arg =
-	{
-		{handle_mobjtype, offsetof(args_SpawnProjectile_t, missiletype)},
-		{handle_fixed, offsetof(args_SpawnProjectile_t, spawnheight), 1},
-		{handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
-		{handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
-		{handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_SpawnProjectile},
-		{handle_angle, offsetof(args_SpawnProjectile_t, pitch), 1},
-		{handle_pointer, offsetof(args_SpawnProjectile_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_SpawnProjectile_t *arg = st->arg;
 	angle_t angle = mo->angle;
+	angle_t atmp;
 	fixed_t pitch = 0;
 	int32_t dist = 0;
 	fixed_t x, y, z, speed;
 	mobj_t *th, *target;
-	uint32_t flags = arg->flags;
+	uint32_t flags;
+
+	flags = actarg_raw(mo, st->arg, 4, 0); // flags
 
 	x = mo->x;
 	y = mo->y;
-	z = mo->z + arg->spawnheight;
+	z = mo->z + actarg_fixed(mo, st->arg, 1, 32 * FRACUNIT); // spawnheight
 
 	if(flags & CMF_TRACKOWNER && mo->flags & MF_MISSILE)
 	{
@@ -2262,7 +2128,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(flags & CMF_AIMDIRECTION)
 		target = NULL;
 	else
-		target = resolve_ptr(mo, arg->ptr);
+		target = actarg_pointer(mo, st->arg, 6, AAPTR_TARGET); // pointer
 
 	if(!target)
 	{
@@ -2279,11 +2145,12 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		dist = P_AproxDistance(target->x - x, target->y - y);
 	}
 
-	if(arg->spawnofs_xy)
+	speed = actarg_fixed(mo, st->arg, 2, 0); // spawnofs_xy
+	if(speed)
 	{
 		angle_t a = (mo->angle - ANG90) >> ANGLETOFINESHIFT;
-		x += FixedMul(arg->spawnofs_xy, finecosine[a]);
-		y += FixedMul(arg->spawnofs_xy, finesine[a]);
+		x += FixedMul(speed, finecosine[a]);
+		y += FixedMul(speed, finesine[a]);
 	}
 
 	if(!(flags & (CMF_AIMOFFSET|CMF_AIMDIRECTION)))
@@ -2292,21 +2159,23 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		dist = P_AproxDistance(target->x - x, target->y - y);
 	}
 
+	atmp = actarg_angle(mo, st->arg, 3); // angle
+
 	if(flags & CMF_ABSOLUTEANGLE)
-		angle = arg->angle;
+		angle = atmp;
 	else
 	{
-		angle += arg->angle;
+		angle += atmp;
 		if(target && target->flags & MF_SHADOW)
 			angle += (P_Random() - P_Random()) << 20;
 	}
 
-	th = P_SpawnMobj(x, y, z, arg->missiletype);
+	th = P_SpawnMobj(x, y, z, actarg_magic(mo, st->arg, 0, 0)); // missiletype
 
 	speed = projectile_speed(th->info);
 
 	if(flags & (CMF_AIMDIRECTION|CMF_ABSOLUTEPITCH))
-		pitch = -arg->pitch;
+		pitch = -actarg_angle(mo, st->arg, 5); // pitch
 	else
 	if(speed)
 	{
@@ -2316,7 +2185,7 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		dist = ((target->z + (target->height / 2)) - z) / dist; // TODO: propper aim for the middle?
 		th->momz = FixedDiv(dist, speed);
 		if(flags & CMF_OFFSETPITCH)
-			pitch = -arg->pitch;
+			pitch = -actarg_angle(mo, st->arg, 5); // pitch
 	}
 
 	missile_stuff(th, mo, target, speed, angle, pitch, th->momz);
@@ -2325,32 +2194,6 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_CustomBulletAttack
 
-static const dec_arg_flag_t flags_CustomBulletAttack[] =
-{
-	MAKE_FLAG(CBAF_AIMFACING),
-	MAKE_FLAG(CBAF_NORANDOM),
-	MAKE_FLAG(CBAF_NORANDOMPUFFZ),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_CustomBulletAttack =
-{
-	.size = sizeof(args_BulletAttack_t),
-	.arg =
-	{
-		{handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
-		{handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
-		{handle_s8, offsetof(args_BulletAttack_t, blt_count)},
-		{handle_damage, offsetof(args_BulletAttack_t, damage)},
-		{handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
-		{handle_fixed, offsetof(args_BulletAttack_t, range), 1},
-		{handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_CustomBulletAttack},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
@@ -2358,15 +2201,27 @@ void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	angle_t angle;
 	fixed_t slope;
 	fixed_t range;
-	const args_BulletAttack_t *arg = st->arg;
+	uint32_t bcount;
+	uint32_t flags;
+	angle_t spread_hor;
+	angle_t spread_ver;
 
 	if(!mo->target)
 		return;
 
-	if(arg->blt_count <= 0)
+	bcount = actarg_integer(mo, st->arg, 2, 0); // numbullets
+	if(bcount <= 0)
 		return;
 
-	if(!(arg->flags & CBAF_AIMFACING))
+	spread_hor = actarg_angle(mo, st->arg, 0); // horz_spread
+	spread_ver = actarg_angle(mo, st->arg, 1); // vert_spread
+
+	damage = actarg_integer(mo, st->arg, 3, 0); // damageperbullet
+	mo_puff_type = actarg_magic(mo, st->arg, 4, 37); // pufftype
+	range = actarg_fixed(mo, st->arg, 5, 0); // range
+	flags = actarg_raw(mo, st->arg, 6, 0); // flags
+
+	if(!(flags & CBAF_AIMFACING))
 	{
 		angle = R_PointToAngle2(mo->x, mo->y, mo->target->x, mo->target->y);
 		mo->angle = angle;
@@ -2379,36 +2234,27 @@ void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		mo->angle = angle;
 	}
 
-	if(arg->pufftype)
-		mo_puff_type = arg->pufftype;
-
 	if(mobjinfo[mo_puff_type].replacement)
 		mo_puff_type = mobjinfo[mo_puff_type].replacement;
 	else
 		mo_puff_type = mo_puff_type;
 
-	mo_puff_flags = !!(arg->flags & CBAF_NORANDOMPUFFZ);
+	mo_puff_flags = !!(flags & CBAF_NORANDOMPUFFZ);
 
-	damage = arg->damage;
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
-
-	if(!arg->range)
+	if(!range)
 		range = 2048 * FRACUNIT;
-	else
-		range = arg->range;
 
 	slope = P_AimLineAttack(mo, angle, range);
 
 	S_StartSound(SOUND_CHAN_WEAPON(mo), mo->info->attacksound);
 
-	for(uint32_t i = 0; i < arg->blt_count; i++)
+	for(uint32_t i = 0; i < bcount; i++)
 	{
 		angle_t aaa;
 		fixed_t sss;
 		uint32_t dmg;
 
-		if(!(arg->flags & CBAF_NORANDOM))
+		if(!(flags & CBAF_NORANDOM))
 			dmg = damage * (P_Random() % 3) + 1;
 		else
 			dmg = damage;
@@ -2416,16 +2262,16 @@ void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		aaa = angle;
 		sss = slope;
 
-		if(arg->spread_hor)
+		if(spread_hor)
 		{
-			aaa -= arg->spread_hor;
-			aaa += (arg->spread_hor >> 7) * P_Random();
+			aaa -= spread_hor;
+			aaa += (spread_hor >> 7) * P_Random();
 		}
-		if(arg->spread_ver)
+		if(spread_ver)
 		{
 			fixed_t tmp;
-			tmp = -arg->spread_ver;
-			tmp += (arg->spread_ver >> 7) * P_Random();
+			tmp = -spread_ver;
+			tmp += (spread_ver >> 7) * P_Random();
 			sss += tmp >> 14;
 		}
 
@@ -2440,26 +2286,11 @@ void A_CustomBulletAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_CustomMeleeAttack
 
-static const dec_args_t args_CustomMeleeAttack =
-{
-	.size = sizeof(args_MeleeAttack_t),
-	.arg =
-	{
-		{handle_damage, offsetof(args_MeleeAttack_t, damage)},
-		{handle_sound, offsetof(args_MeleeAttack_t, sound_hit), 1},
-		{handle_sound, offsetof(args_MeleeAttack_t, sound_miss), 1},
-		{handle_damage_type, offsetof(args_MeleeAttack_t, damage_type), 1},
-		{handle_bool, offsetof(args_MeleeAttack_t, sacrifice), 1}, // ignored
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_CustomMeleeAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_MeleeAttack_t *arg = st->arg;
 	uint32_t damage;
+	uint32_t dtype;
 
 	if(!mo->target)
 		return;
@@ -2468,17 +2299,16 @@ void A_CustomMeleeAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	if(!mobj_check_melee_range(mo))
 	{
-		S_StartSound(mo, arg->sound_miss);
+		S_StartSound(mo, actarg_magic(mo, st->arg, 2, 0)); // misssound
 		return;
 	}
 
-	S_StartSound(mo, arg->sound_hit);
+	S_StartSound(mo, actarg_magic(mo, st->arg, 1, 0)); // meleesound
 
-	damage = arg->damage;
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
+	damage = actarg_integer(mo, st->arg, 0, 0); // damage
+	dtype = actarg_magic(mo, st->arg, 3, DAMAGE_NORMAL); // damagetype
 
-	damage = DAMAGE_WITH_TYPE(damage, arg->damage_type);
+	damage |= DAMAGE_SET_TYPE(dtype);
 
 	mobj_damage(mo->target, mo, mo, damage, NULL);
 }
@@ -2489,15 +2319,17 @@ void A_CustomMeleeAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_VileTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleType_t *arg = st->arg;
 	mobj_t *th;
+	uint32_t type;
 
 	if(!mo->target)
 		return;
 
+	type = actarg_magic(mo, st->arg, 0, 0); // type
+
 	A_FaceTarget(mo, NULL, NULL);
 
-	th = P_SpawnMobj(mo->target->x, mo->target->y, mo->target->z, arg->type);
+	th = P_SpawnMobj(mo->target->x, mo->target->y, mo->target->z, type);
 	mo->tracer = th;
 	th->target = mo;
 	th->tracer = mo->target;
@@ -2506,45 +2338,9 @@ void A_VileTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_VileAttack
 
-static const dec_arg_flag_t flags_VileAttack[] =
-{
-	MAKE_FLAG(VAF_DMGTYPEAPPLYTODIRECT),
-	// terminator
-	{NULL}
-};
-
-const args_VileAttack_t def_VileAttack =
-{
-	.sound = 82,
-	.damage_direct = 10,
-	.damage_blast = 70,
-	.blast_radius = 70 * FRACUNIT,
-	.thrust_factor = FRACUNIT,
-	.damage_type = DAMAGE_FIRE,
-};
-
-static const dec_args_t args_VileAttack =
-{
-	.size = sizeof(args_VileAttack_t),
-	.def = &def_VileAttack,
-	.arg =
-	{
-		{handle_sound, offsetof(args_VileAttack_t, sound), 1},
-		{handle_damage, offsetof(args_VileAttack_t, damage_direct), 1},
-		{handle_damage, offsetof(args_VileAttack_t, damage_blast), 1},
-		{handle_fixed, offsetof(args_VileAttack_t, blast_radius), 1},
-		{handle_fixed, offsetof(args_VileAttack_t, thrust_factor), 1},
-		{handle_damage_type, offsetof(args_VileAttack_t, damage_type), 1},
-		{handle_flags, offsetof(args_VileAttack_t, flags), 1, flags_VileAttack},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_VileAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_VileAttack_t *arg = st->arg;
 	int32_t xl, xh, yl, yh;
 	uint32_t damage;
 	mobj_t *fire;
@@ -2559,17 +2355,22 @@ void A_VileAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!P_CheckSight(mo, mo->target))
 		return;
 
-	damage = arg->damage_direct;
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
+	damage = actarg_integer(mo, st->arg, 1, 20); // initialdamage
+	bombdmgtype = actarg_magic(mo, st->arg, 5, 0); // damagetype
 
-	if(arg->flags & VAF_DMGTYPEAPPLYTODIRECT)
-		damage = DAMAGE_WITH_TYPE(damage, arg->damage_type);
+	dist = actarg_raw(mo, st->arg, 6, 0); // flags
 
-	S_StartSound(mo, arg->sound);
+	if(dist & VAF_DMGTYPEAPPLYTODIRECT)
+		damage |= DAMAGE_SET_TYPE(bombdmgtype);
+
+	dist = actarg_magic(mo, st->arg, 0, 0); // sound
+
+	S_StartSound(mo, dist);
 	mobj_damage(mo->target, mo, mo, damage, 0);
 
-	mo->target->momz = FixedMul(1000 * FRACUNIT / mo->target->info->mass, arg->thrust_factor);
+	dist = actarg_fixed(mo, st->arg, 4, 0); // thrustfactor
+
+	mo->target->momz = FixedMul(1000 * FRACUNIT / mo->target->info->mass, dist);
 
 	an = mo->angle >> ANGLETOFINESHIFT;
 
@@ -2577,10 +2378,13 @@ void A_VileAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!fire)
 		return;
 
+	bombdamage = actarg_integer(mo, st->arg, 2, 70); // blastdamage
+	bombdist = actarg_fixed(mo, st->arg, 3, 70 * FRACUNIT); // blastradius
+
 	fire->x = mo->target->x - FixedMul(24*FRACUNIT, finecosine[an]);
 	fire->y = mo->target->y - FixedMul(24*FRACUNIT, finesine[an]);	
 
-	dist = arg->blast_radius + MAXRADIUS;
+	dist = bombdist + MAXRADIUS;
 	yh = (fire->y + dist - bmaporgy) >> MAPBLOCKSHIFT;
 	yl = (fire->y - dist - bmaporgy) >> MAPBLOCKSHIFT;
 	xh = (fire->x + dist - bmaporgx) >> MAPBLOCKSHIFT;
@@ -2588,15 +2392,8 @@ void A_VileAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	bombsource = mo;
 	bombspot = fire;
-	bombdist = arg->blast_radius;
 	bombfist = 0;
 	bombflags = 0;
-	bombdamage = arg->damage_blast;
-
-	if(bombdamage & DAMAGE_IS_CUSTOM)
-		bombdamage = mobj_calc_damage(bombdamage);
-
-	bombdmgtype = arg->damage_type;
 
 	for(int32_t y = yl; y <= yh; y++)
 		for(int32_t x = xl; x <= xh; x++)
@@ -2606,62 +2403,44 @@ void A_VileAttack(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_FireProjectile
 
-static const dec_arg_flag_t flags_FireProjectile[] =
-{
-	MAKE_FLAG(FPF_AIMATANGLE),
-	MAKE_FLAG(FPF_TRANSFERTRANSLATION),
-	MAKE_FLAG(FPF_NOAUTOAIM),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_FireProjectile =
-{
-	.size = sizeof(args_SpawnProjectile_t),
-	.arg =
-	{
-		{handle_mobjtype, offsetof(args_SpawnProjectile_t, missiletype)},
-		{handle_angle, offsetof(args_SpawnProjectile_t, angle), 1},
-		{handle_bool_invert, offsetof(args_SpawnProjectile_t, noammo), 1},
-		{handle_fixed, offsetof(args_SpawnProjectile_t, spawnofs_xy), 1},
-		{handle_fixed, offsetof(args_SpawnProjectile_t, spawnheight), 1},
-		{handle_flags, offsetof(args_SpawnProjectile_t, flags), 1, flags_FireProjectile},
-		{handle_angle, offsetof(args_SpawnProjectile_t, pitch), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	const args_SpawnProjectile_t *arg = st->arg;
 	mobj_t *th;
-	angle_t angle, pitch;
-	fixed_t slope;
+	angle_t angle, pitch, aaa;
+	fixed_t slope, offs;
 	fixed_t x, y, z;
+	uint32_t flags;
+	uint32_t missiletype;
 
 	if(!pl)
 		return;
 
 	if(	!mo->custom_inventory &&
-		!arg->noammo &&
+		actarg_raw(mo, st->arg, 2, 1) && // useammo
 		remove_ammo(mo)
 	)
 		return;
 
-	pitch = -arg->pitch;
+	missiletype = actarg_magic(mo, st->arg, 0, 0);
+	aaa = actarg_angle(mo, st->arg, 1); // pitch
+
+	offs = actarg_fixed(mo, st->arg, 3, 0); // spawnofs_xy
+
+	flags = actarg_raw(mo, st->arg, 5, 0); // flags
+	pitch = -actarg_angle(mo, st->arg, 6); // pitch
+
 	angle = mo->angle;
 
-	if(arg->flags & FPF_AIMATANGLE)
-		angle += arg->angle;
+	if(flags & FPF_AIMATANGLE)
+		angle += aaa;
 
-	if(!player_aim(pl, &angle, &slope, mobjinfo[arg->missiletype].flags1 & MF1_SEEKERMISSILE))
+	if(!player_aim(pl, &angle, &slope, mobjinfo[missiletype].flags1 & MF1_SEEKERMISSILE))
 		pitch += mo->pitch;
 
-	if(arg->angle && !(arg->flags & FPF_AIMATANGLE))
-		angle = mo->angle + arg->angle;
+	if(aaa && !(flags & FPF_AIMATANGLE))
+		angle = mo->angle + aaa;
 
 	x = mo->x;
 	y = mo->y;
@@ -2669,92 +2448,70 @@ void A_FireProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	z += mo->height / 2;
 	z += mo->info->player.attack_offs;
 	z += mo->player->viewz - mo->z - mo->info->player.view_height;
-	z += arg->spawnheight;
+	z += actarg_fixed(mo, st->arg, 4, 0); // spawnheight
 
-	if(arg->spawnofs_xy)
+	if(offs)
 	{
 		angle_t a = (mo->angle - ANG90) >> ANGLETOFINESHIFT;
-		x += FixedMul(arg->spawnofs_xy, finecosine[a]);
-		y += FixedMul(arg->spawnofs_xy, finesine[a]);
+		x += FixedMul(offs, finecosine[a]);
+		y += FixedMul(offs, finesine[a]);
 	}
 
-	th = P_SpawnMobj(x, y, z, arg->missiletype);
+	th = P_SpawnMobj(x, y, z, missiletype);
 	if(th->flags & MF_MISSILE)
 		missile_stuff(th, mo, linetarget, projectile_speed(th->info), angle, pitch, slope);
 
-	if(arg->flags & FPF_TRANSFERTRANSLATION)
+	if(flags & FPF_TRANSFERTRANSLATION)
 		th->translation = mo->translation;
 }
 
 //
 // A_FireBullets
 
-static const args_BulletAttack_t def_FireBullets =
-{
-	.pufftype = 37,
-	.flags = FBF_USEAMMO,
-	.range = 8192 * FRACUNIT,
-};
-
-static const dec_arg_flag_t flags_FireBullets[] =
-{
-	MAKE_FLAG(FBF_USEAMMO),
-	MAKE_FLAG(FBF_NOFLASH),
-	MAKE_FLAG(FBF_NORANDOM),
-	MAKE_FLAG(FBF_NORANDOMPUFFZ),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_FireBullets =
-{
-	.size = sizeof(args_BulletAttack_t),
-	.def = &def_FireBullets,
-	.arg =
-	{
-		{handle_angle, offsetof(args_BulletAttack_t, spread_hor)},
-		{handle_angle, offsetof(args_BulletAttack_t, spread_ver)},
-		{handle_s8, offsetof(args_BulletAttack_t, blt_count)},
-		{handle_damage, offsetof(args_BulletAttack_t, damage)},
-		{handle_mobjtype, offsetof(args_BulletAttack_t, pufftype), 1},
-		{handle_flags, offsetof(args_BulletAttack_t, flags), 1, flags_FireBullets},
-		{handle_fixed, offsetof(args_BulletAttack_t, range), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	const args_BulletAttack_t *arg = st->arg;
-	uint32_t spread, count, damage;
+	uint32_t spread, damage;
+	uint32_t flags;
+	fixed_t slope, range;
+	angle_t spread_hor;
+	angle_t spread_ver;
+	int32_t count;
 	angle_t angle;
-	fixed_t slope;
 
 	if(!pl)
 		return;
 
+	flags = actarg_raw(mo, st->arg, 5, FBF_USEAMMO); // flags
+
 	if(	!mo->custom_inventory &&
-		arg->flags & FBF_USEAMMO &&
+		flags & FBF_USEAMMO &&
 		remove_ammo(mo)
 	)
 		return;
 
-	if(mobjinfo[arg->pufftype].replacement)
-		mo_puff_type = mobjinfo[arg->pufftype].replacement;
-	else
-		mo_puff_type = arg->pufftype;
-	mo_puff_flags = !!(arg->flags & FBF_NORANDOMPUFFZ);
+	spread_hor = actarg_angle(mo, st->arg, 0); // spread_horz
+	spread_ver = actarg_angle(mo, st->arg, 1); // spread_vert
+	count = actarg_integer(mo, st->arg, 2, 0); // numbullets
+	damage = actarg_integer(mo, st->arg, 3, 0); // damage
+	mo_puff_type = actarg_magic(mo, st->arg, 4, 37); // pufftype
 
-	if(arg->blt_count < 0)
+	range = actarg_fixed(mo, st->arg, 6, 0); // range
+
+	if(range <= 0)
+		range = 8192 * FRACUNIT;
+
+	if(mobjinfo[mo_puff_type].replacement)
+		mo_puff_type = mobjinfo[mo_puff_type].replacement;
+	mo_puff_flags = !!(flags & FBF_NORANDOMPUFFZ);
+
+	if(count < 0)
 	{
-		count = -arg->blt_count;
+		count = -count;
 		spread = 1;
 	} else
 	{
-		count = arg->blt_count;
 		if(!count)
 		{
 			spread = 0;
@@ -2766,16 +2523,12 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			spread = pl->refire;
 	}
 
-	if(!(arg->flags & FBF_NOFLASH) && mo->info->state_melee)
+	if(!(flags & FBF_NOFLASH) && mo->info->state_melee)
 		mobj_set_animation(mo, ANIM_MELEE);
 
 	angle = mo->angle;
 	if(!player_aim(pl, &angle, &slope, 0))
 		slope = finetangent[(pl->mo->pitch + ANG90) >> ANGLETOFINESHIFT];
-
-	damage = arg->damage;
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
 
 	S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->attacksound);
 
@@ -2785,7 +2538,7 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		fixed_t sss;
 		uint32_t dmg;
 
-		if(!(arg->flags & FBF_NORANDOM))
+		if(!(flags & FBF_NORANDOM))
 			dmg = damage * (P_Random() % 3) + 1;
 		else
 			dmg = damage;
@@ -2795,21 +2548,21 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 		if(spread)
 		{
-			if(arg->spread_hor)
+			if(spread_hor)
 			{
-				aaa -= arg->spread_hor;
-				aaa += (arg->spread_hor >> 7) * P_Random();
+				aaa -= spread_hor;
+				aaa += (spread_hor >> 7) * P_Random();
 			}
-			if(arg->spread_ver)
+			if(spread_ver)
 			{
 				fixed_t tmp;
-				tmp = -arg->spread_ver;
-				tmp += (arg->spread_ver >> 7) * P_Random();
+				tmp = -spread_ver;
+				tmp += (spread_ver >> 7) * P_Random();
 				sss += tmp >> 14;
 			}
 		}
 
-		P_LineAttack(mo, aaa, arg->range, sss, damage);
+		P_LineAttack(mo, aaa, range, sss, damage);
 	}
 
 	// must restore original puff!
@@ -2820,62 +2573,40 @@ void A_FireBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_CustomPunch
 
-static const args_PunchAttack_t def_CustomPunch =
-{
-	.pufftype = 37,
-	.flags = CPF_USEAMMO,
-	.range = 64 * FRACUNIT,
-};
-
-static const dec_arg_flag_t flags_CustomPunch[] =
-{
-	MAKE_FLAG(CPF_USEAMMO),
-	MAKE_FLAG(CPF_PULLIN),
-	MAKE_FLAG(CPF_NORANDOMPUFFZ),
-	MAKE_FLAG(CPF_NOTURN),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_CustomPunch =
-{
-	.size = sizeof(args_PunchAttack_t),
-	.def = &def_CustomPunch,
-	.arg =
-	{
-		{handle_damage, offsetof(args_PunchAttack_t, damage)},
-		{handle_bool, offsetof(args_PunchAttack_t, norandom), 1},
-		{handle_flags, offsetof(args_PunchAttack_t, flags), 1, flags_CustomPunch},
-		{handle_mobjtype, offsetof(args_PunchAttack_t, pufftype), 1},
-		{handle_fixed, offsetof(args_PunchAttack_t, range), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_CustomPunch(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	const args_PunchAttack_t *arg = st->arg;
-	uint32_t damage;
+	uint32_t flags, damage;
+	fixed_t slope, range;
 	angle_t angle;
-	fixed_t slope;
 
 	if(!pl)
 		return;
 
+	flags = actarg_raw(mo, st->arg, 2, 0); // flags
+
 	if(	!mo->custom_inventory &&
-		arg->flags & CPF_USEAMMO &&
+		flags & CPF_USEAMMO &&
 		!weapon_has_ammo(mo, pl->readyweapon, pl->attackdown)
 	)
 		return;
 
-	if(mobjinfo[arg->pufftype].replacement)
-		mo_puff_type = mobjinfo[arg->pufftype].replacement;
-	else
-		mo_puff_type = arg->pufftype;
-	mo_puff_flags = !!(arg->flags & CPF_NORANDOMPUFFZ);
+	damage = actarg_integer(mo, st->arg, 0, 0); // damage
+
+	if(!actarg_raw(mo, st->arg, 1, 0)) // norandom
+		damage *= 1 + (P_Random() & 7);
+
+	mo_puff_type = actarg_magic(mo, st->arg, 3, 37); // pufftype
+
+	range = actarg_fixed(mo, st->arg, 4, 0); // range
+
+	if(range <= 0)
+		range = 64 * FRACUNIT;
+
+	if(mobjinfo[mo_puff_type].replacement)
+		mo_puff_type = mobjinfo[mo_puff_type].replacement;
+	mo_puff_flags = !!(flags & CPF_NORANDOMPUFFZ);
 
 	angle = mo->angle;
 	if(!player_aim(pl, &angle, &slope, 0))
@@ -2883,20 +2614,16 @@ void A_CustomPunch(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	angle += (P_Random() - P_Random()) << 18;
 
-	damage = arg->damage;
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
-
 	linetarget = NULL;
-	P_LineAttack(mo, angle, arg->range, slope, damage);
+	P_LineAttack(mo, angle, range, slope, damage);
 
 	if(linetarget)
 	{
-		if(arg->flags & CPF_PULLIN)
+		if(flags & CPF_PULLIN)
 			mo->flags |= MF_JUSTATTACKED;
-		if(!(arg->flags & CPF_NOTURN))
+		if(!(flags & CPF_NOTURN))
 			mo->angle = R_PointToAngle2(mo->x, mo->y, linetarget->x, linetarget->y);
-		if(!mo->custom_inventory && arg->flags & CPF_USEAMMO)
+		if(!mo->custom_inventory && flags & CPF_USEAMMO)
 			remove_ammo(mo);
 		S_StartSound(SOUND_CHAN_WEAPON(mo), pl->readyweapon->attacksound);
 	}
@@ -2909,83 +2636,53 @@ void A_CustomPunch(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_BFGSpray
 
-static const args_BFGSpray_t def_BFGSpray =
-{
-	.spraytype = 42, // MT_EXTRABFG
-	.numrays = 40,
-	.damagecnt = 15,
-	.angle = ANG90,
-	.range = 1024 * FRACUNIT
-};
-
-static const dec_args_t args_BFGSpray =
-{
-	.size = sizeof(args_BFGSpray_t),
-	.def = &def_BFGSpray,
-	.arg =
-	{
-		{handle_mobjtype, offsetof(args_BFGSpray_t, spraytype), 2},
-		{handle_u16, offsetof(args_BFGSpray_t, numrays), 1},
-		{handle_u16, offsetof(args_BFGSpray_t, damagecnt), 1},
-		{handle_angle, offsetof(args_BFGSpray_t, angle), 1},
-		{handle_fixed, offsetof(args_BFGSpray_t, range), 1},
-		{handle_forced_string, 0, 1, .string = "32"},
-		{handle_damage, offsetof(args_BFGSpray_t, damage)},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_BFGSpray(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_BFGSpray_t *arg = st->arg;
 	mobj_t *source = mo->target;
+	uint32_t damage, type, count, dmgcnt;
 	angle_t angle, astep;
-	uint32_t damage;
+	fixed_t range;
 
 	if(!source)
 		return;
 
-	if(!arg)
-		arg = &def_BFGSpray;
+	count = actarg_integer(mo, st->arg, 1, 40); // numrays
 
-	if(!arg->numrays)
+	if(!count)
 		return;
 
-	if(arg->damage)
-	{
-		damage = arg->damage;
-		if(damage & DAMAGE_IS_CUSTOM)
-			damage = mobj_calc_damage(damage);
-	} else
-		damage = 0;
+	type = actarg_magic(mo, st->arg, 0, 42); // spraytype
 
-	astep = arg->angle / arg->numrays;
+	dmgcnt = actarg_integer(mo, st->arg, 2, 15); // damagecnt
+	astep = actarg_angle(mo, st->arg, 3); // ang
+	range = actarg_fixed(mo, st->arg, 4, 0); // distance
+	// vrange is ignored and should be 32
+	damage = actarg_integer(mo, st->arg, 6, 0); // defdamage
 
 	angle = mo->angle;
-	angle -= arg->angle / 2;
+	angle -= astep / 2;
+	astep /= count;
 	angle += astep / 2;
 
-	for(uint32_t i = 0; i < arg->numrays; i++, angle += astep)
+	for(uint32_t i = 0; i < count; i++, angle += astep)
 	{
 		uint32_t dmg = damage;
 
-		P_AimLineAttack(source, angle, arg->range);
+		P_AimLineAttack(source, angle, range);
 
 		if(!linetarget)
 			continue;
 
-		P_SpawnMobj(linetarget->x, linetarget->y, linetarget->z + (linetarget->height >> 2), arg->spraytype);
+		P_SpawnMobj(linetarget->x, linetarget->y, linetarget->z + (linetarget->height >> 2), type);
 
 		if(!dmg)
 		{
-			for(uint32_t j = 0; j < arg->damagecnt; j++)
+			for(uint32_t j = 0; j < dmgcnt; j++)
 				dmg += (P_Random() & 7) + 1;
 		}
 
-		dmg = DAMAGE_WITH_TYPE(dmg, mobjinfo[arg->spraytype].damage_type);
-
+		dmg |= DAMAGE_SET_TYPE(mobjinfo[type].damage_type);
 		mobj_damage(linetarget, source, source, dmg, NULL);
 	}
 }
@@ -2993,35 +2690,12 @@ void A_BFGSpray(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_SeekerMissile
 
-static const dec_arg_flag_t flags_SeekerMissile[] =
-{
-	MAKE_FLAG(SMF_LOOK),
-	MAKE_FLAG(SMF_PRECISE),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_SeekerMissile =
-{
-	.size = sizeof(args_SeekerMissile_t),
-	.arg =
-	{
-		{handle_angle, offsetof(args_SeekerMissile_t, threshold)},
-		{handle_angle, offsetof(args_SeekerMissile_t, maxturn)},
-		{handle_flags, offsetof(args_SeekerMissile_t, flags), 1, flags_SeekerMissile},
-		{handle_u16, offsetof(args_SeekerMissile_t, chance), 1},
-		{handle_u16, offsetof(args_SeekerMissile_t, range), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_SeekerMissile_t *arg = st->arg;
 	mobj_t *target = mo->tracer;
 	uint32_t sub = 0;
+	uint32_t flags;
 	angle_t dir, delta;
 	fixed_t speed, dist;
 
@@ -3029,16 +2703,18 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!speed)
 		return;
 
-	if(arg->flags & SMF_LOOK && !target)
+	flags = actarg_raw(mo, st->arg, 2, 0); // flags
+
+	if(flags & SMF_LOOK && !target)
 	{
-		uint16_t chance = arg->chance;
+		uint16_t chance = actarg_integer(mo, st->arg, 3, 0); // chance
 		if(!chance)
 			chance = 50;
 
 		if(chance < 256 && P_Random() >= chance)
 			return;
 
-		dist = arg->range;
+		dist = actarg_fixed(mo, st->arg, 4, 0); // distance
 		if(!dist)
 			dist = 10;
 
@@ -3069,11 +2745,12 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			delta = ANG180;
 	}
 
-	if(delta > arg->threshold)
+	if(delta > actarg_angle(mo, st->arg, 0)) // threshold
 	{
+		angle_t maxturn = actarg_angle(mo, st->arg, 1);
 		delta /= 2;
-		if(delta > arg->maxturn)
-			delta = arg->maxturn;
+		if(delta > maxturn)
+			delta = maxturn;
 	}
 
 	if(sub)
@@ -3087,7 +2764,7 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		dist = 1;
 	dist = ((target->z + 32 * FRACUNIT) - mo->z) / dist;
 
-	if(arg->flags & SMF_PRECISE)
+	if(flags & SMF_PRECISE)
 	{
 		dist = FixedDiv(dist, speed);
 		if(dist)
@@ -3113,115 +2790,75 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_SpawnItemEx
 
-static const dec_arg_flag_t flags_SpawnItemEx[] =
-{
-	MAKE_FLAG(SXF_MULTIPLYSPEED), // first flag must be > 65535 to indicate 32bits
-	MAKE_FLAG(SXF_ISTRACER),
-	MAKE_FLAG(SXF_ISMASTER),
-	MAKE_FLAG(SXF_ISTARGET),
-	MAKE_FLAG(SXF_ORIGINATOR),
-	MAKE_FLAG(SXF_NOPOINTERS),
-	MAKE_FLAG(SXF_SETTRACER),
-	MAKE_FLAG(SXF_SETTARGET),
-	MAKE_FLAG(SXF_CLEARCALLERTID),
-	MAKE_FLAG(SXF_USEBLOODCOLOR),
-	MAKE_FLAG(SXF_TRANSFERPOINTERS),
-	MAKE_FLAG(SXF_TRANSFERPITCH),
-	MAKE_FLAG(SXF_TRANSFERAMBUSHFLAG),
-	MAKE_FLAG(SXF_TELEFRAG),
-	MAKE_FLAG(SXF_NOCHECKPOSITION),
-	MAKE_FLAG(SXF_SETMASTER),
-	MAKE_FLAG(SXF_ABSOLUTEVELOCITY),
-	MAKE_FLAG(SXF_ABSOLUTEANGLE),
-	MAKE_FLAG(SXF_ABSOLUTEPOSITION),
-	MAKE_FLAG(SXF_TRANSFERTRANSLATION),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_SpawnItemEx =
-{
-	.size = sizeof(args_SpawnItemEx_t),
-	.arg =
-	{
-		{handle_mobjtype, offsetof(args_SpawnItemEx_t, type), 1},
-		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, ox), 1},
-		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, oy), 1},
-		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, oz), 1},
-		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, vx), 1},
-		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, vy), 1},
-		{handle_fixed_rng, offsetof(args_SpawnItemEx_t, vz), 1},
-		{handle_angle, offsetof(args_SpawnItemEx_t, angle), 1},
-		{handle_flags, offsetof(args_SpawnItemEx_t, flags), 1, flags_SpawnItemEx},
-		{handle_u16, offsetof(args_SpawnItemEx_t, fail), 1},
-		{handle_u16, offsetof(args_SpawnItemEx_t, tid), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	player_t *pl = mo->player;
-	const args_SpawnItemEx_t *arg = st->arg;
 	mobj_t *th, *origin;
 	angle_t angle;
 	fixed_t ss, cc;
 	fixed_t x, y;
 	fixed_t mx, my;
+	fixed_t xx, yy;
+	uint32_t flags;
 
-	if(arg->fail && P_Random() < arg->fail)
+	flags = actarg_integer(mo, st->arg, 9, 0); // failchance
+
+	if(flags && P_Random() < flags)
 		return;
 
-	angle = arg->angle;
+	angle = actarg_angle(mo, st->arg, 7); // angle
+	flags = actarg_raw(mo, st->arg, 8, 0); // flags
 
-	if(!(arg->flags & SXF_ABSOLUTEANGLE))
+	if(!(flags & SXF_ABSOLUTEANGLE))
 		angle += mo->angle;
 
 	ss = finesine[angle >> ANGLETOFINESHIFT];
 	cc = finecosine[angle >> ANGLETOFINESHIFT];
 
-	if(arg->flags & SXF_ABSOLUTEPOSITION)
+	xx = actarg_fixed(mo, st->arg, 1, 0); // xofs
+	yy = actarg_fixed(mo, st->arg, 2, 0); // yofs
+
+	if(flags & SXF_ABSOLUTEPOSITION)
 	{
-		x = mo->x + reslove_fixed_rng(arg->ox);
-		y = mo->y + reslove_fixed_rng(arg->oy);
+		x = mo->x + xx;
+		y = mo->y + yy;
 	} else
 	{
-		fixed_t ox, oy;
-		ox = reslove_fixed_rng(arg->ox);
-		oy = reslove_fixed_rng(arg->oy);
-		x = FixedMul(ox, cc);
-		x += FixedMul(oy, ss);
-		y = FixedMul(ox, ss);
-		y -= FixedMul(oy, cc);
+		x = FixedMul(xx, cc);
+		x += FixedMul(yy, ss);
+		y = FixedMul(xx, ss);
+		y -= FixedMul(yy, cc);
 		x += mo->x;
 		y += mo->y;
 	}
 
-	if(!(arg->flags & SXF_ABSOLUTEVELOCITY))
+	xx = actarg_fixed(mo, st->arg, 4, 0); // xvel
+	yy = actarg_fixed(mo, st->arg, 5, 0); // yvel
+
+	if(!(flags & SXF_ABSOLUTEVELOCITY))
 	{
-		fixed_t vx, vy;
-		vx = reslove_fixed_rng(arg->vx);
-		vy = reslove_fixed_rng(arg->vy);
-		mx = FixedMul(vx, cc);
-		mx += FixedMul(vy, ss);
-		my = FixedMul(vx, ss);
-		my -= FixedMul(vy, cc);
+		mx = FixedMul(xx, cc);
+		mx += FixedMul(yy, ss);
+		my = FixedMul(xx, ss);
+		my -= FixedMul(yy, cc);
 	} else
 	{
-		mx = reslove_fixed_rng(arg->vx);
-		my = reslove_fixed_rng(arg->vy);
+		mx = xx;
+		my = yy;
 	}
 
-	th = P_SpawnMobj(x, y, mo->z + reslove_fixed_rng(arg->oz), arg->type);
+	xx = actarg_fixed(mo, st->arg, 3, 0); // zofs
+	yy = actarg_magic(mo, st->arg, 0, 0); // missile
+
+	th = P_SpawnMobj(x, y, mo->z + xx, yy);
 	th->momx = mx;
 	th->momy = my;
-	th->momz = reslove_fixed_rng(arg->vz);
+	th->momz = actarg_fixed(mo, st->arg, 6, 0); // zvel
 	th->angle = mo->angle;
-	th->special.tid = arg->tid;
+	th->special.tid = actarg_integer(mo, st->arg, 10, 0); // tid
 
-	if(arg->flags & SXF_MULTIPLYSPEED)
+	if(flags & SXF_MULTIPLYSPEED)
 	{
 		fixed_t speed = projectile_speed(th->info);
 		th->momx = FixedMul(mx, speed);
@@ -3229,19 +2866,19 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		th->momz = FixedMul(th->momz, speed);
 	}
 
-	if(arg->flags & SXF_TRANSFERPITCH)
+	if(flags & SXF_TRANSFERPITCH)
 		th->pitch = mo->pitch;
 
 	if(!(th->flags2 & MF2_DONTTRANSLATE))
 	{
-		if(arg->flags & SXF_TRANSFERTRANSLATION)
+		if(flags & SXF_TRANSFERTRANSLATION)
 			th->translation = mo->translation;
 		else
-		if(arg->flags & SXF_USEBLOODCOLOR)
+		if(flags & SXF_USEBLOODCOLOR)
 			th->translation = mo->info->blood_trns;
 	}
 
-	if(arg->flags & SXF_TRANSFERPOINTERS)
+	if(flags & SXF_TRANSFERPOINTERS)
 	{
 		th->target = mo->target;
 		th->master = mo->master;
@@ -3249,59 +2886,59 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	}
 
 	origin = mo;
-	if(!(arg->flags & SXF_ORIGINATOR))
+	if(!(flags & SXF_ORIGINATOR))
 	{
 		while(origin && (origin->flags & MF_MISSILE || origin->info->flags & MF_MISSILE))
 			origin = origin->target;
 	}
 
-	if(arg->flags & SXF_TELEFRAG)
+	if(flags & SXF_TELEFRAG)
 		mobj_telestomp(th, x, y);
 
 	if(th->flags1 & MF1_ISMONSTER)
 	{
-		if(!(arg->flags & (SXF_NOCHECKPOSITION | SXF_TELEFRAG)) && !P_CheckPosition(th, x, y))
+		if(!(flags & (SXF_NOCHECKPOSITION | SXF_TELEFRAG)) && !P_CheckPosition(th, x, y))
 		{
 			mobj_remove(th);
 			return;
 		}
 		// TODO: friendly monster stuff should be here
 	} else
-	if(!(arg->flags & SXF_TRANSFERPOINTERS))
+	if(!(flags & SXF_TRANSFERPOINTERS))
 		th->target = origin ? origin : mo;
 
-	if(arg->flags & SXF_NOPOINTERS)
+	if(flags & SXF_NOPOINTERS)
 	{
 		th->target = NULL;
 		th->master = NULL;
 		th->tracer = NULL;
 	}
 
-	if(arg->flags & SXF_SETMASTER)
+	if(flags & SXF_SETMASTER)
 		th->master = origin;
 
-	if(arg->flags & SXF_SETTARGET)
+	if(flags & SXF_SETTARGET)
 		th->target = origin;
 
-	if(arg->flags & SXF_SETTRACER)
+	if(flags & SXF_SETTRACER)
 		th->tracer = origin;
 
-	if(arg->flags & SXF_TRANSFERAMBUSHFLAG)
+	if(flags & SXF_TRANSFERAMBUSHFLAG)
 	{
 		th->flags &= ~MF_AMBUSH;
 		th->flags |= mo->flags & MF_AMBUSH;
 	}
 
-	if(arg->flags & SXF_CLEARCALLERTID)
+	if(flags & SXF_CLEARCALLERTID)
 		mo->special.tid = 0;
 
-	if(arg->flags & SXF_ISTARGET)
+	if(flags & SXF_ISTARGET)
 		mo->target = th;
 
-	if(arg->flags & SXF_ISMASTER)
+	if(flags & SXF_ISMASTER)
 		mo->master = th;
 
-	if(arg->flags & SXF_ISTRACER)
+	if(flags & SXF_ISTRACER)
 		mo->tracer = th;
 
 	if(th->flags & MF_MISSILE)
@@ -3319,35 +2956,22 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_DropItem
 
-const args_DropItem_t def_DropItem =
-{
-	.chance = 256
-};
-
-static const dec_args_t args_DropItem =
-{
-	.size = sizeof(args_DropItem_t),
-	.def = &def_DropItem,
-	.arg =
-	{
-		{handle_mobjtype, offsetof(args_DropItem_t, type)},
-		{handle_forced_string, 0, 1, .string = "0"},
-		{handle_u16, offsetof(args_DropItem_t, chance), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_DropItem(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_DropItem_t *arg = st->arg;
 	mobj_t *item;
+	uint32_t chance, type;
 
-	if(arg->chance < 255 && arg->chance <= P_Random())
+	// dropamount is skipped and should be zero
+
+	chance = actarg_integer(mo, st->arg, 2, 0); // chance
+
+	if(chance < 255 && chance <= P_Random())
 		return;
 
-	item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), arg->type);
+	type = actarg_magic(mo, st->arg, 0, 0); // item
+
+	item = P_SpawnMobj(mo->x, mo->y, mo->z + (8 << FRACBITS), type);
 	item->inside = mo;
 	item->flags |= MF_DROPPED;
 	item->angle = P_Random() << 24;
@@ -3363,65 +2987,45 @@ void A_DropItem(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_GiveInventory
 
-static const dec_args_t args_GiveInventory =
-{
-	.size = sizeof(args_GiveInventory_t),
-	.arg =
-	{
-		{handle_mobjtype, offsetof(args_GiveInventory_t, type)},
-		{handle_damage, offsetof(args_GiveInventory_t, amount), 1}, // hijack 'random damage' feature
-		{handle_pointer, offsetof(args_GiveInventory_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_GiveInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_GiveInventory_t *arg = st->arg;
-	uint32_t amount = arg->amount;
+	uint32_t amount, type;
 
-	mo = resolve_ptr(mo, arg->ptr);
+	mo = actarg_pointer(mo, st->arg, 2, AAPTR_DEFAULT); // giveto
 	if(!mo)
 		return;
 
-	if(amount & DAMAGE_IS_CUSTOM)
-		amount = mobj_calc_damage(amount);
+	type = actarg_magic(mo, st->arg, 0, 0); // type
+	amount = actarg_integer(mo, st->arg, 1, 0); // amount
 
 	if(!amount)
 		amount++;
-	mobj_give_inventory(mo, arg->type, amount);
+
+	mobj_give_inventory(mo, type, amount);
 }
 
 //
 // A_TakeInventory
 
-static const dec_args_t args_TakeInventory =
-{
-	.size = sizeof(args_GiveInventory_t),
-	.arg =
-	{
-		{handle_mobjtype, offsetof(args_GiveInventory_t, type)},
-		{handle_u16, offsetof(args_GiveInventory_t, amount), 1},
-		{handle_forced_string, 0, 1, .string = "0"},
-		{handle_pointer, offsetof(args_GiveInventory_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_TakeInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_GiveInventory_t *arg = st->arg;
-	uint32_t count = arg->amount;
-	mo = resolve_ptr(mo, arg->ptr);
+	uint32_t amount, type;
+
+	// flags are skipped and should be zero
+
+	mo = actarg_pointer(mo, st->arg, 3, AAPTR_DEFAULT); // takefrom
 	if(!mo)
 		return;
-	if(!count)
-		count = INV_MAX_COUNT;
-	inventory_take(mo, arg->type, count);
+
+	type = actarg_magic(mo, st->arg, 0, 0); // type
+	amount = actarg_integer(mo, st->arg, 1, 0); // amount
+
+	if(!amount)
+		amount = INV_MAX_COUNT;
+
+	inventory_take(mo, type, amount);
 }
 
 //
@@ -3430,48 +3034,32 @@ void A_TakeInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SelectWeapon(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleType_t *arg = st->arg;
+	uint32_t type;
 
 	if(!mo->player)
 		return;
 
-	if(mo->player->readyweapon == mobjinfo + arg->type)
+	type = actarg_magic(mo, st->arg, 0, 0); // whichweapon
+
+	if(mo->player->readyweapon == mobjinfo + type)
 		return;
 
-	if(mobjinfo[arg->type].extra_type != ETYPE_WEAPON)
+	if(mobjinfo[type].extra_type != ETYPE_WEAPON)
 		return;
 
-	if(!inventory_check(mo, arg->type))
+	if(!inventory_check(mo, type))
 		return;
 
-	mo->player->pendingweapon = mobjinfo + arg->type;
+	mo->player->pendingweapon = mobjinfo + type;
 }
 
 //
 // text
 
-static const print_text_t def_Print =
-{
-	.tics = 3 * 35
-};
-
-static const dec_args_t args_Print =
-{
-	.size = sizeof(print_text_t),
-	.def = &def_Print,
-	.arg =
-	{
-		{handle_print_text, 0},
-		{handle_ftics, offsetof(print_text_t, tics), 1},
-		{handle_font, offsetof(print_text_t, font), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Print(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+/*
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
 		player_t *pl = players + i;
@@ -3481,127 +3069,71 @@ void A_Print(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			pl->text_tics = 0;
 		}
 	}
+*/
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_PrintBold(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+/*
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
 		player_t *pl = players + i;
 		pl->text_data = st->arg;
 		pl->text_tics = 0;
 	}
+*/
 }
 
 //
 // A_SetTranslation
 
-static const dec_args_t args_SetTranslation =
-{
-	.size = sizeof(args_singlePointer_t),
-	.arg =
-	{
-		{handle_translation, offsetof(args_singlePointer_t, value)},
-		// terminator
-		{NULL}
-	}
-};
-
 __attribute((regparm(2),no_caller_saved_registers))
 void A_SetTranslation(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singlePointer_t *arg = st->arg;
-	mo->translation = arg->value;
+	uint32_t idx = actarg_magic(mo, st->arg, 0, 0); // transname
+	mo->translation = render_translation + 256 * idx;
 }
 
 //
 // A_SetScale
 
-static const dec_args_t args_SetScale =
-{
-	.size = sizeof(args_singleFixed_t),
-	.arg =
-	{
-		{handle_fixed, offsetof(args_singleFixed_t, value)},
-		// terminator
-		{NULL}
-	}
-};
-
 __attribute((regparm(2),no_caller_saved_registers))
 void A_SetScale(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleFixed_t *arg = st->arg;
-	mo->scale = arg->value;
+	mo->scale = actarg_fixed(mo, st->arg, 0, FRACUNIT); // scale
 }
 
 //
 // A_SetRenderStyle
 
-static const dec_arg_flag_t flags_SetRenderStyle[] =
-{
-	{.name = "STYLE_Normal", .bits = RS_NORMAL},
-	{.name = "STYLE_Fuzzy", .bits = RS_FUZZ},
-	{.name = "STYLE_Shadow", .bits = RS_SHADOW},
-	{.name = "STYLE_Translucent", .bits = RS_TRANSLUCENT},
-	{.name = "STYLE_Add", .bits = RS_ADDITIVE},
-	{.name = "STYLE_None", .bits = RS_INVISIBLE},
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_SetRenderStyle =
-{
-	.size = sizeof(args_SetRenderStyle_t),
-	.arg =
-	{
-		{handle_fixed, offsetof(args_SetRenderStyle_t, alpha), 0},
-		{handle_flags, offsetof(args_SetRenderStyle_t, flags), 0, flags_SetRenderStyle},
-		// terminator
-		{NULL}
-	}
-};
-
 __attribute((regparm(2),no_caller_saved_registers))
 void A_SetRenderStyle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_SetRenderStyle_t *arg = st->arg;
-	mo->render_style = arg->flags;
-	if(arg->alpha >= FRACUNIT)
+	fixed_t alpha;
+
+	alpha = actarg_fixed(mo, st->arg, 0, FRACUNIT); // alpha
+	mo->render_style = actarg_raw(mo, st->arg, 1, RS_NORMAL); // style
+
+	if(alpha >= FRACUNIT)
 		mo->render_alpha = 255;
 	else
-	if(arg->alpha <= 0)
+	if(alpha <= 0)
 		mo->render_alpha = 0;
 	else
-		mo->render_alpha = arg->alpha >> 8;
+		mo->render_alpha = alpha >> 8;
 }
 
 //
 // A_FadeOut
 
-static const dec_args_t args_FadeOut =
-{
-	.size = sizeof(args_singleFixed_t),
-	.arg =
-	{
-		{handle_fixed, offsetof(args_singleFixed_t, value), 2},
-		// terminator
-		{NULL}
-	}
-};
-
 __attribute((regparm(2),no_caller_saved_registers))
 void A_FadeOut(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleFixed_t *arg = st->arg;
 	fixed_t sub;
 	fixed_t alpha;
 
-	if(arg)
-		sub = arg->value;
-	else
-		sub = FRACUNIT / 10;
+	sub = actarg_fixed(mo, st->arg, 0, FRACUNIT / 10); // reduce_amount
 
 	if(mo->render_style != RS_TRANSLUCENT && mo->render_style != RS_ADDITIVE)
 		mo->render_style = RS_TRANSLUCENT;
@@ -3656,33 +3188,19 @@ void A_AlertMonsters(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_SetAngle
 
-static const dec_args_t args_SetAngle =
-{
-	.size = sizeof(args_SetAngle_t),
-	.arg =
-	{
-		{handle_angle_rel, offsetof(args_SetAngle_t, angle)},
-		{handle_forced_string, 0, 1, .string = "0"},
-		{handle_pointer, offsetof(args_SetAngle_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_SetAngle_t *arg = st->arg;
-	angle_t angle = arg->angle << 1;
+	mobj_t *mm;
+	angle_t angle;
 
-	if(arg->angle & 0x80000000)
-		angle += mo->angle;
+	// flags are skipped and should be zero
 
-	mo = resolve_ptr(mo, arg->ptr);
-	if(!mo)
+	mm = actarg_pointer(mo, st->arg, 2, AAPTR_DEFAULT); // ptr
+	if(!mm)
 		return;
 
-	mo->angle = angle;
+	mm->angle = actarg_angle(mo, st->arg, 0); // angle
 }
 
 //
@@ -3691,89 +3209,60 @@ void A_SetAngle(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SetPitch(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_SetAngle_t *arg = st->arg;
+	mobj_t *mm;
+	angle_t angle;
 
-	if(arg->angle & 0x80000000)
-		// invalid
+	// flags are skipped and should be zero
+
+	mm = actarg_pointer(mo, st->arg, 2, AAPTR_DEFAULT); // ptr
+	if(!mm)
 		return;
 
-	mo = resolve_ptr(mo, arg->ptr);
-	if(!mo)
-		return;
-
-	mo->pitch = -(arg->angle << 1);
+	mm->pitch = -actarg_angle(mo, st->arg, 0); // angle
 }
 
 //
 // A_ChangeFlag
 
-static const dec_args_t args_ChangeFlag =
-{
-	.size = sizeof(args_ChangeFlag_t),
-	.arg =
-	{
-		{handle_mobj_flag, offsetof(args_ChangeFlag_t, moflag)},
-		{handle_bool, offsetof(args_ChangeFlag_t, set)},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_ChangeFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_ChangeFlag_t *arg = st->arg;
 	uint32_t *fs;
+	uint32_t bits, offs;
 
-	fs = (void*)mo + arg->moflag.offset;
-	if(arg->set)
-		*fs = *fs | arg->moflag.bits;
+	offs = actarg_moflag(mo, st->arg, 0, &bits); // flagname
+	if(!offs)
+		return;
+
+	fs = (void*)mo + offs;
+
+	if(actarg_raw(mo, st->arg, 1, 0)) // value
+		*fs = *fs | bits;
 	else
-		*fs = *fs & ~arg->moflag.bits;
+		*fs = *fs & ~bits;
 }
 
 //
 // A_ChangeVelocity
 
-static const dec_arg_flag_t flags_ChangeVelocity[] =
-{
-	MAKE_FLAG(CVF_RELATIVE),
-	MAKE_FLAG(CVF_REPLACE),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_ChangeVelocity =
-{
-	.size = sizeof(args_ChangeVelocity_t),
-	.arg =
-	{
-		{handle_fixed_rng, offsetof(args_ChangeVelocity_t, x)},
-		{handle_fixed_rng, offsetof(args_ChangeVelocity_t, y)},
-		{handle_fixed_rng, offsetof(args_ChangeVelocity_t, z)},
-		{handle_flags, offsetof(args_ChangeVelocity_t, flags), 1, flags_ChangeVelocity},
-		{handle_pointer, offsetof(args_ChangeVelocity_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_ChangeVelocity_t *arg = st->arg;
 	angle_t ang;
 	fixed_t x, y;
 	fixed_t ax, ay;
+	uint32_t flags;
 
-	mo = resolve_ptr(mo, arg->ptr);
+	mo = actarg_pointer(mo, st->arg, 4, AAPTR_DEFAULT); // ptr
 	if(!mo)
 		return;
 
-	ax = reslove_fixed_rng(arg->x);
-	ay = reslove_fixed_rng(arg->y);
+	ax = actarg_fixed(mo, st->arg, 0, 0); // x
+	ay = actarg_fixed(mo, st->arg, 1, 0); // y
 
-	if(arg->flags & CVF_REPLACE)
+	flags = actarg_raw(mo, st->arg, 3, 0); // flags
+
+	if(flags & CVF_REPLACE)
 	{
 		mo->momx = 0;
 		mo->momy = 0;
@@ -3782,7 +3271,7 @@ void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	ang = mo->angle;
 
-	if(arg->flags & CVF_RELATIVE)
+	if(flags & CVF_RELATIVE)
 	{
 		fixed_t cc, ss;
 		ang >>= ANGLETOFINESHIFT;
@@ -3800,36 +3289,26 @@ void A_ChangeVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	mo->momx += x;
 	mo->momy += y;
-	mo->momz += reslove_fixed_rng(arg->z);
+	mo->momz += actarg_fixed(mo, st->arg, 2, 0); // z
 }
 
 //
 // A_ScaleVelocity
 
-static const dec_args_t args_ScaleVelocity =
-{
-	.size = sizeof(args_ScaleVelocity_t),
-	.arg =
-	{
-		{handle_fixed, offsetof(args_ScaleVelocity_t, scale)},
-		{handle_pointer, offsetof(args_ScaleVelocity_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_ScaleVelocity(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_ScaleVelocity_t *arg = st->arg;
+	fixed_t scale;
 
-	mo = resolve_ptr(mo, arg->ptr);
+	mo = actarg_pointer(mo, st->arg, 1, AAPTR_DEFAULT); // pointer
 	if(!mo)
 		return;
 
-	mo->momx = FixedMul(mo->momx, arg->scale);
-	mo->momy = FixedMul(mo->momy, arg->scale);
-	mo->momz = FixedMul(mo->momz, arg->scale);
+	scale = actarg_fixed(mo, st->arg, 0, 0); // scale
+
+	mo->momx = FixedMul(mo->momx, scale);
+	mo->momy = FixedMul(mo->momy, scale);
+	mo->momz = FixedMul(mo->momz, scale);
 }
 
 //
@@ -3846,56 +3325,26 @@ void A_Stop(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_SetTics
 
-static const dec_args_t args_SetTics =
-{
-	.size = sizeof(args_singleDamage_t),
-	.arg =
-	{
-		{handle_damage, offsetof(args_singleDamage_t, damage)}, // hijack 'random damage' feature
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleDamage_t *arg = st->arg;
-	uint32_t damage;
-
-	damage = arg->damage;
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
-
-	mo->tics = damage;
+	mo->tics = actarg_integer(mo, st->arg, 0, 0);
 }
 
 //
 // A_RearrangePointers
 
-static const dec_args_t args_RearrangePointers =
-{
-	.size = sizeof(args_RearrangePointers_t),
-	.arg =
-	{
-		{handle_pointer, offsetof(args_RearrangePointers_t, target)},
-		{handle_pointer, offsetof(args_RearrangePointers_t, master)},
-		{handle_pointer, offsetof(args_RearrangePointers_t, tracer)},
-		{handle_forced_string, 0, 0, .string = "PTROP_NOSAFEGUARDS"},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_RearrangePointers(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_RearrangePointers_t *arg = st->arg;
 	mobj_t *target = mo->target;
 	mobj_t *master = mo->master;
 	mobj_t *tracer = mo->tracer;
 
-	switch(arg->target)
+	if(actarg_raw(mo, st->arg, 3, 0) != PTROP_NOSAFEGUARDS) // flags; forced value
+		engine_error("DECORATE", "Missing %s in '%s'.", "PTROP_NOSAFEGUARDS", "a_rearrangepointers");
+
+	switch(actarg_raw(mo, st->arg, 0, 0)) // target
 	{
 		case AAPTR_TRACER:
 			mo->target = tracer;
@@ -3908,7 +3357,7 @@ void A_RearrangePointers(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		break;
 	}
 
-	switch(arg->master)
+	switch(actarg_raw(mo, st->arg, 1, 0)) // master
 	{
 		case AAPTR_TARGET:
 			mo->master = target;
@@ -3921,7 +3370,7 @@ void A_RearrangePointers(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		break;
 	}
 
-	switch(arg->tracer)
+	switch(actarg_raw(mo, st->arg, 2, 0)) // tracer
 	{
 		case AAPTR_TARGET:
 			mo->tracer = target;
@@ -3936,7 +3385,7 @@ void A_RearrangePointers(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
-// D2 Boss stuff
+// A_BrainDie
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_BrainDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
@@ -3949,28 +3398,9 @@ void A_BrainDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_KeenDie
 
-const args_singleU16_t def_KeenDie =
-{
-	.value = 6
-};
-
-static const dec_args_t args_KeenDie =
-{
-	.size = sizeof(args_singleU16_t),
-	.def = &def_KeenDie,
-	.arg =
-	{
-		{handle_u16, offsetof(args_singleU16_t, value), 2},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_KeenDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleU16_t *arg = st->arg;
-
 	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
 	{
 		mobj_t *mt;
@@ -3987,12 +3417,8 @@ void A_KeenDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			return;
 	}
 
-	if(arg)
-		spec_arg[0] = arg->value;
-	else
-		spec_arg[0] = 666;
-
 	spec_special = 12;
+	spec_arg[0] = actarg_integer(mo, st->arg, 0, 666); // tag
 	spec_arg[1] = 16;
 	spec_arg[2] = 0;
 	spec_arg[3] = 0;
@@ -4004,50 +3430,27 @@ void A_KeenDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // A_Warp
 
-static const dec_arg_flag_t flags_Warp[] =
-{
-	MAKE_FLAG(WARPF_ABSOLUTEOFFSET),
-	MAKE_FLAG(WARPF_ABSOLUTEANGLE),
-	MAKE_FLAG(WARPF_ABSOLUTEPOSITION),
-	MAKE_FLAG(WARPF_USECALLERANGLE),
-	MAKE_FLAG(WARPF_NOCHECKPOSITION),
-	MAKE_FLAG(WARPF_STOP),
-	MAKE_FLAG(WARPF_MOVEPTR),
-	MAKE_FLAG(WARPF_COPYVELOCITY),
-	MAKE_FLAG(WARPF_COPYPITCH),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_Warp =
-{
-	.size = sizeof(args_Warp_t),
-	.arg =
-	{
-		{handle_pointer, offsetof(args_Warp_t, ptr)},
-		{handle_fixed_rng, offsetof(args_Warp_t, x), 1},
-		{handle_fixed_rng, offsetof(args_Warp_t, y), 1},
-		{handle_fixed_rng, offsetof(args_Warp_t, z), 1},
-		{handle_angle, offsetof(args_Warp_t, angle), 1},
-		{handle_flags, offsetof(args_Warp_t, flags), 1, flags_Warp},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Warp(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_Warp_t *arg = st->arg;
 	mobj_t *target;
 	fixed_t x, y, z;
 	fixed_t bx, by, bz;
+	fixed_t xx, yy;
+	uint32_t flags;
+	angle_t angle;
 
-	target = resolve_ptr(mo, arg->ptr);
-	if(!target)
+	target = actarg_pointer(mo, st->arg, 0, AAPTR_DEFAULT); // ptr_destination
+	if(!target || target == mo)
 		return;
 
-	if(arg->flags & WARPF_MOVEPTR)
+	xx = actarg_fixed(mo, st->arg, 1, 0); // xofs
+	yy = actarg_fixed(mo, st->arg, 2, 0); // yofs
+	z = actarg_fixed(mo, st->arg, 3, 0); // zofs
+	angle = actarg_angle(mo, st->arg, 4); // angle
+	flags = actarg_raw(mo, st->arg, 5, 0); // flags
+
+	if(flags & WARPF_MOVEPTR)
 	{
 		mobj_t *tmp = target;
 		target = mo;
@@ -4058,57 +3461,50 @@ void A_Warp(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	by = mo->y;
 	bz = mo->z;
 
-	if(arg->flags & WARPF_ABSOLUTEANGLE)
-		mo->angle = arg->angle;
+	if(flags & WARPF_ABSOLUTEANGLE)
+		mo->angle = angle;
 	else
-	if(arg->flags & WARPF_USECALLERANGLE)
-		mo->angle += arg->angle;
+	if(flags & WARPF_USECALLERANGLE)
+		mo->angle += angle;
 	else
-		mo->angle = target->angle + arg->angle;
+		mo->angle = target->angle + angle;
 
-	if(arg->flags & WARPF_STOP)
+	if(flags & WARPF_STOP)
 	{
 		mo->momx = 0;
 		mo->momy = 0;
 		mo->momz = 0;
 	} else
-	if(arg->flags & WARPF_COPYVELOCITY)
+	if(flags & WARPF_COPYVELOCITY)
 	{
 		mo->momx = target->momx;
 		mo->momy = target->momy;
 		mo->momz = target->momz;
 	}
 
-	if(arg->flags & WARPF_COPYPITCH)
+	if(flags & WARPF_COPYPITCH)
 		mo->pitch = target->pitch;
 
-	z = reslove_fixed_rng(arg->z);
-
-	if(arg->flags & WARPF_ABSOLUTEPOSITION)
+	if(flags & WARPF_ABSOLUTEPOSITION)
 	{
-		x = reslove_fixed_rng(arg->x);
-		y = reslove_fixed_rng(arg->y);
+		x = xx;
+		y = yy;
 	} else
 	{
-		fixed_t ox, oy;
-
-		ox = reslove_fixed_rng(arg->x);
-		oy = reslove_fixed_rng(arg->y);
-
-		if(arg->flags & WARPF_ABSOLUTEOFFSET)
+		if(flags & WARPF_ABSOLUTEOFFSET)
 		{
-			x = mo->x + ox;
-			y = mo->y + oy;
+			x = mo->x + xx;
+			y = mo->y + yy;
 		} else
 		{
 			fixed_t cc, ss;
 			angle_t ang = mo->angle >> ANGLETOFINESHIFT;
 			ss = finesine[ang];
 			cc = finecosine[ang];
-			x = FixedMul(ox, cc);
-			x += FixedMul(oy, ss);
-			y = FixedMul(ox, ss);
-			y -= FixedMul(oy, cc);
+			x = FixedMul(xx, cc);
+			x += FixedMul(yy, ss);
+			y = FixedMul(xx, ss);
+			y -= FixedMul(yy, cc);
 			x += mo->x;
 			y += mo->y;
 		}
@@ -4117,130 +3513,89 @@ void A_Warp(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	P_UnsetThingPosition(mo);
 	mo->x = x;
 	mo->y = y;
-	P_SetThingPosition(mo);
 
-	if(arg->flags & WARPF_ABSOLUTEPOSITION)
+	if(flags & WARPF_ABSOLUTEPOSITION)
 		mo->z = z;
 	else
 		mo->z += z;
 
-	if(arg->flags & WARPF_NOCHECKPOSITION)
+	P_SetThingPosition(mo);
+
+	if(flags & WARPF_NOCHECKPOSITION)
 		return;
 
 	if(P_TryMove(mo, mo->x, mo->y))
 		return;
 
+	P_UnsetThingPosition(mo);
 	mo->x = bx;
 	mo->y = by;
 	mo->z = bz;
+	P_SetThingPosition(mo);
 }
 
 //
 // A_SetArg
 
-static const dec_args_t args_SetArg =
-{
-	.size = sizeof(args_SetArg_t),
-	.arg =
-	{
-		{handle_u16, offsetof(args_SetArg_t, arg)},
-		{handle_damage, offsetof(args_SetArg_t, value)},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SetArg(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_SetArg_t *arg = st->arg;
-	uint32_t value;
+	uint32_t idx;
 
-	if(arg->arg > 4)
+	idx = actarg_integer(mo, st->arg, 0, 0); // position
+	if(idx > 4)
 		return;
 
-	value = arg->value;
-	if(value & DAMAGE_IS_CUSTOM)
-		value = mobj_calc_damage(value);
-
-	mo->special.arg[arg->arg] = value;
+	mo->special.arg[idx] = actarg_integer(mo, st->arg, 1, 0); // value
 }
 
 //
 // A_DamageTarget
 
-static const dec_args_t args_DamageTarget =
+static void do_act_damage(mobj_t *mo, mobj_t *target, void *data)
 {
-	.size = sizeof(args_singleDamage_t),
-	.arg =
-	{
-		{handle_damage, offsetof(args_singleDamage_t, damage)},
-		// terminator
-		{NULL}
-	}
-};
-
-static void do_act_damage(mobj_t *mo, mobj_t *target, uint32_t damage)
-{
-	if(damage & DAMAGE_IS_CUSTOM)
-		damage = mobj_calc_damage(damage);
-
-	mo_dmg_skip_armor = 1; // technically, in rare cases, this is broken
+	uint32_t damage = actarg_integer(mo, data, 0, 0);
+	damage |= DAMAGE_SKIP_ARMOR;
 	mobj_damage(target, mo, mo, damage, 0);
-	mo_dmg_skip_armor = 0;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_DamageTarget(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleDamage_t *arg = st->arg;
 	if(!mo->target)
 		return;
-	do_act_damage(mo, mo->target, arg->damage);
+	do_act_damage(mo, mo->target, st->arg);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_DamageTracer(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleDamage_t *arg = st->arg;
 	if(!mo->tracer)
 		return;
-	do_act_damage(mo, mo->tracer, arg->damage);
+	do_act_damage(mo, mo->tracer, st->arg);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_DamageMaster(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleDamage_t *arg = st->arg;
 	if(!mo->master)
 		return;
-	do_act_damage(mo, mo->master, arg->damage);
+	do_act_damage(mo, mo->master, st->arg);
 }
 
 //
 // A_SetHealth
 
-static const dec_args_t args_SetHealth =
-{
-	.size = sizeof(args_singleDamage_t),
-	.arg =
-	{
-		{handle_damage, offsetof(args_singleDamage_t, damage)},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SetHealth(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleDamage_t *arg = st->arg;
 	uint32_t amount;
 
-	amount = arg->damage;
-	if(amount & DAMAGE_IS_CUSTOM)
-		amount = mobj_calc_damage(amount);
+	mo = actarg_pointer(mo, st->arg, 1, AAPTR_DEFAULT); // pointer
+	if(!mo)
+		return;
 
+	amount = actarg_integer(mo, st->arg, 0, 0); // health
 	if(!amount)
 		amount++;
 
@@ -4254,66 +3609,31 @@ void A_SetHealth(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 //
 // A_Explode
-
-const args_Explode_t def_Explode =
-{
-	.damage = 128,
-	.distance = 128 * FRACUNIT,
-	.flags = XF_HURTSOURCE | XF_THRUSTZ,
-};
-
-static const dec_arg_flag_t flags_Explode[] =
-{
-	MAKE_FLAG(XF_HURTSOURCE),
-	MAKE_FLAG(XF_NOTMISSILE),
-	MAKE_FLAG(XF_THRUSTZ),
-	MAKE_FLAG(XF_NOSPLASH),
-	// terminator
-	{NULL}
-};
-
-static const dec_args_t args_Explode =
-{
-	.size = sizeof(args_Explode_t),
-	.def = &def_Explode,
-	.arg =
-	{
-		{handle_damage, offsetof(args_Explode_t, damage)},
-		{handle_fixed, offsetof(args_Explode_t, distance)},
-		{handle_flags, offsetof(args_Explode_t, flags), 1, flags_Explode},
-		{handle_bool, offsetof(args_Explode_t, alert), 1},
-		{handle_fixed, offsetof(args_Explode_t, fistance), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 __attribute((regparm(2),no_caller_saved_registers))
 void A_Explode(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_Explode_t *arg = st->arg;
 	int32_t xl, xh, yl, yh;
 	fixed_t	dist;
+	uint32_t alert;
 
 	bombdmgtype = -1;
 
-	bombflags = arg->flags;
+	bombdamage = actarg_integer(mo, st->arg, 0, 128); // damage
+	bombdist = actarg_fixed(mo, st->arg, 1, 128 * FRACUNIT); // distance
+	bombflags = actarg_raw(mo, st->arg, 2, XF_HURTSOURCE); // flags
+	alert = actarg_raw(mo, st->arg, 3, 0); // alert
+	bombfist = actarg_fixed(mo, st->arg, 4, 0); // fulldamagedistance
 
-	dist = arg->distance + MAXRADIUS;
+	dist = bombdist + MAXRADIUS;
 	yh = (mo->y + dist - bmaporgy) >> MAPBLOCKSHIFT;
 	yl = (mo->y - dist - bmaporgy) >> MAPBLOCKSHIFT;
 	xh = (mo->x + dist - bmaporgx) >> MAPBLOCKSHIFT;
 	xl = (mo->x - dist - bmaporgx) >> MAPBLOCKSHIFT;
 
 	bombspot = mo;
-	bombdist = arg->distance;
-	bombfist = arg->fistance;
+
 	if(bombfist > bombdist)
 		bombfist = bombdist;
-
-	bombdamage = arg->damage;
-	if(bombdamage & DAMAGE_IS_CUSTOM)
-		bombdamage = mobj_calc_damage(bombdamage);
 
 	if(bombflags & XF_NOTMISSILE)
 		bombsource = mo;
@@ -4324,99 +3644,86 @@ void A_Explode(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		for(int32_t x = xl; x <= xh; x++)
 			P_BlockThingsIterator(x, y, PIT_Explode);
 
-	if(arg->alert && bombsource && bombsource->player)
+	if(alert && bombsource && bombsource->player)
 		P_NoiseAlert(bombsource, mo);
 
-	if(arg->flags & XF_NOSPLASH)
+	if(bombflags & XF_NOSPLASH)
 		return;
 
-	terrain_explosion_splash(mo, arg->distance);
+	terrain_explosion_splash(mo, bombdist);
 }
 
 //
 // A_Jump
 
-static const dec_args_t args_Jump =
-{
-	.size = sizeof(args_Jump_t),
-	.arg =
-	{
-		{handle_u16, offsetof(args_Jump_t, chance)},
-		{handle_state, offsetof(args_Jump_t, state0)},
-		{handle_state, offsetof(args_Jump_t, state1), 1},
-		{handle_state, offsetof(args_Jump_t, state2), 1},
-		{handle_state, offsetof(args_Jump_t, state3), 1},
-		{handle_state, offsetof(args_Jump_t, state4), 1},
-		{handle_state, offsetof(args_Jump_t, state5), 1},
-		{handle_state, offsetof(args_Jump_t, state6), 1},
-		{handle_state, offsetof(args_Jump_t, state7), 1},
-		{handle_state, offsetof(args_Jump_t, state8), 1},
-		{handle_state, offsetof(args_Jump_t, state9), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Jump(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_Jump_t *arg = st->arg;
+	uint16_t *argoffs;
 	uint32_t idx;
+	uint32_t next, extra;
 
-	if(!arg->chance)
+	next = actarg_integer(mo, st->arg, 0, 0); // chance
+
+	if(!next)
 		return;
 
-	if(arg->chance < 256 && P_Random() >= arg->chance)
+	if(next < 256 && P_Random() >= next)
 		return;
 
-	idx = P_Random() % arg->count;
-	stfunc(mo, arg->states[idx].next, arg->states[idx].extra);
+	argoffs = st->arg;
+	next = *argoffs - 1;
+
+	idx = 1;
+	if(next > 1)
+		idx += P_Random() % next;
+
+	next = actarg_state(mo, st->arg, idx, &extra); // offset/state
+
+	stfunc(mo, next, extra);
+}
+
+//
+// A_JumpIf
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_JumpIf(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	uint32_t next, extra;
+
+	next = actarg_raw(mo, st->arg, 0, 0); // expression
+	if(!next)
+		return;
+
+	next = actarg_state(mo, st->arg, 1, &extra); // offset/state
+
+	stfunc(mo, next, extra);
 }
 
 //
 // A_JumpIfInventory
 
-static const dec_args_t args_JumpIfInventory =
-{
-	.size = sizeof(args_JumpIfInventory_t),
-	.arg =
-	{
-		{handle_mobjtype_power, offsetof(args_JumpIfInventory_t, type)},
-		{handle_u16, offsetof(args_JumpIfInventory_t, amount)},
-		{handle_state, offsetof(args_JumpIfInventory_t, state)},
-		{handle_pointer, offsetof(args_JumpIfInventory_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_JumpIfInventory_t *arg = st->arg;
-	mobjinfo_t *info = mobjinfo + arg->type;
+	mobjinfo_t *info;
 	uint32_t now, check, limit;
+	uint32_t next, extra;
 	mobj_t *targ;
 
-	if(arg->type >= 0xFFF0)
-	{
-		// powerup check
-		if(!mo->player)
-			return;
-		if(!mo->player->powers[arg->type - 0xFFF0])
-			return;
-		stfunc(mo, arg->state.next, arg->state.extra);
-		return;
-	}
+	next = actarg_magic(mo, st->arg, 0, 0); // inventorytype
+	info = mobjinfo + next;
 
 	if(!inventory_is_valid(info))
 		return;
 
-	targ = resolve_ptr(mo, arg->ptr);
+	targ = actarg_pointer(mo, st->arg, 3, AAPTR_DEFAULT); // owner
 	if(!targ)
 		return;
 
-	now = inventory_check(targ, arg->type);
+	extra = actarg_integer(mo, st->arg, 1, 0); // amount
+
+	now = inventory_check(targ, next);
 
 	if(	info->extra_type == ETYPE_AMMO &&
 		targ->player &&
@@ -4426,210 +3733,193 @@ void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	else
 		limit = info->inventory.max_count;
 
-	if(arg->amount)
-		check = arg->amount;
+	if(extra)
+		check = extra;
 	else
 		check = limit;
 
-	if(now >= check || check > limit)
-		stfunc(mo, arg->state.next, arg->state.extra);
+	if(now < check && check <= limit)
+		return;
+
+	next = actarg_state(mo, st->arg, 2, &extra); // offset/state
+
+	stfunc(mo, next, extra);
 }
 
 //
 // A_JumpIfHealthLower
 
-static const dec_args_t args_JumpIfHealthLower =
-{
-	.size = sizeof(args_JumpIfHealthLower_t),
-	.arg =
-	{
-		{handle_u16, offsetof(args_JumpIfHealthLower_t, amount)},
-		{handle_state, offsetof(args_JumpIfHealthLower_t, state)},
-		{handle_pointer, offsetof(args_JumpIfHealthLower_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfHealthLower(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_JumpIfHealthLower_t *arg = st->arg;
-	uint32_t now, check, limit;
-	mobj_t *targ;
+	uint32_t next, extra;
+	int32_t check;
+	mobj_t *mm;
 
-	targ = resolve_ptr(mo, arg->ptr);
-	if(!targ)
+	mm = actarg_pointer(mo, st->arg, 2, AAPTR_DEFAULT); // pointer
+	if(!mm)
 		return;
 
-	if(targ->health < arg->amount)
-		stfunc(mo, arg->state.next, arg->state.extra);
+	check = actarg_integer(mo, st->arg, 0, 0); // health
+
+	if(mm->health >= check)
+		return;
+
+	next = actarg_state(mo, st->arg, 1, &extra); // offset/state
+
+	stfunc(mo, next, extra);
 }
 
 //
 // A_JumpIf*Closer
 
-static const dec_args_t args_JumpIfCloser =
+static void do_dist_check(mobj_t *mo, mobj_t *target, void *data, stfunc_t stfunc)
 {
-	.size = sizeof(args_JumpIfCloser_t),
-	.arg =
-	{
-		{handle_fixed, offsetof(args_JumpIfCloser_t, range)},
-		{handle_state, offsetof(args_JumpIfCloser_t, state)},
-		{handle_bool, offsetof(args_JumpIfCloser_t, no_z), 1},
-		// terminator
-		{NULL}
-	}
-};
+	uint32_t next, extra;
+	fixed_t range;
+
+	range = actarg_fixed(mo, data, 0, 0); // distance
+	extra = actarg_raw(mo, data, 2, 0); // noz
+
+	if(!mobj_range_check(mo, target, range, !extra))
+		return;
+
+	next = actarg_state(mo, data, 1, &extra); // offset/state
+
+	stfunc(mo, next, extra);
+}
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
 	// TODO: handle player weapon or inventory
-	const args_JumpIfCloser_t *arg = st->arg;
-	if(mobj_range_check(mo, mo->target, arg->range, !arg->no_z))
-		stfunc(mo, arg->state.next, arg->state.extra);
+	if(mo->player)
+		return;
+
+	do_dist_check(mo, mo->target, st->arg, stfunc);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfTracerCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_JumpIfCloser_t *arg = st->arg;
-	if(mobj_range_check(mo, mo->tracer, arg->range, !arg->no_z))
-		stfunc(mo, arg->state.next, arg->state.extra);
+	do_dist_check(mo, mo->tracer, st->arg, stfunc);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfMasterCloser(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_JumpIfCloser_t *arg = st->arg;
-	if(mobj_range_check(mo, mo->master, arg->range, !arg->no_z))
-		stfunc(mo, arg->state.next, arg->state.extra);
+	do_dist_check(mo, mo->master, st->arg, stfunc);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfTargetInsideMeleeRange(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleState_t *arg = st->arg;
-	if(mobj_check_melee_range(mo))
-		stfunc(mo, arg->state.next, arg->state.extra);
+	uint32_t next, extra;
+
+	if(!mobj_check_melee_range(mo))
+		return;
+
+	next = actarg_state(mo, st->arg, 0, &extra); // offset/state
+
+	stfunc(mo, next, extra);
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_JumpIfTargetOutsideMeleeRange(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleState_t *arg = st->arg;
-	if(!mobj_check_melee_range(mo))
-		stfunc(mo, arg->state.next, arg->state.extra);
-}
+	uint32_t next, extra;
 
-//
-// A_CheckFlag
-
-static const dec_args_t args_CheckFlag =
-{
-	.size = sizeof(args_CheckFlag_t),
-	.arg =
-	{
-		{handle_mobj_flag, offsetof(args_CheckFlag_t, moflag)},
-		{handle_state, offsetof(args_CheckFlag_t, state)},
-		{handle_pointer, offsetof(args_CheckFlag_t, ptr), 1},
-		// terminator
-		{NULL}
-	}
-};
-
-static __attribute((regparm(2),no_caller_saved_registers))
-void A_CheckFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
-{
-	const args_CheckFlag_t *arg = st->arg;
-	uint32_t *flags;
-	mobj_t *targ;
-
-	targ = resolve_ptr(mo, arg->ptr);
-	if(!targ)
+	if(mobj_check_melee_range(mo))
 		return;
 
-	flags = (void*)targ + arg->moflag.offset;
-	if(*flags & arg->moflag.bits)
-		stfunc(mo, arg->state.next, arg->state.extra);
+	next = actarg_state(mo, st->arg, 0, &extra); // offset/state
+
+	stfunc(mo, next, extra);
 }
 
 //
 // A_CheckFloor
 
-static const dec_args_t args_CheckFloor =
-{
-	.size = sizeof(args_singleState_t),
-	.arg =
-	{
-		{handle_state, offsetof(args_singleState_t, state)},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_CheckFloor(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleState_t *arg = st->arg;
-	if(mo->z <= mo->floorz)
-		stfunc(mo, arg->state.next, arg->state.extra);
+	uint32_t next, extra;
+
+	if(mo->z > mo->floorz)
+		return;
+
+	next = actarg_state(mo, st->arg, 0, &extra); // offset/state
+
+	stfunc(mo, next, extra);
+}
+
+//
+// A_CheckFlag
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_CheckFlag(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	uint32_t next, extra;
+	uint32_t *fs;
+	uint32_t bits, offs;
+	mobj_t *mm;
+
+	mm = actarg_pointer(mo, st->arg, 2, AAPTR_DEFAULT); // check_pointer
+	if(!mm)
+		return;
+
+	offs = actarg_moflag(mo, st->arg, 0, &bits); // flagname
+	if(!offs)
+		return;
+
+	fs = (void*)mm + offs;
+
+	if(!(*fs & bits))
+		return;
+
+	next = actarg_state(mo, st->arg, 1, &extra); // offset/state
+
+	stfunc(mo, next, extra);
 }
 
 //
 // A_MonsterRefire
 
-static const dec_args_t args_MonsterRefire =
-{
-	.size = sizeof(args_MonsterRefire_t),
-	.arg =
-	{
-		{handle_u16, offsetof(args_MonsterRefire_t, chance)},
-		{handle_state, offsetof(args_MonsterRefire_t, state)},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_MonsterRefire(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_MonsterRefire_t *arg = st->arg;
+	uint32_t next, extra;
 
-	if(P_Random() < arg->chance)
+	next = actarg_integer(mo, st->arg, 0, 0); // chancecontinue
+
+	if(P_Random() < next)
 		return;
 
-	if(	!mo->target ||
-		mo->target->health <= 0 ||
-		!P_CheckSight(mo, mo->target)
+	if(	mo->target &&
+		mo->target->health > 0 &&
+		P_CheckSight(mo, mo->target)
 	)
-		stfunc(mo, arg->state.next, arg->state.extra);
+		return;
+
+	next = actarg_state(mo, st->arg, 1, &extra); // offset/state
+
+	stfunc(mo, next, extra);
 }
 
 //
 // A_CountdownArg
 
-static const dec_args_t args_CountdownArg =
-{
-	.size = sizeof(args_singleU16_t),
-	.arg =
-	{
-		{handle_u16, offsetof(args_singleU16_t, value)},
-		// terminator
-		{NULL}
-	}
-};
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_CountdownArg(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleU16_t *arg = st->arg;
+	uint32_t idx;
 
-	if(arg->value > 4)
+	idx = actarg_integer(mo, st->arg, 0, 0); // arg
+
+	if(idx > 4)
 		return;
 
-	if(mo->special.arg[arg->value]--)
+	if(mo->special.arg[idx]--)
 		return;
 
 	if(mo->flags & MF_MISSILE)
@@ -4654,12 +3944,14 @@ void A_CountdownArg(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Burst(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleType_t *arg = st->arg;
+	uint32_t type;
 
 	if(mo->player)
 		engine_error("DECORATE", "A_Burst with player connected!");
 
-	shatter_spawn(mo, arg->type);
+	type = actarg_magic(mo, st->arg, 0, 0); // classname
+
+	shatter_spawn(mo, type);
 
 	// hide, remove later - keep sound playing
 	mo->render_style = RS_INVISIBLE;
@@ -4676,18 +3968,20 @@ void A_Burst(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_SkullPop(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_singleType_t *arg = st->arg;
+	uint32_t type;
 	mobj_t *th;
 
 	if(!mo->player)
 		return;
+
+	type = actarg_magic(mo, st->arg, 0, 0); // classname
 
 	if(mo->player->attacker == mo)
 		mo->player->attacker = NULL;
 
 	mo->player->viewheight = 6 * FRACUNIT;
 
-	th = P_SpawnMobj(mo->x, mo->y, mo->z + mo->info->player.view_height, arg->type);
+	th = P_SpawnMobj(mo->x, mo->y, mo->z + mo->info->player.view_height, type);
 	th->momx = (P_Random() - P_Random()) << 9;
 	th->momy = (P_Random() - P_Random()) << 9;
 	th->momz = FRACUNIT*3 + (P_Random() << 6);
@@ -4805,50 +4099,444 @@ void A_IceSetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
 //
 // activate line special
 
-static int32_t parse_arg_value(mobj_t *mo, const arg_special_t *value)
-{
-	int32_t ret;
-
-	ret = value->value;
-
-	if(value->info >= 1 && value->info <= 5)
-		ret += (int32_t)mo->special.arg[value->info - 1];
-	else
-	if(value->info == 5)
-	{
-		if(mo->player)
-			ret += mo->player - players;
-		else
-			ret--;
-	}
-
-	return ret;
-}
-
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_LineSpecial(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	const args_lineSpecial_t *arg = st->arg;
-
-	spec_special = arg->special;
-	spec_arg[0] = parse_arg_value(mo, arg->arg + 0);
-	spec_arg[1] = parse_arg_value(mo, arg->arg + 1);
-	spec_arg[2] = parse_arg_value(mo, arg->arg + 2);
-	spec_arg[3] = parse_arg_value(mo, arg->arg + 3);
-	spec_arg[4] = parse_arg_value(mo, arg->arg + 4);
-
+	spec_arg[0] = actarg_integer(mo, st->arg, 0, 0);
+	spec_arg[1] = actarg_integer(mo, st->arg, 1, 0);
+	spec_arg[2] = actarg_integer(mo, st->arg, 2, 0);
+	spec_arg[3] = actarg_integer(mo, st->arg, 3, 0);
+	spec_arg[4] = actarg_integer(mo, st->arg, 4, 0);
+	spec_special = ((uint16_t*)st->arg)[6];
 	spec_activate(NULL, mo, 0);
 }
 
 //
 // parser
 
+static uint32_t parse_value(uint8_t *kw, int32_t *val)
+{
+	uint_fast8_t have_dot = 0;
+	const uint8_t *ptr = kw;
+	const math_var_t *var;
+	const math_con_t *con;
+
+	if(!kw[1])
+	{
+		if(kw[0] == '|')
+			return MATH_OR;
+		if(kw[0] == '^')
+			return MATH_XOR;
+		if(kw[0] == '&')
+			return MATH_AND;
+		if(kw[0] == '<')
+			return MATH_LESS;
+		if(kw[0] == '>')
+			return MATH_GREAT;
+		if(kw[0] == '+')
+			return MATH_ADD;
+		if(kw[0] == '-')
+			return MATH_SUB;
+		if(kw[0] == '*')
+			return MATH_MUL;
+		if(kw[0] == '/')
+			return MATH_DIV;
+	}
+
+	if(kw[1] == '=')
+	{
+		if(kw[0] == '<')
+			return MATH_LEQ;
+		if(kw[0] == '>')
+			return MATH_GEQ;
+		if(kw[0] == '=')
+			return MATH_EQ;
+		if(kw[0] == '!')
+			return MATH_NEQ;
+	}
+
+	if(kw[0] == '|' && kw[1] == '|')
+		return MATH_LOR;
+	if(kw[0] == '&' && kw[1] == '&')
+		return MATH_LAND;
+
+	while(*ptr)
+	{
+		if(*ptr == '.')
+		{
+			if(have_dot)
+				// invalid
+				goto try_text;
+			have_dot = 1;
+		} else
+		if(*ptr < '0' || *ptr > '9')
+			// invalid
+			goto try_text;
+		ptr++;
+	}
+
+	if(tp_parse_fixed(kw, val, MATHFRAC))
+		return MATH_INVALID;
+
+	return MATH_VALUE;
+
+try_text:
+	// handle non-numeric stuff
+	strupr(kw);
+
+	// the only function call (right now)
+	if(!strcmp("RANDOM", kw))
+	{
+		uint32_t v0, v1;
+
+		if(!tp_must_get("("))
+			return MATH_INVALID;
+
+		kw = tp_get_keyword();
+		if(!kw)
+			return MATH_INVALID;
+		if(doom_sscanf(kw, "%u", &v0) != 1 || v0 > 65535)
+			engine_error("DECORATE", "Unable to parse number '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+
+		if(!tp_must_get(","))
+			return MATH_INVALID;
+
+		kw = tp_get_keyword();
+		if(!kw)
+			return MATH_INVALID;
+		if(doom_sscanf(kw, "%u", &v1) != 1 || v1 > 65535)
+			engine_error("DECORATE", "Unable to parse number '%s' for action '%s' in '%s'!", kw, action_name, parse_actor_name);
+
+		if(!tp_must_get(")"))
+			return MATH_INVALID;
+
+		*val = v0 | (v1 << 16);
+		return MATH_RANDOM;
+	}
+
+	// check constants
+	con = math_constant;
+	while(con->name)
+	{
+		if(!strcmp(con->name, kw))
+		{
+			*val = con->value;
+			return MATH_VALUE;
+		}
+		con++;
+	}
+
+	// check variables
+	var = math_variable;
+	while(var->name)
+	{
+		if(!strcmp(var->name, kw))
+		{
+			uint32_t ret;
+			ret = var - math_variable;
+			ret += MATH_VARIABLE;
+			return ret;
+		}
+		var++;
+	}
+
+	return MATH_INVALID;
+}
+
+static uint32_t handle_string(uint8_t *kw)
+{
+	uint32_t len;
+	act_str_t *as;
+
+	len = strlen(kw);
+	as = dec_es_alloc(sizeof(uint32_t) + len + 1);
+
+	as->value = len;
+	strcpy(as->text, kw);
+
+	return (void*)as - parse_action_arg;
+}
+
+static uint32_t handle_state(uint8_t *kw)
+{
+	act_state_t *st;
+	const dec_anim_t *anim;
+
+	strlwr(kw);
+
+	st = dec_es_alloc(sizeof(act_state_t));
+
+	// find animation
+	anim = dec_find_animation(kw);
+	if(anim)
+	{
+		// actual animation
+		st->extra = STATE_SET_ANIMATION | anim->idx;
+		st->next = 0xFFFFFFFF;
+	} else
+	{
+		// custom state
+		st->extra = STATE_SET_CUSTOM;
+		st->next = tp_hash32(kw);
+	}
+
+	return (void*)st - parse_action_arg;
+}
+
+static uint32_t handle_mobjtype(uint8_t *kw)
+{
+	// negative return = fail
+	return mobj_check_type(tp_hash64(kw));
+}
+
+static uint32_t handle_mobjflag(uint8_t *kw)
+{
+	act_moflag_t *arf;
+	const dec_flag_t *flag;
+	uint32_t offset;
+
+	strlwr(kw);
+
+	offset = offsetof(mobj_t, flags);
+	flag = find_mobj_flag(kw, mobj_flags0);
+	if(!flag)
+	{
+		offset = offsetof(mobj_t, flags1);
+		flag = find_mobj_flag(kw, mobj_flags1);
+		if(!flag)
+		{
+			offset = offsetof(mobj_t, flags2);
+			flag = find_mobj_flag(kw, mobj_flags2);
+			if(!flag)
+				return -1;
+		}
+	} else
+	{
+		if(flag->bits & (MF_NOBLOCKMAP | MF_NOSECTOR))
+			return -1;
+	}
+
+	arf = dec_es_alloc(sizeof(act_moflag_t));
+	arf->bits = flag->bits;
+	arf->offset = offset;
+
+	return (void*)arf - parse_action_arg;
+}
+
+static uint32_t handle_dmgtype(uint8_t *kw)
+{
+	strlwr(kw);
+	return dec_get_custom_damage(kw, NULL);
+}
+
+static uint32_t handle_translation(uint8_t *kw)
+{
+	strlwr(kw);
+	return r_translation_find(kw);
+}
+
+static uint32_t handle_sound(uint8_t *kw)
+{
+	return sfx_by_alias(tp_hash64(kw));
+}
+
+static uint32_t handle_lump(uint8_t *kw)
+{
+	return wad_get_lump(kw);
+}
+
+void *act_handle_arg(int32_t idx)
+{
+	// this implementation uses unaligned 32bit access
+	uint8_t *kw;
+	int32_t value;
+	uint32_t type;
+	uint8_t buffer[256];
+	uint8_t *ptr = buffer;
+	uint32_t last_type = MATH_INVALID;
+	uint16_t *argoffs;
+	uint8_t str_type = STR_NONE;
+
+	kw = tp_get_keyword();
+	if(!kw)
+		return kw;
+
+	if(idx >= 0)
+	{
+		// action arg
+		argoffs = parse_action_arg;
+		argoffs += 1 + idx;
+
+		if(action_parsed->func == (void*)A_Jump)
+		{
+			// special case; only first argument is numeric
+			if(idx)
+				str_type = STR_STATE;
+		} else
+		for(uint32_t i = 0; i < MAX_STR_ARG; i++)
+		{
+			register uint8_t tmp = action_parsed->strarg[i];
+			if((tmp >> 4) == idx)
+			{
+				str_type = tmp & 15;
+				break;
+			}
+		}
+	} else
+	{
+		// decorate property
+		parse_action_arg = dec_es_alloc(2 * sizeof(uint16_t));
+		argoffs = parse_action_arg;
+		*argoffs++ = 1; // fake 1 argument
+	}
+
+	if(tp_is_string)
+	{
+		// strings are special
+		switch(str_type)
+		{
+			case STR_NORMAL:
+				type = handle_string(kw);
+			break;
+			case STR_STATE:
+				type = handle_state(kw);
+			break;
+			case STR_MOBJ_TYPE:
+				type = handle_mobjtype(kw);
+			break;
+			case STR_MOBJ_FLAG:
+				type = handle_mobjflag(kw);
+			break;
+			case STR_DAMAGE_TYPE:
+				type = handle_dmgtype(kw);
+			break;
+			case STR_TRANSLATION:
+				type = handle_translation(kw);
+			break;
+			case STR_SOUND:
+				type = handle_sound(kw);
+			break;
+			case STR_LUMP:
+				type = handle_lump(kw);
+			break;
+			default:
+				// this can NOT be a string
+				return NULL;
+		}
+
+		if(type > ARG_MAGIC_MASK)
+			return NULL;
+		type |= ARG_DEF_MAGIC;
+
+		*argoffs = type;
+
+		return tp_get_keyword();
+	} else
+	if(str_type > STR_STATE)
+		// this HAS to be a string
+		return NULL;
+
+	while(1)
+	{
+		// "tokenize"
+		type = parse_value(kw, &value);
+		if(type == MATH_INVALID)
+			return NULL;
+
+		if(type == MATH_SUB && last_type < MATH_VALUE)
+		{
+			// add negation if last entry is operator
+			if(ptr + 6 > buffer + sizeof(buffer))
+				// overflow
+				return NULL;
+			type = MATH_NEG;
+			// zero
+			*ptr++ = MATH_VALUE;
+			*((int32_t*)ptr) = 0;
+			ptr += sizeof(int32_t);
+			// priority minus
+			*ptr++ = type;
+		} else
+		{
+			if(ptr + 5 > buffer + sizeof(buffer))
+				// overflow
+				return NULL;
+
+			*ptr++ = type;
+
+			if(type >= MATH_VALUE && !(type & MATH_VARIABLE))
+			{
+				*((int32_t*)ptr) = value;
+				ptr += sizeof(int32_t);
+			}
+		}
+
+		kw = tp_get_keyword();
+		if(!kw || kw[0] == ',' || kw[0] == ')')
+			break;
+
+		last_type = type;
+
+		if(tp_is_string)
+			return NULL;
+	}
+
+	// validate equation
+	// this will try to replay all math operations
+	// since mobj does not exists, all variables are replaced with dummy value
+	// equation might be simplified to single result (value, variable, random())
+	parse_math_res = MATH_VALUE;
+	value = math_calculate(NULL, buffer, ptr - buffer);
+
+//	doom_printf("result is %d (%d)\n", value, parse_math_res);
+
+	if(parse_math_res < 0)
+		return NULL;
+
+	if(parse_math_res & MATH_VARIABLE)
+	{
+		// simplified to single variable
+		type = ARG_DEF_VAR | (parse_math_res & MATH_VAR_MASK);
+	} else
+	if(parse_math_res >= MATH_VALUE)
+	{
+		// simplified to value or random()
+		int32_t *val = dec_es_alloc(sizeof(int32_t));
+		*val = value;
+		type = (void*)val - parse_action_arg;
+		type |= (parse_math_res & 0x0F) << 11;
+	} else
+	{
+		// unable simplify
+		uint16_t *val;
+		type = ptr - buffer;
+		val = dec_es_alloc(sizeof(uint16_t) + type);
+		*val = type;
+		memcpy(val + 1, buffer, type);
+		type = (void*)val - parse_action_arg;
+		type |= ARG_DEF_MATH;
+	}
+
+	*argoffs = type;
+
+	if(idx < 0)
+	{
+		if(kw[0] != ')')
+			return NULL;
+		return parse_action_arg;
+	}
+
+	return kw;
+}
+
 uint8_t *action_parser(uint8_t *name)
 {
 	uint8_t *kw;
-	const dec_action_t *act = mobj_action;
+	const dec_action_t *act;
+	const dec_linespec_t *spec;
 
 	// find action
+	act = mobj_action;
 	while(act->name)
 	{
 		if(!strcmp(act->name, name))
@@ -4859,9 +4547,9 @@ uint8_t *action_parser(uint8_t *name)
 	if(!act->name)
 	{
 		// try line specials
-		const dec_linespec_t *spec = special_action;
-		uint64_t alias = tp_hash64(name);
+		uint64_t alias = tp_hash32(name);
 
+		spec = special_action;
 		while(spec->special)
 		{
 			if(spec->alias == alias)
@@ -4869,221 +4557,70 @@ uint8_t *action_parser(uint8_t *name)
 			spec++;
 		}
 
-		if(spec->special)
-		{
-			args_lineSpecial_t *arg;
-			uint32_t idx = 0;
+		if(!spec->special)
+			// not found
+			engine_error("DECORATE", "Unknown action '%s' in '%s'!", name, parse_actor_name);
 
-			// set defaults
-			arg = dec_es_alloc(sizeof(args_lineSpecial_t));
-			arg->special = spec->special;
-			arg->arg[0].w = 0;
-			arg->arg[1].w = 0;
-			arg->arg[2].w = 0;
-			arg->arg[3].w = 0;
-			arg->arg[4].w = 0;
-
-			// enter function
-			kw = tp_get_keyword();
-			if(!kw || kw[0] != '(')
-				return NULL;
-
-			// parse
-			while(1)
-			{
-				uint32_t value = 0;
-				uint32_t tmp = 0;
-				uint_fast8_t flags = 0;
-
-				// get value
-				kw = tp_get_keyword_lc();
-				if(!kw)
-					return NULL;
-
-				if(idx >= 5)
-					engine_error("DECORATE", "Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
-
-				// check for 'args' and 'PlayerNumber'
-				if(!strcmp(kw, "args"))
-				{
-					kw = tp_get_keyword();
-					if(!kw || kw[0] != '[')
-						return NULL;
-
-					kw = tp_get_keyword();
-					if(!kw)
-						return NULL;
-
-					if(doom_sscanf(kw, "%u", &tmp) != 1 || tmp > 4)
-						engine_error("DECORATE", "Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
-
-					kw = tp_get_keyword();
-					if(!kw || kw[0] != ']')
-						return NULL;
-
-					// convert to arg[x]
-					tmp++;
-
-					// value is optional now
-					flags = 8;
-
-					// sign or number
-					kw = tp_get_keyword();
-					if(!kw)
-						return NULL;
-				} else
-				if(!strcmp(kw, "playernumber"))
-				{
-					kw = tp_get_keyword();
-					if(!kw || kw[0] != '(')
-						return NULL;
-					kw = tp_get_keyword();
-					if(!kw || kw[0] != ')')
-						return NULL;
-
-					// value is optional now
-					flags = 8;
-
-					// special value
-					tmp = 5;
-
-					// sign or number
-					kw = tp_get_keyword();
-					if(!kw)
-						return NULL;
-				}
-
-				if(kw[0] == '-')
-					flags = 1 | 2 | 4;
-				else
-				if(kw[0] == '+')
-					flags = 2 | 4;
-				else
-				if(flags & 8)
-					tp_push_keyword(kw);
-				else
-					flags = 4;
-
-				if(flags & 2)
-				{
-					// number
-					kw = tp_get_keyword();
-					if(!kw)
-						return NULL;
-				}
-
-				if(flags & 4)
-				{
-					// parse numeric value
-					if(doom_sscanf(kw, "%u", &value) != 1 || value > 0x7FFF)
-						engine_error("DECORATE", "Unable to parse number '%s' for action '%s' in '%s'!", kw, name, parse_actor_name);
-				}
-
-				arg->arg[idx].value = value;
-				if(flags & 1)
-					arg->arg[idx].value = -arg->arg[idx].value;
-				arg->arg[idx].info = tmp;
-				idx++;
-
-				// get comma or end
-				kw = tp_get_keyword();
-				if(!kw)
-					return NULL;
-
-				if(kw[0] == ')')
-					break;
-
-				if(kw[0] != ',')
-					return NULL;
-			}
-
-			parse_action_func = A_LineSpecial;
-			parse_action_arg = arg;
-
-			// return next keyword
-			return tp_get_keyword();
-		}
-
-		// not found
-		engine_error("DECORATE", "Unknown action '%s' in '%s'!", name, parse_actor_name);
+		act = &line_action;
 	}
-
-	// action function
-	parse_action_func = act->func;
 
 	// next keyword
 	kw = tp_get_keyword();
 	if(!kw)
 		return NULL;
 
-	if(act->args)
+	// action function
+	parse_action_func = act->func;
+	parse_action_arg = NULL;
+	parse_arg_idx = 0;
+	action_name = kw;
+	action_parsed = act;
+
+	if(kw[0] == '(')
 	{
-		const dec_arg_t *arg = act->args->arg;
-
-		parse_action_arg = dec_es_alloc(act->args->size);
-
-		if(act->args->def)
-			memcpy(parse_action_arg, act->args->def, act->args->size);
-		else
-			memset(parse_action_arg, 0, act->args->size);
-
-		action_name = name;
-
-		if(kw[0] != '(')
+		while(1)
 		{
-			if(!arg->optional)
-				engine_error("DECORATE", "Missing arg[%d] for action '%s' in '%s'!", 0, name, parse_actor_name);
-			if(arg->optional > 1)
+			if(!parse_action_arg)
 			{
-				parse_action_arg = NULL;
-				dec_es_ptr -= act->args->size;
-			}
-		} else
-		{
-			while(arg->handler)
-			{
-				kw = tp_get_keyword();
-				if(!kw)
-					return NULL;
+				uint32_t count;
 
-				if(kw[0] == ')')
+				if(act == &line_action)
+					count = 6;
+				else
+					count = act->maxarg;
+
+				count++;
+
+				parse_action_arg = dec_es_alloc(count * sizeof(uint16_t));
+				if(act == &line_action)
 				{
-args_end:
-					if(arg->handler && !arg->optional)
-						engine_error("DECORATE", "Missing arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
-					// extra stuff
-					if(parse_action_func == A_Jump)
-					{
-						// this is very specific handling for A_Jump
-						args_Jump_t *aaa = parse_action_arg;
-						uint32_t count = 0;
-						for(uint32_t i = 1; i < 10; i++)
-						{
-							if(aaa->states[i].next || aaa->states[i].extra)
-								count = i;
-						}
-						count++;
-						aaa->count = count;
-						dec_es_ptr -= sizeof(state_jump_t) * (10 - count);
-					}
-					// return next keyword
-					return tp_get_keyword();
+					// line special hack
+					uint16_t *ac = parse_action_arg;
+					ac[6] = spec->special; // no extra markings
 				}
-
-				kw = arg->handler(kw, arg);
-				if(!kw || (kw[0] != ',' && kw[0] != ')'))
-					engine_error("DECORATE", "Failed to parse arg[%d] for action '%s' in '%s'!", arg - act->args->arg, name, parse_actor_name);
-
-				arg++;
-
-				if(kw[0] == ')')
-					goto args_end;
-
-				if(!arg->handler)
-					engine_error("DECORATE", "Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 			}
+
+			kw = act_handle_arg(parse_arg_idx);
+			if(!kw || (kw[0] != ',' && kw[0] != ')'))
+				engine_error("DECORATE", "Failed to parse arg[%d] for action '%s' in '%s'!", parse_arg_idx, name, parse_actor_name);
+
+			parse_arg_idx++;
+
+			if(kw[0] == ')')
+			{
+				uint16_t *ac = parse_action_arg;
+				*ac = parse_arg_idx;
+				kw = tp_get_keyword();
+				break;
+			}
+
+			if(parse_arg_idx >= act->maxarg)
+				engine_error("DECORATE", "Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 		}
 	}
+
+	if(parse_arg_idx < act->minarg)
+		engine_error("DECORATE", "Missing arg[%d] for action '%s' in '%s'!", parse_arg_idx, name, parse_actor_name);
 
 	return kw;
 }
@@ -5094,15 +4631,15 @@ args_end:
 static const dec_action_t mobj_action[] =
 {
 	// weapon
-	{"a_lower", A_Lower, &args_LowerRaise},
-	{"a_raise", A_Raise, &args_LowerRaise},
-	{"a_gunflash", A_GunFlash, &args_GunFlash},
+	{"a_lower", A_Lower, 1, 0}, // lowerspeed
+	{"a_raise", A_Raise, 1, 0}, // raisespeed
+	{"a_gunflash", A_GunFlash, 2, -1, { STRARG(0,STR_STATE) }}, // "flashlabel", flags
 	{"a_checkreload", A_CheckReload},
 	{"a_light0", A_Light0},
 	{"a_light1", A_Light1},
 	{"a_light2", A_Light2},
-	{"a_weaponready", A_WeaponReady, &args_WeaponReady},
-	{"a_refire", A_ReFire, &args_ReFire},
+	{"a_weaponready", A_WeaponReady, 1, -1}, // flags
+	{"a_refire", A_ReFire, 1, -1, { STRARG(0,STR_STATE) }}, // "state"
 	// sound
 	{"a_pain", A_Pain},
 	{"a_scream", A_Scream},
@@ -5110,7 +4647,7 @@ static const dec_action_t mobj_action[] =
 	{"a_playerscream", A_PlayerScream},
 	{"a_activesound", A_ActiveSound},
 	{"a_brainpain", A_BrainPain},
-	{"a_startsound", A_StartSound, &args_StartSound},
+	{"a_startsound", A_StartSound, 5, 1, { STRARG(0,STR_SOUND) }}, // "whattoplay", slot, flags, volume, attenuation
 	// basic control
 	{"a_facetarget", A_FaceTarget},
 	{"a_facetracer", A_FaceTracer},
@@ -5121,78 +4658,79 @@ static const dec_action_t mobj_action[] =
 	{"a_chase", A_Chase},
 	{"a_vilechase", A_VileChase},
 	// enemy attack
-	{"a_spawnprojectile", A_SpawnProjectile, &args_SpawnProjectile},
-	{"a_custombulletattack", A_CustomBulletAttack, &args_CustomBulletAttack},
-	{"a_custommeleeattack", A_CustomMeleeAttack, &args_CustomMeleeAttack},
-	{"a_viletarget", A_VileTarget, &args_SingleMobjtype},
-	{"a_vileattack", A_VileAttack, &args_VileAttack},
+	{"a_spawnprojectile", A_SpawnProjectile, 7, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "missiletype", spawnheight, spawnofs_xy, angle, flags, pitch, ptr
+	{"a_custombulletattack", A_CustomBulletAttack, 7, 4, { STRARG(4,STR_MOBJ_TYPE) }}, // horz_spread, vert_spread, numbullets, damageperbullet, "pufftype", range, flags
+	{"a_custommeleeattack", A_CustomMeleeAttack, 5, 1, { STRARG(1,STR_SOUND), STRARG(2,STR_SOUND), STRARG(3,STR_DAMAGE_TYPE) }}, // damage, "meleesound", "misssound", "damagetype", bleed
+	{"a_viletarget", A_VileTarget, 1, 0, { STRARG(0,STR_MOBJ_TYPE) }}, // "type"
+	{"a_vileattack", A_VileAttack, 7, 0, { STRARG(0,STR_SOUND), STRARG(5,STR_DAMAGE_TYPE) }}, // "sound", initialdamage, blastdamage, blastradius, thrustfactor, "damagetype", flags
 	// player attack
-	{"a_fireprojectile", A_FireProjectile, &args_FireProjectile},
-	{"a_firebullets", A_FireBullets, &args_FireBullets},
-	{"a_custompunch", A_CustomPunch, &args_CustomPunch},
+	{"a_fireprojectile", A_FireProjectile, 7, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "missiletype", angle, useammo, spawnofs_xy, spawnheight, flags, pitch
+	{"a_firebullets", A_FireBullets, 7, 4, { STRARG(4,STR_MOBJ_TYPE) }}, // spread_horz, spread_vert, numbullets, damage, "pufftype", flags, range
+	{"a_custompunch", A_CustomPunch, 5, 1, { STRARG(3,STR_MOBJ_TYPE) }}, // damage, norandom, flags, "pufftype", range
 	// other attack
-	{"a_bfgspray", A_BFGSpray, &args_BFGSpray},
-	{"a_seekermissile", A_SeekerMissile, &args_SeekerMissile},
+	{"a_bfgspray", A_BFGSpray, 7, -1, { STRARG(0,STR_MOBJ_TYPE) }}, // "spraytype", numrays, damagecnt, ang, distance, vrange, defdamage
+	{"a_seekermissile", A_SeekerMissile, 5, 2}, // threshold, maxturnangle, flags, chance, distance
 	// spawn
-	{"a_spawnitemex", A_SpawnItemEx, &args_SpawnItemEx},
-	{"a_dropitem", A_DropItem, &args_DropItem},
+	{"a_spawnitemex", A_SpawnItemEx, 11, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "missile", xofs, yofs, zofs, xvel, yvel, zvel, angle, flags, failchance, tid
+	{"a_dropitem", A_DropItem, 3, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "item", dropamount, chance
 	// chunks
-	{"a_burst", A_Burst, &args_SingleMobjtype},
-	{"a_skullpop", A_SkullPop, &args_SingleMobjtype},
+	{"a_burst", A_Burst, 1, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "classname"
+	{"a_skullpop", A_SkullPop, 1, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "classname"
 	// freeze death
 	{"a_freezedeath", A_FreezeDeath},
 	{"a_genericfreezedeath", A_GenericFreezeDeath},
 	{"a_freezedeathchunks", A_FreezeDeathChunks},
 	// render
-	{"a_settranslation", A_SetTranslation, &args_SetTranslation},
-	{"a_setscale", A_SetScale, &args_SetScale},
-	{"a_setrenderstyle", A_SetRenderStyle, &args_SetRenderStyle},
-	{"a_fadeout", A_FadeOut, &args_FadeOut},
+	{"a_settranslation", A_SetTranslation, 1, 1, { STRARG(0,STR_TRANSLATION) }}, // "transname"
+	{"a_setscale", A_SetScale, 1, 1}, // scale
+	{"a_setrenderstyle", A_SetRenderStyle, 2, 2}, // alpha, style
+	{"a_fadeout", A_FadeOut, 1, 1}, // reduce_amount
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_alertmonsters", A_AlertMonsters},
-	{"a_setangle", A_SetAngle, &args_SetAngle},
-	{"a_setpitch", A_SetPitch, &args_SetAngle}, // using 'SetAngle' is not ideal
-	{"a_changeflag", A_ChangeFlag, &args_ChangeFlag},
-	{"a_changevelocity", A_ChangeVelocity, &args_ChangeVelocity},
-	{"a_scalevelocity", A_ScaleVelocity, &args_ScaleVelocity},
+	{"a_setangle", A_SetAngle, 3, 1}, // angle, flags, ptr
+	{"a_setpitch", A_SetPitch, 3, 1}, // pitch, flags, ptr
+	{"a_changeflag", A_ChangeFlag, 2, 2, { STRARG(0,STR_MOBJ_FLAG) }}, // "flagname", value
+	{"a_changevelocity", A_ChangeVelocity, 5, 3}, // x, y, z, flags, ptr
+	{"a_scalevelocity", A_ScaleVelocity, 2, 1}, // scale, pointer
 	{"a_stop", A_Stop},
-	{"a_settics", A_SetTics, &args_SetTics},
-	{"a_rearrangepointers", A_RearrangePointers, &args_RearrangePointers},
+	{"a_settics", A_SetTics, 1, 1}, // duration
+	{"a_rearrangepointers", A_RearrangePointers, 4, 4}, // target, master, tracer, flags
 	{"a_brainawake", doom_A_BrainAwake},
 	{"a_brainspit", doom_A_BrainSpit},
 	{"a_spawnfly", doom_A_SpawnFly},
 	{"a_braindie", A_BrainDie},
-	{"a_keendie", A_KeenDie, &args_KeenDie},
-	{"a_warp", A_Warp, &args_Warp},
-	{"a_setarg", A_SetArg, &args_SetArg},
+	{"a_keendie", A_KeenDie, 1, -1}, // tag
+	{"a_warp", A_Warp, 6, 1}, // ptr_destination, xofs, yofs, zofs, angle, flags
+	{"a_setarg", A_SetArg, 2, 2}, // position, value
 	// damage
-	{"a_damagetarget", A_DamageTarget, &args_DamageTarget},
-	{"a_damagetracer", A_DamageTracer, &args_DamageTarget},
-	{"a_damagemaster", A_DamageMaster, &args_DamageTarget},
-	{"a_explode", A_Explode, &args_Explode},
+	{"a_damagetarget", A_DamageTarget, 2, 1, { STRARG(1,STR_DAMAGE_TYPE) }}, // amount, "damagetype"
+	{"a_damagetracer", A_DamageTracer, 2, 1, { STRARG(1,STR_DAMAGE_TYPE) }}, // amount, "damagetype"
+	{"a_damagemaster", A_DamageMaster, 2, 1, { STRARG(1,STR_DAMAGE_TYPE) }}, // amount, "damagetype"
+	{"a_explode", A_Explode, 5, 1}, // damage, distance, flags, alert, fulldamagedistance
 	// health
-	{"a_sethealth", A_SetHealth, &args_SetHealth},
+	{"a_sethealth", A_SetHealth, 2, 1}, // health, pointer
 	// inventory
-	{"a_giveinventory", A_GiveInventory, &args_GiveInventory},
-	{"a_takeinventory", A_TakeInventory, &args_TakeInventory},
-	{"a_selectweapon", A_SelectWeapon, &args_SingleMobjtype},
+	{"a_giveinventory", A_GiveInventory, 3, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "type", amount, giveto
+	{"a_takeinventory", A_TakeInventory, 4, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "type", amount, flags, takefrom
+	{"a_selectweapon", A_SelectWeapon, 1, 1, { STRARG(0,STR_MOBJ_TYPE) }}, // "whichweapon"
 	// text
-	{"a_print", A_Print, &args_Print},
-	{"a_printbold", A_PrintBold, &args_Print},
+	{"a_print", A_Print, 3, 1, { STRARG(0,STR_NORMAL), STRARG(2,STR_LUMP) }}, // "text", time, "fontname"
+	{"a_printbold", A_PrintBold, 3, 1, { STRARG(0,STR_NORMAL), STRARG(2,STR_LUMP) }}, // "text", time, "fontname"
 	// jumps
-	{"a_jump", A_Jump, &args_Jump},
-	{"a_jumpifinventory", A_JumpIfInventory, &args_JumpIfInventory},
-	{"a_jumpifhealthlower", A_JumpIfHealthLower, &args_JumpIfHealthLower},
-	{"a_jumpifcloser", A_JumpIfCloser, &args_JumpIfCloser},
-	{"a_jumpiftracercloser", A_JumpIfTracerCloser, &args_JumpIfCloser},
-	{"a_jumpifmastercloser", A_JumpIfMasterCloser, &args_JumpIfCloser},
-	{"a_jumpiftargetinsidemeleerange", A_JumpIfTargetInsideMeleeRange, &args_ReFire},
-	{"a_jumpiftargetoutsidemeleerange", A_JumpIfTargetOutsideMeleeRange, &args_ReFire},
-	{"a_checkflag", A_CheckFlag, &args_CheckFlag},
-	{"a_checkfloor", A_CheckFloor, &args_CheckFloor},
-	{"a_monsterrefire", A_MonsterRefire, &args_MonsterRefire},
-	{"a_countdownarg", A_CountdownArg, &args_CountdownArg},
+	{"a_jump", A_Jump, 10, 2}, // chance, "offset/state", ... // TODO: somehow make dynamic
+	{"a_jumpif", A_JumpIf, 2, 2, { STRARG(1,STR_STATE) }}, // expression, "offset/state"
+	{"a_jumpifinventory", A_JumpIfInventory, 4, 3, { STRARG(0,STR_MOBJ_TYPE), STRARG(2,STR_STATE) }}, // "inventorytype", amount, "offset/state", owner
+	{"a_jumpifhealthlower", A_JumpIfHealthLower, 3, 2, { STRARG(1,STR_STATE) }}, //  health, "offset/state", pointer
+	{"a_jumpifcloser", A_JumpIfCloser, 3, 2, { STRARG(1,STR_STATE) }}, // distance, "offset/state", noz
+	{"a_jumpiftracercloser", A_JumpIfTracerCloser, 3, 2, { STRARG(1,STR_STATE) }}, // distance, "offset/state", noz
+	{"a_jumpifmastercloser", A_JumpIfMasterCloser, 3, 2, { STRARG(1,STR_STATE) }}, // distance, "offset/state", noz
+	{"a_jumpiftargetinsidemeleerange", A_JumpIfTargetInsideMeleeRange, 1, 1, { STRARG(0,STR_STATE) }}, // "offset/state"
+	{"a_jumpiftargetoutsidemeleerange", A_JumpIfTargetOutsideMeleeRange, 1, -1, { STRARG(0,STR_STATE) }}, // "offset/state"
+	{"a_checkfloor", A_CheckFloor, 1, 1, { STRARG(0,STR_STATE) }}, // "offset/state"
+	{"a_checkflag", A_CheckFlag, 3, 2, { STRARG(0,STR_MOBJ_FLAG), STRARG(1,STR_STATE) }}, // "flagname", "offset/state", check_pointer
+	{"a_monsterrefire", A_MonsterRefire, 2, 2, { STRARG(1,STR_STATE) }}, // chancecontinue, "offset/state"
+	{"a_countdownarg", A_CountdownArg, 1, 1}, // arg
 	// terminator
 	{NULL}
 };
@@ -5202,74 +4740,75 @@ static const dec_action_t mobj_action[] =
 
 static const dec_linespec_t special_action[] =
 {
-	{2, 0x4BF2738E392FBF77}, // polyobj_rotateleft
-	{3, 0x4BF1348F08CFBF77}, // polyobj_rotateright
-	{4, 0x6BED7EA8AFE6CB67}, // polyobj_move
-	{7, 0xFBE47E8F157B383A}, // polyobj_doorswing
-	{8, 0xFBE47E8D3D7DF83A}, // polyobj_doorslide
-	{10, 0x0973BEC8DFCAFBE4}, // door_close
-	{12, 0x0973A61C9FCAFBE4}, // door_raise
-	{13, 0x496B8EFB88F09A2E}, // door_lockedraise
-	{19, 0x0C2FD337E7BA9A34}, // thing_stop
-	{20, 0x2977B7B240A342AD}, // floor_lowerbyvalue
-	{23, 0x5CE98E5240A342AC}, // floor_raisebyvalue
-	{26, 0xCA7589FC49DDF9A1}, // stairs_builddown
-	{27, 0xCA7589FCF2AA28A1}, // stairs_buildup
-	{28, 0x5CEB0BD23887D5A0}, // floor_raiseandcrush
-	{31, 0xCAFB678F49DDF9A1}, // stairs_builddownsync
-	{32, 0xCA758112159A28A1}, // stairs_buildupsync
-	{35, 0x314ECE5240A3A195}, // floor_raisebyvaluetimes8
-	{36, 0x44D0F7B240A3A194}, // floor_lowerbyvaluetimes8
-	{40, 0x7B7B255A722A2BF4}, // ceiling_lowerbyvalue
-	{41, 0x98E5255A722A3CAD}, // ceiling_raisebyvalue
-	{44, 0x5CA37E4B16FE71AC}, // ceiling_crushstop
-	{62, 0x1DED468DD0DF6F96}, // plat_downwaitupstay
-	{64, 0x4A624779913FF4A3}, // plat_upwaitdownstay
-	{70, 0x0000D32BF096C974}, // teleport
-	{71, 0xFB9FD32BF09F26EE}, // teleport_nofog
-	{72, 0x7BA9A34D33D72A36}, // thrustthing
-	{73, 0x7BA9A3496786D866}, // damagething
-	{74, 0x5B9FD32BF39EA4AA}, // teleport_newmap
-	{76, 0x8D2FD32BF096FBE2}, // teleportother
-	{97, 0x532322D83B6E256D}, // ceiling_lowerandcrushdist
-	{99, 0xB37B0BD23887D77B}, // floor_raiseandcrushdoom
-	{110, 0x5CE98E5246BFC3E6}, // light_raisebyvalue
-	{111, 0x2977B7B246BFC3E7}, // light_lowerbyvalue
-	{112, 0x7BA3FF5B73C98EFA}, // light_changetovalue
-	{113, 0x09648667F4A27A6C}, // light_fade
-	{114, 0x0DEFB277F4A27A6C}, // light_glow
-	{116, 0x2BF2D337F4A27AFA}, // light_strobe
-	{117, 0x0C2FD337F4A27A6C}, // light_stop
-	{119, 0x786D8647E7BA9AA2}, // thing_damage
-	{127, 0x0CF4973755A0F9A3}, // thing_setspecial
-	{128, 0x7BA9A34D33D72ADE}, // thrustthingz
-	{130, 0x6A748E17E7B3EEB3}, // thing_activate
-	{131, 0x48E1964770F2EC93}, // thing_deactivate
-	{132, 0x6BED9727E7BA9AA3}, // thing_remove
-	{133, 0x2D339647E7BAA38B}, // thing_destroy
-	{134, 0x5AAFCB077170EEBA}, // thing_projectile
-	{135, 0xEDE1C337E7BA9A36}, // thing_spawn
-	{136, 0x7375D7A07170ED27}, // thing_projectilegravity
-	{137, 0xEDE1C3377943358E}, // thing_spawnnofog
-	{139, 0xEDE1C3105D227BAE}, // thing_spawnfacing
-	{172, 0x9FDBF624D6CEFB9C}, // plat_upnearestwaitdownstay
-	{173, 0x0D3296C865CE9BEE}, // noisealert
-	{176, 0x7BA1A237E5F0EEA2}, // thing_changetid
-	{179, 0xCB29AF3967BA1A21}, // changeskill
-	{191, 0x2C3297A1BFEA39CC}, // setplayerproperty
-	{195, 0xB819670807D7B6E0}, // ceiling_crushraiseandstaya
-	{196, 0x396DE6093B5AF1A4}, // ceiling_crushandraisea
-	{198, 0xECE5255A7C19AA77}, // ceiling_raisebyvaluetimes8
-	{199, 0x0F7B255A7C19BD2E}, // ceiling_lowerbyvaluetimes8
-	{200, 0xFB267E3A7296DBD9}, // generic_floor
-	{201, 0x99637E3A70ED40D5}, // generic_ceiling
-	{206, 0x345D468DD0DF6F9A}, // plat_downwaitupstaylip
-	{212, 0x3D25CDFCACF9D5CD}, // sector_setcolor
-	{213, 0x6D25CDFCAFDB5DF5}, // sector_setfade
-	{237, 0x296D863967BA1AA4}, // changecamera
-	{239, 0x280ACE5240A342A2}, // floor_raisebyvaluetxty
-	{243, 0xC86DCAFB9FD29E27}, // exit_normal
-	{244, 0x49728E5CDFD29E26}, // exit_secret
+	{2, 0xD877EE73}, // polyobj_rotateleft
+	{3, 0xE996A972}, // polyobj_rotateright
+	{4, 0xECA9BF65}, // polyobj_move
+	{7, 0x44356C3F}, // polyobj_doorswing
+	{8, 0x6C33AC3D}, // polyobj_doorslide
+	{10, 0xDE1BCF04}, // door_close
+	{12, 0x9E1BD7D0}, // door_raise
+	{13, 0x4B31BE7F}, // door_lockedraise
+	{19, 0xC337C323}, // thing_stop
+	{20, 0xC37E579D}, // floor_lowerbyvalue
+	{23, 0xB6E06E7C}, // floor_raisebyvalue
+	{26, 0x2902D8F7}, // stairs_builddown
+	{27, 0x107509F7}, // stairs_buildup
+	{28, 0xCEC47CF0}, // floor_raiseandcrush
+	{31, 0x290E3EA4}, // stairs_builddownsync
+	{32, 0x75450939}, // stairs_buildupsync
+	{35, 0xFBC5CF4D}, // floor_raisebyvaluetimes8
+	{36, 0x8E5BF6AC}, // floor_lowerbyvaluetimes8
+	{40, 0xA3792C24}, // ceiling_lowerbyvalue
+	{41, 0x40E73B7D}, // ceiling_raisebyvalue
+	{44, 0xE0F7256D}, // ceiling_crushstop
+	{55, 0x30F4F914}, // line_setblocking
+	{62, 0x479A8B91}, // plat_downwaitupstay
+	{64, 0x51F51150}, // plat_upwaitdownstay
+	{70, 0xD0149077}, // teleport
+	{71, 0x238A5F6F}, // teleport_nofog
+	{72, 0x60DC0351}, // thrustthing
+	{73, 0x348DF105}, // damagething
+	{74, 0x828BDD2B}, // teleport_newmap
+	{76, 0x551B8263}, // teleportother
+	{97, 0xE245A737}, // ceiling_lowerandcrushdist
+	{99, 0x01D47C23}, // floor_raiseandcrushdoom
+	{110, 0xB0FCEF36}, // light_raisebyvalue
+	{111, 0xC562D6D7}, // light_lowerbyvalue
+	{112, 0xA2C2D323}, // light_changetovalue
+	{113, 0xD564762B}, // light_fade
+	{114, 0xD1EF423B}, // light_glow
+	{116, 0xF7F2236F}, // light_strobe
+	{117, 0xD02F237B}, // light_stop
+	{119, 0xB7759647}, // thing_damage
+	{127, 0xF3FEC436}, // thing_setspecial
+	{128, 0x60DC0339}, // thrustthingz
+	{130, 0xA56DCA06}, // thing_activate
+	{131, 0x92B9D076}, // thing_deactivate
+	{132, 0xA4F58726}, // thing_remove
+	{133, 0xE22B9F6E}, // thing_destroy
+	{134, 0x81758F1F}, // thing_projectile
+	{135, 0x22F9D323}, // thing_spawn
+	{136, 0x882D9A0D}, // thing_projectilegravity
+	{137, 0x3E085C1B}, // thing_spawnnofog
+	{139, 0x1A69123C}, // thing_spawnfacing
+	{172, 0xEB1D2D3A}, // plat_upnearestwaitdownstay
+	{173, 0x405E870E}, // noisealert
+	{176, 0xB4FBE637}, // thing_changetid
+	{179, 0x84313F32}, // changeskill
+	{191, 0x397204E7}, // setplayerproperty
+	{195, 0x3DC6716A}, // ceiling_crushraiseandstaya
+	{196, 0x881F352F}, // ceiling_crushandraisea
+	{198, 0x1AF42FAF}, // ceiling_raisebyvaluetimes8
+	{199, 0xF96A38F6}, // ceiling_lowerbyvaluetimes8
+	{200, 0xA1128F49}, // generic_floor
+	{201, 0xC3241445}, // generic_ceiling
+	{206, 0x4EAA8B95}, // plat_downwaitupstaylip
+	{212, 0xBB76B09B}, // sector_setcolor
+	{213, 0xEA5438A3}, // sector_setfade
+	{237, 0x66751637}, // changecamera
+	{239, 0xE2812E7A}, // floor_raisebyvaluetxty
+	{243, 0x5F1DDEF6}, // exit_normal
+	{244, 0x9E029A50}, // exit_secret
 	// terminator
 	{0}
 };

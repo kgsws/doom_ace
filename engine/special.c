@@ -1368,7 +1368,7 @@ static uint32_t do_TeleportInSector()
 
 static inline uint32_t do_NoiseAlert()
 {
-	mobj_t *emmiter, *target;
+	mobj_t *emitter, *target;
 
 	if(spec_arg[0])
 		target = mobj_by_tid_first(spec_arg[0]);
@@ -1379,13 +1379,17 @@ static inline uint32_t do_NoiseAlert()
 		return 0;
 
 	if(spec_arg[1] == spec_arg[0])
-		emmiter = target;
-	if(spec_arg[1])
-		emmiter = mobj_by_tid_first(spec_arg[1]);
+		emitter = target;
 	else
-		emmiter = activator;
+	if(spec_arg[1])
+		emitter = mobj_by_tid_first(spec_arg[1]);
+	else
+		emitter = activator;
 
-	P_NoiseAlert(target, emmiter);
+	if(!emitter)
+		return 0;
+
+	P_NoiseAlert(target, emitter);
 
 	return 1;
 }

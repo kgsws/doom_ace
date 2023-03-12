@@ -103,6 +103,7 @@ uint8_t r_find_color(uint8_t, uint8_t, uint8_t);
 void r_draw_plane(visplane_t *pl);
 
 uint8_t *r_translation_by_name(const uint8_t *name);
+int32_t r_translation_find(const uint8_t *name);
 uint32_t r_add_blood_color(uint32_t color);
 uint8_t *r_get_blood_color(uint32_t idx);
 

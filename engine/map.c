@@ -480,6 +480,9 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		idx = MOBJ_IDX_UNKNOWN;
 	info = mobjinfo + idx;
 
+	if(info->replacement)
+		info = mobjinfo + info->replacement;
+
 	// doom map format, coop, only monsters (and keys, lol)
 	if(	ot &&
 		netgame &&

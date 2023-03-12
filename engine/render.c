@@ -2497,17 +2497,26 @@ uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
 	return ret;
 }
 
-uint8_t *r_translation_by_name(const uint8_t *name)
+int32_t r_translation_find(const uint8_t *name)
 {
 	uint64_t alias = tp_hash64(name);
 
 	for(uint32_t i = 0; i < translation_count; i++)
 	{
 		if(alias == translation_alias[i])
-			return render_translation + 256 * i;
+			return i;
 	}
 
-	return NULL;
+	return -1;
+}
+
+uint8_t *r_translation_by_name(const uint8_t *name)
+{
+	int32_t ret;
+	ret = r_translation_find(name);
+	if(ret < 0)
+		return NULL;
+	return render_translation + 256 * ret;
 }
 
 uint32_t r_add_blood_color(uint32_t color)

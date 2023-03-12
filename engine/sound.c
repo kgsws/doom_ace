@@ -227,7 +227,7 @@ static sfxinfo_t *sfx_create(uint64_t alias)
 	uint32_t last = numsfx;
 
 	numsfx++;
-	if(numsfx >= 0x10000)
+	if(numsfx >= 0x8000) // what is a reasonable limit?
 		engine_error("SNDINFO", "So. Many. Sounds.");
 
 	sfxinfo = ldr_realloc(sfxinfo, numsfx * sizeof(sfxinfo_t));

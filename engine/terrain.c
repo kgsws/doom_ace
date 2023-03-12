@@ -198,7 +198,7 @@ static uint32_t parse_attributes(const attr_t *attr_def, void *dest)
 				*((uint16_t*)(dest + attr->offset)) = value.u32;
 			break;
 			case IT_FIXED:
-				if(tp_parse_fixed(kv, &value.s32))
+				if(tp_parse_fixed(kv, &value.s32, FRACBITS))
 					engine_error("TERRAIN", "Unable to parse number '%s'!", kv);
 				*((fixed_t*)(dest + attr->offset)) = value.s32;
 			break;

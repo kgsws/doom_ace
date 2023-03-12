@@ -40,6 +40,7 @@ static const linespec_t special_action[] =
 	{40, "ceiling_lowerbyvalue"},
 	{41, "ceiling_raisebyvalue"},
 	{44, "ceiling_crushstop"},
+	{55, "line_setblocking"},
 	{62, "plat_downwaitupstay"},
 	{64, "plat_upwaitdownstay"},
 	{70, "teleport"},
@@ -120,6 +121,34 @@ uint64_t tp_hash64(const uint8_t *name)
 	return ret;
 }
 
+uint32_t tp_hash32(const uint8_t *name)
+{
+	// Converts string name into 32bit alias (pseudo-hash).
+	// Letters are converted to uppercase.
+	uint32_t ret = 0;
+	uint32_t sub = 0;
+
+	while(*name)
+	{
+		uint8_t in = *name++;
+
+		if(in >= 'a' && in <= 'z')
+			in &= 0xDF;
+
+		in &= 0x3F;
+
+		ret ^= (uint64_t)in << sub;
+		if(sub > 24)
+			ret ^= (uint64_t)in >> (32 - sub);
+
+		sub += 6;
+		if(sub >= 32)
+			sub -= 32;
+	}
+
+	return ret;
+}
+
 //
 //
 
@@ -131,7 +160,7 @@ int main(int argc, void **argv)
 
 	while(spec->special)
 	{
-		printf("\t{%u, 0x%016lX}, // %s\n", spec->special, tp_hash64(spec->name), spec->name);
+		printf("\t{%u, 0x%08X}, // %s\n", spec->special, tp_hash32(spec->name), spec->name);
 		spec++;
 	}
 

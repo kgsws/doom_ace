@@ -36,7 +36,7 @@
 
 #define MAX_ITEM_TIME	60
 
-#define FLAG_COUNT	5
+#define FLAG_COUNT	7
 
 enum
 {
@@ -118,7 +118,6 @@ static const uint8_t *menu_mode[] =
 	"coop",
 	"survival",
 	"deathmatch",
-	"altdeath",
 };
 
 static const uint8_t *menu_flags[FLAG_COUNT] =
@@ -126,8 +125,10 @@ static const uint8_t *menu_flags[FLAG_COUNT] =
 	"enable cheats",
 	"friendly fire",
 	"no monsters",
-	"fast monsters",
-	"respawn monsters",
+	"fastparm",
+	"keep keys",
+	"respawnparm",
+	"weapons stay"
 };
 
 static const uint8_t *menu_inventory[] =
@@ -168,7 +169,7 @@ static net_menu_t net_menu[] =
 	{
 		.title = "ITEM TIME",
 		.type = TYPE_NUMERIC,
-		.maxsel = 121
+		.maxsel = 246
 	},
 	[MENU_INVENTORY] =
 	{
@@ -348,7 +349,7 @@ static void menu_key(net_setup_t *ns)
 static void menu_node(net_setup_t *ns)
 {
 	int32_t my;
-	int32_t mx = 240;
+	int32_t mx = 270;
 
 	// player class
 	font_color = ns->color_title[0];
@@ -356,10 +357,16 @@ static void menu_node(net_setup_t *ns)
 	draw_class_menu(ns, 2, 1);
 
 	// other options
-	my = ns->menu_y0 - (ns->menu_yh / 2);
+	my = ns->menu_y0;
 	for(uint32_t i = MENU_PLAYER_CLASS+1; i < MENU_GAME_FLAGS; i++)
 	{
 		const uint8_t *text = "N/A";
+
+		if(i == 4)
+		{
+			mx = 180;
+			my = ns->menu_y0;
+		}
 
 		font_color = ns->color_title[0];
 		font_center_text(mx, my, net_menu[i].title, smallfont, 0);
@@ -743,7 +750,7 @@ void D_ArbitrateNetStart()
 	ns.color_menu[3] = &render_tables->fmap[FONT_COLOR_COUNT * FCOL_GREEN];
 	ns.menu_sel[MENU_PLAYER_CLASS] = 255;
 	ns.menu_sel[MENU_GAME_SKILL] = startskill;
-	ns.menu_sel[MENU_GAME_MODE] = deathmatch ? deathmatch + 1 : 0;
+	ns.menu_sel[MENU_GAME_MODE] = deathmatch ? 2 : 0;
 	ns.menu_sel[MENU_ITEM_TIME] = deathmatch > 1 ? 30 : 0;
 
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
@@ -776,9 +783,6 @@ void D_ArbitrateNetStart()
 			if(tmp)
 				ns.flag_x[i] = font_draw_text(0, 0, menu_flags[i], smallfont);
 
-			if(i == FLAG_COUNT-1) // hack
-				tmp++;
-
 			switch(tmp)
 			{
 				case 0:
@@ -794,7 +798,7 @@ void D_ArbitrateNetStart()
 		}
 	} else
 	{
-		ns.menu_flags = 3 | (!!nomonsters << 2) | (!!fastparm << 3) | (!!respawnparm << 4);
+		ns.menu_flags = 3 | (!!nomonsters << 2) | (!!fastparm << 3) | (!!respawnparm << 5);
 		ns.key_check[0] = 1;
 		player_info[0].playerclass = 0;
 		ns.player_info[0] = COLOR_PINFO_CLASS;
@@ -1065,11 +1069,13 @@ void D_ArbitrateNetStart()
 	if(deathmatch > 0)
 		deathmatch--;
 
-	cheat_disable = !(ns.menu_flags & 1);
+	cheat_disable = !((ns.menu_flags >> 0) & 1);
 	no_friendly_fire = !((ns.menu_flags >> 1) & 1);
 	nomonsters = (ns.menu_flags >> 2) & 1;
 	fastparm = (ns.menu_flags >> 3) & 1;
-	respawnparm = (ns.menu_flags >> 4) & 1;
+	keep_keys = (ns.menu_flags >> 4) & 1;
+	respawnparm = (ns.menu_flags >> 5) & 1;
+	weapons_stay = (ns.menu_flags >> 6) & 1;
 
 	net_inventory = ns.menu_sel[MENU_INVENTORY];
 
@@ -1108,12 +1114,10 @@ void D_ArbitrateNetStart()
 // hooks
 
 static __attribute((regparm(2),no_caller_saved_registers))
-void player_left(uint32_t idx)
+void player_left()
 {
-	player_t *pl;
-
-	idx &= 3;
-	pl = players + idx;
+	uint32_t idx = netbuffer->player & 3;
+	player_t *pl = players + idx;
 
 	if(pl->mo)
 		mobj_damage(pl->mo, NULL, NULL, 1000000, NULL);
@@ -1153,8 +1157,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// remove call to 'D_CheckNetGame' in 'D_DoomMain'
 	{0x0001E865, CODE_HOOK | HOOK_SET_NOPS, 5},
 	// modify disconnect behavior
-	{0x0001EFE9, CODE_HOOK | HOOK_UINT16, 0xD888},
-	{0x0001EFEB, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_left},
-	{0x0001EFF0, CODE_HOOK | HOOK_JMP_DOOM, 0x0001EF49},
+	{0x0001EFE9, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_left},
+	{0x0001EFEE, CODE_HOOK | HOOK_JMP_DOOM, 0x0001EF49},
 };
 

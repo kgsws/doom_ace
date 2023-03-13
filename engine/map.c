@@ -92,6 +92,8 @@ uint_fast8_t xnod_present;
 uint_fast8_t survival;
 uint_fast8_t net_inventory;
 uint_fast8_t no_friendly_fire;
+uint_fast8_t keep_keys;
+uint_fast8_t weapons_stay;
 
 static map_cluster_t *old_cl;
 static map_cluster_t *new_cl;

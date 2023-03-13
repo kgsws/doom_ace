@@ -315,6 +315,8 @@ extern uint_fast8_t is_net_desync;
 extern uint_fast8_t survival;
 extern uint_fast8_t net_inventory;
 extern uint_fast8_t no_friendly_fire;
+extern uint_fast8_t keep_keys;
+extern uint_fast8_t weapons_stay;
 
 extern uint32_t num_clusters;
 extern map_cluster_t *map_cluster;

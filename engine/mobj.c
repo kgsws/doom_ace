@@ -428,6 +428,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 	player_t *pl;
 	uint32_t left, given;
 	fixed_t diff;
+	uint32_t do_remove = 1;
 
 	if(!toucher->player || toucher->player->state != PST_LIVE)
 		return;
@@ -535,10 +536,13 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		break;
 		case ETYPE_WEAPON:
 			// weapon
-			if(deathmatch == 1 && mo->spawnpoint.options == mo->type)
-			{
-				if(inventory_check(toucher, mo->type))
+			if(	weapons_stay &&
+				mo->spawnpoint.options == mo->type
+			){
+				// TODO: this does not work well for multi-weapons
+				if(inventory_check(toucher, mo->type) >= mobjinfo[mo->type].inventory.max_count)
 					return;
+				do_remove = 0;
 			}
 			given = inventory_give(toucher, mo->type, info->inventory.count);
 			if(!given)
@@ -572,6 +576,13 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 				return;
 		break;
 		case ETYPE_KEY:
+			if(	netgame &&
+				mo->spawnpoint.options == mo->type
+			){
+				if(inventory_check(toucher, mo->type))
+					return;
+				do_remove = 0;
+			}
 			// add to inventory
 			inventory_give(toucher, mo->type, 1);
 		break;
@@ -625,8 +636,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		mo->flags &= ~MF_COUNTITEM;
 	}
 
-	// original deathmatch
-	if(deathmatch != 1 || mo->spawnpoint.options != mo->type || info->extra_type != ETYPE_WEAPON)
+	if(do_remove)
 	{
 		// activate special
 		if(mo->special.special)
@@ -638,6 +648,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			spec_arg[3] = mo->special.arg[3];
 			spec_arg[4] = mo->special.arg[4];
 			spec_activate(NULL, toucher, 0);
+			mo->special.special = 0;
 		}
 
 		// remove / hide
@@ -717,7 +728,6 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 			inv_sel = pl->inv_sel;
 			extra_inv = pl->backpack;
 			extra_inv |= !!pl->powers[pw_allmap] << 1;
-			reborn_inventory_hack = 0;
 		} else
 		{
 			inventory = NULL;
@@ -748,10 +758,13 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 
 		pl->pendingweapon = NULL;
 		pl->readyweapon = NULL;
+		mo->inventory = inventory;
 
-		if(!inventory)
+		if(!inventory || reborn_inventory_hack > 1)
 		{
 			pl->inv_sel = -1;
+
+			pl->readyweapon = NULL;
 
 			// required for inventory allocation
 			pl->mo = mo;
@@ -786,8 +799,9 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 			pl->pendingweapon = weapon;
 			pl->backpack = extra_inv & 1;
 			pl->powers[pw_allmap] = (extra_inv >> 1) & 1;
-			mo->inventory = inventory;
 		}
+
+		reborn_inventory_hack = 0;
 	} else
 	{
 		if(pl->inventory)
@@ -1039,7 +1053,7 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 			source->player->killcount++;
 	}
 
-	mo->flags &= ~(MF_SHOOTABLE|MF_FLOAT|MF_SKULLFLY|MF_COUNTKILL);
+	mo->flags &= ~(MF_SOLID|MF_SHOOTABLE|MF_FLOAT|MF_SKULLFLY|MF_COUNTKILL);
 
 	if(mo->flags & MF_MISSILE)
 	{
@@ -1079,7 +1093,6 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 	if(mo->player)
 	{
 		mo->player->extralight = 0;
-		mo->flags &= ~MF_SOLID;
 		mo->player->state = PST_DEAD;
 		weapon_lower(mo->player);
 		if(mo->player == &players[consoleplayer] && automapactive)
@@ -1106,6 +1119,9 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 					continue;
 
 				if(info->eflags & MFE_INVENTORY_UNTOSSABLE)
+					continue;
+
+				if(keep_keys && info->extra_type == ETYPE_KEY)
 					continue;
 
 				break;
@@ -1135,12 +1151,16 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 				mo->player->pendingweapon = NULL;
 
 				// move special items back
+				// this is keeps 'resurrect' cheat working
+				// this is also required for 'keep keys' flag
 				for(uint32_t i = 0; i < inv->numslots; i++)
 				{
 					invitem_t *item = inv->slot + i;
 					mobjinfo_t *info = mobjinfo + item->type;
 
-					if(info->eflags & MFE_INVENTORY_UNTOSSABLE)
+					if(	info->eflags & MFE_INVENTORY_UNTOSSABLE ||
+						(keep_keys && info->extra_type == ETYPE_KEY)
+					)
 					{
 						// give
 						inventory_give(mo, item->type, item->count);

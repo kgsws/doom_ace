@@ -743,20 +743,9 @@ void stbar_start(player_t *pl)
 	// original status bar
 	ST_Start();
 
-	// update (original) ammo
-	update_ammo(pl);
-
-	// update weapon slots
-	update_weapon(pl);
-
-	// update (original) max ammo
-	update_backpack(pl);
-
-	// update current weapon ammo
-	update_ready_weapon(pl);
-
-	// clear keys
-	memset(keyinv, 0, sizeof(keyinv));
+	// update everything
+	pl->stbar_update = STU_EVERYTHING;
+	stbar_update(pl);
 
 	// crosshair
 	stbar_set_xhair();

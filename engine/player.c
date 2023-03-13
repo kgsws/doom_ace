@@ -1051,9 +1051,6 @@ uint32_t respawn_check(uint32_t idx)
 	{
 		player_t *pl = players + idx;
 
-		if(pl->mo->inventory && net_inventory != 1)
-			inventory_clear(pl->mo);
-
 		if(survival)
 		{
 			mobj_t *mo;
@@ -1083,6 +1080,33 @@ uint32_t respawn_check(uint32_t idx)
 			pl->inventory = pl->mo->inventory;
 			pl->mo->inventory = NULL;
 			reborn_inventory_hack = 1;
+		} else
+		{
+			if(keep_keys)
+			{
+				inventory_t *inv = pl->mo->inventory;
+
+				pl->inventory = pl->mo->inventory;
+				pl->mo->inventory = NULL;
+				reborn_inventory_hack = 2;
+
+				if(inv)
+				for(uint32_t i = 0; i < inv->numslots; i++)
+				{
+					invitem_t *item = inv->slot + i;
+					mobjinfo_t *info = mobjinfo + item->type;
+
+					if(!item->type)
+						continue;
+
+					if(info->extra_type == ETYPE_KEY)
+						continue;
+
+					item->type = 0;
+					item->count = 0;
+				}
+			} else
+				inventory_clear(pl->mo);
 		}
 
 		return 1;

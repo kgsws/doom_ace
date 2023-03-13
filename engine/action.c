@@ -981,6 +981,46 @@ uint32_t PIT_Explode(mobj_t *thing)
 	return 1;
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t PIT_VileCheck(mobj_t *thing)
+{
+	int32_t maxdist;
+	uint32_t ret;
+	uint32_t flags;
+
+	if(!(thing->flags & MF_CORPSE))
+		return 1;
+
+	if(thing->tics != -1 && !(thing->frame & FF_CANRAISE))
+		return 1;
+
+	if(!thing->info->state_raise)
+		return 1;
+
+	maxdist = thing->info->radius + vileobj->radius;
+
+	if(abs(thing->x - viletryx) > maxdist || abs(thing->y - viletryy) > maxdist)
+		return 1;
+
+	corpsehit = thing;
+
+	flags = thing->flags;
+
+	thing->momx = 0;
+	thing->momy = 0;
+
+	thing->height <<= 2;
+	thing->flags |= MF_SOLID;
+	ret = P_CheckPosition(thing, thing->x, thing->y);
+	thing->flags = flags;
+	thing->height >>= 2;
+
+	if(!ret)
+		return 1;
+
+	return 0;
+}
+
 //
 // enemy search
 
@@ -4874,5 +4914,14 @@ static const dec_linespec_t special_action[] =
 	{244, 0x9E029A50}, // exit_secret
 	// terminator
 	{0}
+};
+
+//
+// hooks
+
+static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
+{
+	// replace 'PIT_VileCheck'
+	{0x000281B0, CODE_HOOK | HOOK_UINT32, (uint32_t)PIT_VileCheck},
 };
 

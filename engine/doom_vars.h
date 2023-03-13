@@ -153,7 +153,11 @@ extern fixed_t attackrange;
 extern fixed_t tmbbox[4];
 extern mobj_t *bombspot;
 extern mobj_t *bombsource;
-extern uint32_t bombdamage; 
+extern uint32_t bombdamage;
+extern mobj_t *corpsehit;
+extern mobj_t *vileobj;
+extern fixed_t viletryx;
+extern fixed_t viletryy;
 
 // player
 extern uint32_t playeringame[];

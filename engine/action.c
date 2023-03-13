@@ -113,7 +113,8 @@ enum
 
 typedef struct
 {
-	uint32_t value;
+	uint16_t value;
+	uint16_t lines;
 	uint8_t text[];
 } act_str_t;
 
@@ -804,6 +805,28 @@ static uint32_t actarg_magic(mobj_t *mo, void *data, uint32_t arg, uint32_t def)
 		return def;
 
 	return argoffs[1 + arg] & ARG_MAGIC_MASK;
+}
+
+static void *actarg_string(mobj_t *mo, void *data, uint32_t arg, uint32_t *lines)
+{
+	act_str_t *as;
+	uint16_t *argoffs;
+	uint16_t type, offs;
+
+	if(!data)
+		return NULL;
+
+	argoffs = data;
+
+	if(arg >= *argoffs)
+		return NULL;
+
+	as = data + (argoffs[1 + arg] & ARG_MAGIC_MASK);
+
+	if(lines)
+		*lines = as->lines;
+
+	return as->text;
 }
 
 static uint32_t actarg_moflag(mobj_t *mo, void *data, uint32_t arg, uint32_t *bits)
@@ -3059,30 +3082,60 @@ void A_SelectWeapon(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Print(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-/*
+	uint32_t tics;
+	uint32_t font;
+	uint32_t lines;
+	uint8_t *text;
+
+	text = actarg_string(mo, st->arg, 0, &lines); // text
+	if(!text)
+		return;
+
+	tics = actarg_integer(mo, st->arg, 1, 3); // time
+	tics *= 35;
+	tics += leveltime;
+
+	font = actarg_magic(mo, st->arg, 2, 0); // font
+
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
 		player_t *pl = players + i;
 		if(pl->camera == mo || pl->mo == mo)
 		{
-			pl->text_data = st->arg;
-			pl->text_tics = 0;
+			pl->text.tic = tics;
+			pl->text.font = font;
+			pl->text.text = text;
+			pl->text.lines = lines;
 		}
 	}
-*/
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_PrintBold(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-/*
+	uint32_t tics;
+	uint32_t font;
+	uint32_t lines;
+	uint8_t *text;
+
+	text = actarg_string(mo, st->arg, 0, &lines); // text
+	if(!text)
+		return;
+
+	tics = actarg_integer(mo, st->arg, 1, 3); // time
+	tics *= 35;
+	tics += leveltime;
+
+	font = actarg_magic(mo, st->arg, 2, 0); // font
+
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
 		player_t *pl = players + i;
-		pl->text_data = st->arg;
-		pl->text_tics = 0;
+		pl->text.tic = tics;
+		pl->text.font = font;
+		pl->text.text = text;
+		pl->text.lines = lines;
 	}
-*/
 }
 
 //
@@ -4245,13 +4298,23 @@ try_text:
 
 static uint32_t handle_string(uint8_t *kw)
 {
-	uint32_t len;
+	uint32_t len, line;
+	uint8_t *ptr = kw;
 	act_str_t *as;
 
-	len = strlen(kw);
-	as = dec_es_alloc(sizeof(uint32_t) + len + 1);
+	len = 0;
+	line = 1;
+	while(*ptr)
+	{
+		if(*ptr == '\n')
+			line++;
+		len++;
+		ptr++;
+	}
 
+	as = dec_es_alloc(sizeof(uint32_t) + len + 1);
 	as->value = len;
+	as->lines = line;
 	strcpy(as->text, kw);
 
 	return (void*)as - parse_action_arg;

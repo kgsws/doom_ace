@@ -823,7 +823,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->inventory = NULL;
 	pl->stbar_update = 0;
 	pl->inv_tick = 0;
-	pl->text_data = NULL;
+	pl->text.text = NULL;
 	pl->airsupply = PLAYER_AIRSUPPLY;
 
 	memset(&pl->cmd, 0, sizeof(ticcmd_t));
@@ -2166,14 +2166,6 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		return;
 	}
 
-	if(	no_friendly_fire &&
-		source &&
-		source != target &&
-		source->player &&
-		target->player
-	)
-		return;
-
 	switch(damage & DAMAGE_TYPE_CHECK)
 	{
 		case DAMAGE_IS_MATH_FUNC:
@@ -2198,6 +2190,16 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	{
 		if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL))
 			return;
+
+		// friendly fire
+		if(	no_friendly_fire &&
+			source &&
+			source != target &&
+			source->player &&
+			target->player
+		)
+			return;
+
 		if(target->info->damage_factor[damage_type] != 8)
 			damage = (damage * target->info->damage_factor[damage_type]) / 8;
 	}

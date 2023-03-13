@@ -529,11 +529,10 @@ void player_think(uint32_t idx)
 	player_t *pl = players + idx;
 	ticcmd_t *cmd = &pl->cmd;
 
-	if(pl->text_data)
+	if(pl->text.text)
 	{
-		pl->text_tics++;
-		if(pl->text_tics >= pl->text_data->tics)
-			pl->text_data = NULL;
+		if(leveltime >= pl->text.tic)
+			pl->text.text = NULL;
 	}
 
 	if(pl->stbar_update)

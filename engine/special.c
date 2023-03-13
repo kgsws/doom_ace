@@ -49,14 +49,6 @@ static sector_extra_t *sec_extra;
 fixed_t nearest_up;
 fixed_t nearest_dn;
 
-static const print_text_t message_unsupported =
-{
-	.tics = 5 * 35,
-	.font = 0,
-	.lines = 1,
-	.text = "Unsupported special!"
-};
-
 
 //
 // missing height search
@@ -2093,8 +2085,10 @@ thing_spawn:
 		{
 			player_t *pl = players + consoleplayer;
 			// doom_printf("special %u; side %u; mo 0x%08X; pl 0x%08X\n", spec_special, !!back_side, mo, mo->player);
-			pl->text_data = &message_unsupported;
-			pl->text_tics = 0;
+			pl->text.tic = leveltime + 5 * 35;
+			pl->text.font = 0;
+			pl->text.text = "Unsupported special!";
+			pl->text.lines = 1;
 		}
 		break;
 	}

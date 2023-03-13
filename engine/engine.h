@@ -251,15 +251,15 @@ typedef struct
 } event_t;
 
 //
-// printed text
+// center text
 
 typedef struct
 {
-	uint32_t tics;
+	uint32_t tic;
 	uint16_t font;
 	uint16_t lines;
-	uint8_t text[];
-} print_text_t;
+	uint8_t *text;
+} center_text_t;
 
 //
 // new inventory
@@ -421,9 +421,8 @@ typedef struct player_s
 	uint16_t flags;
 	int16_t airsupply;
 	struct mobj_s *camera;
-	const print_text_t *text_data;
-	uint32_t text_tics;
-	uint32_t __unused[4];
+	center_text_t text;
+	uint32_t __unused[3];
 	angle_t angle;
 	angle_t pitch;
 	uint16_t attackdown;

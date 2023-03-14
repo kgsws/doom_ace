@@ -833,7 +833,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->bonuscount = 0;
 	pl->extralight = 0;
 	pl->fixedcolormap = 0;
-	pl->viewheight = info->player.view_height;
+	pl->viewheight = mo->z + info->player.view_height;
 	pl->inventory = NULL;
 	pl->stbar_update = 0;
 	pl->inv_tick = 0;
@@ -2588,9 +2588,9 @@ static void P_ZMovement(mobj_t *mo)
 	uint32_t splash = 0;
 
 	// check for smooth step up
-	if(mo->player && mo->z < mo->floorz)
+	if(mo->player && mo->player->mo == mo && mo->z < mo->floorz)
 	{
-		mo->player->viewheight -= mo->floorz-mo->z;
+		mo->player->viewheight -= mo->floorz - mo->z;
 		mo->player->deltaviewheight = (mo->info->player.view_height - mo->player->viewheight) >> 3;
 	}
 

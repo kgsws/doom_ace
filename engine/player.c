@@ -379,28 +379,26 @@ void P_CalcHeight(player_t *player)
 	fixed_t bob, limit;
 	fixed_t viewheight = player->mo->info->player.view_height;
 
-	if(onground || !(player->mo->flags & MF_NOGRAVITY))
-	{
-		player->bob = FixedMul(player->mo->momx, player->mo->momx) + FixedMul(player->mo->momy,player->mo->momy);
-		player->bob >>= 2;
-
-		if(player->bob > MAXBOB)
-			player->bob = MAXBOB;
-	} else
+	if(	!onground &&
+		(player->mo->flags & MF_NOGRAVITY || player->mo->waterlevel > 2)
+	){
+		player->viewheight = viewheight;
+		player->deltaviewheight = 0;
 		player->bob = 0;
 
-	limit = player->viewheight / 10;
-
-	if(player->cheats & CF_NOMOMENTUM || (!onground && !(player->mo->flags & MF_NOGRAVITY) && player->mo->waterlevel <= 1))
-	{
 		player->viewz = player->mo->z + viewheight;
 
 		if(player->viewz > player->mo->ceilingz - limit)
 			player->viewz = player->mo->ceilingz - limit;
 
-		player->viewz = player->mo->z + player->viewheight;
 		return;
 	}
+
+	player->bob = FixedMul(player->mo->momx, player->mo->momx) + FixedMul(player->mo->momy,player->mo->momy);
+	player->bob >>= 2;
+
+	if(player->bob > MAXBOB)
+		player->bob = MAXBOB;
 
 	angle = (FINEANGLES / 20 * leveltime) & FINEMASK;
 	bob = FixedMul(player->bob / 2, finesine[angle]);
@@ -415,8 +413,7 @@ void P_CalcHeight(player_t *player)
 		{
 			player->viewheight = viewheight;
 			player->deltaviewheight = 0;
-		}
-
+		} else
 		if(player->viewheight < viewheight / 2)
 		{
 			player->viewheight = viewheight / 2;
@@ -432,6 +429,7 @@ void P_CalcHeight(player_t *player)
 		}
 	}
 
+	limit = player->viewheight / 10;
 	player->viewz = player->mo->z + player->viewheight + bob;
 
 	if(player->viewz > player->mo->ceilingz - limit)

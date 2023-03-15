@@ -3329,7 +3329,9 @@ void init_decorate()
 	{
 		mobjinfo_t *info = mobjinfo + MOBJ_IDX_POWER_INVULN + i;
 
-		memcpy(info, &default_mobj, sizeof(mobjinfo_t));
+		memcpy(info, &default_powerup, sizeof(mobjinfo_t));
+		info->extra_type = ETYPE_POWERUP_BASE;
+		info->powerup.type = ii;
 		info->alias = powerup_alias[ii++];
 		if(!powerup_alias[ii])
 			ii++;

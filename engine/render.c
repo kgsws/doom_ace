@@ -1609,7 +1609,7 @@ void r_add_line(seg_t *line, int32_t x2, int32_t x1)
 
 	if(!backsector)
 		goto clipsolid;
-
+#if 0
 	if(	frontsector->floorheight >= frontsector->ceilingheight &&
 		backsector->floorpic != skyflatnum &&
 		backsector->ceilingpic != skyflatnum &&
@@ -1617,7 +1617,7 @@ void r_add_line(seg_t *line, int32_t x2, int32_t x1)
 		!sides[line->linedef->sidenum[1]].midtexture
 	)
 		goto clipsolid;
-
+#endif
 	if(backsector->ceilingheight <= frontsector->floorheight || backsector->floorheight >= frontsector->ceilingheight)
 		goto clipsolid;
 
@@ -2065,8 +2065,7 @@ void extra_mark_check()
 {
 	if(	frontsector->exfloor || backsector->exfloor ||
 		backsector->ceilingheight <= frontsector->floorheight ||
-		backsector->floorheight >= frontsector->ceilingheight ||
-		backsector->floorheight >= backsector->ceilingheight
+		backsector->floorheight >= frontsector->ceilingheight
 	){
 		markceiling = 1;
 		markfloor = 1;
@@ -3096,7 +3095,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00035FB0, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)custom_SetupFrame},
 	// skip 'R_DrawMasked' in 'R_RenderPlayerView'
 	{0x00035FE3, CODE_HOOK | HOOK_JMP_DOOM, 0x0001F170},
-	// replace to 'R_DrawPlanes' in 'R_RenderPlayerView'
+	// replace call to 'R_DrawPlanes' in 'R_RenderPlayerView'
 	{0x00035FDE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawPlanes},
 	// replace 'R_DrawVisSprite'
 	{0x000381FE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)R_DrawVisSprite},

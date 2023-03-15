@@ -2908,15 +2908,16 @@ void load_auto()
 	}
 
 	leveltime = info.leveltime;
-	totalkills = info.kills;
-	totalitems = info.items;
-	totalsecret = info.secret;
 	respawnmonsters = gameskill == sk_nightmare || respawnparm;
 
 	if(do_read_level(0))
 		goto error_fail;
 
+	totalkills = info.kills;
+	totalitems = info.items;
+	totalsecret = info.secret;
 	prndindex = info.rng;
+
 	map_skip_stuff = 0;
 	reader_close();
 
@@ -2973,15 +2974,16 @@ uint32_t load_hub_level()
 	}
 
 	leveltime = info.leveltime;
-	totalkills = info.kills;
-	totalitems = info.items;
-	totalsecret = info.secret;
 	respawnmonsters = gameskill == sk_nightmare || respawnparm;
 
 	if(do_read_level(1))
 		goto error_fail;
 
+	totalkills = info.kills;
+	totalitems = info.items;
+	totalsecret = info.secret;
 	prndindex = info.rng;
+
 	map_skip_stuff = 0;
 	reader_close();
 
@@ -3066,9 +3068,6 @@ void do_load()
 	}
 
 	leveltime = info.leveltime;
-	totalkills = info.kills;
-	totalitems = info.items;
-	totalsecret = info.secret;
 	respawnmonsters = gameskill == sk_nightmare || respawnparm;
 
 	if(do_read_level(0))
@@ -3132,7 +3131,11 @@ void do_load()
 	}
 
 	// DONE
+	totalkills = info.kills;
+	totalitems = info.items;
+	totalsecret = info.secret;
 	prndindex = info.rng;
+
 	map_skip_stuff = 0;
 	reader_close();
 

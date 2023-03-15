@@ -3027,8 +3027,7 @@ void A_DropItem(mobj_t *mo, state_t *st, stfunc_t stfunc)
 
 	// dropamount is skipped and should be zero
 
-	chance = actarg_integer(mo, st->arg, 2, 0); // chance
-
+	chance = actarg_integer(mo, st->arg, 2, 255); // chance
 	if(chance < 255 && chance <= P_Random())
 		return;
 
@@ -3122,7 +3121,7 @@ void A_SelectWeapon(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_Print(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	uint32_t tics;
+	fixed_t tics;
 	uint32_t font;
 	uint32_t lines;
 	uint8_t *text;
@@ -3131,8 +3130,9 @@ void A_Print(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!text)
 		return;
 
-	tics = actarg_integer(mo, st->arg, 1, 3); // time
+	tics = actarg_fixed(mo, st->arg, 1, 3); // time
 	tics *= 35;
+	tics >>= FRACBITS;
 	tics += leveltime;
 
 	font = actarg_magic(mo, st->arg, 2, 0); // font
@@ -3162,8 +3162,9 @@ void A_PrintBold(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!text)
 		return;
 
-	tics = actarg_integer(mo, st->arg, 1, 3); // time
+	tics = actarg_fixed(mo, st->arg, 1, 3); // time
 	tics *= 35;
+	tics >>= FRACBITS;
 	tics += leveltime;
 
 	font = actarg_magic(mo, st->arg, 2, 0); // font
@@ -3807,6 +3808,15 @@ void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	next = actarg_magic(mo, st->arg, 0, 0); // inventorytype
 	info = mobjinfo + next;
 
+	if(info->extra_type == ETYPE_POWERUP_BASE)
+	{
+		if(!mo->player)
+			return;
+		if(!mo->player->powers[info->powerup.type])
+			return;
+		goto do_jump;
+	}
+
 	if(!inventory_is_valid(info))
 		return;
 
@@ -3834,6 +3844,7 @@ void A_JumpIfInventory(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(now < check && check <= limit)
 		return;
 
+do_jump:
 	next = actarg_state(mo, st->arg, 2, &extra); // offset/state
 
 	stfunc(mo, next, extra);

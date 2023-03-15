@@ -1053,7 +1053,7 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 			source->player->killcount++;
 	}
 
-	mo->flags &= ~(MF_SOLID|MF_SHOOTABLE|MF_FLOAT|MF_SKULLFLY|MF_COUNTKILL);
+	mo->flags &= ~(MF_SHOOTABLE|MF_FLOAT|MF_SKULLFLY|MF_COUNTKILL);
 
 	if(mo->flags & MF_MISSILE)
 	{
@@ -1092,6 +1092,7 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 	// player stuff
 	if(mo->player)
 	{
+		mo->flags &= ~MF_SOLID;
 		mo->player->extralight = 0;
 		mo->player->state = PST_DEAD;
 		weapon_lower(mo->player);
@@ -1226,6 +1227,8 @@ static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 {
 	uint32_t damage;
+	uint32_t thsolid = 0;
+	uint32_t tmsolid = 0;
 
 	if(tmthing->flags2 & MF2_THRUACTORS)
 		// this should just skip PIT_CheckThing completely
@@ -1234,7 +1237,18 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	if(tmthing->inside == thing)
 		return 1;
 
-	if(/*map_format != MAP_FORMAT_DOOM && */thing->flags & MF_SOLID && (!(tmthing->flags & MF_MISSILE) || tmthing->flags & MF_TELEPORT))
+	if(tmthing->player)
+	{
+		// players walk trough corpses in ZDoom
+		thsolid = (thing->flags & (MF_SOLID | MF_CORPSE)) == MF_SOLID;
+		tmsolid = (tmthing->flags & (MF_SOLID | MF_CORPSE)) == MF_SOLID;
+	} else
+	{
+		thsolid = thing->flags & MF_SOLID;
+		tmsolid = tmthing->flags & MF_SOLID;
+	}
+
+	if(/*map_format != MAP_FORMAT_DOOM && */thsolid && (!(tmthing->flags & MF_MISSILE) || tmthing->flags & MF_TELEPORT))
 	{
 		// thing-over-thing
 		tmthing->iflags |= MFI_MOBJONMOBJ;
@@ -1259,7 +1273,8 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	// ignore when teleporting
 	if(tmthing->flags & MF_TELEPORT)
 	{
-		teleblock |= !!(thing->flags & (MF_SOLID | MF_SHOOTABLE));
+		teleblock |= !!(thing->flags & MF_SOLID);
+		teleblock |= thsolid;
 		return 1;
 	}
 
@@ -1304,7 +1319,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 			return 1;
 
 		if(!(thing->flags & MF_SHOOTABLE))
-			return !(thing->flags & MF_SOLID);
+			return !thsolid;
 
 		if(	!dehacked.no_species &&
 			(map_level_info->flags & (MAP_FLAG_TOTAL_INFIGHTING | MAP_FLAG_NO_INFIGHTING)) != MAP_FLAG_TOTAL_INFIGHTING &&
@@ -1397,7 +1412,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 		return 0;
 	}
 
-	if(!(tmthing->flags & MF_SOLID))
+	if(!tmsolid)
 		// ZDoom: non-solid things are not blocked
 		return 1;
 
@@ -1405,7 +1420,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	{
 		thing->momx += tmthing->momx / 2;
 		thing->momy += tmthing->momy / 2;
-		if(thing->flags & MF_SOLID && !(tmthing->flags & MF_SLIDE))
+		if(thsolid && !(tmthing->flags & MF_SLIDE))
 		{
 			tmthing->momx = 0;
 			tmthing->momy = 0;
@@ -1414,13 +1429,13 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 
 	if(thing->flags & MF_SPECIAL)
 	{
-		uint32_t solid = thing->flags & MF_SOLID;
+		uint32_t solid = thsolid;
 		if(tmthing->flags & MF_PICKUP)
 			touch_mobj(thing, tmthing);
 		return !solid;
 	}
 
-	return !(thing->flags & MF_SOLID);
+	return !thsolid;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

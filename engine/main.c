@@ -415,6 +415,8 @@ uint32_t ace_main()
 #endif
 
 	//
+	config_postinit();
+
 	gfx_progress(-1);
 
 	// stuff is stored in visplanes; this memory has to be cleared

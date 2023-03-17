@@ -96,7 +96,7 @@ static xhair_patch_t xhair_data =
 //
 // icon cache
 
-static patch_t *get_icon_ptr(int32_t lump)
+patch_t *stbar_icon_ptr(int32_t lump)
 {
 	if(lumpcache[lump])
 		// already cachced, do not change TAG
@@ -136,7 +136,7 @@ static void stbar_draw_center(int32_t x, int32_t y, int32_t lump)
 	patch_t *patch;
 	int16_t ox, oy;
 
-	patch = get_icon_ptr(lump);
+	patch = stbar_icon_ptr(lump);
 
 	ox = patch->x;
 	oy = patch->y;
@@ -233,7 +233,7 @@ static inline void draw_keybar(player_t *pl)
 		if(!keyinv[i])
 			break;
 
-		patch = get_icon_ptr(keyinv[i]->inventory.icon);
+		patch = stbar_icon_ptr(keyinv[i]->inventory.icon);
 
 		ox = patch->x;
 		oy = patch->y;

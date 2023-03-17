@@ -10,6 +10,7 @@
 #include "player.h"
 #include "render.h"
 #include "decorate.h"
+#include "inventory.h"
 #include "map.h"
 #include "wadfile.h"
 #include "font.h"
@@ -282,6 +283,15 @@ static menuitem_t player_items[] =
 		.status = 2,
 		.func = player_change,
 		.key = 'c'
+	},
+	{
+		.text = "Quick Item",
+		.status = 2,
+		.func = player_change,
+		.key = 'i'
+	},
+	{
+		.status = -1
 	},
 	{
 		.status = -1
@@ -773,8 +783,38 @@ void player_change(uint32_t dir)
 				else
 					extra_config.center_weapon = 2;
 			}
+		break;
+		case 5:
+		{
+			int32_t dd, idx;
 
-			return;
+			if(dir)
+				dd = 1;
+			else
+				dd = -1;
+
+			idx = extra_config.quick_inv;
+
+			for(uint32_t i = 0; i < num_mobj_types; i++)
+			{
+				mobjinfo_t *info;
+
+				idx += dd;
+				if(idx < 0)
+					idx = num_mobj_types - 1;
+				else
+				if(idx >= num_mobj_types)
+					idx = 0;
+
+				if(inventory_is_usable(mobjinfo + idx))
+				{
+					extra_config.quick_inv = idx;
+					player_info_changed = 1;
+					break;
+				}
+			}
+		}
+		break;
 	}
 }
 
@@ -788,13 +828,13 @@ void player_color(uint32_t dir)
 
 	switch(menu_item_now)
 	{
-		case 7:
+		case 9:
 			shift = 0;
 		break;
-		case 8:
+		case 10:
 			shift = 4;
 		break;
-		case 9:
+		case 11:
 			shift = 8;
 		break;
 		default:
@@ -834,8 +874,27 @@ void player_draw()
 
 	// 'crosshair' title
 	menu_font_color = FCOL_WHITE;
-	font_menu_text(options_menu.x + 20, -options_menu.y + mod_config.menu_font_height * 6, "COLOR");
+	font_menu_text(options_menu.x + 20, -options_menu.y + mod_config.menu_font_height * 8, "COLOR");
 	menu_font_color = FCOL_ORIGINAL;
+
+	// quick item (intentionaly first)
+	if(extra_config.quick_inv)
+	{
+		int16_t ox, oy;
+		mobjinfo_t *info = mobjinfo + extra_config.quick_inv;
+		patch_t *patch = stbar_icon_ptr(info->inventory.icon);
+
+		ox = patch->x;
+		oy = patch->y;
+		patch->x = 0;
+		patch->y = 0;
+
+		V_DrawPatchDirect(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 5, patch);
+
+		patch->x = ox;
+		patch->y = oy;
+	} else
+		font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 5, "---");
 
 	// auto run
 	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 0, off_on[*auto_run == 1]);
@@ -854,11 +913,11 @@ void player_draw()
 
 	// player color
 	doom_sprintf(text, "%u", extra_config.player_color & 15);
-	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 7, text);
-	doom_sprintf(text, "%u", (extra_config.player_color >> 4) & 15);
-	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 8, text);
-	doom_sprintf(text, "%u", (extra_config.player_color >> 8) & 15);
 	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 9, text);
+	doom_sprintf(text, "%u", (extra_config.player_color >> 4) & 15);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 10, text);
+	doom_sprintf(text, "%u", (extra_config.player_color >> 8) & 15);
+	font_menu_text(options_menu.x + 100, -options_menu.y + mod_config.menu_font_height * 11, text);
 }
 
 //

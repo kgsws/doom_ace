@@ -1,7 +1,7 @@
 // kgsws' ACE Engine
 ////
 
-#define INV_MAX_COUNT	0xFFFF	// inventory uses uint16_t
+#define INV_MAX_COUNT	32000	// from ZDoom
 #define INV_SLOT_PLAYER	64	// players usually have large inventories
 #define INV_SLOT_MOBJ	8	// other objects usually have no inventories
 
@@ -20,6 +20,7 @@ typedef struct inventory_s
 //
 
 uint32_t inventory_is_valid(mobjinfo_t*);
+uint32_t inventory_is_usable(mobjinfo_t*);
 
 uint32_t inventory_give(mobj_t *mo, uint16_t type, uint16_t count);
 uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count);

@@ -209,6 +209,20 @@ uint32_t inventory_is_valid(mobjinfo_t *info)
 	;
 }
 
+uint32_t inventory_is_usable(mobjinfo_t *info)
+{
+	return	info->inventory.icon &&
+		info->eflags & MFE_INVENTORY_INVBAR &&
+		(
+			info->extra_type == ETYPE_INVENTORY_CUSTOM ||
+			info->extra_type == ETYPE_ARMOR ||
+			info->extra_type == ETYPE_ARMOR_BONUS ||
+			info->extra_type == ETYPE_POWERUP ||
+			info->extra_type == ETYPE_HEALTH_PICKUP
+		)
+	;
+}
+
 invitem_t *inventory_find(mobj_t *mo, uint16_t type)
 {
 	inventory_t *inv = mo->inventory;

@@ -1101,8 +1101,16 @@ void D_ArbitrateNetStart()
 	if(deathmatch)
 		no_friendly_fire = 0;
 
-	if(survival && net_inventory == 1)
-		net_inventory = 0;
+	if(survival)
+	{
+		if(net_inventory == 1)
+			net_inventory = 0;
+		if(net_inventory == 3)
+			net_inventory = 2;
+	}
+
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		player_check_info(player_info + i);
 
 	autostart = 1;
 

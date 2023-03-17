@@ -286,7 +286,8 @@ struct inventory_s;
 #define BT_ACT_INV_PREV	15
 #define BT_ACT_INV_NEXT	14
 #define BT_ACT_INV_USE	13
-#define BT_ACT_JUMP	12
+#define BT_ACT_INV_QUICK	12
+#define BT_ACT_JUMP	11
 
 typedef struct
 { // this structure has been changed
@@ -447,6 +448,7 @@ typedef struct player_s
 typedef struct
 { // this is not cleared as 'player_t' is
 	uint16_t color;
+	uint16_t quick_inv;
 	uint8_t playerclass;
 	uint8_t flags;
 } player_info_t;

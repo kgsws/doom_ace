@@ -207,6 +207,22 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 		return;
 	}
 
+	if(slot == BT_ACT_INV_QUICK)
+	{
+		invitem_t *item;
+
+		item = inventory_find(pl->mo, extra_config.quick_inv);
+		if(!item)
+			return;
+
+		if(!item->count)
+			return;
+
+		mobj_use_item(pl->mo, item);
+
+		return;
+	}
+
 	if(slot == BT_ACT_JUMP)
 	{
 		if(pl->mo->flags & MF_NOGRAVITY)
@@ -315,6 +331,8 @@ void player_chat_char(uint32_t pidx)
 						break;
 
 					info = (player_info_t*)(cb->data + 1);
+
+					player_check_info(info);
 
 					if(info->color != player_info[pidx].color)
 						update_color = 1;
@@ -889,6 +907,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 
 			info = player_info[consoleplayer];
 			info.color = extra_config.player_color;
+			info.quick_inv = extra_config.quick_inv;
 			info.flags = 0;
 
 			if(extra_config.auto_switch)
@@ -968,6 +987,11 @@ static void build_ticcmd(ticcmd_t *cmd)
 		gamekeydown[key_jump] = 0;
 		cmd->buttons |= BT_ACT_JUMP << BT_ACTIONSHIFT;
 	} else
+	if(gamekeydown[key_inv_quick])
+	{
+		gamekeydown[key_inv_quick] = 0;
+		cmd->buttons |= BT_ACT_INV_QUICK << BT_ACTIONSHIFT;
+	} else
 	if(gamekeydown[key_inv_use] || (!mouse_inv_use && mousebuttons[mouseb_inv_use]))
 	{
 		mouse_inv_use = 1;
@@ -1020,6 +1044,15 @@ void player_finish(player_t *pl, uint32_t strip)
 		pl->pitch = pl->mo->pitch;
 	} else
 		pl->inventory = NULL;
+}
+
+void player_check_info(player_info_t *info)
+{
+	if(info->quick_inv >= num_mobj_types)
+		info->quick_inv = 0;
+
+	if(info->playerclass >= num_player_classes)
+		info->playerclass = 0;
 }
 
 //

@@ -11,6 +11,7 @@ uint8_t key_fire_alt;
 uint8_t key_inv_use = '\r';
 uint8_t key_inv_next = '.';
 uint8_t key_inv_prev = ',';
+uint8_t key_inv_quick;
 uint8_t key_cheats = '`';
 
 int32_t mouseb_fire_alt = 1;
@@ -35,6 +36,7 @@ key_ctrl_t control_list[NUM_CONTROLS] =
 	[ctrl_key_inv_use] = {2, "Use", &key_inv_use},
 	[ctrl_key_inv_next] = {2, "Next", &key_inv_next},
 	[ctrl_key_inv_prev] = {2, "Previous", &key_inv_prev},
+	[ctrl_key_inv_quick] = {2, "Quick Item", &key_inv_quick},
 	//
 	[ctrl_key_speed] = {3, "Speed", (uint8_t*)&key_speed},
 	[ctrl_key_strafe] = {3, "Strafe", (uint8_t*)&key_strafe},

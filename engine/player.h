@@ -37,3 +37,4 @@ void player_chat_char(uint32_t pidx);
 
 void player_finish(player_t *pl, uint32_t strip);
 
+void player_check_info(player_info_t *info);

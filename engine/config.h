@@ -51,6 +51,9 @@ typedef struct
 	uint8_t wipe_type;
 	uint16_t crosshair_color;
 	uint8_t crosshair_type;
+	// quick inventory
+	uint64_t quick_inv_alias;
+	uint16_t quick_inv;
 } extra_config_t;
 
 //
@@ -61,4 +64,5 @@ extern mod_config_t mod_config;
 //
 
 void init_config();
+void config_postinit();
 

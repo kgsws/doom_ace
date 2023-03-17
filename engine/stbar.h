@@ -27,3 +27,5 @@ void stbar_draw(player_t *pl);
 
 void stbar_set_xhair();
 
+patch_t *stbar_icon_ptr(int32_t lump);
+

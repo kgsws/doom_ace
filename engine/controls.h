@@ -31,6 +31,7 @@ enum
 	ctrl_key_inv_use,
 	ctrl_key_inv_next,
 	ctrl_key_inv_prev,
+	ctrl_key_inv_quick,
 	//
 	ctrl_key_speed,
 	ctrl_key_strafe,
@@ -57,6 +58,7 @@ extern uint8_t key_fire_alt;
 extern uint8_t key_inv_use;
 extern uint8_t key_inv_next;
 extern uint8_t key_inv_prev;
+extern uint8_t key_inv_quick;
 extern uint8_t key_cheats;
 
 extern uint8_t mouse_button[3];

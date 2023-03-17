@@ -10,6 +10,7 @@
 #include "map.h"
 #include "stbar.h"
 #include "wipe.h"
+#include "inventory.h"
 #include "decorate.h"
 #include "textpars.h"
 #include "controls.h"
@@ -23,6 +24,7 @@ enum
 	TYPE_U16,
 	TYPE_S32,
 	TYPE_ALIAS,
+	TYPE_MOBJ_ALIAS,
 	TYPE_STRING_LC_ALLOC,
 	//
 	TYPE_STR_LEN = 0x80
@@ -97,6 +99,7 @@ static config_entry_t config_game[] =
 	{"input.key.inv.use", &key_inv_use, TYPE_U8},
 	{"input.key.inv.next", &key_inv_next, TYPE_U8},
 	{"input.key.inv.previous", &key_inv_prev, TYPE_U8},
+	{"input.key.inv.quick", &key_inv_quick, TYPE_U8},
 	{"input.key.speed", &key_speed, TYPE_U8},
 	{"input.key.strafe", &key_strafe, TYPE_U8},
 	{"input.key.cheats", (void*)0x0003BA1B, TYPE_U8, 1},
@@ -139,6 +142,7 @@ static config_entry_t config_game[] =
 	{"player.mouselook", &extra_config.mouse_look, TYPE_U8},
 	{"player.weapon.switch", &extra_config.auto_switch, TYPE_U8},
 	{"player.weapon.center", &extra_config.center_weapon, TYPE_U8},
+	{"player.quickitem", &extra_config.quick_inv_alias, TYPE_MOBJ_ALIAS},
 	// terminator
 	{NULL}
 };
@@ -233,6 +237,28 @@ static uint32_t parse_value(config_entry_t *conf_def)
 					break;
 					case TYPE_ALIAS:
 						*conf->u64 = tp_hash64(kv);
+					break;
+					case TYPE_MOBJ_ALIAS:
+					{
+						// workaround for missing '%lX' support
+						union
+						{
+							uint32_t aw[2];
+							uint64_t alias;
+						} tmp;
+
+						if(strlen(kv) != 16)
+							break;
+
+						if(doom_sscanf(kv + 8, "%X", tmp.aw + 0) != 1)
+							break;
+
+						kv[8] = 0;
+						if(doom_sscanf(kv, "%X", tmp.aw + 1) != 1)
+							break;
+
+						*conf->u64 = tmp.alias;
+					}
 					break;
 					case TYPE_STRING_LC_ALLOC:
 						value = strlen(kv) + 1;
@@ -335,7 +361,7 @@ void init_config()
 	}
 
 	// player setup
-	pli = player_info; // 'consoleplayer' is not known yet
+	pli = player_info; // player info is copied to correct slot by netgame init
 	extra_config.auto_switch = !!extra_config.auto_switch;
 	extra_config.auto_aim = !!extra_config.auto_aim;
 	if(extra_config.mouse_look > 2)
@@ -348,6 +374,15 @@ void init_config()
 	pli->flags |= (uint32_t)extra_config.auto_aim << plf_auto_aim;
 	pli->flags |= (uint32_t)(!!extra_config.mouse_look) << plf_mouse_look;
 	pli->color = extra_config.player_color;
+}
+
+void config_postinit()
+{
+	int32_t type;
+
+	type = mobj_check_type(extra_config.quick_inv_alias);
+	if(type >= 0 && inventory_is_usable(mobjinfo + type))
+		extra_config.quick_inv = type;
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
@@ -376,6 +411,19 @@ void config_save()
 			break;
 			case TYPE_S32:
 				doom_fprintf(f, "%d\n", *conf->s32);
+			break;
+			case TYPE_MOBJ_ALIAS:
+			{
+				// workaround for missing '%lX' support
+				uint64_t alias;
+
+				if(*conf->u16)
+					alias = mobjinfo[*conf->u16].alias;
+				else
+					alias = extra_config.quick_inv_alias;
+
+				doom_fprintf(f, "%08X%08X\n", (uint32_t)(alias >> 32), (uint32_t)alias);
+			}
 			break;
 		}
 		conf++;

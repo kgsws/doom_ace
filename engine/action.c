@@ -3130,7 +3130,7 @@ void A_Print(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!text)
 		return;
 
-	tics = actarg_fixed(mo, st->arg, 1, 3); // time
+	tics = actarg_fixed(mo, st->arg, 1, 3 * FRACUNIT); // time
 	tics *= 35;
 	tics >>= FRACBITS;
 	tics += leveltime;
@@ -3162,7 +3162,7 @@ void A_PrintBold(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(!text)
 		return;
 
-	tics = actarg_fixed(mo, st->arg, 1, 3); // time
+	tics = actarg_fixed(mo, st->arg, 1, 3 * FRACUNIT); // time
 	tics *= 35;
 	tics >>= FRACBITS;
 	tics += leveltime;

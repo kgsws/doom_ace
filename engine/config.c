@@ -371,6 +371,9 @@ void config_save()
 			case TYPE_U8:
 				doom_fprintf(f, "%u\n", *conf->u8);
 			break;
+			case TYPE_U16:
+				doom_fprintf(f, "%u\n", *conf->u16);
+			break;
 			case TYPE_S32:
 				doom_fprintf(f, "%d\n", *conf->s32);
 			break;

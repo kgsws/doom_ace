@@ -833,7 +833,6 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->bonuscount = 0;
 	pl->extralight = 0;
 	pl->fixedcolormap = 0;
-	pl->viewheight = mo->z + info->player.view_height;
 	pl->inventory = NULL;
 	pl->stbar_update = 0;
 	pl->inv_tick = 0;

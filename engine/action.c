@@ -3587,8 +3587,8 @@ void A_Warp(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	{
 		if(flags & WARPF_ABSOLUTEOFFSET)
 		{
-			x = mo->x + xx;
-			y = mo->y + yy;
+			x = target->x + xx;
+			y = target->y + yy;
 		} else
 		{
 			fixed_t cc, ss;
@@ -3599,8 +3599,8 @@ void A_Warp(mobj_t *mo, state_t *st, stfunc_t stfunc)
 			x += FixedMul(yy, ss);
 			y = FixedMul(xx, ss);
 			y -= FixedMul(yy, cc);
-			x += mo->x;
-			y += mo->y;
+			x += target->x;
+			y += target->y;
 		}
 	}
 

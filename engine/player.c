@@ -25,7 +25,6 @@
 
 typedef struct
 {
-	const uint8_t *name;
 	int16_t direction;
 	uint16_t repeatable;
 	void (*start)(mobj_t*,mobjinfo_t*);
@@ -53,18 +52,18 @@ static void flight_start(mobj_t*,mobjinfo_t*);
 static void flight_stop(mobj_t*);
 static const powerup_t powerup[] =
 {
-	[pw_invulnerability] = {"invulnerable", -1, 0, invul_start, invul_stop},
-	[pw_strength] = {"strength", 1},
-	[pw_invisibility] = {"invisibility", -1, 1, invis_start, invis_stop},
-	[pw_ironfeet] = {"ironfeet", -1},
-	[pw_allmap] = {NULL},
-	[pw_infrared] = {"lightamp", -1},
-	[pw_buddha] = {"buddha", -1, 0, buddha_start, buddha_stop},
-	[pw_attack_speed] = {"doublefiringspeed", -1, 0},
-	[pw_flight] = {"flight", -1, 0, flight_start, flight_stop},
-	[pw_reserved0] = {NULL},
-	[pw_reserved1] = {NULL},
-	[pw_reserved2] = {NULL},
+	[pw_invulnerability] = {-1, 0, invul_start, invul_stop},
+	[pw_strength] = {1},
+	[pw_invisibility] = {-1, 1, invis_start, invis_stop},
+	[pw_ironfeet] = {-1},
+//	[pw_allmap] = {},
+	[pw_infrared] = {-1},
+	[pw_buddha] = {-1, 0, buddha_start, buddha_stop},
+	[pw_attack_speed] = {-1, 0},
+	[pw_flight] = {-1, 0, flight_start, flight_stop},
+//	[pw_reserved0] = {},
+//	[pw_reserved1] = {},
+//	[pw_reserved2] = {},
 };
 
 //
@@ -162,7 +161,7 @@ void powerup_give(player_t *pl, mobjinfo_t *info)
 		if(!pw->repeatable)
 			return;
 	} else
-		pl->power_color[info->powerup.type] = info->powerup.colorstuff;
+		pl->power_mobj[info->powerup.type] = info - mobjinfo;
 
 	if(!pw->start)
 		return;
@@ -845,11 +844,15 @@ void player_think(uint32_t idx)
 				}
 			} else
 			{
-				uint8_t color = pl->power_color[i];
+				mobjinfo_t *info = mobjinfo + pl->power_mobj[i];
+				uint8_t color = info->powerup.colorstuff;
 
-				// TODO: MFE_INVENTORY_NOSCREENBLINK
-				if(color && (pl->powers[i] > 128 || pl->powers[i] & 8))
-				{
+				if(	color &&
+					(
+						info->eflags & MFE_INVENTORY_NOSCREENBLINK ||
+						pl->powers[i] > 128 || pl->powers[i] & 8
+					)
+				){
 					if(color & 0x80)
 					{
 						if(!pl->fixedpalette)

@@ -837,6 +837,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 	pl->stbar_update = 0;
 	pl->inv_tick = 0;
 	pl->text.text = NULL;
+	pl->viewheight = mo->info->player.view_height;
 	pl->airsupply = PLAYER_AIRSUPPLY;
 
 	memset(&pl->cmd, 0, sizeof(ticcmd_t));

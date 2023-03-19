@@ -81,10 +81,8 @@ typedef struct
 
 typedef struct
 {
-	const uint8_t *name;
 	int32_t duration;
 	uint32_t flags;
-	uint8_t mode;
 	uint8_t strength;
 	uint8_t colorstuff;
 } dec_powerup_t;
@@ -508,7 +506,11 @@ static mobjinfo_t default_powerup =
 	.powerup.inventory.max_count = 25,
 	.powerup.inventory.hub_count = INV_MAX_COUNT,
 	.powerup.inventory.sound_pickup = 93,
-	.powerup.type = -1,
+	.powerup.duration = 0,
+	.powerup.type = 0,
+	.powerup.mode = -1,
+	.powerup.strength = -1,
+	.powerup.colorstuff = -1
 };
 
 // mobj animations
@@ -734,7 +736,7 @@ static const dec_flag_t inventory_flags[] =
 	{"inventory.noscreenflash", MFE_INVENTORY_NOSCREENFLASH},
 //	{"inventory.transfer", MFE_INVENTORY_TRANSFER},
 //	{"inventory.noteleportfreeze", MFE_INVENTORY_NOTELEPORTFREEZE},
-//	{"inventory.noscreenblink", MFE_INVENTORY_NOSCREENBLINK},
+	{"inventory.noscreenblink", MFE_INVENTORY_NOSCREENBLINK},
 	{"inventory.untossable", MFE_INVENTORY_UNTOSSABLE}, // for ZDoom compatibility, also used for items that should not be netgame 'dropped'
 	// terminator
 	{NULL}
@@ -882,6 +884,11 @@ const dec_inherit_t inheritance[NUM_EXTRA_TYPES] =
 	{
 		.name = NULL,
 		.def = &default_mobj
+	},
+	[ETYPE_POWERUP_BASE] =
+	{
+		.attr[0] = attr_powerup,
+		.flag[0] = inventory_flags,
 	},
 	[ETYPE_PLAYERPAWN] =
 	{
@@ -1142,7 +1149,7 @@ static const mobjinfo_t internal_mobj_info[NUM_ACE_MOBJTYPES] =
 		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
-		.flags = MF_SPECIAL,
+		.flags = MF_MOBJ_IS_DEFINED | MF_SPECIAL,
 		.eflags = MFE_INVENTORY_UNTOSSABLE,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
@@ -1168,7 +1175,7 @@ static const mobjinfo_t internal_mobj_info[NUM_ACE_MOBJTYPES] =
 		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
-		.flags = MF_SPECIAL,
+		.flags = MF_MOBJ_IS_DEFINED | MF_SPECIAL,
 		.state_spawn = STATE_PISTOL,
 		.extra_type = ETYPE_WEAPON,
 		.weapon.inventory.count = 1,
@@ -1191,7 +1198,7 @@ static const mobjinfo_t internal_mobj_info[NUM_ACE_MOBJTYPES] =
 		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
-		.flags = MF_DROPOFF | MF_NOBLOCKMAP,
+		.flags = MF_MOBJ_IS_DEFINED | MF_DROPOFF | MF_NOBLOCKMAP,
 		.flags1 = MF1_NOTELEPORT | MF1_CANNOTPUSH,
 		.flags2 = MF2_MOVEWITHSECTOR,
 		.state_spawn = STATE_ICE_CHUNK_0,
@@ -1211,7 +1218,7 @@ static const mobjinfo_t internal_mobj_info[NUM_ACE_MOBJTYPES] =
 		.bounce_factor = 0xB333,
 		.scale = FRACUNIT,
 		.range_melee = 44 * FRACUNIT,
-		.flags = MF_DROPOFF,
+		.flags = MF_MOBJ_IS_DEFINED | MF_DROPOFF,
 		.flags1 = MF1_CANNOTPUSH,
 		.state_spawn = STATE_ICE_CHUNK_PLR,
 		.extra_type = ETYPE_PLAYERCHUNK,
@@ -1224,7 +1231,7 @@ static const mobjinfo_t internal_mobj_info[NUM_ACE_MOBJTYPES] =
 static const uint64_t powerup_alias[] =
 {
 	0xEB35DAC7C0BF0946, // PowerInvulnerable
-	0x7BA5CB44F2975302, // PowerStrength
+	0, // 0x7BA5CB44F2975302, // PowerStrength // no implemented
 	0x9CE9DADBA00C525A, // PowerInvisibility
 	0x51AEBF2272974F46, // PowerIronFeet
 	0, // skipped
@@ -1237,18 +1244,18 @@ static const uint64_t powerup_alias[] =
 // powerup types
 static const dec_powerup_t powerup_type[NUMPOWERS] =
 {
-	[pw_invulnerability] = {"invulnerable", -30},
-	[pw_strength] = {"strength", 1, MFE_INVENTORY_HUBPOWER},
-	[pw_invisibility] = {"invisibility", -60, 0, 0, 52},
-	[pw_ironfeet] = {"ironfeet", -60},
-	[pw_allmap] = {""}, // this is not a powerup
-	[pw_infrared] = {"lightamp", -120, 0, 0, 0, 0x01},
-	[pw_buddha] = {"buddha", -60},
-	[pw_attack_speed] = {"doublefiringspeed", -45},
-	[pw_flight] = {"flight", -20},
-	[pw_reserved0] = {""},
-	[pw_reserved1] = {""},
-	[pw_reserved2] = {""},
+	[pw_invulnerability] = {-30},
+	[pw_strength] = {1, MFE_INVENTORY_HUBPOWER},
+	[pw_invisibility] = {-60, 0, 52},
+	[pw_ironfeet] = {-60},
+//	[pw_allmap] = {}, // this is not a powerup
+	[pw_infrared] = {-120, 0, 0, 0x01},
+	[pw_buddha] = {-60},
+	[pw_attack_speed] = {-45},
+	[pw_flight] = {-20},
+//	[pw_reserved0] = {},
+//	[pw_reserved1] = {},
+//	[pw_reserved2] = {},
 };
 
 // powerup colors
@@ -1346,10 +1353,10 @@ static const doom_armor_t doom_armor[] =
 // doom powerups
 static const doom_powerup_t doom_powerup[] =
 {
-	{56, pw_invulnerability, 0x20, (uint8_t*)0x00022EF0}, // InvulnerabilitySphere
-	{58, pw_invisibility, 0x00, (uint8_t*)0x00022F10}, // BlurSphere
-	{59, pw_ironfeet, 0x8D, (uint8_t*)0x00022F28}, // RadSuit
-	{61, pw_infrared, 0x01, (uint8_t*)0x00022F58}, // Infrared
+	{56, MOBJ_IDX_POWER_INVULN, 0x20, (uint8_t*)0x00022EF0}, // InvulnerabilitySphere
+	{58, MOBJ_IDX_POWER_INVIS, 0x00, (uint8_t*)0x00022F10}, // BlurSphere
+	{59, MOBJ_IDX_POWER_IRONFEET, 0x8D, (uint8_t*)0x00022F28}, // RadSuit
+	{61, MOBJ_IDX_POWER_INFRARED, 0x01, (uint8_t*)0x00022F58}, // Infrared
 };
 #define NUM_POWERUP_ITEMS	(sizeof(doom_powerup) / sizeof(doom_powerup_t))
 
@@ -1678,7 +1685,10 @@ static void make_doom_powerup(uint32_t idx)
 	info->eflags = default_powerup.eflags | MFE_INVENTORY_AUTOACTIVATE;
 	info->powerup = default_powerup.powerup;
 	info->powerup.inventory.max_count = 0;
+	info->powerup.duration = 0;
 	info->powerup.type = pw->power;
+	info->powerup.mode = pw->power == MOBJ_IDX_POWER_INVIS ? 0 : -1;
+	info->powerup.strength = -1;
 	info->powerup.colorstuff = pw->colorstuff;
 	info->powerup.inventory.message = pw->message + doom_data_segment;
 }
@@ -1753,13 +1763,25 @@ uint32_t dec_get_custom_damage(const uint8_t *name, const uint8_t *mmod)
 		engine_error(mmod, "Unknown damage type '%s'!", name);
 }
 
-int32_t dec_get_powerup_type(const uint8_t *name)
+static int32_t dec_get_powerup_type(uint8_t *name)
 {
-	for(uint32_t i = 0; i < NUMPOWERS; i++)
+	uint8_t *ptr = name - 5;
+	uint64_t alias;
+
+	strncpy(ptr, "Power", 5);
+
+	alias = tp_hash64(ptr);
+
+	for(uint32_t i = 0; i < num_mobj_types; i++)
 	{
-		if(!strcmp(powerup_type[i].name, name))
-			return i;
+		mobjinfo_t *info = mobjinfo + i;
+
+		if(info->alias != alias)
+			continue;
+
+		return i;
 	}
+
 	return -1;
 }
 
@@ -1965,55 +1987,35 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 		}
 		break;
 		case DT_POWERUP_TYPE:
-			if(parse_mobj_info->powerup.type < NUMPOWERS)
-				engine_error("DECORATE", "Powerup type specified multiple times in '%s'!", parse_actor_name);
-			kw = tp_get_keyword_lc();
+			kw = tp_get_keyword();
 			if(!kw)
 				return 1;
-			num.u32 = dec_get_powerup_type(kw);
-			if(num.u32 < 0)
+			num.s32 = dec_get_powerup_type(kw);
+			if(num.s32 < 0)
 				engine_error("DECORATE", "Unknown powerup type '%s' in '%s'!", kw, parse_actor_name);
 			// set type
 			parse_mobj_info->powerup.type = num.u32;
-			// modify stuff
-			parse_mobj_info->eflags |= powerup_type[num.u32].flags;
-			parse_mobj_info->powerup.mode = powerup_type[num.u32].mode;
-			parse_mobj_info->powerup.strength = powerup_type[num.u32].strength;
-			parse_mobj_info->powerup.colorstuff = powerup_type[num.u32].colorstuff;
 		break;
 		case DT_POWERUP_MODE:
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
-			switch(parse_mobj_info->powerup.type)
-			{
-				case pw_invulnerability:
-					// 'None' is default so it's not listed
-					if(!strcmp("reflective", kw))
-						parse_mobj_info->powerup.mode = 1;
-					else
-						return 1;
-				break;
-				case pw_invisibility:
-					// 'Fuzzy' is default so it's not listed
-					if(!strcmp("translucent", kw))
-						parse_mobj_info->powerup.mode = 1;
-					else
-					if(!strcmp("cumulative", kw))
-						parse_mobj_info->powerup.mode = 2;
-					else
-						return 1;
-				break;
-				default:
-					return 1;
-			}
+			/// invulnerability
+			// 'None' is default so it's not listed
+			if(!strcmp("reflective", kw))
+				parse_mobj_info->powerup.mode = 1;
+			else
+			// invisibility
+			// 'Fuzzy' is default so it's not listed
+			if(!strcmp("translucent", kw))
+				parse_mobj_info->powerup.mode = 1;
+			else
+			if(!strcmp("cumulative", kw))
+				parse_mobj_info->powerup.mode = 2;
 		break;
 		case DT_POWERUP_COLOR:
 		{
 			const dec_power_color_t *col = powerup_color;
-
-			if(parse_mobj_info->powerup.type >= NUMPOWERS)
-				return 1;
 
 			kw = tp_get_keyword_lc();
 			if(!kw)
@@ -2916,7 +2918,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 
 				// check
 				if(!(other->flags & MF_MOBJ_IS_DEFINED))
-					engine_error("DECORATE", "Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
+					engine_error("DECORATE", "Invalid inheritance of '%s' for '%s'!", kw, parse_actor_name);
 
 				// copy info
 				memcpy(info, other, sizeof(mobjinfo_t));
@@ -2959,7 +2961,7 @@ static void cb_parse_actors(lumpinfo_t *li)
 					}
 				}
 				if(etp < 0)
-					engine_error("DECORATE", "Invalid inheritance '%s' for '%s'!", kw, parse_actor_name);
+					engine_error("DECORATE", "Invalid inheritance of '%s' for '%s'!", kw, parse_actor_name);
 			}
 
 			// next keyword
@@ -3331,8 +3333,14 @@ void init_decorate()
 
 		memcpy(info, &default_powerup, sizeof(mobjinfo_t));
 		info->extra_type = ETYPE_POWERUP_BASE;
+		info->flags |= MF_MOBJ_IS_DEFINED;
+		info->eflags = powerup_type[ii].flags;
 		info->powerup.type = ii;
+		info->powerup.duration = powerup_type[ii].duration;
+		info->powerup.strength = powerup_type[ii].strength;
+		info->powerup.colorstuff = powerup_type[ii].colorstuff;
 		info->alias = powerup_alias[ii++];
+
 		if(!powerup_alias[ii])
 			ii++;
 	}
@@ -3590,9 +3598,29 @@ void init_decorate()
 					info->inventory.hub_count = 1;
 			break;
 			case ETYPE_POWERUP:
+			{
+				mobjinfo_t *ofni = mobjinfo + info->powerup.type;
+				// check powerup base
+				if(ofni->extra_type != ETYPE_POWERUP_BASE)
+					engine_error("DECORATE", "Invalid powerup base!");
 				// apply default duration if unspecified
-				if(!info->powerup.duration && info->powerup.type < NUMPOWERS)
-					info->powerup.duration = powerup_type[info->powerup.type].duration;
+				if(!info->powerup.duration)
+					info->powerup.duration = ofni->powerup.duration;
+				// combine stuff from base powerup
+				info->eflags &= ~MFE_INVENTORY_HUBPOWER;
+				info->eflags &= ~MFE_INVENTORY_PERSISTENTPOWER;
+				info->eflags &= ~MFE_INVENTORY_NOSCREENBLINK;
+				ofni->eflags &= MFE_INVENTORY_HUBPOWER | MFE_INVENTORY_PERSISTENTPOWER | MFE_INVENTORY_NOSCREENBLINK;
+				info->eflags |= ofni->eflags;
+				if(info->powerup.strength < 0)
+					info->powerup.strength = ofni->powerup.strength;
+				if(info->powerup.colorstuff < 0)
+					info->powerup.colorstuff = ofni->powerup.colorstuff;
+				if(info->powerup.mode < 0)
+					info->powerup.mode = ofni->powerup.mode;
+				// set powerup type
+				info->powerup.type = ofni->powerup.type;
+			}
 			break;
 		}
 

@@ -441,9 +441,9 @@ static int32_t calculate_value(int32_t v0, int32_t v1, uint32_t op)
 	switch(op)
 	{
 		case MATH_LOR:
-			return v0 || v1;
+			return (v0 || v1) << FRACBITS;
 		case MATH_LAND:
-			return v0 && v1;
+			return (v0 && v1) << FRACBITS;
 		case MATH_OR:
 			return v0 | v1;
 		case MATH_XOR:
@@ -451,17 +451,17 @@ static int32_t calculate_value(int32_t v0, int32_t v1, uint32_t op)
 		case MATH_AND:
 			return v0 & v1;
 		case MATH_LESS:
-			return v0 < v1;
+			return (v0 < v1) << FRACBITS;
 		case MATH_LEQ:
-			return v0 <= v1;
+			return (v0 <= v1) << FRACBITS;
 		case MATH_GREAT:
-			return v0 > v1;
+			return (v0 > v1) << FRACBITS;
 		case MATH_GEQ:
-			return v0 >= v1;
+			return (v0 >= v1) << FRACBITS;
 		case MATH_EQ:
-			return v0 == v1;
+			return (v0 == v1) << FRACBITS;
 		case MATH_NEQ:
-			return v0 != v1;
+			return (v0 != v1) << FRACBITS;
 		case MATH_ADD:
 			return v0 + v1;
 		case MATH_SUB:
@@ -2777,7 +2777,7 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 		if(chance < 256 && P_Random() >= chance)
 			return;
 
-		dist = actarg_fixed(mo, st->arg, 4, 0); // distance
+		dist = actarg_integer(mo, st->arg, 4, 0); // distance
 		if(!dist)
 			dist = 10;
 
@@ -2918,7 +2918,7 @@ void A_SpawnItemEx(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	th->momx = mx;
 	th->momy = my;
 	th->momz = actarg_fixed(mo, st->arg, 6, 0); // zvel
-	th->angle = mo->angle;
+	th->angle = angle;
 	th->special.tid = actarg_integer(mo, st->arg, 10, 0); // tid
 
 	if(flags & SXF_MULTIPLYSPEED)
@@ -3245,6 +3245,29 @@ void A_FadeOut(mobj_t *mo, state_t *st, stfunc_t stfunc)
 }
 
 //
+// A_FadeIn
+
+__attribute((regparm(2),no_caller_saved_registers))
+void A_FadeIn(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	fixed_t add;
+	fixed_t alpha;
+
+	add = actarg_fixed(mo, st->arg, 0, FRACUNIT / 10); // increase_amount
+
+	if(mo->render_style != RS_TRANSLUCENT && mo->render_style != RS_ADDITIVE)
+		mo->render_style = RS_TRANSLUCENT;
+
+	alpha = mo->render_alpha << 8;
+	alpha += add;
+
+	if(alpha >= 255)
+		mo->render_alpha = 255;
+	else
+		mo->render_alpha = alpha >> 8;
+}
+
+//
 // A_CheckPlayerDone
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -3487,6 +3510,51 @@ void A_BrainDie(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	secretexit = 0;
 	gameaction = ga_completed;
 	map_start_id = 0;
+}
+
+//
+// A_RaiseSelf
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void A_RaiseSelf(mobj_t *mo, state_t *st, stfunc_t stfunc)
+{
+	uint32_t ret;
+	uint32_t flags;
+
+	if(mo->player)
+		return;
+
+	if(!mo->info->state_raise)
+		return;
+
+	if(!(mo->flags & MF_CORPSE))
+		return;
+
+	if(mo->tics != -1 && !(mo->frame & FF_CANRAISE))
+		return;
+
+	flags = mo->flags;
+
+	mo->momx = 0;
+	mo->momy = 0;
+
+	mo->height <<= 2;
+	mo->flags |= MF_SOLID;
+	ret = P_CheckPosition(mo, mo->x, mo->y);
+	mo->flags = flags;
+	mo->height >>= 2;
+
+	if(!ret)
+		return;
+
+	S_StartSound(mo, 31);
+
+	mobj_set_animation(mo, ANIM_RAISE);
+
+	mo->height <<= 2;
+	mo->flags = mo->info->flags;
+	mo->health = mo->info->spawnhealth;
+	mo->target = NULL;
 }
 
 //
@@ -4799,6 +4867,7 @@ static const dec_action_t mobj_action[] =
 	{"a_setscale", A_SetScale, 1, 1}, // scale
 	{"a_setrenderstyle", A_SetRenderStyle, 2, 2}, // alpha, style
 	{"a_fadeout", A_FadeOut, 1, 1}, // reduce_amount
+	{"a_fadein", A_FadeIn, 1, 1}, // increase_amount
 	// misc
 	{"a_checkplayerdone", A_CheckPlayerDone},
 	{"a_alertmonsters", A_AlertMonsters},
@@ -4814,6 +4883,7 @@ static const dec_action_t mobj_action[] =
 	{"a_brainspit", doom_A_BrainSpit},
 	{"a_spawnfly", doom_A_SpawnFly},
 	{"a_braindie", A_BrainDie},
+	{"a_raiseself", A_RaiseSelf},
 	{"a_keendie", A_KeenDie, 1, -1}, // tag
 	{"a_warp", A_Warp, 6, 1}, // ptr_destination, xofs, yofs, zofs, angle, flags
 	{"a_setarg", A_SetArg, 2, 2}, // position, value

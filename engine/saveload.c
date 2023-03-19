@@ -270,7 +270,7 @@ typedef struct
 	save_pspr_t pspr[NUMPSPRITES];
 	// powers
 	int32_t powers[NUMPOWERS];
-	uint8_t power_color[NUMPOWERS];
+	uint16_t power_mobj[NUMPOWERS];
 	//
 	int16_t killcount;
 	uint16_t itemcount;
@@ -1385,7 +1385,7 @@ static inline void sv_put_players()
 		for(uint32_t j = 0; j < NUMPOWERS; j++)
 		{
 			plr.powers[j] = pl->powers[j];
-			plr.power_color[j] = pl->power_color[j];
+			plr.power_mobj[j] = pl->power_mobj[j];
 		}
 
 		plr.health = pl->health;
@@ -2662,7 +2662,9 @@ static inline uint32_t ld_get_players(uint32_t hub_data)
 		for(uint32_t i = 0; i < NUMPOWERS; i++)
 		{
 			pl->powers[i] = plr.powers[i];
-			pl->power_color[i] = plr.power_color[i];
+			if(plr.power_mobj[i] >= num_mobj_types)
+				return 1;
+			pl->power_mobj[i] = plr.power_mobj[i];
 		}
 
 		pl->health = plr.health;

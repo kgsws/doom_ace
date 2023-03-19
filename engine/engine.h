@@ -418,12 +418,11 @@ typedef struct player_s
 	uint16_t inv_tick; // inventory selection visible
 	uint32_t stbar_update;
 	uint32_t __unused__0;
-	uint8_t power_color[NUMPOWERS];
+	uint16_t power_mobj[NUMPOWERS];
 	uint16_t flags;
 	int16_t airsupply;
 	struct mobj_s *camera;
 	center_text_t text;
-	uint32_t __unused[3];
 	angle_t angle;
 	angle_t pitch;
 	uint16_t attackdown;
@@ -675,10 +674,10 @@ typedef struct
 {
 	ei_inventory_t inventory;
 	int32_t duration;
-	uint8_t type;
-	uint8_t mode;
-	uint8_t strength;
-	uint8_t colorstuff;
+	uint16_t type;
+	int16_t strength;
+	int16_t colorstuff;
+	int8_t mode;
 } ei_powerup_t;
 
 typedef struct mobjinfo_s

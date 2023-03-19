@@ -127,7 +127,6 @@ void *dec_reloc_es(void *target, void *ptr);
 uint32_t dec_resolve_animation(mobjinfo_t *info, uint32_t offset, uint16_t anim, uint32_t limit);
 
 uint32_t dec_get_custom_damage(const uint8_t *name, const uint8_t *mmod);
-int32_t dec_get_powerup_type(const uint8_t *name);
 
 uint32_t dec_mobj_custom_state(mobjinfo_t *info, uint32_t alias);
 

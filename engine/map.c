@@ -2424,7 +2424,7 @@ void init_map()
 	}
 
 	// count clusters, add map names
-	wad_handle_lump("_APINFO", cb_count_stuff);
+	wad_handle_lump("MAPINFO", cb_count_stuff);
 
 	//
 	// PASS 2
@@ -2457,7 +2457,7 @@ void init_map()
 	dec_es_ptr = EXTRA_STORAGE_PTR;
 
 	// parse maps and clusters
-	wad_handle_lump("_APINFO", cb_mapinfo);
+	wad_handle_lump("MAPINFO", cb_mapinfo);
 
 	// allocate extra storage
 	temp = dec_es_ptr - EXTRA_STORAGE_PTR;

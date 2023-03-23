@@ -106,7 +106,7 @@ uint32_t P_SetMobjState(mobj_t *mo, uint32_t state, uint16_t extra)
 		if(st->tics != 0xFFFF)
 		{
 			if(st->tics > 1 && (fastparm || gameskill == sk_nightmare) && st->frame & FF_FAST)
-				mo->tics = st->tics / 2;
+				mo->tics = (st->tics + 1) >> 1;
 			else
 				mo->tics = st->tics;
 		} else

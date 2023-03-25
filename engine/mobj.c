@@ -283,6 +283,9 @@ static uint32_t give_armor(mobj_t *mo, mobjinfo_t *info)
 {
 	player_t *pl = mo->player;
 
+	if(!pl)
+		return 0;
+
 	if(info->extra_type == ETYPE_ARMOR)
 	{
 		if(pl->armorpoints >= info->armor.count)
@@ -307,11 +310,16 @@ static uint32_t give_armor(mobj_t *mo, mobjinfo_t *info)
 
 		return 1;
 	}
+
+	return 0;
 }
 
 static uint32_t give_power(mobj_t *mo, mobjinfo_t *info)
 {
 	uint32_t duration;
+
+	if(!mo->player)
+		return 1;
 
 	if(info->powerup.type >= NUMPOWERS)
 		return 1;

@@ -901,7 +901,7 @@ uint32_t PIT_Explode(mobj_t *thing)
 	if(!(thing->flags & MF_SHOOTABLE))
 		return 1;
 
-	if(thing->flags1 & MF1_NORADIUSDMG)
+	if(thing->flags1 & MF1_NORADIUSDMG && !(bombspot->flags1 & MF2_FORCERADIUSDMG))
 		return 1;
 
 	if(thing == bombsource && !(bombflags & XF_HURTSOURCE))
@@ -915,7 +915,7 @@ uint32_t PIT_Explode(mobj_t *thing)
 	dz = thing->z + thing->height;
 
 	if(	!(thing->flags2 & MF2_OLDRADIUSDMG) &&
-		(!bombsource || !(bombsource->flags2 & MF2_OLDRADIUSDMG)) &&
+		(!bombspot || !(bombspot->flags2 & MF2_OLDRADIUSDMG)) &&
 		(bombspot->z < thing->z || bombspot->z >= dz)
 	){
 		if(bombspot->z > thing->z)
@@ -3679,7 +3679,7 @@ void A_Warp(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	if(flags & WARPF_ABSOLUTEPOSITION)
 		mo->z = z;
 	else
-		mo->z += z;
+		mo->z = target->z + z;
 
 	P_SetThingPosition(mo);
 

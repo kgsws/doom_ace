@@ -2043,6 +2043,8 @@ void mobj_plane_bounce(mobj_t *mo, fixed_t momz)
 
 	mo->angle = R_PointToAngle2(mo->x, mo->y, mo->x + mo->momx, mo->y + mo->momy);
 
+	mo->momx = FixedMul(mo->momx, mo->info->bounce_factor);
+	mo->momy = FixedMul(mo->momy, mo->info->bounce_factor);
 	mo->momz = FixedMul(-momz, mo->info->bounce_factor);
 
 	S_StartSound(mo, mo->info->bouncesound);

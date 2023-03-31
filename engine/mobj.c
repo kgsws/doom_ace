@@ -1199,7 +1199,8 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 	}
 
 	// check generic ice death
-	if(	mo->damage_type == DAMAGE_ICE &&
+	if(	!state &&
+		mo->damage_type == DAMAGE_ICE &&
 		(mo->flags1 & MF1_ISMONSTER || mo->player) &&
 		!(mo->flags2 & MF2_NOICEDEATH)
 	){
@@ -1248,8 +1249,11 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	if(tmthing->player)
 	{
 		// players walk trough corpses in ZDoom
-		thsolid = (thing->flags & (MF_SOLID | MF_CORPSE)) == MF_SOLID;
-		tmsolid = (tmthing->flags & (MF_SOLID | MF_CORPSE)) == MF_SOLID;
+		// this is not the exact emulation ...
+		if(!(thing->flags & MF_CORPSE) || !(thing->flags1 & MF1_ISMONSTER) || thing->flags2 & MF2_ICECORPSE)
+			thsolid = thing->flags & MF_SOLID;
+		if(!(tmthing->flags & MF_CORPSE) || !(tmthing->flags1 & MF1_ISMONSTER) || tmthing->flags2 & MF2_ICECORPSE)
+			tmsolid = tmthing->flags & MF_SOLID;
 	} else
 	{
 		thsolid = thing->flags & MF_SOLID;
@@ -2267,7 +2271,11 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	player = target->player;
 
 	if(player && gameskill == sk_baby)
+	{
 		damage /= 2;
+		if(!damage)
+			damage = 1;
+	}
 
 	if(	inflictor &&
 		kickback &&

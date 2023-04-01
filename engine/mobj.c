@@ -1076,7 +1076,7 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 		if(!(mo->flags1 & MF1_DONTFALL))
 			mo->flags &= ~MF_NOGRAVITY;
 
-		if(mo->special.special)
+		if(mo->special.special && (!(mo->flags & MF_SPECIAL) || mo->flags1 & MF1_ISMONSTER))
 		{
 			spec_special = mo->special.special;
 			spec_arg[0] = mo->special.arg[0];

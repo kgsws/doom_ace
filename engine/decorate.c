@@ -730,7 +730,7 @@ static const dec_flag_t inventory_flags[] =
 //	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER}, // not available, not planned
 //	{"inventory.persistentpower", MFE_INVENTORY_PERSISTENTPOWER},
 	{"inventory.bigpowerup", MFE_INVENTORY_BIGPOWERUP}, // not implemented
-//	{"inventory.neverrespawn", MFE_INVENTORY_NEVERRESPAWN},
+	{"inventory.neverrespawn", MFE_INVENTORY_NEVERRESPAWN},
 //	{"inventory.keepdepleted", MFE_INVENTORY_KEEPDEPLETED},
 	{"inventory.additivetime", MFE_INVENTORY_ADDITIVETIME},
 //	{"inventory.restrictabsolutely", MFE_INVENTORY_RESTRICTABSOLUTELY},

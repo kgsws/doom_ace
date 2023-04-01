@@ -1542,8 +1542,10 @@ void A_OldBullets(mobj_t *mo, state_t *st, stfunc_t stfunc)
 __attribute((regparm(2),no_caller_saved_registers))
 void A_SpecialHide(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
-	if(mo->spawnpoint.options != mo->type || !mo->tics)
-	{
+	if(	mo->spawnpoint.options != mo->type ||
+		!mo->tics ||
+		mo->info->eflags & MFE_INVENTORY_NEVERRESPAWN
+	){
 		mobj_remove(mo);
 		return;
 	}

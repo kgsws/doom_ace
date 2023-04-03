@@ -645,6 +645,7 @@ static void cb_sndseq(lumpinfo_t *li)
 			if(!strcmp(wk, "nostopcutoff"))
 			{
 				do_stop = SSQ_NO_STOP;
+				tp_push_keyword(kw);
 			} else
 				engine_error("SNDSEQ", "Unknown keyword '%s' in '%s'!", wk, name);
 		}

@@ -676,7 +676,7 @@ typedef struct
 	int32_t duration;
 	uint16_t type;
 	int16_t strength;
-	int16_t colorstuff;
+	uint16_t colorstuff;
 	int8_t mode;
 } ei_powerup_t;
 

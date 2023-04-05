@@ -51,6 +51,8 @@ DOOM_VAR 0x00012D90, deh_weaponinfo
 DOOM_VAR 0x0001357C, fuzzpos
 DOOM_VAR 0x00013580, validcount
 
+DOOM_VAR 0x00013BBC, st_palette
+
 DOOM_VAR 0x00013C04, mapnames
 DOOM_VAR 0x00013CBC, mapnames2
 
@@ -508,6 +510,7 @@ DOOM_VAR 0x000752F0, tallnum
 DOOM_VAR 0x000753C0, keyboxes
 
 DOOM_VAR 0x00075458, tallpercent
+DOOM_VAR 0x0007545C, lu_palette
 
 DOOM_VAR 0x000756F0, message_is_important
 DOOM_VAR 0x000756F4, cheat_buf

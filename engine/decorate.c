@@ -83,14 +83,14 @@ typedef struct
 {
 	int32_t duration;
 	uint32_t flags;
+	uint16_t colorstuff;
 	uint8_t strength;
-	uint8_t colorstuff;
 } dec_powerup_t;
 
 typedef struct
 {
 	const uint8_t *name;
-	uint8_t colorstuff;
+	uint16_t colorstuff;
 } dec_power_color_t;
 
 //
@@ -140,7 +140,7 @@ typedef struct
 {
 	uint8_t type;
 	uint8_t power;
-	uint8_t colorstuff;
+	uint16_t colorstuff;
 	uint8_t *message;
 } doom_powerup_t;
 
@@ -510,7 +510,7 @@ static mobjinfo_t default_powerup =
 	.powerup.type = 0,
 	.powerup.mode = -1,
 	.powerup.strength = -1,
-	.powerup.colorstuff = -1
+	.powerup.colorstuff = 0x0FFF
 };
 
 // mobj animations
@@ -1247,10 +1247,10 @@ static const dec_powerup_t powerup_type[NUMPOWERS] =
 {
 	[pw_invulnerability] = {-30},
 	[pw_strength] = {1, MFE_INVENTORY_HUBPOWER},
-	[pw_invisibility] = {-60, 0, 52},
+	[pw_invisibility] = {-60, 0, 0, 52},
 	[pw_ironfeet] = {-60},
 //	[pw_allmap] = {}, // this is not a powerup
-	[pw_infrared] = {-120, 0, 0, 0x01},
+	[pw_infrared] = {-120, 0, 0x0001},
 	[pw_buddha] = {-60},
 	[pw_attack_speed] = {-45},
 	[pw_flight] = {-20},
@@ -1260,22 +1260,14 @@ static const dec_powerup_t powerup_type[NUMPOWERS] =
 };
 
 // powerup colors
-static const dec_power_color_t powerup_color[] =
+static const uint8_t *powerup_color[] =
 {
-	{"inversemap", 32},
-	{"goldmap", 33},
-	{"redmap", 34},
-	{"greenmap", 35},
-	{"bluemap", 36},
-	{"ff 00 00", 2 | 128},
-	{"00 ff 00", 13 | 128},
-	{"ff ff 00", 10 | 128},
-	{"00 00 ff", 1 | 128}, // this assumes that PLAYPAL has been changed; this is also used for ice death
-	{"ff 00 ff", 9 | 128}, // this assumes that PLAYPAL has been changed; only one choice is valid
-	{"00 ff ff", 9 | 128}, // this assumes that PLAYPAL has been changed; only one choice is valid
-	{"ff ff ff", 9 | 128}, // this assumes that PLAYPAL has been changed; only one choice is valid
-	// terminator
-	{NULL}
+	"inversemap",
+	"goldmap",
+	"redmap",
+	"greenmap",
+	"bluemap",
+	NULL
 };
 
 // render styles
@@ -1354,10 +1346,10 @@ static const doom_armor_t doom_armor[] =
 // doom powerups
 static const doom_powerup_t doom_powerup[] =
 {
-	{56, MOBJ_IDX_POWER_INVULN, 0x20, (uint8_t*)0x00022EF0}, // InvulnerabilitySphere
-	{58, MOBJ_IDX_POWER_INVIS, 0x00, (uint8_t*)0x00022F10}, // BlurSphere
-	{59, MOBJ_IDX_POWER_IRONFEET, 0x8D, (uint8_t*)0x00022F28}, // RadSuit
-	{61, MOBJ_IDX_POWER_INFRARED, 0x01, (uint8_t*)0x00022F58}, // Infrared
+	{56, MOBJ_IDX_POWER_INVULN, 0x0020, (uint8_t*)0x00022EF0}, // InvulnerabilitySphere
+	{58, MOBJ_IDX_POWER_INVIS, 0x0000, (uint8_t*)0x00022F10}, // BlurSphere
+	{59, MOBJ_IDX_POWER_IRONFEET, 0x20F0, (uint8_t*)0x00022F28}, // RadSuit
+	{61, MOBJ_IDX_POWER_INFRARED, 0x0001, (uint8_t*)0x00022F58}, // Infrared
 };
 #define NUM_POWERUP_ITEMS	(sizeof(doom_powerup) / sizeof(doom_powerup_t))
 
@@ -2016,36 +2008,70 @@ static uint32_t parse_attr(uint32_t type, void *dest)
 		break;
 		case DT_POWERUP_COLOR:
 		{
-			const dec_power_color_t *col = powerup_color;
+			uint32_t col, rr, gg, bb;
+			fixed_t aa;
 
 			kw = tp_get_keyword_lc();
 			if(!kw)
 				return 1;
 
-			while(col->name)
+			if(strcmp("none", kw))
 			{
-				if(!strcmp(col->name, kw))
-					break;
-				col++;
-			}
+				col = 0;
+				while(powerup_color[col])
+				{
+					if(!strcmp(powerup_color[col], kw))
+						break;
+					col++;
+				}
 
-			if(!col)
-				return 1;
+				if(!powerup_color[col])
+				{
+					// color fade
 
-			parse_mobj_info->powerup.colorstuff = col->colorstuff;
+					if(doom_sscanf(kw, "%x %x %x", &rr, &gg, &bb) != 3)
+						return 1;
 
-			// optional part; for ZDoom compatibility
-			kw = tp_get_keyword();
-			if(!kw)
-				return 1;
-			if(kw[0] == ',')
-			{
-				// dummy read (alpha value)
-				kw = tp_get_keyword();
-				if(!kw)
-					return 1;
+					parse_mobj_info->powerup.colorstuff = (rr >> 4) | (gg & 0xF0) | ((bb << 4) & 0xF00);
+
+					// optional part
+					kw = tp_get_keyword();
+					if(!kw)
+						return 1;
+
+					if(kw[0] == ',')
+					{
+						// read alpha value
+						kw = tp_get_keyword();
+						if(!kw)
+							return 1;
+
+						if(tp_parse_fixed(kw, &aa, FRACBITS))
+							return 1;
+
+						if(aa < 0)
+							aa = 0;
+
+						aa >>= 12;
+
+						if(aa <= 0)
+							parse_mobj_info->powerup.colorstuff = 0x0000;
+						else
+						if(aa > 15)
+							parse_mobj_info->powerup.colorstuff |= 0xF000;
+						else
+							parse_mobj_info->powerup.colorstuff |= aa << 12;
+					} else
+					{
+						tp_push_keyword(kw);
+						// default alpha: 0.33333
+						parse_mobj_info->powerup.colorstuff |= 0x5000;
+					}
+				} else
+					// fixed colormap
+					parse_mobj_info->powerup.colorstuff = col + 32;
 			} else
-				tp_push_keyword(kw);
+				parse_mobj_info->powerup.colorstuff = 0;
 		}
 		break;
 		case DT_MONSTER:
@@ -3615,7 +3641,7 @@ void init_decorate()
 				info->eflags |= ofni->eflags;
 				if(info->powerup.strength < 0)
 					info->powerup.strength = ofni->powerup.strength;
-				if(info->powerup.colorstuff < 0)
+				if(info->powerup.colorstuff == 0x0FFF)
 					info->powerup.colorstuff = ofni->powerup.colorstuff;
 				if(info->powerup.mode < 0)
 					info->powerup.mode = ofni->powerup.mode;

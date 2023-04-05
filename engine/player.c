@@ -643,7 +643,9 @@ void player_think(uint32_t idx)
 		if(pl->flags & PF_IS_FROZEN)
 		{
 			pl->viewz = pl->mo->z + pl->mo->info->player.view_height;
-			pl->fixedpalette = 1; // you can freely recolor this one
+			pl->fixedpalette = 13;
+			if(pl == players + displayplayer)
+				r_fixed_palette(0x8400);
 		}
 
 		return;
@@ -845,7 +847,7 @@ void player_think(uint32_t idx)
 			} else
 			{
 				mobjinfo_t *info = mobjinfo + pl->power_mobj[i];
-				uint8_t color = info->powerup.colorstuff;
+				uint16_t color = info->powerup.colorstuff;
 
 				if(	color &&
 					(
@@ -853,10 +855,14 @@ void player_think(uint32_t idx)
 						pl->powers[i] > 128 || pl->powers[i] & 8
 					)
 				){
-					if(color & 0x80)
+					if(color & 0xF000)
 					{
 						if(!pl->fixedpalette)
-							pl->fixedpalette = color & 63;
+						{
+							pl->fixedpalette = 13;
+							if(pl == players + displayplayer)
+								r_fixed_palette(color);
+						}
 					} else
 					{
 						if(!pl->fixedcolormap)
@@ -1180,5 +1186,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003A475, CODE_HOOK | HOOK_UINT16, 0x9B8B},
 	{0x0003A477, CODE_HOOK | HOOK_UINT32, offsetof(player_t,fixedpalette)},
 	{0x0003A47B, CODE_HOOK | HOOK_UINT16, 0x10EB},
+	// PU_STATIC palette chache in 'ST_doPaletteStuff'
+	{0x0003A496, CODE_HOOK | HOOK_UINT8, PU_STATIC},
 };
 

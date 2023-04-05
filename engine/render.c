@@ -2539,6 +2539,53 @@ uint32_t r_add_blood_color(uint32_t color)
 	return ret;
 }
 
+void r_fixed_palette(uint16_t fade)
+{
+	static uint16_t fade_now;
+	static int32_t rr, gg, bb, aa;
+	uint8_t *dst, *src;
+
+	if(fade == fade_now)
+		return;
+
+	st_palette = -1;
+
+	fade_now = fade;
+
+	src = W_CacheLumpNum(lu_palette, PU_STATIC);
+	dst = src + 13 * 768;
+
+	rr = fade & 15;
+	gg = (fade >> 4) & 15;
+	bb = (fade >> 8) & 15;
+
+	rr |= rr << 4;
+	gg |= gg << 4;
+	bb |= bb << 4;
+
+	aa = (fade & 0xF000) / 15;
+
+	for(uint32_t i = 0; i < 256; i++)
+	{
+		int32_t diff;
+
+		diff = rr - (int32_t)*src;
+		*dst = *src + ((diff * aa) >> 12);
+		dst++;
+		src++;
+
+		diff = gg - (int32_t)*src;
+		*dst = *src + ((diff * aa) >> 12);
+		dst++;
+		src++;
+
+		diff = bb - (int32_t)*src;
+		*dst = *src + ((diff * aa) >> 12);
+		dst++;
+		src++;
+	}
+}
+
 void *r_generate_player_color(uint32_t idx)
 {
 	player_info_t *pi = player_info + idx;

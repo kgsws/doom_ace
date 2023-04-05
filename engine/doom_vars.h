@@ -345,6 +345,8 @@ extern void **lumpcache;
 extern uint32_t numlumps;
 
 // gfx
+extern uint32_t lu_palette;
+extern uint32_t st_palette;
 extern patch_t *tallnum[];
 extern patch_t *tallpercent;
 extern patch_t *shortnum[];

@@ -77,6 +77,7 @@ enum
 
 	MATH_MUL,
 	MATH_DIV,
+	MATH_MOD,
 
 	MATH_NEG,
 
@@ -222,6 +223,7 @@ static uint8_t math_op[] =
 	[MATH_SUB] = 8,
 	[MATH_MUL] = 9,
 	[MATH_DIV] = 9,
+	[MATH_MOD] = 9,
 	[MATH_NEG] = 100,
 	// terminator has to force calculation of stack contents
 	// lowest priority is required
@@ -467,6 +469,8 @@ static int32_t calculate_value(int32_t v0, int32_t v1, uint32_t op)
 		case MATH_SUB:
 		case MATH_NEG:
 			return v0 - v1;
+		case MATH_MOD:
+			return ((v0 >> MATHFRAC) % (v1 >> MATHFRAC)) << MATHFRAC;
 		case MATH_MUL:
 			return ((int64_t)v0 * (int64_t)v1) >> MATHFRAC;
 		case MATH_DIV:
@@ -4315,6 +4319,8 @@ static uint32_t parse_value(uint8_t *kw, int32_t *val)
 			return MATH_MUL;
 		if(kw[0] == '/')
 			return MATH_DIV;
+		if(kw[0] == '%')
+			return MATH_MOD;
 	}
 
 	if(kw[1] == '=')
@@ -4944,9 +4950,11 @@ static const dec_linespec_t special_action[] =
 	{32, 0x75450939}, // stairs_buildupsync
 	{35, 0xFBC5CF4D}, // floor_raisebyvaluetimes8
 	{36, 0x8E5BF6AC}, // floor_lowerbyvaluetimes8
+	{37, 0xC7AA99E9}, // floor_movetovalue
 	{40, 0xA3792C24}, // ceiling_lowerbyvalue
 	{41, 0x40E73B7D}, // ceiling_raisebyvalue
 	{44, 0xE0F7256D}, // ceiling_crushstop
+	{47, 0xEF9E6C69}, // ceiling_movetovalue
 	{55, 0x30F4F914}, // line_setblocking
 	{62, 0x479A8B91}, // plat_downwaitupstay
 	{64, 0x51F51150}, // plat_upwaitdownstay

@@ -239,7 +239,15 @@ static uint32_t act_Floor_ByValue(sector_t *sec, line_t *ln)
 	if(sec->specialactive & ACT_FLOOR)
 		return 0;
 
-	dest = sec->floorheight + spec_arg[2] * value_mult * FRACUNIT;
+	if(!value_mult)
+	{
+		dest = (fixed_t)spec_arg[2] * FRACUNIT;
+		if(spec_arg[3])
+			dest = -dest;
+		value_mult = dest < sec->floorheight ? -1 : 1;
+	} else
+		dest = sec->floorheight + spec_arg[2] * value_mult * FRACUNIT;
+
 	if(dest > sec->ceilingheight)
 		dest = sec->ceilingheight;
 
@@ -446,7 +454,15 @@ static uint32_t act_Ceiling_ByValue(sector_t *sec, line_t *ln)
 	if(sec->specialactive & ACT_CEILING)
 		return 0;
 
-	dest = sec->ceilingheight + spec_arg[2] * value_mult * FRACUNIT;
+	if(!value_mult)
+	{
+		dest = (fixed_t)spec_arg[2] * FRACUNIT;
+		if(spec_arg[3])
+			dest = -dest;
+		value_mult = dest < sec->ceilingheight ? -1 : 1;
+	} else
+		dest = sec->ceilingheight + spec_arg[2] * value_mult * FRACUNIT;
+
 	if(dest < sec->floorheight)
 		dest = sec->floorheight;
 
@@ -1848,6 +1864,10 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			value_mult = -8;
 			spec_success = handle_tag(ln, spec_arg[0], act_Floor_ByValue);
 		break;
+		case 37: // Floor_MoveToValue
+			value_mult = 0;
+			spec_success = handle_tag(ln, spec_arg[0], act_Floor_ByValue);
+		break;
 		case 40: // Ceiling_LowerByValue
 			value_mult = -1;
 			spec_success = handle_tag(ln, spec_arg[0], act_Ceiling_ByValue);
@@ -1858,6 +1878,10 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		break;
 		case 44: // Ceiling_CrushStop
 			spec_success = handle_tag(ln, spec_arg[0], act_Ceiling_CrushStop);
+		break;
+		case 47: // Ceiling_MoveToValue
+			value_mult = 0;
+			spec_success = handle_tag(ln, spec_arg[0], act_Ceiling_ByValue);
 		break;
 		case 49: // GlassBreak
 			spec_success = do_GlassBreak(ln);

@@ -82,6 +82,8 @@ static uint32_t is_script_char(uint8_t *ptr)
 			return 1;
 		if(in == '*')
 			return 1;
+		if(in == '%')
+			return 1;
 		if(in == '=')
 		{
 			if(ptr[1] == '=')

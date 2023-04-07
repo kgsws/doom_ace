@@ -48,6 +48,7 @@ enum
 {
 	AT_U8,
 	AT_U16,
+	AT_S16,
 	AT_S32,
 	AT_FIXED,
 	AT_ANGLE,
@@ -243,11 +244,11 @@ static const math_var_t math_variable[] =
 	{"VELY", offsetof(mobj_t, momy), AT_FIXED},
 	{"VELZ", offsetof(mobj_t, momz), AT_FIXED},
 	{"ALPHA", offsetof(mobj_t, render_alpha), AT_ALPHA},
-	{"ARGS[0]", offsetof(mobj_t, special.arg[0]), AT_U8},
-	{"ARGS[1]", offsetof(mobj_t, special.arg[1]), AT_U8},
-	{"ARGS[2]", offsetof(mobj_t, special.arg[2]), AT_U8},
-	{"ARGS[3]", offsetof(mobj_t, special.arg[3]), AT_U8},
-	{"ARGS[4]", offsetof(mobj_t, special.arg[4]), AT_U8},
+	{"ARGS[0]", offsetof(mobj_t, special.arg[0]), AT_S16},
+	{"ARGS[1]", offsetof(mobj_t, special.arg[1]), AT_S16},
+	{"ARGS[2]", offsetof(mobj_t, special.arg[2]), AT_S16},
+	{"ARGS[3]", offsetof(mobj_t, special.arg[3]), AT_S16},
+	{"ARGS[4]", offsetof(mobj_t, special.arg[4]), AT_S16},
 	{"HEALTH", offsetof(mobj_t, health), AT_S32},
 	{"HEIGHT", offsetof(mobj_t, height), AT_FIXED},
 	{"RADIUS", offsetof(mobj_t, radius), AT_FIXED},
@@ -512,6 +513,7 @@ static int32_t resolve_type(mobj_t *mo, uint32_t type, uint32_t value)
 		void *ptr;
 		uint8_t *u8;
 		uint16_t *u16;
+		int16_t *s16;
 		int32_t *s32;
 		fixed_t *fixed;
 		angle_t *angle;
@@ -585,6 +587,8 @@ static int32_t resolve_type(mobj_t *mo, uint32_t type, uint32_t value)
 			return *base.u8 << MATHFRAC;
 		case AT_U16:
 			return *base.u16 << MATHFRAC;
+		case AT_S16:
+			return *base.s16 << MATHFRAC;
 		case AT_S32:
 			return *base.s32 << MATHFRAC;
 		case AT_FIXED:

@@ -1134,7 +1134,7 @@ typedef struct spritedef_s
 
 typedef struct
 {
-	uint8_t special;
+	uint16_t special;
 	int16_t arg[5];
 	uint16_t tid;
 } mobj_special_t;

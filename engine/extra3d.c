@@ -59,6 +59,7 @@ void add_floor_plane(extraplane_t **dest, sector_t *sec, line_t *line, uint32_t 
 	new->line = line;
 	new->source = sec;
 	new->texture = &sides[line->sidenum[0]].midtexture;
+	new->rowoffset = &sides[line->sidenum[0]].rowoffset;
 	new->flags = flags;
 	new->alpha = alpha;
 
@@ -621,8 +622,8 @@ void e3d_create()
 
 		side = sides + ln->sidenum[0];
 
-		if(side->textureoffset || side->rowoffset)
-			engine_error("EX3D", "Texture offsets are not supported!");
+		if(side->textureoffset)
+			engine_error("EX3D", "Texture X offset is not supported!");
 
 		src = side->sector;
 

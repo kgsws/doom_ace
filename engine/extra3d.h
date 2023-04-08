@@ -19,6 +19,7 @@ typedef struct extraplane_s
 	uint16_t *texture;
 	uint16_t *pic;
 	uint16_t *light;
+	fixed_t *rowoffset;
 	uint16_t flags;
 	uint16_t alpha;
 } extraplane_t;

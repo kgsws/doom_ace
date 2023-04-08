@@ -419,6 +419,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 	int32_t height, no_inside;
 	int32_t topfrac, topstep;
 	int32_t botfrac, botstep;
+	fixed_t extra_offset = 0;
 	int32_t texnum = 0;
 	uint16_t *tcol = (uint16_t*)ds->maskedtexturecol;
 	seg_t *seg = ds->curline;
@@ -446,6 +447,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				clip_height_top > pl->source->floorheight &&
 				pl->source->floorheight < backsector->ceilingheight
 			){
+				extra_offset = *pl->rowoffset;
 				texnum = texturetranslation[*pl->texture];
 				dc_texturemid = pl->source->ceilingheight - viewz;
 				source = pl->source;
@@ -475,11 +477,13 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 							no_inside &&
 							(pl->alpha != 255 || pl->flags & E3D_WATER)
 						)
-					)
+					){
+						extra_offset = 0;
 						texnum = 0;
-					else
+					} else
 					if(!texnum && pl->flags & E3D_DRAW_INISIDE)
 					{
+						extra_offset = *pl->rowoffset;
 						texnum = texturetranslation[*pl->texture];
 						dc_texturemid = pl->source->ceilingheight - viewz;
 						height = -1;
@@ -522,7 +526,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 		colfunc = R_DrawColumn;
 	}
 
-	dc_texturemid += seg->sidedef->rowoffset;
+	dc_texturemid += seg->sidedef->rowoffset + extra_offset;
 
 	if(!texnum)
 	{

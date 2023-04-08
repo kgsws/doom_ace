@@ -801,8 +801,11 @@ void player_think(uint32_t idx)
 			if(	!(pp->flags & E3D_SWAP_PLANES) &&
 				pl->mo->z + pl->mo->height > pp->source->floorheight &&
 				pl->mo->z <= pp->source->ceilingheight
-			)
+			){
 				handle_sector_special(pl, pp->source, pp->source->ceilingpic);
+				// ZDoom takes only the first extra floor
+				break;
+			}
 			pp = pp->next;
 		}
 	}

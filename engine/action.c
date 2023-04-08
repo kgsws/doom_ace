@@ -29,7 +29,7 @@
 
 #define MAKE_CONST(x)	{.name = #x, .value = (x)}
 
-#define MATHFRAC	11 // signed 21.11
+#define MATHFRAC	10 // signed 22.10
 
 #define ARG_OFFS_MASK	0x07FF
 #define ARG_MAGIC_MASK	0x7FFF
@@ -4959,6 +4959,7 @@ static const dec_linespec_t special_action[] =
 	{41, 0x40E73B7D}, // ceiling_raisebyvalue
 	{44, 0xE0F7256D}, // ceiling_crushstop
 	{47, 0xEF9E6C69}, // ceiling_movetovalue
+	{53, 0x760116CF}, // line_settextureoffset
 	{55, 0x30F4F914}, // line_setblocking
 	{62, 0x479A8B91}, // plat_downwaitupstay
 	{64, 0x51F51150}, // plat_upwaitdownstay

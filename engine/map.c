@@ -1025,7 +1025,8 @@ static inline void P_LoadLineDefs(int lump)
 			ln->id = ln->arg0;
 			ln->arg0 = 0;
 			ln->args = 0;
-		}
+		} else
+			ln->id = 0;
 
 		if(v1->x < v2->x)
 		{

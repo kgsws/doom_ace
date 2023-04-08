@@ -130,6 +130,36 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 				}
 			}
 		}
+	} else
+	{
+		// update 3D floor order
+
+		if(what_plane & 1)
+			e3d_update_top(sec);
+
+		if(what_plane & 2)
+			e3d_update_bot(sec);
+
+		if(sec->extra->plink)
+		{
+			plink = sec->extra->plink;
+			while(plink->target)
+			{
+				if(	(plink->use_ceiling && what_plane & 1) ||
+					(!plink->use_ceiling && what_plane & 2)
+				){
+					sector_t *ss = plink->target;
+
+					if(plink->link_ceiling)
+						e3d_update_top(ss);
+
+					if(plink->link_floor)
+						e3d_update_bot(ss);
+				}
+
+				plink++;
+			}
+		}
 	}
 
 	e3d_plane_move = 0;
@@ -207,9 +237,6 @@ void think_ceiling(generic_mover_t *gm)
 
 		if(sec->ceilingheight >= gm->top_height)
 		{
-			if(sec->e3d_origin)
-				e3d_update_top(sec);
-
 			if(gm->lighttag)
 				light_effect(gm->lighttag, 0x10000);
 
@@ -269,9 +296,6 @@ void think_ceiling(generic_mover_t *gm)
 
 		if(sec->ceilingheight <= gm->bot_height)
 		{
-			if(sec->e3d_origin)
-				e3d_update_top(sec);
-
 			if(gm->lighttag)
 				light_effect(gm->lighttag, 0);
 
@@ -293,9 +317,6 @@ void think_ceiling(generic_mover_t *gm)
 			goto finish_move;
 		}
 	}
-
-	if(sec->e3d_origin)
-		e3d_update_top(sec);
 
 	if(gm->lighttag)
 	{
@@ -386,9 +407,6 @@ void think_floor(generic_mover_t *gm)
 
 		if(sec->floorheight >= gm->top_height)
 		{
-			if(sec->e3d_origin)
-				e3d_update_bot(sec);
-
 			if(!gm->up_seq || !gm->up_seq->stop)
 			{
 				gm->sndwait = 0;
@@ -444,9 +462,6 @@ void think_floor(generic_mover_t *gm)
 
 		if(sec->floorheight <= gm->bot_height)
 		{
-			if(sec->e3d_origin)
-				e3d_update_bot(sec);
-
 			if(!gm->dn_seq || !gm->dn_seq->stop)
 			{
 				gm->sndwait = 0;
@@ -465,9 +480,6 @@ void think_floor(generic_mover_t *gm)
 			goto finish_move;
 		}
 	}
-
-	if(sec->e3d_origin)
-		e3d_update_bot(sec);
 
 	return;
 

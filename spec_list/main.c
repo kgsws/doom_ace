@@ -42,6 +42,7 @@ static const linespec_t special_action[] =
 	{41, "ceiling_raisebyvalue"},
 	{44, "ceiling_crushstop"},
 	{47, "ceiling_movetovalue"},
+	{53, "line_settextureoffset"},
 	{55, "line_setblocking"},
 	{62, "plat_downwaitupstay"},
 	{64, "plat_upwaitdownstay"},

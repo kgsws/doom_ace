@@ -1550,6 +1550,44 @@ static inline uint32_t do_GlassBreak(line_t *ln)
 	return 0;
 }
 
+static uint32_t do_SetTextureOffset(line_t *li, line_t *ln)
+{
+	side_t *side;
+	fixed_t ox, oy;
+
+	if((spec_arg[4] & 7) != 7)
+		return 0;
+
+	if(spec_arg[3] == 0)
+		side = sides + li->sidenum[0];
+	else
+	if(spec_arg[3] == 1 && li->sidenum[1] < numsides)
+		side = sides + li->sidenum[1];
+	else
+		return 0;
+
+	if(spec_arg[4] & 8)
+	{
+		ox = side->textureoffset;
+		oy = side->rowoffset;
+	} else
+	{
+		ox = 0;
+		oy = 0;
+	}
+
+	ox += spec_arg[1];
+	oy += spec_arg[2];
+
+	if(spec_arg[1] != 0xFFFF0000)
+		side->textureoffset = ox;
+
+	if(spec_arg[2] != 0xFFFF0000)
+		side->rowoffset = oy;
+
+	return 1;
+}
+
 static uint32_t do_SetBlocking(line_t *li, line_t *ln)
 {
 	static uint16_t flag_table[] =
@@ -1886,6 +1924,8 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		case 49: // GlassBreak
 			spec_success = do_GlassBreak(ln);
 		break;
+		case 53: // Line_SetTextureOffset
+			spec_success = handle_lid(ln, spec_arg[0], do_SetTextureOffset);
 		case 55: // Line_SetBlocking
 			spec_success = handle_lid(ln, spec_arg[0], do_SetBlocking);
 		break;

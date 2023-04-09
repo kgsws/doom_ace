@@ -809,6 +809,7 @@ void player_change(uint32_t dir)
 				if(inventory_is_usable(mobjinfo + idx))
 				{
 					extra_config.quick_inv = idx;
+					extra_config.quick_inv_alias = mobjinfo[idx].alias;
 					player_info_changed = 1;
 					break;
 				}

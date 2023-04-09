@@ -415,13 +415,7 @@ void config_save()
 			case TYPE_MOBJ_ALIAS:
 			{
 				// workaround for missing '%lX' support
-				uint64_t alias;
-
-				if(*conf->u16)
-					alias = mobjinfo[*conf->u16].alias;
-				else
-					alias = extra_config.quick_inv_alias;
-
+				uint64_t alias = *conf->u64;
 				doom_fprintf(f, "%08X%08X\n", (uint32_t)(alias >> 32), (uint32_t)alias);
 			}
 			break;

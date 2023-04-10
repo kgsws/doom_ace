@@ -980,7 +980,9 @@ typedef struct line_s
 	};
 	uint16_t sidenum[2];
 	fixed_t bbox[4];
-	uint32_t slopetype;
+	uint8_t slopetype;
+	uint8_t __free_B;
+	uint16_t e3d_tag;
 	sector_t *frontsector;
 	sector_t *backsector;
 	uint32_t validcount;
@@ -1682,6 +1684,7 @@ void P_UseLines(player_t*) __attribute((regparm(2),no_caller_saved_registers));
 fixed_t doom_P_AimLineAttack(mobj_t*,angle_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_LineAttack(mobj_t*,angle_t,fixed_t,fixed_t,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void P_SlideMove(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
+void P_HitSlideLine(line_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_CheckPosition(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_TeleportMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t PIT_ChangeSector(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

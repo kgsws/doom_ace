@@ -285,6 +285,8 @@ DOOM_VAR 0x0002B9AC, shootthing
 DOOM_VAR 0x0002B9B0, la_damage
 DOOM_VAR 0x0002B9B4, aimslope
 DOOM_VAR 0x0002B9B8, attackrange
+DOOM_VAR 0x0002B9BC, tmymove
+DOOM_VAR 0x0002B9C0, tmxmove
 DOOM_VAR 0x0002B9C8, slidemo
 DOOM_VAR 0x0002B9D0, bestslidefrac
 DOOM_VAR 0x0002B9D4, bestslideline

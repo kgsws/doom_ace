@@ -254,96 +254,75 @@ void e3d_add_height(fixed_t height)
 //
 // plane movement
 
-void e3d_update_top(sector_t *src)
+void e3d_update_planes(sector_t *src, uint32_t planes)
 {
+	extraplane_t *pl;
+	extraplane_t **pr;
+
+	if(!src->e3d_origin)
+		return;
+
 	for(uint32_t i = 0; i < numsectors; i++)
 	{
 		sector_t *sec = sectors + i;
-		extraplane_t *pl;
-		extraplane_t **pr;
-		fixed_t old_height;
 
 		if(!sec->ed3_multiple)
 			continue;
 
-		old_height = ONCEILINGZ;
-		pl = sec->exfloor;
-		pr = &sec->exfloor;
-		while(pl)
+		for(uint32_t i = 0; i < src->linecount; i++)
 		{
-			if(pl->source == src)
+			line_t *li = src->lines[i];
+
+			if(li->e3d_tag == sec->tag)
 			{
-				if(	*pl->height > old_height ||
-					(pl->next && *pl->next->height > *pl->height)
-				){
-					extraplane_t *pp;
-					// remove
-					*pr = pl->next;
-					// sort, top to bottom
+				if(planes & 1)
+				{
+					pl = sec->exfloor;
 					pr = &sec->exfloor;
-					pp = sec->exfloor;
-					while(pp)
+					while(pl->next)
 					{
-						if(*pl->height > *pp->height)
-							break;
-						pr = &pp->next;
-						pp = pp->next;
+						if(*pl->height < *pl->next->height)
+						{
+							// swap pair
+							extraplane_t *tmp = pl->next;
+							pl->next = tmp->next;
+							tmp->next = pl;
+							*pr = tmp;
+							// start again
+							pl = sec->exfloor;
+							pr = &sec->exfloor;
+							continue;
+						}
+						pr = &pl->next;
+						pl = pl->next;
 					}
-					*pr = pl;
-					pl->next = pp;
 				}
-				break;
-			}
-			old_height = *pl->height;
-			pr = &pl->next;
-			pl = pl->next;
-		}
-	}
-}
 
-void e3d_update_bot(sector_t *src)
-{
-	for(uint32_t i = 0; i < numsectors; i++)
-	{
-		sector_t *sec = sectors + i;
-		extraplane_t *pl;
-		extraplane_t **pr;
-		fixed_t old_height;
-
-		if(!sec->ed3_multiple)
-			continue;
-
-		old_height = ONFLOORZ;
-		pl = sec->exceiling;
-		pr = &sec->exceiling;
-		while(pl)
-		{
-			if(pl->source == src)
-			{
-				if(	*pl->height < old_height ||
-					(pl->next && *pl->next->height < *pl->height)
-				){
-					extraplane_t *pp;
-					// remove
-					*pr = pl->next;
-					// sort, bottom to top
+				if(planes & 2)
+				{
+					pl = sec->exceiling;
 					pr = &sec->exceiling;
-					pp = sec->exceiling;
-					while(pp)
+					while(pl->next)
 					{
-						if(*pl->height < *pp->height)
-							break;
-						pr = &pp->next;
-						pp = pp->next;
+						if(*pl->height > *pl->next->height)
+						{
+							// swap pair
+							extraplane_t *tmp = pl->next;
+							pl->next = tmp->next;
+							tmp->next = pl;
+							*pr = tmp;
+							// start again
+							pl = sec->exceiling;
+							pr = &sec->exceiling;
+							continue;
+						}
+						pr = &pl->next;
+						pl = pl->next;
 					}
-					*pr = pl;
-					pl->next = pp;
 				}
+
 				break;
 			}
-			old_height = *pl->height;
-			pr = &pl->next;
-			pl = pl->next;
 		}
 	}
 }
@@ -643,7 +622,7 @@ void e3d_create()
 		if(ln->arg1 & 8)
 			ln->id = ln->arg4;
 		else
-			tag += ln->arg4 * 256;
+			tag |= ln->arg4 * 256;
 
 		if(ln->arg1 & 16)
 			flags ^= E3D_BLOCK_SIGHT;
@@ -662,7 +641,10 @@ void e3d_create()
 		if(!tag)
 			engine_error("EX3D", "Do not use zero tag!");
 
-		src->e3d_origin = 1;
+		if(src->e3d_origin < 2)
+			src->e3d_origin++;
+
+		ln->e3d_tag = tag;
 
 		M_ClearBox(src->extra->bbox);
 
@@ -701,6 +683,7 @@ void e3d_create()
 
 	// find maximum extra floor count per sector
 	// update model sector bounding box
+	// mark sectors containing more than 1 extra floor
 	for(uint32_t i = 0; i < numsectors; i++)
 	{
 		sector_t *sec = sectors + i;

@@ -455,7 +455,7 @@ static uint32_t get_sfx_length(int32_t idx)
 		uint32_t samplecount;
 	} head;
 
-	if(idx < 0)
+	if(idx <= 0)
 		return 0;
 
 	sfx = sfxinfo + idx;
@@ -474,6 +474,9 @@ static uint32_t get_sfx_length(int32_t idx)
 	head.samplecount -= 32;
 	head.samplecount *= 35;
 	head.samplecount /= head.samplerate;
+
+	if(head.samplecount)
+		head.samplecount--;
 
 	return head.samplecount;
 }
@@ -637,6 +640,11 @@ static void cb_sndseq(lumpinfo_t *li)
 				if(doom_sscanf(kw, "%u", &value) != 1 || !value || value > 0x0FFF)
 					goto error_value;
 				seq->norm_open.repeat = value;
+			} else
+			if(!strcmp(wk, "playrepeat"))
+			{
+				seq->norm_open.move = sfx_by_alias(tp_hash64(kw));
+				seq->norm_open.repeat = get_sfx_length(seq->norm_open.move);
 			} else
 			if(!strcmp(wk, "stopsound"))
 			{

@@ -1016,6 +1016,7 @@ static inline void P_LoadLineDefs(int lump)
 		ln->sidenum[0] = ml->sidenum[0];
 		ln->sidenum[1] = ml->sidenum[1];
 		ln->validcount = 0;
+		ln->e3d_tag = 0;
 
 		if(ln->special == 121) // Line_SetIdentification
 		{
@@ -2878,6 +2879,27 @@ uint32_t P_BlockLinesIterator(int32_t x, int32_t y, line_func_t func)
 //
 // hooks
 
+__attribute((regparm(2),no_caller_saved_registers))
+static void hit_slide_line(line_t *ln)
+{
+	if(ln->slopetype == ST_HORIZONTAL)
+	{
+		tmymove = 0;
+		return;
+	}
+
+	if(ln->slopetype == ST_VERTICAL)
+	{
+		tmxmove = 0;
+		return;
+	}
+
+	P_HitSlideLine(ln);
+}
+
+//
+// hooks
+
 static const hook_t patch_doom[] =
 {
 	// restore line special handlers
@@ -2922,6 +2944,12 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002BB80, CODE_HOOK | HOOK_UINT32, 0xD98951},
 	{0x0002BB83, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)P_AimLineAttack},
 	{0x0002BB88, CODE_HOOK | HOOK_UINT16, 0xC359},
+	// replace size of 'slopetype' in 'P_BoxOnLineSide'
+	{0x0002C0DB, CODE_HOOK | HOOK_UINT32, 0x2A42B60F},
+	{0x0002C0DF, CODE_HOOK | HOOK_UINT16, 0x033C},
+	// replace size of 'slopetype' in 'P_HitSlideLine'
+	{0x0002B3D7, CODE_HOOK | HOOK_UINT16, 0x23EB},
+	{0x0002B715, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)hit_slide_line},
 	// replace key checks in 'EV_VerticalDoor'
 	{0x00026C85, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_door_key},
 	{0x00026C8A, CODE_HOOK | HOOK_UINT16, 0xC085},

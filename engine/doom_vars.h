@@ -158,6 +158,8 @@ extern mobj_t *corpsehit;
 extern mobj_t *vileobj;
 extern fixed_t viletryx;
 extern fixed_t viletryy;
+extern fixed_t tmymove;
+extern fixed_t tmxmove;
 
 // player
 extern uint32_t playeringame[];

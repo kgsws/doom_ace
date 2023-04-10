@@ -669,7 +669,7 @@ const dec_flag_t mobj_flags1[] =
 	{"buddha", MF1_BUDDHA},
 	{"nodamage", MF1_NODAMAGE},
 	{"reflective", MF1_REFLECTIVE},
-	{"boss", MF1_BOSS}, // TODO: implement in A_Look (see sound)
+	{"boss", MF1_BOSS},
 	{"noradiusdmg", MF1_NORADIUSDMG},
 	{"extremedeath", MF1_EXTREMEDEATH},
 	{"noextremedeath", MF1_NOEXTREMEDEATH},

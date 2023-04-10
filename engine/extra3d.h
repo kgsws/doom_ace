@@ -59,8 +59,7 @@ void e3d_check_heights(mobj_t *mo, sector_t *sec, uint32_t no_step);
 void e3d_check_water(mobj_t *mo);
 void e3d_check_midtex(mobj_t *mo, line_t *ln, uint32_t no_step);
 
-void e3d_update_top(sector_t *src);
-void e3d_update_bot(sector_t *src);
+void e3d_update_planes(sector_t *src, uint32_t planes);
 
 //
 

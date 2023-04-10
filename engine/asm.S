@@ -816,6 +816,12 @@ P_UnsetThingPosition:
 P_SlideMove:
 	.byte	0xE9
 	.4byte	0x0002B560
+////////////////////////////////// P_HitSlideLine
+.section .text.P_HitSlideLine
+.global P_HitSlideLine
+P_HitSlideLine:
+	.byte	0xE9
+	.4byte	0x0002B3D0
 ////////////////////////////////// PIT_ChangeSector
 .section .text.PIT_ChangeSector
 .global PIT_ChangeSector

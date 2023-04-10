@@ -1759,6 +1759,7 @@ static inline uint32_t ld_get_sectors()
 		uint16_t idx;
 		sector_t *sec;
 		uint64_t wame;
+		uint32_t update = 0;
 
 		if(reader_get_u16(&flags))
 			return 1;
@@ -1790,14 +1791,14 @@ static inline uint32_t ld_get_sectors()
 			if(reader_get_u32(&sec->floorheight))
 				return 1;
 			if(sec->e3d_origin)
-				e3d_update_bot(sec);
+				update |= 2;
 		}
 		if(CHECK_BIT(flags, SF_SEC_HEIGHT_CEILING))
 		{
 			if(reader_get_u32(&sec->ceilingheight))
 				return 1;
 			if(sec->e3d_origin)
-				e3d_update_top(sec);
+				update |= 1;
 		}
 		if(CHECK_BIT(flags, SF_SEC_LIGHT_LEVEL))
 		{
@@ -1821,6 +1822,9 @@ static inline uint32_t ld_get_sectors()
 				return 1;
 			sec->soundtarget = (mobj_t*)nid;
 		}
+
+		if(update)
+			e3d_update_planes(sec, update);
 	}
 
 	// version check

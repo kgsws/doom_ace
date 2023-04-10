@@ -62,7 +62,7 @@ static void light_effect(uint32_t tag, fixed_t frac)
 
 static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint32_t what_plane, uint32_t do_stop)
 {
-	uint32_t blocked;
+	uint32_t blocked = 0;
 	plane_link_t *plink;
 
 	// TODO: find lowest DIST possible to prevent floors in ceilings (like ZDoom does)
@@ -74,7 +74,21 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 	if(what_plane & 2)
 		sec->floorheight += dist;
 
-	blocked = mobj_change_sector(sec, crush);
+	if(mobj_change_sector(sec, crush) && do_stop)
+	{
+		fixed_t dd;
+
+		if(sec->e3d_origin)
+			dd = -dist;
+		else
+			dd = dist;
+
+		if(what_plane & 1 && dd < 0)
+			blocked = 1;
+
+		if(what_plane & 2 && dd > 0)
+			blocked = 1;
+	}
 
 	if(sec->extra->plink)
 	{
@@ -88,10 +102,26 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 
 				if(plink->link_ceiling)
 					ss->ceilingheight += dist;
+
 				if(plink->link_floor)
 					ss->floorheight += dist;
 
-				blocked |= mobj_change_sector(ss, crush);
+				// this is pretty stupid but it seems that linked planes always block movement in ZDoom
+				if(mobj_change_sector(ss, crush) /*&& do_stop*/)
+				{
+					fixed_t dd;
+
+					if(ss->e3d_origin)
+						dd = -dist;
+					else
+						dd = dist;
+
+					if(plink->link_ceiling && dd < 0)
+						blocked = 1;
+
+					if(plink->link_floor && dd > 0)
+						blocked = 1;
+				}
 			}
 
 			plink++;
@@ -100,45 +130,11 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 
 	if(blocked)
 	{
-		if(do_stop)
-		{
-			if(what_plane & 1)
-				sec->ceilingheight -= dist;
-			if(what_plane & 2)
-				sec->floorheight -= dist;
-			mobj_change_sector(sec, 0);
-
-			if(sec->extra->plink)
-			{
-				plink = sec->extra->plink;
-				while(plink->target)
-				{
-					if(	(plink->use_ceiling && what_plane & 1) ||
-						(!plink->use_ceiling && what_plane & 2)
-					){
-						sector_t *ss = plink->target;
-
-						if(plink->link_ceiling)
-							ss->ceilingheight -= dist;
-						if(plink->link_floor)
-							ss->floorheight -= dist;
-
-						mobj_change_sector(ss, 0);
-					}
-
-					plink++;
-				}
-			}
-		}
-	} else
-	{
-		// update 3D floor order
-
 		if(what_plane & 1)
-			e3d_update_top(sec);
-
+			sec->ceilingheight -= dist;
 		if(what_plane & 2)
-			e3d_update_bot(sec);
+			sec->floorheight -= dist;
+		mobj_change_sector(sec, 0);
 
 		if(sec->extra->plink)
 		{
@@ -151,10 +147,39 @@ static uint32_t plane_movement(sector_t *sec, fixed_t dist, uint32_t crush, uint
 					sector_t *ss = plink->target;
 
 					if(plink->link_ceiling)
-						e3d_update_top(ss);
+						ss->ceilingheight -= dist;
+					if(plink->link_floor)
+						ss->floorheight -= dist;
+
+					mobj_change_sector(ss, 0);
+				}
+
+				plink++;
+			}
+		}
+	} else
+	{
+		// update 3D floor order
+		e3d_update_planes(sec, what_plane);
+
+		if(sec->extra->plink)
+		{
+			plink = sec->extra->plink;
+			while(plink->target)
+			{
+				if(	(plink->use_ceiling && what_plane & 1) ||
+					(!plink->use_ceiling && what_plane & 2)
+				){
+					sector_t *ss = plink->target;
+					uint32_t planes = 0;
+
+					if(plink->link_ceiling)
+						planes |= 1;
 
 					if(plink->link_floor)
-						e3d_update_bot(ss);
+						planes |= 2;
+
+					e3d_update_planes(ss, planes);
 				}
 
 				plink++;
@@ -214,7 +239,7 @@ void think_ceiling(generic_mover_t *gm)
 			gm->sndwait = gm->up_seq->repeat & SSQ_REP_MASK;
 		}
 
-		if(plane_movement(sec, dist, 0, 1, 1))
+		if(plane_movement(sec, dist, gm->crush, 1, gm->flags & MVF_BLOCK_STAY))
 		{
 			if(gm->flags & MVF_BLOCK_GO_DN)
 			{
@@ -439,7 +464,7 @@ void think_floor(generic_mover_t *gm)
 			gm->sndwait = gm->dn_seq->repeat & SSQ_REP_MASK;
 		}
 
-		if(plane_movement(sec, dist, 0, 2, 1))
+		if(plane_movement(sec, dist, gm->crush, 2, gm->flags & MVF_BLOCK_STAY))
 		{
 			if(gm->flags & MVF_BLOCK_GO_UP)
 			{

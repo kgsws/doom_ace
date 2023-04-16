@@ -118,6 +118,7 @@ extern int32_t bmapwidth;
 extern int32_t bmapheight;
 extern uint16_t *blockmaplump;
 extern uint16_t *blockmap;
+extern mobj_t **blocklinks;
 extern uint32_t bodyqueslot;
 
 // map & maputl

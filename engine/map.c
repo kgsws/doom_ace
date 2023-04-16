@@ -456,7 +456,7 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		return;
 	}
 
-	// ZDoom types
+	// ZDoom types translated to teleport spot
 	if(mt)
 	{
 		if(	mt->type == 9044 ||	// teleport with Z
@@ -465,7 +465,9 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 			mt->type == 9070 ||	// interpolation point
 			mt->type == 9071 ||	// path follower
 			mt->type == 9072 ||	// moving camera
-			mt->type == 9074	// actor mover
+			mt->type == 9074 ||	// actor mover
+			mt->type == 9997 ||	// actor leaves sector
+			mt->type == 9998	// actor enters sector
 		)
 			mt->type = 14;
 	}
@@ -530,8 +532,15 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 	if(mt->flags & MTF_AMBUSH)
 		mo->flags |= MF_AMBUSH;
 
+	if(mt->flags & MTF_FRIENDLY)
+		mo->iflags |= MFI_FRIENDLY;
+
+	if(mt->flags & MTF_STANDSTILL)
+		mo->iflags |= MFI_STANDSTILL;
+
 	if(mt->flags & MTF_INACTIVE)
 	{
+		mo->flags1 |= MF1_DORMANT;
 		if(mo->info->extra_type == ETYPE_SWITCHABLE)
 		{
 			if(mo->info->st_switchable.inactive)
@@ -542,13 +551,9 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 				mo->frame = st->frame;
 				mo->tics = st->tics == 0xFFFF ? -1 : st->tics;
 			}
-			mo->flags1 |= MF1_DORMANT;
 		} else
 		if(mo->flags1 & MF1_ISMONSTER)
-		{
-			mo->flags1 |= MF1_DORMANT;
 			mo->tics = -1;
-		}
 	}
 
 	if(mt->flags & MTF_SHADOW)
@@ -579,6 +584,12 @@ static void spawn_map_thing(map_thinghex_t *mt, mapthing_t *ot)
 		hack == 9074
 	)
 		mo->flags |= MF_NOGRAVITY;
+
+	if(hack == 9997)
+		mo->subsector->sector->extra->action.leave = mo;
+
+	if(hack == 9998)
+		mo->subsector->sector->extra->action.enter = mo;
 
 	if(	hack == 9070 ||
 		hack == 9025
@@ -796,6 +807,7 @@ static inline void parse_sectors()
 	sector_extra_t *se;
 
 	se = Z_Malloc(numsectors * sizeof(sector_extra_t), PU_LEVEL, NULL);
+	memset(se, 0, numsectors * sizeof(sector_extra_t));
 
 	for(uint32_t i = 0; i < numsectors; i++, se++)
 	{
@@ -815,9 +827,6 @@ static inline void parse_sectors()
 			sec->lightlevel = 0;
 
 		se->color = 0x0FFF;
-		se->fade = 0x0000;
-
-		se->damage.amount = 0;
 
 		switch(sec->special & 255)
 		{
@@ -927,8 +936,7 @@ static inline void parse_sectors()
 			}
 
 			plink->target = NULL;
-		} else
-			se->plink = NULL;
+		}
 	}
 }
 

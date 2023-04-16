@@ -922,6 +922,11 @@ typedef struct
 		uint8_t type;
 		uint8_t leak;
 	} damage;
+	struct
+	{
+		struct mobj_s *enter;
+		struct mobj_s *leave;
+	} action;
 } sector_extra_t;
 
 typedef struct sector_s
@@ -1193,6 +1198,8 @@ typedef struct mobj_s
 	// new pointers
 	struct mobj_s *master;
 	struct mobj_s *inside; // for A_SpawnItemEx and similar
+	// sector action
+	sector_t *sector_leave;
 	// more flags
 	uint32_t flags1;
 	uint32_t flags2;

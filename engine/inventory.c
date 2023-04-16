@@ -7,6 +7,7 @@
 #include "config.h"
 #include "decorate.h"
 #include "inventory.h"
+#include "player.h"
 #include "stbar.h"
 
 //
@@ -330,8 +331,22 @@ uint32_t inventory_take(mobj_t *mo, uint16_t type, uint16_t count)
 	invitem_t *item;
 	mobjinfo_t *info;
 
-	// checks
 	info = mobjinfo + type;
+
+	// base powerup
+	if(info->extra_type == ETYPE_POWERUP_BASE)
+	{
+		if(!mo->player)
+			return 0;
+
+		count = !!mo->player->powers[info->powerup.type];
+
+		powerup_take(mo->player, info);
+
+		return count;
+	}
+
+	// check
 	if(!inventory_is_valid(info))
 		engine_error("ACE", "Invalid inventory item!");
 

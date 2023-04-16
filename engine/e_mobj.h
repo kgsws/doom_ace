@@ -200,6 +200,8 @@ typedef struct
 #define MFI_FOLLOW_INIT	0x00000020
 #define MFI_FOLLOW_MOVE	0x00000040
 #define MFI_PLAYER_DROP	0x00000080
+#define MFI_STANDSTILL	0x40000000 // only for sector actions
+#define MFI_FRIENDLY	0x80000000 // only for sector actions
 
 // FLAGS extra (inventory) [shared]
 // bunch of this is not implemented

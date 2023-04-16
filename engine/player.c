@@ -140,13 +140,13 @@ static void buddha_stop(mobj_t *mo)
 
 static void flight_start(mobj_t *mo, mobjinfo_t *info)
 {
-	mo->flags1 |= MF_NOGRAVITY;
+	mo->flags |= MF_NOGRAVITY;
 }
 
 static void flight_stop(mobj_t *mo)
 {
-	mo->flags1 &= ~MF_NOGRAVITY;
-	mo->flags1 |= mo->info->flags1 & MF_NOGRAVITY;
+	mo->flags &= ~MF_NOGRAVITY;
+	mo->flags |= mo->info->flags & MF_NOGRAVITY;
 }
 
 //
@@ -167,6 +167,22 @@ void powerup_give(player_t *pl, mobjinfo_t *info)
 		return;
 
 	pw->start(pl->mo, info);
+}
+
+void powerup_take(player_t *pl, mobjinfo_t *info)
+{
+	const powerup_t *pw;
+
+	if(!pl->powers[info->powerup.type])
+		return;
+
+	pl->powers[info->powerup.type] = 0;
+
+	pw = powerup + info->powerup.type;
+	if(!pw->stop)
+		return;
+
+	pw->stop(pl->mo);
 }
 
 //

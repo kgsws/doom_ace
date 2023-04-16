@@ -30,6 +30,7 @@ extern int_fast16_t player_class_change;
 //
 
 void powerup_give(player_t *pl, mobjinfo_t *info);
+void powerup_take(player_t *pl, mobjinfo_t *info);
 
 void player_think(uint32_t idx);
 

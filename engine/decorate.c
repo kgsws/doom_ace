@@ -727,7 +727,7 @@ static const dec_flag_t inventory_flags[] =
 	{"inventory.autoactivate", MFE_INVENTORY_AUTOACTIVATE},
 	{"inventory.alwayspickup", MFE_INVENTORY_ALWAYSPICKUP},
 	{"inventory.invbar", MFE_INVENTORY_INVBAR},
-//	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER}, // not available, not planned
+	{"inventory.hubpower", MFE_INVENTORY_HUBPOWER}, // only for removal (PowerFlight), not planned
 //	{"inventory.persistentpower", MFE_INVENTORY_PERSISTENTPOWER},
 	{"inventory.bigpowerup", MFE_INVENTORY_BIGPOWERUP}, // not implemented
 	{"inventory.neverrespawn", MFE_INVENTORY_NEVERRESPAWN},
@@ -1253,7 +1253,7 @@ static const dec_powerup_t powerup_type[NUMPOWERS] =
 	[pw_infrared] = {-120, 0, 0x0001},
 	[pw_buddha] = {-60},
 	[pw_attack_speed] = {-45},
-	[pw_flight] = {-20},
+	[pw_flight] = {-60, MFE_INVENTORY_HUBPOWER},
 //	[pw_reserved0] = {},
 //	[pw_reserved1] = {},
 //	[pw_reserved2] = {},

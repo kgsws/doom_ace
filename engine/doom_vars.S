@@ -312,6 +312,7 @@ DOOM_VAR 0x0002C0C0, bulletslope
 
 DOOM_VAR 0x0002C0D0, playerstarts
 
+DOOM_VAR 0x0002C0F8, blocklinks
 DOOM_VAR 0x0002C0FC, bmapwidth
 DOOM_VAR 0x0002C100, blockmap
 DOOM_VAR 0x0002C104, bmaporgx

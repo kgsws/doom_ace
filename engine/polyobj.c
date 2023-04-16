@@ -926,7 +926,7 @@ uint32_t poly_move(polyobj_t *mirror, uint32_t is_door)
 	if(!mirror && poly->mirror)
 		poly_move(poly->mirror, is_door);
 
-	return 0;
+	return 1;
 }
 
 uint32_t poly_rotate(polyobj_t *mirror, uint32_t type)
@@ -974,6 +974,6 @@ uint32_t poly_rotate(polyobj_t *mirror, uint32_t type)
 	if(!mirror && poly->mirror)
 		poly_rotate(poly->mirror, type);
 
-	return 0;
+	return 1;
 }
 

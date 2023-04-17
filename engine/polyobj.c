@@ -66,6 +66,9 @@ static uint32_t seg_search(seg_t *start, fixed_t x, fixed_t y, seg_t **dst)
 		{
 			seg_t *seg = segs + i;
 
+			if(seg->frontsector != start->frontsector)
+				continue;
+
 			if(start->v2->x == x && start->v2->y == y)
 				return segcount;
 

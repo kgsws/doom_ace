@@ -311,7 +311,7 @@ static inline void draw_full_stbar(player_t *pl)
 		stbar_draw_number_r(SCREENWIDTH - 4, ty, *ammo_pri, -4, numfont);
 		ty -= numfont[0]->height + 1;
 	}
-	if(ammo_sec)
+	if(ammo_sec && ammo_sec != ammo_pri)
 		stbar_draw_number_r(SCREENWIDTH - 4, ty, *ammo_sec, -4, numfont);
 }
 
@@ -447,6 +447,18 @@ void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 // update
 
 static void update_ammo(player_t *pl)
+{
+	if(	pl->readyweapon &&
+		(
+			(pl->readyweapon->weapon.ammo_type[0] && !ammo_pri) ||
+			(pl->readyweapon->weapon.ammo_type[1] && !ammo_sec)
+		)
+	)
+		// update missing ammo pointer
+		pl->stbar_update |= STU_WEAPON_NOW;
+}
+
+static void update_ammo_old(player_t *pl)
 {
 	static uint16_t zero;
 	invitem_t *item;
@@ -586,8 +598,6 @@ static void update_ready_weapon(player_t *pl)
 		if(item)
 			ammo_sec = &item->count;
 	}
-	if(ammo_sec == ammo_pri)
-		ammo_sec = NULL;
 
 	// old stbar ammo pointer
 	w_ready.num = ammo_pri ? ammo_pri : ammo_sec;
@@ -714,6 +724,9 @@ void stbar_update(player_t *pl)
 {
 	if(pl->stbar_update & STU_AMMO)
 		update_ammo(pl);
+
+	if(pl->stbar_update & STU_AMMO_SBAR)
+		update_ammo_old(pl);
 
 	if(pl->stbar_update & STU_WEAPON)
 		update_weapon(pl);

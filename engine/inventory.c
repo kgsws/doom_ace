@@ -69,15 +69,19 @@ static void inv_check_player(mobj_t *mo, mobjinfo_t *info, invitem_t *item, uint
 	{
 		uint32_t type = info - mobjinfo;
 
-		if(	flags && // only 'take' or 'fresh'
-			(
-				type == (uint32_t)mod_config.ammo_bullet ||
+		if(flags)
+		{
+			// only 'take' or 'fresh'
+			pl->stbar_update |= STU_AMMO;
+
+			// extra check for old stbar
+			if(	type == (uint32_t)mod_config.ammo_bullet ||
 				type == (uint32_t)mod_config.ammo_shell ||
 				type == (uint32_t)mod_config.ammo_rocket ||
 				type == (uint32_t)mod_config.ammo_cell
 			)
-		)
-			pl->stbar_update |= STU_AMMO;
+				pl->stbar_update |= STU_AMMO_SBAR;
+		}
 
 		return;
 	}

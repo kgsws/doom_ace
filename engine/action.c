@@ -550,7 +550,7 @@ static int32_t resolve_type(mobj_t *mo, uint32_t type, uint32_t value)
 		v0 = (value >> 16) & 0xFFFF;
 
 		if(v0 == v1)
-			return v0;
+			return v0 << MATHFRAC;
 
 		if(v0 > v1)
 		{

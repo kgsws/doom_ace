@@ -460,8 +460,11 @@ static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t check_blocking(mobj_t *mo)
 {
 	fixed_t box[4];
+	uint32_t is_solid;
 
-	if(!(mo->flags & MF_SOLID) && !mo->player)
+	is_solid = mo->flags & MF_SOLID;
+
+	if(!is_solid && !mo->player)
 		return 1;
 
 	box[BOXTOP] = mo->y + mo->radius;
@@ -485,7 +488,9 @@ uint32_t check_blocking(mobj_t *mo)
 			continue;
 
 		thrust_and_damage(mo, seg);
-		poly_blocked = 1;
+
+		if(is_solid)
+			poly_blocked = 1;
 	}
 
 	return 1;

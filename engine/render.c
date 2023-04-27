@@ -422,15 +422,6 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 				pl = pl->next;
 			}
 		}
-
-		// light
-		pl = frontsector->exfloor;
-		while(pl)
-		{
-			if(pl->light && *pl->height >= clip_height_top)
-				light = *pl->light;
-			pl = pl->next;
-		}
 	}
 
 	if(!texnum)
@@ -475,6 +466,16 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 					tcol[x] ^= 0x8000;
 
 			return;
+		}
+	} else
+	{
+		// light
+		extraplane_t *pl = frontsector->exfloor;
+		while(pl)
+		{
+			if(pl->light && *pl->height >= clip_height_top)
+				light = *pl->light;
+			pl = pl->next;
 		}
 	}
 

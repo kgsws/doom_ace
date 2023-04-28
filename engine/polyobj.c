@@ -872,7 +872,8 @@ uint32_t poly_move(polyobj_t *mirror, uint32_t is_door)
 
 	angle = spec_arg[2];
 	if(mirror)
-		angle = (angle + 128) & 255;
+		angle += 128;
+	angle &= 255;
 
 	switch(angle)
 	{

@@ -1008,24 +1008,12 @@ P_BoxOnLineSide:
 P_FindLowestCeilingSurrounding:
 	.byte	0xE9
 	.4byte	0x0002F170
-////////////////////////////////// P_FindHighestCeilingSurrounding
-.section .text.P_FindHighestCeilingSurrounding
-.global P_FindHighestCeilingSurrounding
-P_FindHighestCeilingSurrounding:
-	.byte	0xE9
-	.4byte	0x0002F1D0
 ////////////////////////////////// P_FindLowestFloorSurrounding
 .section .text.P_FindLowestFloorSurrounding
 .global P_FindLowestFloorSurrounding
 P_FindLowestFloorSurrounding:
 	.byte	0xE9
 	.4byte	0x0002F020
-////////////////////////////////// P_FindHighestFloorSurrounding
-.section .text.P_FindHighestFloorSurrounding
-.global P_FindHighestFloorSurrounding
-P_FindHighestFloorSurrounding:
-	.byte	0xE9
-	.4byte	0x0002F070
 ////////////////////////////////// end
 .section .text.__reloc_code_012_end
 __reloc_code_012_end:

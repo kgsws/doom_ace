@@ -717,6 +717,7 @@ const dec_flag_t mobj_flags2[] =
 	{"canbouncewater", MF2_CANBOUNCEWATER},
 	{"noverticalmeleerange", MF2_NOVERTICALMELEERANGE},
 	{"forceradiusdmg", MF2_FORCERADIUSDMG},
+	{"nopain", MF2_NOPAIN},
 	// terminator
 	{NULL}
 };

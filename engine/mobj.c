@@ -1986,6 +1986,10 @@ void mobj_remove(mobj_t *mo)
 		sector_t *sec = sectors + i;
 		if(sec->soundtarget == mo)
 			sec->soundtarget = NULL;
+		if(sec->extra->action.enter == mo)
+			sec->extra->action.enter = NULL;
+		if(sec->extra->action.leave == mo)
+			sec->extra->action.leave = NULL;
 	}
 
 	for(thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
@@ -2400,6 +2404,7 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	}
 
 	if(	!(if_flags1 & MF1_PAINLESS) &&
+		!(target->flags2 & MF2_NOPAIN) &&
 		P_Random() < target->info->painchance[damage_type] &&
 		!(target->flags & MF_SKULLFLY)
 	) {

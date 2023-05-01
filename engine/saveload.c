@@ -60,6 +60,8 @@ enum
 	SF_SEC_SPECIAL,
 	SF_SEC_TAG,
 	SF_SEC_SOUNDTARGET,
+	SF_SEC_ACTION_ENTER,
+	SF_SEC_ACTION_LEAVE,
 };
 enum
 {
@@ -774,6 +776,9 @@ static inline void sv_put_sectors(int32_t lump)
 
 		flags |= (!!sec->soundtarget) << SF_SEC_SOUNDTARGET;
 
+		flags |= (!!sec->extra->action.enter) << SF_SEC_ACTION_ENTER;
+		flags |= (!!sec->extra->action.leave) << SF_SEC_ACTION_LEAVE;
+
 		if(flags)
 		{
 			writer_add_u32(flags | (i << 16));
@@ -799,6 +804,10 @@ static inline void sv_put_sectors(int32_t lump)
 				writer_add_u16(sec->tag);
 			if(CHECK_BIT(flags, SF_SEC_SOUNDTARGET))
 				writer_add_u32(sec->soundtarget->netid);
+			if(CHECK_BIT(flags, SF_SEC_ACTION_ENTER))
+				writer_add_u32(sec->extra->action.enter->netid);
+			if(CHECK_BIT(flags, SF_SEC_ACTION_LEAVE))
+				writer_add_u32(sec->extra->action.leave->netid);
 		}
 	}
 
@@ -1822,6 +1831,20 @@ static inline uint32_t ld_get_sectors()
 				return 1;
 			sec->soundtarget = (mobj_t*)nid;
 		}
+		if(CHECK_BIT(flags, SF_SEC_ACTION_ENTER))
+		{
+			uint32_t nid;
+			if(reader_get_u32(&nid))
+				return 1;
+			sec->extra->action.enter = (mobj_t*)nid;
+		}
+		if(CHECK_BIT(flags, SF_SEC_ACTION_LEAVE))
+		{
+			uint32_t nid;
+			if(reader_get_u32(&nid))
+				return 1;
+			sec->extra->action.leave = (mobj_t*)nid;
+		}
 
 		if(update)
 			e3d_update_planes(sec, update);
@@ -2607,6 +2630,8 @@ static inline uint32_t ld_get_things(uint32_t hub_data)
 	{
 		sector_t *sec = sectors + i;
 		sec->soundtarget = mobj_by_netid((uint32_t)sec->soundtarget);
+		sec->extra->action.enter = mobj_by_netid((uint32_t)sec->extra->action.enter);
+		sec->extra->action.leave = mobj_by_netid((uint32_t)sec->extra->action.leave);
 	}
 
 	// version check

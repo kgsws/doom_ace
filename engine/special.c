@@ -46,17 +46,17 @@ static fixed_t ts_offs_z;
 
 static sector_extra_t *sec_extra;
 
-fixed_t nearest_up;
-fixed_t nearest_dn;
+fixed_t find_up;
+fixed_t find_dn;
 
 
 //
-// missing height search
+// missing or fixed height search
 
 void find_nearest_floor(sector_t *sec)
 {
-	nearest_up = ONCEILINGZ;
-	nearest_dn = ONFLOORZ;
+	find_up = ONCEILINGZ;
+	find_dn = ONFLOORZ;
 
 	for(uint32_t i = 0; i < sec->linecount; i++)
 	{
@@ -70,23 +70,23 @@ void find_nearest_floor(sector_t *sec)
 		if(!bs)
 			continue;
 
-		if(bs->floorheight < sec->floorheight && bs->floorheight > nearest_dn)
-			nearest_dn = bs->floorheight;
+		if(bs->floorheight < sec->floorheight && bs->floorheight > find_dn)
+			find_dn = bs->floorheight;
 
-		if(bs->floorheight > sec->floorheight && bs->floorheight < nearest_up)
-			nearest_up = bs->floorheight;
+		if(bs->floorheight > sec->floorheight && bs->floorheight < find_up)
+			find_up = bs->floorheight;
 	}
 
-	if(nearest_up == ONCEILINGZ)
-		nearest_up = sec->floorheight;
-	if(nearest_dn == ONFLOORZ)
-		nearest_dn = sec->floorheight;
+	if(find_up == ONCEILINGZ)
+		find_up = sec->floorheight;
+	if(find_dn == ONFLOORZ)
+		find_dn = sec->floorheight;
 }
 
 void find_nearest_ceiling(sector_t *sec)
 {
-	nearest_up = ONCEILINGZ;
-	nearest_dn = ONFLOORZ;
+	find_up = ONCEILINGZ;
+	find_dn = ONFLOORZ;
 
 	for(uint32_t i = 0; i < sec->linecount; i++)
 	{
@@ -100,17 +100,47 @@ void find_nearest_ceiling(sector_t *sec)
 		if(!bs)
 			continue;
 
-		if(bs->ceilingheight < sec->ceilingheight && bs->ceilingheight > nearest_dn)
-			nearest_dn = bs->ceilingheight;
+		if(bs->ceilingheight < sec->ceilingheight && bs->ceilingheight > find_dn)
+			find_dn = bs->ceilingheight;
 
-		if(bs->ceilingheight > sec->ceilingheight && bs->ceilingheight < nearest_up)
-			nearest_up = bs->ceilingheight;
+		if(bs->ceilingheight > sec->ceilingheight && bs->ceilingheight < find_up)
+			find_up = bs->ceilingheight;
 	}
 
-	if(nearest_up == ONCEILINGZ)
-		nearest_up = sec->ceilingheight;
-	if(nearest_dn == ONFLOORZ)
-		nearest_dn = sec->ceilingheight;
+	if(find_up == ONCEILINGZ)
+		find_up = sec->ceilingheight;
+	if(find_dn == ONFLOORZ)
+		find_dn = sec->ceilingheight;
+}
+
+void find_highest(sector_t *sec)
+{
+	find_up = ONFLOORZ;
+	find_dn = ONFLOORZ;
+
+	for(uint32_t i = 0; i < sec->linecount; i++)
+	{
+		line_t *li = sec->lines[i];
+		sector_t *bs;
+
+		if(li->frontsector == sec)
+			bs = li->backsector;
+		else
+			bs = li->frontsector;
+		if(!bs)
+			continue;
+
+		if(bs->ceilingheight > find_up)
+			find_up = bs->ceilingheight;
+
+		if(bs->floorheight > find_dn)
+			find_dn = bs->floorheight;
+	}
+
+	if(find_up == ONFLOORZ)
+		find_up = sec->ceilingheight;
+	if(find_dn == ONFLOORZ)
+		find_dn = sec->floorheight;
 }
 
 //
@@ -290,7 +320,8 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 				dest -= spec_arg[2] * FRACUNIT;
 		break;
 		case 1:
-			dest = P_FindHighestFloorSurrounding(sec);
+			find_highest(sec);
+			dest = find_dn;
 		break;
 		case 2:
 			dest = P_FindLowestFloorSurrounding(sec);
@@ -298,9 +329,9 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 		case 3:
 			find_nearest_floor(sec);
 			if(spec_arg[4] & 8)
-				dest = nearest_up;
+				dest = find_up;
 			else
-				dest = nearest_dn;
+				dest = find_dn;
 		break;
 		case 4:
 			dest = P_FindLowestCeilingSurrounding(sec);
@@ -499,7 +530,8 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 				dest -= spec_arg[2] * FRACUNIT;
 		break;
 		case 1:
-			dest = P_FindHighestCeilingSurrounding(sec);
+			find_highest(sec);
+			dest = find_up;
 		break;
 		case 2:
 			dest = P_FindLowestCeilingSurrounding(sec);
@@ -507,12 +539,13 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 		case 3:
 			find_nearest_ceiling(sec);
 			if(spec_arg[4] & 8)
-				dest = nearest_up;
+				dest = find_up;
 			else
-				dest = nearest_dn;
+				dest = find_dn;
 		break;
 		case 4:
-			dest = P_FindHighestFloorSurrounding(sec);
+			find_highest(sec);
+			dest = find_dn;
 		break;
 		case 5:
 			dest = sec->floorheight;
@@ -741,9 +774,12 @@ static uint32_t act_Plat_Bidir(sector_t *sec, line_t *ln)
 		if(value_mult)
 		{
 			find_nearest_floor(sec);
-			gm->top_height = nearest_up;
+			gm->top_height = find_up;
 		} else
-			gm->top_height = P_FindHighestFloorSurrounding(sec);
+		{
+			find_highest(sec);
+			gm->top_height = find_dn;
+		}
 		gm->bot_height = sec->floorheight;
 		gm->speed_dn = gm->speed_now;
 	}

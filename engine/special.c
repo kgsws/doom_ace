@@ -1807,9 +1807,13 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 						return;
 					if(type == SPEC_ACT_BUMP)
 						mo = mo->target;
+					if(!mo->player && !(ln->flags & ML_MONSTER_ACT))
+						return;
 					break;
 				}
 				if(type != SPEC_ACT_SHOOT)
+					return;
+				if(!mo->player && !(ln->flags & ML_MONSTER_ACT))
 					return;
 			break;
 			case MLA_PLR_BUMP:

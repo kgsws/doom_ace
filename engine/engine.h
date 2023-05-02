@@ -1199,7 +1199,7 @@ typedef struct mobj_s
 	struct mobj_s *master;
 	struct mobj_s *inside; // for A_SpawnItemEx and similar
 	// sector action
-	sector_t *sector_leave;
+	sector_t *old_sector;
 	// more flags
 	uint32_t flags1;
 	uint32_t flags2;

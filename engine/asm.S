@@ -798,6 +798,18 @@ P_RemoveThinker:
 P_RunThinkers:
 	.byte	0xE9
 	.4byte	0x00032F10
+////////////////////////////////// P_SetThingPosition
+.section .text.P_SetThingPosition
+.global P_SetThingPosition
+P_SetThingPosition:
+	.byte	0xE9
+	.4byte	0x0002C460
+////////////////////////////////// P_UnsetThingPosition
+.section .text.P_UnsetThingPosition
+.global P_UnsetThingPosition
+P_UnsetThingPosition:
+	.byte	0xE9
+	.4byte	0x0002C3B0
 ////////////////////////////////// P_SlideMove
 .section .text.P_SlideMove
 .global P_SlideMove

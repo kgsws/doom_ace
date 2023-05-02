@@ -994,7 +994,7 @@ uint32_t finish_mobj(mobj_t *mo)
 		mo->tics = -1;
 
 	// check for extra floors
-	if(mo->subsector && mo->subsector->sector->exfloor)
+	if(mo->subsector->sector->exfloor)
 	{
 		tmfloorz = mo->subsector->sector->floorheight;
 		tmceilingz = mo->subsector->sector->ceilingheight;
@@ -1003,6 +1003,10 @@ uint32_t finish_mobj(mobj_t *mo)
 		mo->ceilingz = tmextraceiling;
 		e3d_check_water(mo);
 	}
+
+	// save current sector
+	// in ZDoom, spawned things do not trigger 'enter' sector action
+	mo->old_sector = mo->subsector->sector;
 
 	// stealth
 	if(mo->flags2 & MF2_STEALTH)
@@ -3312,110 +3316,6 @@ static void mobj_sector_action(mobj_t *mo, mobj_t **actptr)
 }
 
 //
-// thing position
-
-__attribute((regparm(2),no_caller_saved_registers))
-void P_UnsetThingPosition(mobj_t *thing)
-{
-	int32_t blockx;
-	int32_t blocky;
-
-	thing->sector_leave = thing->subsector->sector;
-
-	if(!(thing->flags & MF_NOSECTOR))
-	{
-		if(thing->snext)
-			thing->snext->sprev = thing->sprev;
-
-		if(thing->sprev)
-			thing->sprev->snext = thing->snext;
-		else
-			thing->subsector->sector->thinglist = thing->snext;
-	}
-
-	if(!(thing->flags & MF_NOBLOCKMAP))
-	{
-		if(thing->bnext)
-			thing->bnext->bprev = thing->bprev;
-
-		if(!thing->bprev)
-		{
-			blockx = (thing->x - bmaporgx)>>MAPBLOCKSHIFT;
-			blocky = (thing->y - bmaporgy)>>MAPBLOCKSHIFT;
-
-			if(	blockx >= 0 && blockx < bmapwidth
-				&& blocky >= 0 && blocky < bmapheight
-			)
-				blocklinks[blocky*bmapwidth+blockx] = thing->bnext;
-		} else
-			thing->bprev->bnext = thing->bnext;
-	}
-}
-
-__attribute((regparm(2),no_caller_saved_registers))
-void P_SetThingPosition(mobj_t *thing)
-{
-	subsector_t *ss;
-	sector_t *sec, *old;
-	int32_t blockx;
-	int32_t blocky;
-	mobj_t **link;
-
-	ss = R_PointInSubsector(thing->x,thing->y);
-	thing->subsector = ss;
-	sec = ss->sector;
-
-	if(!(thing->flags & MF_NOSECTOR))
-	{
-		thing->sprev = NULL;
-		thing->snext = sec->thinglist;
-
-		if(sec->thinglist)
-			sec->thinglist->sprev = thing;
-
-		sec->thinglist = thing;
-	}
-
-	if(!(thing->flags & MF_NOBLOCKMAP))
-	{
-		blockx = (thing->x - bmaporgx)>>MAPBLOCKSHIFT;
-		blocky = (thing->y - bmaporgy)>>MAPBLOCKSHIFT;
-
-		if(	blockx >= 0 && blockx < bmapwidth &&
-			blocky >= 0 && blocky < bmapheight
-		){
-			link = &blocklinks[blocky*bmapwidth+blockx];
-
-			thing->bprev = NULL;
-			thing->bnext = *link;
-
-			if(*link)
-				(*link)->bprev = thing;
-
-			*link = thing;
-		} else
-			thing->bnext = thing->bprev = NULL;
-	}
-
-	old = thing->sector_leave;
-	if(!old)
-		return;
-
-	thing->sector_leave = NULL;
-
-	if(old == sec)
-		return;
-
-	if(old->extra->action.leave)
-		mobj_sector_action(thing, &old->extra->action.leave);
-
-	if(sec->extra->action.enter)
-		mobj_sector_action(thing, &sec->extra->action.enter);
-
-	return;
-}
-
-//
 // new thinker
 
 __attribute((regparm(2),no_caller_saved_registers))
@@ -3470,6 +3370,21 @@ void P_MobjThinker(mobj_t *mo)
 	}
 
 skip_move:
+
+	// sector actions
+	if(mo->old_sector != mo->subsector->sector)
+	{
+		sector_t *old = mo->old_sector;
+		sector_t *now = mo->subsector->sector;
+
+		mo->old_sector = mo->subsector->sector;
+
+		if(old->extra->action.leave)
+			mobj_sector_action(mo, &old->extra->action.leave);
+
+		if(now->extra->action.enter)
+			mobj_sector_action(mo, &now->extra->action.enter);
+	}
 
 	// stealth
 	if(mo->flags2 & MF2_STEALTH && mo->alpha_dir)
@@ -3545,10 +3460,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00031552, CODE_HOOK | HOOK_UINT32, sizeof(mobj_t)},
 	// fix 'P_SpawnMobj'; disable old 'frame'
 	{0x000315F9, CODE_HOOK | HOOK_SET_NOPS, 3},
-	// replace 'P_UnsetThingPosition'
-	{0x0002C3B0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)P_UnsetThingPosition},
-	// replace 'P_SetThingPosition'
-	{0x0002C460, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)P_SetThingPosition},
 	// replace most of 'PIT_CheckThing'
 	{0x0002AEDA, CODE_HOOK | HOOK_UINT16, 0xD889},
 	{0x0002AEDC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_check_thing},

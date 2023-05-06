@@ -346,6 +346,9 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 	if(dest > sec->ceilingheight)
 		dest = sec->ceilingheight;
 
+	texture = sec->floorpic;
+	special = sec->special;
+
 	if(spec_arg[4] & 3)
 	{
 		if(spec_arg[4] & 4)
@@ -374,10 +377,6 @@ static uint32_t act_Generic_Floor(sector_t *sec, line_t *ln)
 		{
 			texture = ln->frontsector->floorpic;
 			special = ln->frontsector->special;
-		} else
-		{
-			texture = sec->floorpic;
-			special = sec->special;
 		}
 	}
 
@@ -557,6 +556,9 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 	if(dest < sec->floorheight)
 		dest = sec->floorheight;
 
+	texture = sec->ceilingpic;
+	special = sec->special;
+
 	if(spec_arg[4] & 3)
 	{
 		if(spec_arg[4] & 4)
@@ -585,10 +587,6 @@ static uint32_t act_Generic_Ceiling(sector_t *sec, line_t *ln)
 		{
 			texture = ln->frontsector->ceilingpic;
 			special = ln->frontsector->special;
-		} else
-		{
-			texture = sec->ceilingpic;
-			special = sec->special;
 		}
 	}
 
@@ -1888,18 +1886,21 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				spec_success = handle_tag(ln, spec_arg[0], act_Door_Raise);
 		break;
 		case 15: // Autosave
-		{
-			int32_t lump = W_CheckNumForName("WIAUTOSV");
-			if(lump >= 0)
+			if(!netgame)
 			{
-				V_DrawPatchDirect(0, 0, W_CacheLumpNum(lump, PU_CACHE));
-				I_FinishUpdate();
+				int32_t lump = W_CheckNumForName("WIAUTOSV");
+				if(lump >= 0)
+				{
+					V_DrawPatchDirect(0, 0, W_CacheLumpNum(lump, PU_CACHE));
+					I_FinishUpdate();
+				}
+				if(ln)
+					// special must be cleared before autosave
+					// sorry, no 'repeatable'
+					ln->special = 0;
+				save_auto(0);
 			}
-			if(ln)
-				ln->special = 0;
-			save_auto(0);
 			spec_success = 1;
-		}
 		break;
 		case 19: // Thing_Stop
 			handle_tid(ln, spec_arg[0], act_Thing_Stop);

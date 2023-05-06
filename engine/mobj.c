@@ -2715,6 +2715,7 @@ static void P_ZMovement(mobj_t *mo)
 			while(pl)
 			{
 				if(	!(pl->flags & E3D_SWAP_PLANES) &&
+					*pl->height > mo->floorz &&
 					mo->z <= *pl->height && oldz > *pl->height &&
 					pl->source->ceilingpic < numflats + num_texture_flats &&
 					flatterrain[pl->source->ceilingpic] != 255 &&

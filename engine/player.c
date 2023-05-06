@@ -502,7 +502,7 @@ static void player_sector_damage(player_t *pl, sector_extra_t *se)
 	mobj_damage(pl->mo, NULL, NULL, damage, NULL);
 }
 
-static void player_terrain_damage(player_t *pl, int32_t flat)
+static void player_terrain_damage(player_t *pl, int32_t flat, uint32_t is3d)
 {
 	terrain_terrain_t *trn;
 	uint32_t tics;
@@ -534,13 +534,18 @@ static void player_terrain_damage(player_t *pl, int32_t flat)
 	damage = DAMAGE_WITH_TYPE(trn->damageamount, trn->damagetype);
 	mobj_damage(pl->mo, NULL, NULL, damage, NULL);
 
+	if(is3d)
+		// this is technically wrong
+		// in ZDoom, damage sound is played without splash
+		return;
+
 	if(pl->mo->info->mass < TERRAIN_LOW_MASS)
 		flat = -flat;
 
 	terrain_hit_splash(NULL, pl->mo->x, pl->mo->y, pl->mo->z, flat);
 }
 
-static void handle_sector_special(player_t *pl, sector_t *sec, uint32_t texture)
+static void handle_sector_special(player_t *pl, sector_t *sec, uint32_t texture, uint32_t is3d)
 {
 	if(sec->special & 1024)
 	{
@@ -552,7 +557,7 @@ static void handle_sector_special(player_t *pl, sector_t *sec, uint32_t texture)
 	if(sec->extra->damage.amount)
 		player_sector_damage(pl, sec->extra);
 
-	player_terrain_damage(pl, texture);
+	player_terrain_damage(pl, texture, is3d);
 }
 
 void player_think(uint32_t idx)
@@ -799,7 +804,7 @@ void player_think(uint32_t idx)
 				S_StartSound(SOUND_CONSOLEPLAYER(pl), SFX_SECRET);
 			}
 			if(pl->mo->z <= pl->mo->subsector->sector->floorheight)
-				player_terrain_damage(pl, pl->mo->subsector->sector->floorpic);
+				player_terrain_damage(pl, pl->mo->subsector->sector->floorpic, 0);
 		}
 	} else
 	{
@@ -808,7 +813,7 @@ void player_think(uint32_t idx)
 
 		// normal sector
 		if(pl->mo->z <= sec->floorheight)
-			handle_sector_special(pl, sec, sec->floorpic);
+			handle_sector_special(pl, sec, sec->floorpic, 0);
 
 		// extra floors
 		pp = sec->exfloor;
@@ -818,7 +823,7 @@ void player_think(uint32_t idx)
 				pl->mo->z + pl->mo->height > pp->source->floorheight &&
 				pl->mo->z <= pp->source->ceilingheight
 			){
-				handle_sector_special(pl, pp->source, pp->source->ceilingpic);
+				handle_sector_special(pl, pp->source, pp->source->ceilingpic, 1);
 				// ZDoom takes only the first extra floor
 				break;
 			}

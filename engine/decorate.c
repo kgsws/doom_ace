@@ -718,6 +718,7 @@ const dec_flag_t mobj_flags2[] =
 	{"noverticalmeleerange", MF2_NOVERTICALMELEERANGE},
 	{"forceradiusdmg", MF2_FORCERADIUSDMG},
 	{"nopain", MF2_NOPAIN},
+	{"noliftdrop", MF2_NOLIFTDROP},
 	// terminator
 	{NULL}
 };

@@ -1244,7 +1244,7 @@ uint32_t pit_check_thing(mobj_t *thing, mobj_t *tmthing)
 	uint32_t tmsolid = 0;
 
 	if(tmthing->flags2 & MF2_THRUACTORS)
-		// this should just skip PIT_CheckThing completely
+		// NOTE: This should just skip PIT_CheckThing completely.
 		return 1;
 
 	if(tmthing->inside == thing)
@@ -1568,8 +1568,27 @@ blocked:
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
-uint32_t pit_change_sector(mobj_t *thing)
+uint32_t PIT_ChangeSector(mobj_t *thing)
 {
+	uint32_t onfloor;
+
+	onfloor = (thing->z <= thing->floorz) && !(thing->flags2 & MF2_NOLIFTDROP);
+
+	P_CheckPosition(thing, thing->x, thing->y);
+
+	thing->floorz = tmfloorz;
+	thing->ceilingz = tmceilingz;
+
+	if(!onfloor)
+	{
+		if(thing->z + thing->height > thing->ceilingz)
+			thing->z = thing->ceilingz - thing->height;
+	} else
+		thing->z = thing->floorz;
+
+	if(thing->ceilingz - thing->floorz >= thing->height)
+		return 1;
+
 	if(!(thing->flags1 & MF1_DONTGIB))
 	{
 		if(thing->flags2 & MF2_ICECORPSE)
@@ -2287,6 +2306,11 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 			damage = 1;
 	}
 
+	if(	target->flags1 & MF1_INVULNERABLE &&
+		!forced
+	)
+		return;
+
 	if(	inflictor &&
 		kickback &&
 		!(target->flags1 & MF1_DONTTHRUST) &&
@@ -2323,11 +2347,6 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		target->momx += FixedMul(thrust, finecosine[angle]);
 		target->momy += FixedMul(thrust, finesine[angle]);
 	}
-
-	if(	target->flags1 & MF1_INVULNERABLE &&
-		!forced
-	)
-		return;
 
 	if(target->flags2 & MF2_STEALTH)
 	{
@@ -3470,10 +3489,6 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002ADD3, CODE_HOOK | HOOK_UINT16, 0xDA89},
 	{0x0002ADD5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_check_line},
 	{0x0002ADDA, CODE_HOOK | HOOK_UINT16, 0x05EB},
-	// replace most of 'PIT_ChangeSector'
-	{0x0002BEB3, CODE_HOOK | HOOK_UINT16, 0xF089},
-	{0x0002BEB5, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)pit_change_sector},
-	{0x0002BEBA, CODE_HOOK | HOOK_UINT16, 0x25EB},
 	// replace call to 'P_CheckPosition' in 'P_TryMove'
 	{0x0002B217, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)try_move_check},
 	// add extra floor check into 'P_CheckPosition'

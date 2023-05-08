@@ -822,12 +822,6 @@ P_SlideMove:
 P_HitSlideLine:
 	.byte	0xE9
 	.4byte	0x0002B3D0
-////////////////////////////////// PIT_ChangeSector
-.section .text.PIT_ChangeSector
-.global PIT_ChangeSector
-PIT_ChangeSector:
-	.byte	0xE9
-	.4byte	0x0002BEA0
 ////////////////////////////////// P_KillMobj
 .section .text.P_KillMobj
 .global P_KillMobj

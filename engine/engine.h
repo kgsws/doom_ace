@@ -1694,7 +1694,6 @@ void P_SlideMove(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 void P_HitSlideLine(line_t*) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_CheckPosition(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t P_TeleportMove(mobj_t*,fixed_t,fixed_t) __attribute((regparm(2),no_caller_saved_registers));
-uint32_t PIT_ChangeSector(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));
 
 // p_maputl
 void P_SetThingPosition(mobj_t*) __attribute((regparm(2),no_caller_saved_registers));

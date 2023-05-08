@@ -769,7 +769,7 @@ int32_t actarg_integer(mobj_t *mo, void *data, uint32_t arg, int32_t def)
 
 angle_t actarg_angle(mobj_t *mo, void *data, uint32_t arg)
 {
-	return actarg_raw(mo, data, arg, 0) * 5825;
+	return actarg_raw(mo, data, arg, 0) * ((4096 << MATHFRAC) / 360);
 }
 
 static mobj_t *actarg_pointer(mobj_t *mo, void *data, uint32_t arg, uint32_t def)

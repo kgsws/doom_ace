@@ -594,7 +594,7 @@ static int32_t resolve_type(mobj_t *mo, uint32_t type, uint32_t value)
 		case AT_FIXED:
 			return *base.fixed >> (FRACBITS - MATHFRAC);
 		case AT_ANGLE:
-			return *base.angle / 5826;
+			return *base.angle / ((4096 << MATHFRAC) / 360);
 		case AT_ALPHA:
 		{
 			fixed_t tmp = *base.u8 * 257;

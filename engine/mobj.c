@@ -567,9 +567,9 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 			}
 			given = given < info->inventory.count;
 			// primary ammo
-			given |= give_ammo(toucher, info->weapon.ammo_type[0], info->weapon.ammo_give[0], mo->flags & MF_DROPPED);
+			given |= give_ammo(toucher, info->weapon.ammo_type[0], info->weapon.ammo_give[0], (mo->flags & MF_DROPPED) && !(mo->iflags & MFI_NOT_DROPPED));
 			// secondary ammo
-			given |= give_ammo(toucher, info->weapon.ammo_type[1], info->weapon.ammo_give[1], mo->flags & MF_DROPPED);
+			given |= give_ammo(toucher, info->weapon.ammo_type[1], info->weapon.ammo_give[1], (mo->flags & MF_DROPPED) && !(mo->iflags & MFI_NOT_DROPPED));
 			// check
 			if(!given && !(info->eflags & MFE_INVENTORY_ALWAYSPICKUP))
 				return;
@@ -577,7 +577,7 @@ static void touch_mobj(mobj_t *mo, mobj_t *toucher)
 		case ETYPE_AMMO:
 		case ETYPE_AMMO_LINK:
 			// add ammo to inventory
-			if(	!give_ammo(toucher, mo->type, info->inventory.count, mo->flags & MF_DROPPED) &&
+			if(	!give_ammo(toucher, mo->type, info->inventory.count, (mo->flags & MF_DROPPED) && !(mo->iflags & MFI_NOT_DROPPED)) &&
 				!(info->eflags & MFE_INVENTORY_ALWAYSPICKUP)
 			)
 				// can't pickup

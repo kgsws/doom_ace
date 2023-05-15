@@ -202,6 +202,7 @@ typedef struct
 #define MFI_FOLLOW_INIT	0x00000020
 #define MFI_FOLLOW_MOVE	0x00000040
 #define MFI_PLAYER_DROP	0x00000080
+#define MFI_NOT_DROPPED	0x00000100 // hack for MF_DROPPED spawned items
 #define MFI_STANDSTILL	0x40000000 // only for sector actions
 #define MFI_FRIENDLY	0x80000000 // only for sector actions
 

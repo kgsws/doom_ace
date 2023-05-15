@@ -1184,6 +1184,12 @@ static void act_Thing_Spawn(mobj_t *th)
 
 	mo = P_SpawnMobj(th->x, th->y, th->z, spawn_type);
 
+	if(mo->flags & MF_SPECIAL)
+	{
+		mo->flags |= MF_DROPPED;
+		mo->iflags |= MFI_NOT_DROPPED;
+	}
+
 	if(value_mult > 1)
 		mo->target = th;
 

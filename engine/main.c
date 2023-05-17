@@ -3,6 +3,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "wadfile.h"
 #include "dehacked.h"
 #include "decorate.h"
@@ -22,10 +23,6 @@
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
-
-//#define DEBUG_CRASH
-//#define DUMP_VRAM
-//#define RAM_DEBUG
 
 #define LDR_ENGINE_COUNT	6	// sndinfo, decorate, texure-init, flat-init, sprite-init, other-text
 
@@ -155,10 +152,9 @@ void gfx_progress(int32_t step)
 
 	if(!step)
 	{
+		vesa_copy();
 		V_DrawPatchDirect(0, 0, loading->gfx_loader_bg);
-		I_FinishUpdate();
-		if(!dev_mode)
-			_hack_update();
+		vesa_update();
 		// reset
 		loading->gfx_current = 0;
 		return;
@@ -182,11 +178,9 @@ void gfx_progress(int32_t step)
 
 	loading->gfx_loader_bar->width = width;
 
+	vesa_copy();
 	V_DrawPatchDirect(0, 0, loading->gfx_loader_bar);
-
-	I_FinishUpdate();
-	if(!dev_mode)
-		_hack_update();
+	vesa_update();
 }
 
 static void init_gfx()
@@ -220,56 +214,14 @@ static void init_gfx()
 
 uint32_t ace_main()
 {
-	// DEBUG
-#ifdef DUMP_VRAM
-	{
-		int32_t fd;
-		fd = doom_open_WR("vram.bin");
-		if(fd > 0)
-		{
-			doom_write(fd, (void*)0xA0000, 128*1024);
-			doom_close(fd);
-		}
-	}
-#endif
-
 	// title
 	doom_printf("-= ACE Engine by kgsws =-\nCODE: 0x%08X DATA: 0x%08X ACE: 0x%08X+0x1004\n", doom_code_segment, doom_data_segment, ace_segment);
 
 	// install hooks
 	utils_init();
 
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
-
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
-
-	// new video code
-	init_draw();
-
 	// load WAD files
 	wad_init();
-
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
-
-	// load graphics
-	init_gfx();
-
-	// init graphics mode
-	I_InitGraphics();
-
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
 
 	// disable 'printf'
 	if(M_CheckParm("-dev"))
@@ -277,14 +229,26 @@ uint32_t ace_main()
 	else
 		*((uint8_t*)0x0003FE40 + doom_code_segment) = 0xC3;
 
+	// config
+	init_config();
+
+	// check video
+	vesa_check();
+
+	// new video code
+	init_draw();
+
+	// load graphics
+	init_gfx();
+
+	// init graphics mode
+	vesa_init();
+
 	// start loading
 	gfx_progress(0);
 
 	//
 	// early stuff
-
-	// config
-	init_config();
 
 	// dehacked
 	init_dehacked();
@@ -331,66 +295,31 @@ uint32_t ace_main()
 	//
 	// LOADING
 
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
-
 	// random
 	init_rng();
 
 	// render
 	init_render();
 
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
-
 	// sound
 	init_sound();
 	gfx_progress(-1);
-
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
 
 	// decorate
 	init_decorate();
 	gfx_progress(-1);
 
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
-
 	// textures
 	init_textures(loading->count_texture);
 	gfx_progress(-1);
-
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
 
 	// flats
 	init_flats();
 	gfx_progress(-1);
 
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
-
 	// sprites
 	init_sprites(loading->count_sprite);
 	gfx_progress(-1);
-
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
 
 	// terrain
 	init_terrain();
@@ -398,21 +327,11 @@ uint32_t ace_main()
 	// animations
 	init_animations();
 
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
-
 	// menu
 	init_menu();
 
 	// map
 	init_map();
-
-#ifdef RAM_DEBUG
-	_hack_show_ram();
-	doom_printf("\n");
-#endif
 
 	//
 	config_postinit();
@@ -494,23 +413,6 @@ void bluescreen()
 
 	dos_exit(1);
 }
-
-//
-// DEBUG
-
-#ifdef DEBUG_CRASH
-static void debug_func()
-{
-	uint32_t *ptr;
-
-	ptr = (uint32_t*)&ptr;
-
-	for(uint32_t i = 0; i < 64; i++)
-		doom_printf("[%02u] 0x%08X\n", i, ptr[i]);
-
-	dos_exit(1);
-}
-#endif
 
 //
 // zone
@@ -811,13 +713,5 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0002B6E0, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_name},
 	{0x0002C150, DATA_HOOK | HOOK_READ32, (uint32_t)&ace_wad_type},
 	{0x00074FC4, DATA_HOOK | HOOK_READ32, (uint32_t)&screen_buffer},
-	// DEBUG
-#ifdef RAM_DEBUG
-	{0x0001AC8A, CODE_HOOK | HOOK_JMP_DOOM, 0x0001AD36},
-#endif
-#ifdef DEBUG_CRASH
-	{0x00014650, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)debug_func},
-//	{0x00014650, CODE_HOOK | HOOK_UINT16, 0x0B0F},
-#endif
 };
 

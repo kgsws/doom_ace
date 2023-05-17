@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "config.h"
 #include "stbar.h"
 #include "controls.h"
@@ -1127,7 +1128,7 @@ uint32_t menu_check_message()
 {
 	// fade background behind menu or message
 	if(menuactive || messageToPrint)
-		for(uint8_t *ptr = screen_buffer; ptr < screen_buffer + 320 * 200; ptr++)
+		for(uint8_t *ptr = framebuffer; ptr < framebuffer + 320 * 200; ptr++)
 			*ptr = colormaps[*ptr + 256 * 21];
 
 	// check for message with custom font

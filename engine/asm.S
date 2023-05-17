@@ -294,6 +294,12 @@ rng_skip:
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012
 __reloc_code_012:
+////////////////////////////////// dpmi_irq
+.section .text.dpmi_irq
+.global dpmi_irq
+dpmi_irq:
+	.byte	0xE9
+	.4byte	0x0001B0C0
 ////////////////////////////////// doom_printf
 .section .text.doom_printf
 .global doom_printf

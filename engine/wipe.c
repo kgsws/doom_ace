@@ -3,11 +3,10 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "config.h"
 #include "render.h"
 #include "wipe.h"
-
-#define VIDEO_RAM	(void*)0x000A0000
 
 static uint32_t wipe_tick;
 static uint32_t wipe_type;
@@ -39,7 +38,7 @@ static void copy_column(uint8_t *src, uint32_t x, uint32_t dy, uint32_t length)
 	if(length + dy > SCREENHEIGHT)
 		length = SCREENHEIGHT - dy;
 
-	dst = VIDEO_RAM + x + dy * SCREENWIDTH;
+	dst = wipebuffer + x + dy * SCREENWIDTH;
 
 	while(length)
 	{
@@ -157,8 +156,8 @@ static uint32_t wipe_up()
 	offs >>= (FRACBITS + 1);
 	offs = (SCREENHEIGHT-1) - offs;
 
-	dwcopy(VIDEO_RAM, screen_buffer + offs * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), (SCREENHEIGHT - offs) * (SCREENWIDTH / sizeof(uint32_t)));
-	dwcopy(VIDEO_RAM + (SCREENHEIGHT - offs) * SCREENWIDTH, screen_buffer, offs * (SCREENWIDTH / sizeof(uint32_t)));
+	dwcopy(wipebuffer, screen_buffer + offs * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), (SCREENHEIGHT - offs) * (SCREENWIDTH / sizeof(uint32_t)));
+	dwcopy(wipebuffer + (SCREENHEIGHT - offs) * SCREENWIDTH, screen_buffer, offs * (SCREENWIDTH / sizeof(uint32_t)));
 
 	return ++wipe_tick >= 28;
 }
@@ -173,8 +172,8 @@ static uint32_t wipe_down()
 	offs = (FRACUNIT + finecosine[wipe_tick * 140]) * SCREENHEIGHT;
 	offs >>= (FRACBITS + 1);
 
-	dwcopy(VIDEO_RAM, screen_buffer + offs * SCREENWIDTH, (SCREENHEIGHT - offs) * (SCREENWIDTH / sizeof(uint32_t)));
-	dwcopy(VIDEO_RAM + (SCREENHEIGHT - offs) * SCREENWIDTH, screen_buffer + (SCREENWIDTH * SCREENHEIGHT), offs * (SCREENWIDTH / sizeof(uint32_t)));
+	dwcopy(wipebuffer, screen_buffer + offs * SCREENWIDTH, (SCREENHEIGHT - offs) * (SCREENWIDTH / sizeof(uint32_t)));
+	dwcopy(wipebuffer + (SCREENHEIGHT - offs) * SCREENWIDTH, screen_buffer + (SCREENWIDTH * SCREENHEIGHT), offs * (SCREENWIDTH / sizeof(uint32_t)));
 
 	return ++wipe_tick >= 28;
 }
@@ -215,9 +214,9 @@ static uint32_t wipe_vert()
 	offs -= SCREENHEIGHT / 2;
 	stop = SCREENHEIGHT - offs;
 
-	dwcopy(VIDEO_RAM + offs * SCREENWIDTH, screen_buffer + offs * SCREENWIDTH, (stop - offs) * (SCREENWIDTH / sizeof(uint32_t)));
-	dwcopy(VIDEO_RAM, screen_buffer + ((SCREENHEIGHT / 2) - 1 - offs) * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), offs * (SCREENWIDTH / sizeof(uint32_t)));
-	dwcopy(VIDEO_RAM + stop * SCREENWIDTH, screen_buffer + (SCREENHEIGHT / 2) * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), offs * (SCREENWIDTH / sizeof(uint32_t)));
+	dwcopy(wipebuffer + offs * SCREENWIDTH, screen_buffer + offs * SCREENWIDTH, (stop - offs) * (SCREENWIDTH / sizeof(uint32_t)));
+	dwcopy(wipebuffer, screen_buffer + ((SCREENHEIGHT / 2) - 1 - offs) * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), offs * (SCREENWIDTH / sizeof(uint32_t)));
+	dwcopy(wipebuffer + stop * SCREENWIDTH, screen_buffer + (SCREENHEIGHT / 2) * SCREENWIDTH + (SCREENWIDTH * SCREENHEIGHT), offs * (SCREENWIDTH / sizeof(uint32_t)));
 
 	return ++wipe_tick >= 28;
 }
@@ -231,7 +230,7 @@ static uint32_t wipe_fade()
 		return 0;
 	}
 
-	uint8_t *dst = VIDEO_RAM;
+	uint8_t *dst = wipebuffer;
 	uint8_t *src0 = screen_buffer + (SCREENWIDTH * SCREENHEIGHT); // old screen
 	uint8_t *src1 = screen_buffer; // new screen
 
@@ -295,13 +294,17 @@ void wipe_start()
 
 	if(wipe_type)
 		// save old screen
-		dwcopy(screen_buffer + (SCREENWIDTH * SCREENHEIGHT), screen_buffer, (SCREENWIDTH * SCREENHEIGHT) / sizeof(uint32_t));
+		dwcopy(screen_buffer + (SCREENWIDTH * SCREENHEIGHT), wipebuffer, (SCREENWIDTH * SCREENHEIGHT) / sizeof(uint32_t));
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))
 uint32_t wipe_draw()
 {
 	uint32_t done = 0;
+
+	if(!wipe_tick && wipebuffer != (void*)0x000A0000)
+		// save new screen
+		dwcopy(screen_buffer, framebuffer, (SCREENWIDTH * SCREENHEIGHT) / sizeof(uint32_t));
 
 	switch(wipe_type)
 	{

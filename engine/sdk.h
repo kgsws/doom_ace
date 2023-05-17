@@ -45,6 +45,38 @@ typedef union
 #define doom_open_RD(n)	doom_open(n, O_RDONLY | O_BINARY)
 #define doom_open_WR(n)	doom_open(n, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666)
 
+// structs
+typedef union
+{
+	uint32_t ex;
+	uint16_t x;
+	struct
+	{
+		uint8_t l, h;
+	};
+} reg32_t;
+
+typedef struct
+{
+	reg32_t edi;
+	reg32_t esi;
+	reg32_t ebp;
+	uint32_t zero0;
+	reg32_t ebx;
+	reg32_t edx;
+	reg32_t ecx;
+	reg32_t eax;
+	uint16_t flags;
+	uint16_t es;
+	uint16_t ds;
+	uint16_t fs;
+	uint16_t gs;
+	uint16_t ip;
+	uint16_t cs;
+	uint16_t sp;
+	uint16_t ss;
+} dpmi_regs_t;
+
 // vars
 extern uint32_t ace_git_version;
 extern uint32_t old_game_mode;
@@ -66,6 +98,8 @@ int32_t doom_open(const uint8_t *, uint32_t, ...);
 int32_t doom_fprintf(void*, const uint8_t*, ...);
 
 // SDK
+void dpmi_irq(int32_t) __attribute((regparm(2),no_caller_saved_registers));
+
 void doom_close(int32_t) __attribute((regparm(2),no_caller_saved_registers));
 int32_t doom_write(int32_t,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 int32_t doom_read(int32_t,void*,uint32_t) __attribute((regparm(2),no_caller_saved_registers));

@@ -5,6 +5,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "player.h"
 #include "draw.h"
 #include "mobj.h"
@@ -1897,8 +1898,9 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				int32_t lump = W_CheckNumForName("WIAUTOSV");
 				if(lump >= 0)
 				{
+					vesa_copy();
 					V_DrawPatchDirect(0, 0, W_CacheLumpNum(lump, PU_CACHE));
-					I_FinishUpdate();
+					vesa_update();
 				}
 				if(ln)
 					// special must be cleared before autosave

@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "draw.h"
 
 uint8_t *dr_tinttab;
@@ -40,7 +41,7 @@ void R_DrawColumnTint0()
 	if(count < 0)
 		return;
 
-	dest = ylookup[dc_yl] + columnofs[dc_x];
+	dest = ylookup[dc_yl] + columnofs[dc_x] + vesa_offset;
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 	frac <<= r_dc_mask.u8[0];
 	step = dc_iscale << r_dc_mask.u8[0];
@@ -67,7 +68,7 @@ void R_DrawColumnTint1()
 	if(count < 0)
 		return;
 
-	dest = ylookup[dc_yl] + columnofs[dc_x];
+	dest = ylookup[dc_yl] + columnofs[dc_x] + vesa_offset;
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 	frac <<= r_dc_mask.u8[0];
 	step = dc_iscale << r_dc_mask.u8[0];
@@ -92,7 +93,7 @@ void R_DrawShadowColumn()
 	if(count < 0)
 		return;
 
-	dest = ylookup[dc_yl] + columnofs[dc_x];
+	dest = ylookup[dc_yl] + columnofs[dc_x] + vesa_offset;
 
 	do
 	{
@@ -118,7 +119,7 @@ void R_DrawFuzzColumn()
 	if(count < 0)
 		return;
 
-	dest = ylookup[dc_yl] + columnofs[dc_x];
+	dest = ylookup[dc_yl] + columnofs[dc_x] + vesa_offset;
 
 	do
 	{
@@ -144,7 +145,7 @@ void R_DrawTranslatedColumn()
 	if(count < 0)
 		return;
 
-	dest = ylookup[dc_yl] + columnofs[dc_x];
+	dest = ylookup[dc_yl] + columnofs[dc_x] + vesa_offset;
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 	frac <<= r_dc_mask.u8[0];
 	step = dc_iscale << r_dc_mask.u8[0];
@@ -170,7 +171,7 @@ void R_DrawTranslatedColumnTint0()
 	if(count < 0)
 		return;
 
-	dest = ylookup[dc_yl] + columnofs[dc_x];
+	dest = ylookup[dc_yl] + columnofs[dc_x] + vesa_offset;
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 	frac <<= r_dc_mask.u8[0];
 	step = dc_iscale << r_dc_mask.u8[0];
@@ -197,7 +198,7 @@ void R_DrawTranslatedColumnTint1()
 	if(count < 0)
 		return;
 
-	dest = ylookup[dc_yl] + columnofs[dc_x];
+	dest = ylookup[dc_yl] + columnofs[dc_x] + vesa_offset;
 	frac = dc_texturemid + (dc_yl - centery) * dc_iscale;
 	frac <<= r_dc_mask.u8[0];
 	step = dc_iscale << r_dc_mask.u8[0];
@@ -222,7 +223,7 @@ void R_DrawUnknownSpan()
 	uint32_t count;
 	uint32_t px, py;
 
-	dest = ylookup[ds_y] + columnofs[ds_x1];
+	dest = ylookup[ds_y] + columnofs[ds_x1] + vesa_offset;
 	count = ds_x2 - ds_x1;
 
 	px = ds_xfrac;
@@ -246,7 +247,7 @@ void R_DrawSpanTint0()
 	uint32_t count;
 	uint32_t px, py;
 
-	dest = ylookup[ds_y] + columnofs[ds_x1];
+	dest = ylookup[ds_y] + columnofs[ds_x1] + vesa_offset;
 	count = ds_x2 - ds_x1;
 
 	px = ds_xfrac;
@@ -273,7 +274,7 @@ void R_DrawSpanTint1()
 	uint32_t count;
 	uint32_t px, py;
 
-	dest = ylookup[ds_y] + columnofs[ds_x1];
+	dest = ylookup[ds_y] + columnofs[ds_x1] + vesa_offset;
 	count = ds_x2 - ds_x1;
 
 	px = ds_xfrac;
@@ -300,7 +301,7 @@ void R_DrawMaskedSpan()
 	uint32_t count;
 	uint32_t px, py;
 
-	dest = ylookup[ds_y] + columnofs[ds_x1];
+	dest = ylookup[ds_y] + columnofs[ds_x1] + vesa_offset;
 	count = ds_x2 - ds_x1;
 
 	px = ds_xfrac;
@@ -328,7 +329,7 @@ void R_DrawMaskedSpanTint0()
 	uint32_t count;
 	uint32_t px, py;
 
-	dest = ylookup[ds_y] + columnofs[ds_x1];
+	dest = ylookup[ds_y] + columnofs[ds_x1] + vesa_offset;
 	count = ds_x2 - ds_x1;
 
 	px = ds_xfrac;
@@ -359,7 +360,7 @@ void R_DrawMaskedSpanTint1()
 	uint32_t count;
 	uint32_t px, py;
 
-	dest = ylookup[ds_y] + columnofs[ds_x1];
+	dest = ylookup[ds_y] + columnofs[ds_x1] + vesa_offset;
 	count = ds_x2 - ds_x1;
 
 	px = ds_xfrac;
@@ -389,7 +390,7 @@ void R_DrawMaskedSpanTint1()
 __attribute((regparm(3),no_caller_saved_registers)) // three!
 void V_DrawPatchDirect(int32_t x, int32_t y, patch_t *patch)
 {
-	draw_patch_to_memory(patch, x - patch->x, y - patch->y, screen_buffer, SCREENWIDTH, SCREENHEIGHT);
+	draw_patch_to_memory(patch, x - patch->x, y - patch->y, framebuffer, SCREENWIDTH, SCREENHEIGHT);
 }
 
 __attribute((regparm(3),no_caller_saved_registers)) // three!
@@ -422,7 +423,7 @@ void V_DrawPatchTranslated(int32_t x, int32_t y, patch_t *patch)
 	if(x < 0)
 		x = 0;
 
-	desttop = screen_buffer + x;
+	desttop = framebuffer + x;
 
 	for( ; x < xstop; x++, desttop++)
 	{
@@ -491,7 +492,7 @@ void V_DrawPatchTint0(int32_t x, int32_t y, patch_t *patch)
 	if(x < 0)
 		x = 0;
 
-	desttop = screen_buffer + x;
+	desttop = framebuffer + x;
 
 	for( ; x < xstop; x++, desttop++)
 	{
@@ -560,7 +561,7 @@ void V_DrawPatchTint1(int32_t x, int32_t y, patch_t *patch)
 	if(x < 0)
 		x = 0;
 
-	desttop = screen_buffer + x;
+	desttop = framebuffer + x;
 
 	for( ; x < xstop; x++, desttop++)
 	{
@@ -675,6 +676,7 @@ void init_draw()
 	uint8_t *ptr;
 
 	// I_FinishUpdate always copies the entire screen[0]; TODO: optimize
+	// This is not used in VESA mode.
 	*((uint8_t**)((void*)I_FinishUpdate + 4)) = screen_buffer;
 
 	//

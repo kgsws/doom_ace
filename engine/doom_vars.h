@@ -18,10 +18,12 @@ extern uint32_t doom_stdout[];
 extern heap_base_t heap_base;
 extern memzone_t *mainzone;
 extern uint8_t *screen_buffer;
+extern uint8_t *am_fb;
 extern uint32_t message_is_important;
 extern uint32_t french_version;
 extern int32_t myargc;
 extern uint8_t **myargv;
+extern dpmi_regs_t dpmiregs;
 
 // netgame
 extern doomcom_t *doomcom;

@@ -20,6 +20,7 @@ R_DrawColumn:
 	mov	ylookup(,%ebx,4),%edi
 	mov	dc_x,%ebx
 	add	columnofs(,%ebx,4),%edi
+	add	vesa_offset,%edi
 
 	// calculate jump
 	mov	r_dc_jump(,%ecx,4),%ecx
@@ -78,6 +79,7 @@ R_DrawSpan:
 	mov	ds_y,%eax
 	mov	ylookup(,%eax,4),%edi
 	add	columnofs(,%ebx,4),%edi
+	add	vesa_offset,%edi
 
 	// calculate jump
 	mov	r_ds_jump(,%ebp,4),%ecx

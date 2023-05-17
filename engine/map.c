@@ -3,6 +3,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "wadfile.h"
 #include "decorate.h"
 #include "mobj.h"
@@ -1165,8 +1166,9 @@ uint32_t map_load_setup(uint32_t new_game)
 		if(lump >= 0)
 		{
 			patch_t *patch = W_CacheLumpNum(lump, PU_CACHE);
+			vesa_copy();
 			V_DrawPatchDirect(0, 0, patch);
-			I_FinishUpdate();
+			vesa_update();
 		}
 	} else
 	{

@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "wadfile.h"
 #include "config.h"
 #include "player.h"
@@ -2055,8 +2056,9 @@ static void generate_sector_light(uint8_t *dest, uint16_t color, uint16_t fade)
 	{
 		messageToPrint = 1;
 		messageString = "Generating colored light.\nThis will take a while ...\n\nInclude generated tables in WAD file\nto speed this up!";
+		vesa_copy();
 		M_Drawer();
-		I_FinishUpdate();
+		vesa_update();
 		messageToPrint = 0;
 		sector_light_warning = 1;
 	}

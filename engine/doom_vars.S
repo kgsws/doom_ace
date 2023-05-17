@@ -143,6 +143,8 @@ DOOM_VAR 0x00024B50, dtxt_dm2int
 DOOM_VAR 0x000290F8, r_rdptr
 DOOM_VAR 0x0002914C, r_fbptr
 
+DOOM_VAR 0x00029158, dpmiregs
+
 DOOM_VAR 0x000291E0, snd_sbdma
 DOOM_VAR 0x000291E4, snd_mport
 DOOM_VAR 0x000291EC, snd_sbirq
@@ -265,6 +267,8 @@ DOOM_VAR 0x0002B6EC, usejoystick
 
 DOOM_VAR 0x0002B6F0, myargc
 DOOM_VAR 0x0002B6F4, myargv
+
+DOOM_VAR 0x0002B7F4, am_fb
 
 DOOM_VAR 0x0002B840, activeceilings
 

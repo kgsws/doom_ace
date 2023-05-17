@@ -3,6 +3,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "filebuf.h"
 #include "render.h"
 #include "wadfile.h"
@@ -241,7 +242,7 @@ void change_color(uint8_t color)
 static void font_draw_char(int32_t x, int32_t y, bmf_char_t *bc)
 {
 	uint8_t *src = (void*)(bc + 1);
-	uint8_t *dst = screen_buffer;
+	uint8_t *dst = framebuffer;
 	int32_t yy, xx, ss;
 
 	x += bc->ox;

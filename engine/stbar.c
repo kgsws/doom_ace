@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
 #include "decorate.h"
 #include "inventory.h"
 #include "wadfile.h"
@@ -16,7 +17,8 @@
 #include "stbar.h"
 
 #define STBAR_Y	(SCREENHEIGHT-2)
-#define ST_Y	(SCREENHEIGHT-32)
+#define ST_H	32
+#define ST_Y	(SCREENHEIGHT-ST_H)
 #define BG	4
 #define FG	0
 
@@ -428,17 +430,32 @@ void hook_draw_stbar(uint32_t fullscreen, uint32_t refresh)
 
 	if(is_title_map)
 	{
-		memset(screen_buffer + 53760, r_color_black, 10240);
+		uint8_t *dst;
+
+		if(wipebuffer == (void*)0x000A0000)
+			dst = screen_buffer;
+		else
+			dst = framebuffer;
+
+		memset(dst + SCREENWIDTH * ST_Y, r_color_black, SCREENWIDTH * ST_H);
+
 		return;
 	}
 
 	if(automapactive)
+	{
+		if(wipebuffer != (void*)0x000A0000)
+			am_fb = framebuffer;
 		return;
+	}
 
 	refresh |= stbar_refresh_force | menuactive | was_in_menu;
 	stbar_refresh_force = 0;
 
 	ST_Drawer(fullscreen, refresh);
+
+	if(!fullscreen && wipebuffer != (void*)0x000A0000)
+		dwcopy(framebuffer + SCREENWIDTH * ST_Y, screen_buffer + SCREENWIDTH * ST_Y, (SCREENWIDTH * ST_H) / sizeof(uint32_t));
 
 	was_in_menu = menuactive;
 }

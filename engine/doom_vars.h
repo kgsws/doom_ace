@@ -23,6 +23,7 @@ extern uint32_t message_is_important;
 extern uint32_t french_version;
 extern int32_t myargc;
 extern uint8_t **myargv;
+extern int_regs_t x86regs;
 extern dpmi_regs_t dpmiregs;
 
 // netgame

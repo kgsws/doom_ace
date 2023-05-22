@@ -141,8 +141,8 @@ DOOM_VAR 0x00024B40, dtxt_read_m
 DOOM_VAR 0x00024B50, dtxt_dm2int
 
 DOOM_VAR 0x000290F8, r_rdptr
+DOOM_VAR 0x00029110, x86regs
 DOOM_VAR 0x0002914C, r_fbptr
-
 DOOM_VAR 0x00029158, dpmiregs
 
 DOOM_VAR 0x000291E0, snd_sbdma

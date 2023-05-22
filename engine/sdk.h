@@ -58,6 +58,16 @@ typedef union
 
 typedef struct
 {
+	reg32_t eax;
+	reg32_t ebx;
+	reg32_t ecx;
+	reg32_t edx;
+	reg32_t esi;
+	reg32_t edi;
+} int_regs_t;
+
+typedef struct
+{
 	reg32_t edi;
 	reg32_t esi;
 	reg32_t ebp;
@@ -98,6 +108,7 @@ int32_t doom_open(const uint8_t *, uint32_t, ...);
 int32_t doom_fprintf(void*, const uint8_t*, ...);
 
 // SDK
+void int386(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 void dpmi_irq(int32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 void doom_close(int32_t) __attribute((regparm(2),no_caller_saved_registers));

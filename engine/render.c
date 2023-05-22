@@ -1,6 +1,5 @@
 // kgsws' ACE Engine
 ////
-// This handles both game and mod configuration.
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"

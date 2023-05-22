@@ -143,6 +143,19 @@ dos_exit:
 	int	$0x21
 
 //
+// int386 bridge
+.global int386
+int386:
+	push	%edx
+	push	%ebx
+	mov	$x86regs,%edx
+	mov	%edx,%ebx
+	call	doom_int386
+	pop	%ebx
+	pop	%edx
+	ret
+
+//
 // skip menu cursor and items
 .global skip_message_cancel
 skip_message_cancel:
@@ -294,6 +307,12 @@ rng_skip:
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012
 __reloc_code_012:
+////////////////////////////////// doom_int386
+.section .text.doom_int386
+.global doom_int386
+doom_int386:
+	.byte	0xE9
+	.4byte	0x000405BF
 ////////////////////////////////// dpmi_irq
 .section .text.dpmi_irq
 .global dpmi_irq

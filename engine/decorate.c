@@ -3364,6 +3364,7 @@ void init_decorate()
 		info->extra_type = ETYPE_POWERUP_BASE;
 		info->flags |= MF_MOBJ_IS_DEFINED;
 		info->eflags = powerup_type[ii].flags;
+doom_printf("power %p type %u\n", info, ii);
 		info->powerup.type = ii;
 		info->powerup.duration = powerup_type[ii].duration;
 		info->powerup.strength = powerup_type[ii].strength;

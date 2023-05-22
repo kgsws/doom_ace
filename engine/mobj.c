@@ -3275,6 +3275,11 @@ mobj_t *spawn_missile(mobj_t *source, mobj_t *target)
 	angle = R_PointToAngle2(source->x, source->y, target->x, target->y);
 	dist = P_AproxDistance(target->x - source->x, target->y - source->y);
 
+	if(	source->state < states + NUMSTATES &&
+		target->flags & MF_SHADOW
+	)
+		angle += (P_Random() - P_Random()) << 20;
+
 	th = P_SpawnMobj(source->x, source->y, z, type);
 
 	speed = projectile_speed(th->info);

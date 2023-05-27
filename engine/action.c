@@ -909,7 +909,7 @@ uint32_t PIT_Explode(mobj_t *thing)
 	if(!(thing->flags & MF_SHOOTABLE))
 		return 1;
 
-	if(thing->flags1 & MF1_NORADIUSDMG && !(bombspot->flags1 & MF2_FORCERADIUSDMG))
+	if(thing->flags1 & MF1_NORADIUSDMG && !(bombspot->flags2 & MF2_FORCERADIUSDMG))
 		return 1;
 
 	if(thing == bombsource && !(bombflags & XF_HURTSOURCE))
@@ -973,6 +973,9 @@ uint32_t PIT_Explode(mobj_t *thing)
 		return 1;
 
 	if(thing->flags1 & MF1_DONTTHRUST)
+		return 1;
+
+	if(bombspot->flags2 & MF2_FORCERADIUSDMG)
 		return 1;
 
 	dist = (dist * 50) / thing->info->mass;

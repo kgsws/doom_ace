@@ -22,6 +22,8 @@
 
 #include "decodoom.h"
 
+// TODO: optimize - replace all strings with pseudohash
+
 #define NUM_NEW_STATES	(NEW_NUMSTATES - NUMSTATES)
 
 #define NUM_STATE_HOOKS	1
@@ -719,6 +721,7 @@ const dec_flag_t mobj_flags2[] =
 	{"forceradiusdmg", MF2_FORCERADIUSDMG},
 	{"nopain", MF2_NOPAIN},
 	{"noliftdrop", MF2_NOLIFTDROP},
+	{"cantseek", MF2_CANTSEEK},
 	// terminator
 	{NULL}
 };

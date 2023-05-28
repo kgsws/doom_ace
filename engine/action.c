@@ -1041,8 +1041,13 @@ uint32_t PIT_EnemySearch(mobj_t *thing)
 	if(thing == enemy_looker)
 		return 1;
 
-	if(enemy_looker->flags1 & MF1_SEEKERMISSILE && thing == enemy_looker->target)
-		return 1;
+	if(enemy_looker->flags1 & MF1_SEEKERMISSILE)
+	{
+		if(thing == enemy_looker->target)
+			return 1;
+		if(thing->flags2 & MF2_CANTSEEK)
+			return 1;
+	}
 
 	if(!(thing->flags & MF_SHOOTABLE))
 		return 1;
@@ -2799,6 +2804,9 @@ void A_SeekerMissile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	}
 
 	if(!target)
+		return;
+
+	if(target->flags2 & MF2_CANTSEEK)
 		return;
 
 	if(!(target->flags & MF_SHOOTABLE))

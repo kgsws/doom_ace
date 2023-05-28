@@ -885,8 +885,11 @@ void set_mobj_animation(mobj_t *mo, uint8_t anim)
 	}
 	if(anim == ANIM_RAISE)
 	{
-		if(mo->state - states == 895)
-			mo->translation = mo->info->translation;
+		// restore actor stuff
+		mo->flags1 = mo->info->flags1;
+		mo->flags2 = mo->info->flags2;
+		mo->iflags = 0;
+		mo->translation = mo->info->translation;
 	}
 	mobj_set_animation(mo, anim);
 }
@@ -2234,16 +2237,6 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 		damage &= ~(DAMAGE_TYPE_MASK << DAMAGE_TYPE_SHIFT);
 	}
 
-	if(target->flags2 & MF2_ICECORPSE)
-	{
-		if(damage_type != DAMAGE_ICE || if_flags1 & MF1_ICESHATTER)
-		{
-			target->tics = 1;
-			target->iflags |= MFI_SHATTERING;
-		}
-		return;
-	}
-
 	switch(damage & DAMAGE_TYPE_CHECK)
 	{
 		case DAMAGE_IS_MATH_FUNC:
@@ -2268,7 +2261,20 @@ void mobj_damage(mobj_t *target, mobj_t *inflictor, mobj_t *source, uint32_t dam
 	{
 		if(target->flags1 & MF1_SPECTRAL && !(if_flags1 & MF1_SPECTRAL))
 			return;
+	}
 
+	if(target->flags2 & MF2_ICECORPSE)
+	{
+		if(damage_type != DAMAGE_ICE || if_flags1 & MF1_ICESHATTER)
+		{
+			target->tics = 1;
+			target->iflags |= MFI_SHATTERING;
+		}
+		return;
+	}
+
+	if(damage < 1000000)
+	{
 		// friendly fire
 		if(	no_friendly_fire &&
 			source &&

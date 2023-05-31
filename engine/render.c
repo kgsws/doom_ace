@@ -2263,6 +2263,20 @@ uint8_t r_find_color(uint8_t r, uint8_t g, uint8_t b)
 	return ret;
 }
 
+uint8_t r_find_color_4(uint16_t color)
+{
+	uint8_t r, g, b;
+
+	r = color & 15;
+	r |= r << 4;
+	g = (color >> 4) & 15;
+	g |= g << 4;
+	b = (color >> 8) & 15;
+	b |= b << 4;
+
+	return r_find_color(r, g, b);
+}
+
 int32_t r_translation_find(const uint8_t *name)
 {
 	uint64_t alias = tp_hash64(name);
@@ -2370,12 +2384,10 @@ void *r_generate_player_color(uint32_t idx)
 	}
 
 	r = pi->color & 15;
-	g = (pi->color >> 4) & 15;
-	b = (pi->color >> 8) & 15;
-
-	// expand
 	r |= r << 4;
+	g = (pi->color >> 4) & 15;
 	g |= g << 4;
+	b = (pi->color >> 8) & 15;
 	b |= b << 4;
 
 	// generate
@@ -2799,6 +2811,8 @@ void custom_SetupFrame(player_t *pl)
 static __attribute((regparm(2),no_caller_saved_registers))
 void hook_RenderPlayerView(player_t *pl)
 {
+	am_cheating = (players[consoleplayer].cheats / CF_MAPBIT0) & 3;
+
 	if(!automapactive)
 		render_player_view(pl);
 

@@ -201,7 +201,9 @@ typedef uint32_t angle_t;
 #define CF_GODMODE	2
 #define CF_NOMOMENTUM	4 // REMOVED
 #define CF_BUDDHA	8
-#define CF_REVENGE	16
+#define CF_MAPBIT0	16
+#define CF_MAPBIT1	32
+#define CF_REVENGE	64
 #define CF_CHANGE_CLASS	0x40000000
 #define CF_IS_CHEATER	0x80000000
 
@@ -1613,10 +1615,14 @@ void I_StartTic() __attribute((regparm(2),no_caller_saved_registers));
 
 // am_map
 void AM_Stop() __attribute((regparm(2),no_caller_saved_registers));
+void AM_doFollowPlayer() __attribute((regparm(2),no_caller_saved_registers));
+void AM_drawGrid(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t AM_clipMline(void*, void*) __attribute((regparm(2),no_caller_saved_registers));
+void AM_drawFline(void*, uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 
 // d_net
 void D_CheckNetGame() __attribute((regparm(2),no_caller_saved_registers));
-void HSendPacket(uint32_t node, uint32_t flags) __attribute((regparm(2),no_caller_saved_registers));
+void HSendPacket(uint32_t, uint32_t) __attribute((regparm(2),no_caller_saved_registers));
 uint32_t HGetPacket() __attribute((regparm(2),no_caller_saved_registers));
 
 // f_finale

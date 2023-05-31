@@ -99,6 +99,7 @@ void render_generate_blood();
 uint32_t render_setup_light_color(uint32_t);
 
 uint8_t r_find_color(uint8_t, uint8_t, uint8_t);
+uint8_t r_find_color_4(uint16_t color);
 
 void r_draw_plane(visplane_t *pl);
 

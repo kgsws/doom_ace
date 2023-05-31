@@ -74,7 +74,7 @@ void *load_palette()
 	int32_t idx;
 	void *dest = screen_buffer;
 
-	idx = wad_get_lump("PLAYPAL");
+	idx = wad_get_lump(dtxt_playpal);
 	wad_read_lump(dest, idx, 768);
 
 	render_preinit(dest);
@@ -228,6 +228,9 @@ uint32_t ace_main()
 		dev_mode = 1;
 	else
 		*((uint8_t*)0x0003FE40 + doom_code_segment) = 0xC3;
+
+	// palette first
+	load_palette();
 
 	// config
 	init_config();

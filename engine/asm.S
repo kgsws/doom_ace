@@ -721,6 +721,30 @@ Z_FreeTags:
 AM_Stop:
 	.byte	0xE9
 	.4byte	0x00024F90
+////////////////////////////////// AM_clipMline
+.section .text.AM_clipMline
+.global AM_clipMline
+AM_clipMline:
+	.byte	0xE9
+	.4byte	0x000257A0
+////////////////////////////////// AM_drawFline
+.section .text.AM_drawFline
+.global AM_drawFline
+AM_drawFline:
+	.byte	0xE9
+	.4byte	0x00025B40
+////////////////////////////////// AM_drawGrid
+.section .text.AM_drawGrid
+.global AM_drawGrid
+AM_drawGrid:
+	.byte	0xE9
+	.4byte	0x00025CE0
+////////////////////////////////// AM_doFollowPlayer
+.section .text.AM_doFollowPlayer
+.global AM_doFollowPlayer
+AM_doFollowPlayer:
+	.byte	0xE9
+	.4byte	0x00025580
 ////////////////////////////////// I_StartTic
 .section .text.I_StartTic
 .global I_StartTic

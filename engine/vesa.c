@@ -162,12 +162,15 @@ void vesa_check()
 {
 	vesa_info_t *info;
 	uint16_t *mode_list;
-	uint32_t do_list = M_CheckParm("-vesalist");
+	uint32_t do_vesa;
 
 	info = (void*)screen_buffer;
 
+	do_vesa = !!M_CheckParm("-vesa");
+	do_vesa |= !!M_CheckParm("-vesalist") << 1;
+
 	// get VESA info
-	if(do_list || M_CheckParm("-usevesa"))
+	if(do_vesa)
 	{
 		memset(info, 0, sizeof(vesa_info_t));
 		info->signature = 0x32454256;
@@ -206,7 +209,7 @@ void vesa_check()
 				}
 
 				last_mode = *mode_list;
-				if(check_mode_info(last_mode, do_list))
+				if(check_mode_info(last_mode, do_vesa & 2))
 					break;
 
 				mode_list++;
@@ -217,12 +220,13 @@ void vesa_check()
 				doom_printf("[VESA] using fallback mode detection\n");
 				for(uint32_t i = 0x0100; i < 0x0300; i++)
 				{
-					if(check_mode_info(i, do_list))
+					if(check_mode_info(i, do_vesa & 2))
 						break;
 				}
 			}
 		}
 	} else
+	if(do_vesa)
 		doom_printf("[VESA] not detected\n");
 }
 

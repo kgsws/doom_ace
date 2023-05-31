@@ -193,11 +193,18 @@ static void cf_idkfa(player_t *pl, uint8_t *arg)
 
 static void cf_iddt(player_t *pl, uint8_t *arg)
 {
-	uint32_t cheating = am_cheating + 1;
+	uint32_t cheating;
+
+	cheating = pl->cheats / CF_MAPBIT0;
+
+	pl->cheats &= ~(CF_MAPBIT0 | CF_MAPBIT1);
+
+	cheating &= 3;
+	cheating++;
 	if(cheating > 2)
-		am_cheating = 0;
-	else
-		am_cheating = cheating;
+		return;
+
+	pl->cheats |= cheating * CF_MAPBIT0;
 }
 
 static void cf_map(player_t *pl, uint8_t *arg)

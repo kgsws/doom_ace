@@ -14,6 +14,7 @@
 #include "decorate.h"
 #include "textpars.h"
 #include "controls.h"
+#include "render.h"
 #include "config.h"
 
 #define ACE_CONFIG_FILE	"ace.cfg"
@@ -23,6 +24,7 @@ enum
 	TYPE_U8,
 	TYPE_U16,
 	TYPE_S32,
+	TYPE_COLOR,
 	TYPE_ALIAS,
 	TYPE_MOBJ_ALIAS,
 	TYPE_STRING_LC_ALLOC,
@@ -183,6 +185,16 @@ static config_entry_t config_mod[] =
 	{"damage[4].name", &damage_type_config[DAMAGE_CUSTOM_4].name, TYPE_STRING_LC_ALLOC},
 	{"damage[5].name", &damage_type_config[DAMAGE_CUSTOM_5].name, TYPE_STRING_LC_ALLOC},
 	{"damage[6].name", &damage_type_config[DAMAGE_CUSTOM_6].name, TYPE_STRING_LC_ALLOC},
+	// custom automap colors
+	{"automap.color[0]", (void*)0x00026325, TYPE_COLOR, 1}, // background
+	{"automap.color[1]", (void*)0x00026335, TYPE_COLOR, 1}, // grid
+	{"automap.color[2]", (void*)0x00025E4B, TYPE_COLOR, 1}, // one-sided line
+	{"automap.color[3]", (void*)0x00025EA3, TYPE_COLOR, 1}, // floor change
+	{"automap.color[4]", (void*)0x00025EBF, TYPE_COLOR, 1}, // ceiling change
+	{"automap.color[5]", (void*)0x00025F05, TYPE_COLOR, 1}, // gray lines (allmap)
+	{"automap.color[6]", (void*)0x00025EDA, TYPE_COLOR, 1}, // gray lines (cheating)
+	{"automap.color[7]", (void*)0x00026147, TYPE_COLOR, 1}, // players
+	{"automap.color[8]", (void*)0x00026352, TYPE_COLOR, 1}, // things
 	// terminator
 	{NULL}
 };
@@ -234,6 +246,10 @@ static uint32_t parse_value(config_entry_t *conf_def)
 					case TYPE_S32:
 						if(doom_sscanf(kv, "%d", &value) == 1)
 							*conf->s32 = value;
+					break;
+					case TYPE_COLOR:
+						if(doom_sscanf(kv, "%d", &value) == 1 && value >= 0 && value < 65535)
+							*conf->u8 = r_find_color_4(value);
 					break;
 					case TYPE_ALIAS:
 						*conf->u64 = tp_hash64(kv);
@@ -297,6 +313,13 @@ void init_config()
 
 	// relocate pointers
 	conf = config_game;
+	while(conf->name)
+	{
+		if(conf->relocate)
+			conf->ptr = conf->ptr + doom_code_segment;
+		conf++;
+	}
+	conf = config_mod;
 	while(conf->name)
 	{
 		if(conf->relocate)

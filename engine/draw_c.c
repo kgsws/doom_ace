@@ -4,15 +4,52 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "render.h"
+#include "map.h"
 #include "vesa.h"
 #include "draw.h"
+
+#define AMAP_Y_SCALE	55000
+
+typedef struct
+{
+	fixed_t x, y;
+} map_point_t;
+
+typedef struct
+{
+	map_point_t a, b;
+} map_line_t;
+
+//
 
 uint8_t *dr_tinttab;
 uint8_t ds_maskcolor;
 
 uint8_t *draw_patch_color;
 
+static uint8_t am_forced_color;
+static fixed_t mhax_y, mhax_h;
+
 static const uint8_t unknown_flat[4] = {96, 111, 111, 96};
+
+static const uint8_t doom_lock_id[] =
+{
+	26, 130,
+	27, 131,
+	28, 129,
+	32, 130,
+	33, 129,
+	34, 131,
+	99, 130,
+	133, 130,
+	134, 129,
+	135, 129,
+	136, 131,
+	137, 131,
+	// terminator
+	0
+};
 
 static int16_t fuzzoffset[FUZZTABLE] =
 {
@@ -711,12 +748,14 @@ void init_draw()
 		ptr += sizeof(loop_ds_start);
 	}
 	*((uint16_t*)ptr) = 0xC361;
+
+	am_forced_color = r_color_duplicate;
 }
 
 //
 // hooks
 
-__attribute((regparm(3),no_caller_saved_registers)) // three!
+static __attribute((regparm(3),no_caller_saved_registers)) // three!
 void hook_draw_patch_direct(int32_t x, int32_t y, patch_t *patch)
 {
 	if(draw_patch_color)
@@ -726,6 +765,101 @@ void hook_draw_patch_direct(int32_t x, int32_t y, patch_t *patch)
 		return;
 	}
 	V_DrawPatchDirect(x, y, patch);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t check_map_line(line_t *li)
+{
+	const uint8_t *ptr;
+	const lockdef_t *ld;
+	int32_t lockdef;
+
+	if(li->flags & ML_DONTDRAW && !am_cheating)
+		return 0;
+
+	if(!li->special)
+		return 1;
+
+	if(map_format == MAP_FORMAT_DOOM)
+	{
+		lockdef = -1;
+		ptr = doom_lock_id;
+		while(*ptr)
+		{
+			if(*ptr == li->special)
+			{
+				lockdef = ptr[1];
+				break;
+			}
+			ptr += 2;
+		}
+	} else
+	if(li->special == 13) // Door_LockedRaise
+		lockdef = li->arg3;
+	else
+		return 1;
+
+	ptr = lockdefs;
+	while(ptr < (uint8_t*)lockdefs + lockdefs_size)
+	{
+		ld = (const lockdef_t*)ptr;
+
+		if(ld->id == lockdef)
+		{
+			am_forced_color = ld->color;
+			return 1;
+		}
+
+		ptr += ld->size;
+	}
+
+	return 1;
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void draw_map_line(map_line_t *ml, uint32_t color)
+{
+	map_line_t fl;
+	map_line_t lm;
+
+	if(am_forced_color != r_color_duplicate)
+	{
+		color = am_forced_color;
+		am_forced_color = r_color_duplicate;
+	}
+
+	lm = *ml;
+
+	lm.a.y = FixedMul(lm.a.y, AMAP_Y_SCALE);
+	lm.b.y = FixedMul(lm.b.y, AMAP_Y_SCALE);
+
+	if(AM_clipMline(&lm, &fl))
+		AM_drawFline(&fl, color);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void draw_map_grid(uint32_t color)
+{
+	fixed_t tmp;
+
+	tmp = am_h;
+	tmp /= (MAPBLOCKUNITS << FRACBITS);
+	tmp += 5;
+	tmp *= MAPBLOCKUNITS << FRACBITS;
+
+	mhax_y = am_y - tmp;
+	mhax_h = tmp * 2;
+
+	AM_drawGrid(color);
+}
+
+static __attribute((regparm(2),no_caller_saved_registers))
+void do_follow_player()
+{
+	fixed_t yy = am_plr->mo->y;
+	am_plr->mo->y = FixedMul(am_plr->mo->y, AMAP_Y_SCALE);
+	AM_doFollowPlayer();
+	am_plr->mo->y = yy;
 }
 
 //
@@ -747,5 +881,30 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// replace 'I_FinishUpdate'
 	{0x0001D4A6, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)I_FinishUpdate},
 	{0x0001D4FC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)I_FinishUpdate},
+	// hack check in 'AM_drawWalls'
+	{0x00025E2F, CODE_HOOK | HOOK_UINT16, 0xD801},
+	{0x00025E31, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)check_map_line},
+	{0x00025E36, CODE_HOOK | HOOK_UINT16, 0xC085},
+	{0x00025E38, CODE_HOOK | HOOK_SET_NOPS, 5},
+	// replace 'AM_drawMline'
+	{0x00025CC0, CODE_HOOK | HOOK_JMP_ACE, (uint32_t)draw_map_line},
+	// replace call to 'AM_doFollowPlayer' in 'AM_Ticker'
+	{0x000256F8, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)do_follow_player},
+	// replace call to 'AM_drawGrid' in 'AM_Drawer'
+	{0x00026339, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_map_grid},
+	// replace 'm_y' in 'AM_drawGrid'
+	{0x00025D1E, CODE_HOOK | HOOK_UINT32, (uint32_t)&mhax_y},
+	{0x00025D56, CODE_HOOK | HOOK_UINT32, (uint32_t)&mhax_y},
+	{0x00025D7C, CODE_HOOK | HOOK_UINT32, (uint32_t)&mhax_y},
+	// replace 'm_h' in 'AM_drawGrid'
+	{0x00025D24, CODE_HOOK | HOOK_UINT32, (uint32_t)&mhax_h},
+	{0x00025D82, CODE_HOOK | HOOK_UINT32, (uint32_t)&mhax_h},
+	// (automap) use netgame player drawing code, fixed color
+	{0x000260A6, CODE_HOOK | HOOK_UINT16, 0x69EB},
+	{0x00026146, CODE_HOOK | HOOK_UINT32, 0x0FEBD1B1},
+	// (automap) disable teleport line color hack
+	{0x00025E68, CODE_HOOK | HOOK_UINT16, 0x14EB},
+	// (automap) map background color memset
+	{0x00026324, CODE_HOOK | HOOK_UINT16, 0x00B2},
 };
 

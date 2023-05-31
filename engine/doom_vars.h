@@ -18,13 +18,18 @@ extern uint32_t doom_stdout[];
 extern heap_base_t heap_base;
 extern memzone_t *mainzone;
 extern uint8_t *screen_buffer;
-extern uint8_t *am_fb;
 extern uint32_t message_is_important;
 extern uint32_t french_version;
 extern int32_t myargc;
 extern uint8_t **myargv;
 extern int_regs_t x86regs;
 extern dpmi_regs_t dpmiregs;
+
+// automap
+extern uint8_t *am_fb;
+extern player_t *am_plr;
+extern fixed_t am_h;
+extern fixed_t am_y;
 
 // netgame
 extern doomcom_t *doomcom;
@@ -428,6 +433,7 @@ extern visplane_t d_visplanes[];
 extern uint8_t dtxt_pnames[];
 extern uint8_t dtxt_texture1[];
 extern uint8_t dtxt_texture2[];
+extern uint8_t dtxt_playpal[];
 extern uint8_t dtxt_colormap[];
 extern uint8_t dtxt_stcfn[];
 extern uint64_t dtxt_skull_name[];

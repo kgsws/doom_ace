@@ -1069,13 +1069,7 @@ void D_ArbitrateNetStart()
 	if(deathmatch > 0)
 		deathmatch--;
 
-	cheat_disable = !((ns.menu_flags >> 0) & 1);
-	no_friendly_fire = !((ns.menu_flags >> 1) & 1);
-	nomonsters = (ns.menu_flags >> 2) & 1;
-	fastparm = (ns.menu_flags >> 3) & 1;
-	keep_keys = (ns.menu_flags >> 4) & 1;
-	respawnparm = (ns.menu_flags >> 5) & 1;
-	weapons_stay = (ns.menu_flags >> 6) & 1;
+	net_parse_flags(ns.menu_flags);
 
 	net_inventory = ns.menu_sel[MENU_INVENTORY];
 
@@ -1116,6 +1110,35 @@ void D_ArbitrateNetStart()
 
 	// restore stuff
 	menuactive = 0;
+}
+
+//
+// API
+
+void net_parse_flags(uint32_t flags)
+{
+	cheat_disable = !((flags >> 0) & 1);
+	no_friendly_fire = !((flags >> 1) & 1);
+	nomonsters = (flags >> 2) & 1;
+	fastparm = (flags >> 3) & 1;
+	keep_keys = (flags >> 4) & 1;
+	respawnparm = (flags >> 5) & 1;
+	weapons_stay = (flags >> 6) & 1;
+}
+
+uint32_t net_make_flags()
+{
+	uint32_t ret = 0;
+
+	ret |= !cheat_disable << 0;
+	ret |= !no_friendly_fire << 1;
+	ret |= !!nomonsters << 2;
+	ret |= !!fastparm << 3;
+	ret |= !!keep_keys << 4;
+	ret |= !!respawnparm << 5;
+	ret |= !!weapons_stay << 6;
+
+	return ret;
 }
 
 //

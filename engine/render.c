@@ -2811,7 +2811,10 @@ void custom_SetupFrame(player_t *pl)
 static __attribute((regparm(2),no_caller_saved_registers))
 void hook_RenderPlayerView(player_t *pl)
 {
-	am_cheating = (players[consoleplayer].cheats / CF_MAPBIT0) & 3;
+	if(demoplayback)
+		am_cheating = 2;
+	else
+		am_cheating = (players[consoleplayer].cheats / CF_MAPBIT0) & 3;
 
 	if(!automapactive)
 		render_player_view(pl);

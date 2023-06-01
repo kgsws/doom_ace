@@ -280,6 +280,8 @@ struct inventory_s;
 #define BT_ACTIONMASK	0b00111100
 #define BT_ACTIONSHIFT	2
 
+#define BTS_PAUSE	1
+
 #define BT_WEAPONMASK	0b00111000
 #define BT_WEAPONSHIFT	3
 

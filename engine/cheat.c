@@ -361,6 +361,9 @@ static void cf_summon(player_t *pl, uint8_t *arg)
 
 static void cf_freeze(player_t *pl, uint8_t *arg)
 {
+	if(demorecording || demoplayback)
+		return;
+
 	think_freeze_mode = !think_freeze_mode;
 	if(think_freeze_mode)
 		pl->message = "Freeze mode ON";

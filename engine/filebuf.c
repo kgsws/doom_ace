@@ -144,7 +144,7 @@ void writer_open(uint8_t *name)
 
 	ffd = doom_open_WR(name);
 	if(ffd < 0)
-		engine_error("READER", "Unable to create '%s'!", name);
+		engine_error("READER", "Unable to create file '%s'!", name);
 
 	bptr = file_buffer;
 }

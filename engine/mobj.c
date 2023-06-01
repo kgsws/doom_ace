@@ -708,7 +708,7 @@ mobj_t *mobj_spawn_player(uint32_t idx, fixed_t x, fixed_t y, angle_t angle)
 		info = mobjinfo; // default to 'DoomPlayer'
 
 	// create body
-	mo = P_SpawnMobj(x, y, 0x80000000, player_class[player_info[idx].playerclass]);
+	mo = P_SpawnMobj(x, y, 0x80000000, info - mobjinfo);
 	mo->angle = angle;
 
 	if(pl->inventory)

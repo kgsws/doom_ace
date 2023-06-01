@@ -934,7 +934,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 	if(hu_char_tail == hu_char_head)
 	{
 		// check for menu changes
-		if(player_info_changed && !menuactive)
+		if(player_info_changed && !menuactive && !demoplayback)
 		{
 			player_info_t info;
 

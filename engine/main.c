@@ -20,6 +20,8 @@
 #include "rng.h"
 #include "font.h"
 #include "demo.h"
+#include "textpars.h"
+#include "player.h"
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "ldr_sprite.h"
@@ -214,6 +216,8 @@ static void init_gfx()
 
 uint32_t ace_main()
 {
+	uint32_t arg;
+
 	// title
 	doom_printf("-= ACE Engine by kgsws =-\nCODE: 0x%08X DATA: 0x%08X ACE: 0x%08X+0x1004\n", doom_code_segment, doom_data_segment, ace_segment);
 
@@ -351,6 +355,29 @@ uint32_t ace_main()
 	gamemode_reg = 0;
 	french_version = 0;
 
+	// check for extra options
+	arg = M_CheckParm("-map");
+	if(arg && arg < myargc - 1)
+	{
+		autostart = 1;
+		strncpy(map_lump.name, myargv[arg + 1], 8);
+	}
+
+	arg = M_CheckParm("-class");
+	if(arg && arg < myargc - 1)
+	{
+		uint64_t alias = tp_hash64(myargv[arg + 1]);
+		for(uint32_t i = 0; i < num_player_classes; i++)
+		{
+			mobjinfo_t *info = mobjinfo + player_class[i];
+			if(info->alias == alias)
+			{
+				player_info[0].playerclass = i;
+				break;
+			}
+		}
+	}
+
 	// continue running Doom
 }
 
@@ -389,6 +416,13 @@ void bluescreen()
 
 	if(!error_module)
 		error_module = "idtech1.";
+
+	if(error_module[0] == 0)
+	{
+		*((uint8_t*)0x0003FE40 + doom_code_segment) = 0x53;
+		doom_printf("%s\n", text);
+		dos_exit(1);
+	}
 
 	doom_printf("[%s] %s\n", error_module, text);
 

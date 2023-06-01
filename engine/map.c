@@ -1115,8 +1115,8 @@ uint32_t map_load_setup(uint32_t new_game)
 	map_cluster_t *cluster;
 	uint32_t cache;
 
-	if(paused) 
-	{ 
+	if(paused)
+	{
 		paused = 0;
 		S_ResumeSound();
 	}
@@ -1176,7 +1176,14 @@ uint32_t map_load_setup(uint32_t new_game)
 		// so this has to be different
 		map_lump.wame = 0x50414D454C544954; // TITLEMAP
 		is_title_map = 1;
+		demoplayback = 0;
+		netgame = 0;
 		cache = 0;
+		playeringame[0] = 1;
+		for(uint32_t i = 1; i < MAXPLAYERS; i++)
+			playeringame[i] = 0;
+		consoleplayer = 0;
+		displayplayer = 0;
 	}
 
 	// reset player aim cache

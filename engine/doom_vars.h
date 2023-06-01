@@ -60,6 +60,8 @@ extern uint32_t startskill;
 extern uint32_t startepisode;
 extern uint32_t startmap;
 extern uint32_t autostart;
+extern uint8_t *demobuffer;
+extern uint8_t *demo_p;
 
 // automap
 extern uint32_t automapactive;
@@ -338,8 +340,8 @@ extern ceiling_t *activeceilings[];
 
 // demo
 extern uint32_t netdemo;
-extern uint32_t demoplayback;
-extern uint32_t demorecording;
+extern int32_t demoplayback;
+extern int32_t demorecording;
 extern uint8_t *defdemoname;
 extern uint32_t singledemo;
 
@@ -437,6 +439,8 @@ extern uint8_t dtxt_playpal[];
 extern uint8_t dtxt_colormap[];
 extern uint8_t dtxt_stcfn[];
 extern uint64_t dtxt_skull_name[];
+extern uint8_t dtxt_playdemo[];
+extern uint8_t dtxt_timedemo[];
 extern uint8_t dtxt_m_option[];
 extern uint8_t dtxt_m_lscntr[];
 extern uint8_t dtxt_m_lsleft[];

@@ -100,6 +100,9 @@ DOOM_VAR 0x000212BC, dtxt_mflr8_4
 DOOM_VAR 0x000213D0, dtxt_help2
 DOOM_VAR 0x000213D8, dtxt_victory2
 
+DOOM_VAR 0x0002183C, dtxt_playdemo
+DOOM_VAR 0x00021848, dtxt_timedemo
+
 DOOM_VAR 0x00022458, dtxt_m_loadg
 DOOM_VAR 0x00022460, dtxt_m_lsleft
 DOOM_VAR 0x0002246C, dtxt_m_lscntr
@@ -219,6 +222,8 @@ DOOM_VAR 0x0002B364, key_left
 DOOM_VAR 0x0002B368, joyb_strafe
 DOOM_VAR 0x0002B36C, mouseb_strafe
 DOOM_VAR 0x0002B370, key_strafe
+DOOM_VAR 0x0002B374, demobuffer
+DOOM_VAR 0x0002B378, demo_p
 DOOM_VAR 0x0002B37C, joyb_fire
 DOOM_VAR 0x0002B380, mouseb_fire
 DOOM_VAR 0x0002B384, key_fire

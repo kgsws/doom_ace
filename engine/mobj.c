@@ -1594,7 +1594,7 @@ uint32_t PIT_ChangeSector(mobj_t *thing)
 
 	if(!(thing->flags1 & MF1_DONTGIB))
 	{
-		if(thing->flags2 & MF2_ICECORPSE)
+		if(thing->flags2 & MF2_ICECORPSE && !(thing->iflags & MFI_SHATTERING))
 		{
 			thing->tics = 1;
 			thing->iflags |= MFI_SHATTERING;

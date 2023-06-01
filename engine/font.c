@@ -753,5 +753,7 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0001C64A, CODE_HOOK | HOOK_JMP_DOOM, 0x0001C6DA},
 	// replace call to 'F_CastPrint'
 	{0x0001CD3B, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)cast_text},
+	// move automap levelname
+	{0x0003B5B9, CODE_HOOK | HOOK_UINT16, SCREENHEIGHT - 2},
 };
 

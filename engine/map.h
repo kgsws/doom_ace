@@ -331,6 +331,8 @@ extern uint32_t lockdefs_size;
 
 void init_map();
 
+uint32_t map_check_lump(int32_t lump);
+
 void map_start_title();
 
 uint32_t map_load_setup(uint32_t);

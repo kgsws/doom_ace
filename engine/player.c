@@ -930,6 +930,15 @@ static void build_ticcmd(ticcmd_t *cmd)
 	// use the original function
 	G_BuildTiccmd(cmd);
 
+	// data transfers
+	if(	!demorecording ||
+		(
+			!paused &&
+			!(menuactive && !netgame)
+		)
+	)
+		cmd->chatchar = HU_dequeueChatChar();
+
 	// packet transfers
 	if(hu_char_tail == hu_char_head)
 	{
@@ -1202,6 +1211,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	// disable 'mousey' in 'G_BuildTiccmd'
 	{0x0001FF60, CODE_HOOK | HOOK_SET_NOPS, 7},
 	{0x0001FF94, CODE_HOOK | HOOK_SET_NOPS, 5},
+	// disable 'HU_dequeueChatChar' in 'G_BuildTiccmd'
+	{0x0001FD81, CODE_HOOK | HOOK_SET_NOPS, 8},
 	// disable 'consistancy' check in 'G_Ticker'
 	{0x000206BB, CODE_HOOK | HOOK_UINT16, 0x7CEB},
 	// change 'BT_SPECIAL' check in 'G_Ticker'

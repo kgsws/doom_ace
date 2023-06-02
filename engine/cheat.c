@@ -213,13 +213,18 @@ static void cf_map(player_t *pl, uint8_t *arg)
 		arg++;
 
 	if(!arg[0])
-	{
-		pl->message = "Wrong level!";
-		return;
-	}
+		goto wrong_level;
+
+	if(!map_check_lump(W_CheckNumForName(arg)))
+		goto wrong_level;
 
 	strncpy(map_lump.name, arg, 8);
 	G_DeferedInitNew(gameskill, 0, 0);
+
+	return;
+
+wrong_level:
+	pl->message = "Wrong map name!";
 }
 
 static void cf_buddha(player_t *pl, uint8_t *arg)

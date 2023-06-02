@@ -32,9 +32,8 @@ enum
 uint32_t spec_special;
 int32_t spec_arg[5];
 uint32_t spec_success;
-
-static line_t *spec_line;
-static mobj_t *activator;
+line_t *spec_line;
+mobj_t *spec_activator;
 
 static uint_fast8_t door_monster_hack;
 static fixed_t value_mult;
@@ -1174,9 +1173,9 @@ static void act_Thing_Damage(mobj_t *th)
 		return;
 
 	if(spec_arg[1] > 0)
-		mobj_damage(th, NULL, activator, spec_arg[1], NULL);
+		mobj_damage(th, NULL, spec_activator, spec_arg[1], NULL);
 	else
-		mobj_give_health(activator, -spec_arg[1], 0);
+		mobj_give_health(spec_activator, -spec_arg[1], 0);
 }
 
 static void act_Thing_Spawn(mobj_t *th)
@@ -1256,7 +1255,7 @@ static uint32_t do_Teleport()
 	mobj_t *mo;
 	uint32_t flags = TELEF_USE_ANGLE;
 
-	if(activator->flags1 & MF1_NOTELEPORT)
+	if(spec_activator->flags1 & MF1_NOTELEPORT)
 		return 0;
 
 	mo = mobj_by_tid_first(spec_arg[0]);
@@ -1269,7 +1268,7 @@ static uint32_t do_Teleport()
 	if(value_mult < 0)
 		flags |= TELEF_FOG;
 
-	return mobj_teleport(activator, mo->x, mo->y, mo->z, mo->angle, flags);
+	return mobj_teleport(spec_activator, mo->x, mo->y, mo->z, mo->angle, flags);
 }
 
 static uint32_t do_TeleportOther()
@@ -1422,7 +1421,7 @@ static inline uint32_t do_NoiseAlert()
 	if(spec_arg[0])
 		target = mobj_by_tid_first(spec_arg[0]);
 	else
-		target = activator;
+		target = spec_activator;
 
 	if(!target)
 		return 0;
@@ -1433,7 +1432,7 @@ static inline uint32_t do_NoiseAlert()
 	if(spec_arg[1])
 		emitter = mobj_by_tid_first(spec_arg[1]);
 	else
-		emitter = activator;
+		emitter = spec_activator;
 
 	if(!emitter)
 		return 0;
@@ -1449,13 +1448,13 @@ static inline uint32_t do_SetPlayerProperty()
 
 	if(!spec_arg[0])
 	{
-		if(!activator)
+		if(!spec_activator)
 			return 0;
 
-		if(!activator->player)
+		if(!spec_activator->player)
 			return 0;
 
-		idx = activator->player - players;
+		idx = spec_activator->player - players;
 		top = idx + 1;
 	} else
 	{
@@ -1508,13 +1507,13 @@ static inline uint32_t do_ChangeCamera()
 
 	if(!spec_arg[1])
 	{
-		if(!activator)
+		if(!spec_activator)
 			return 0;
 
-		if(!activator->player)
+		if(!spec_activator->player)
 			return 0;
 
-		idx = activator->player - players;
+		idx = spec_activator->player - players;
 		top = idx + 1;
 	} else
 	{
@@ -1692,8 +1691,8 @@ static void handle_tid(line_t *ln, int32_t tid, void (*cb)(mobj_t*))
 
 	if(!tid)
 	{
-		if(activator)
-			cb(activator);
+		if(spec_activator)
+			cb(spec_activator);
 		return;
 	}
 
@@ -1848,7 +1847,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		}
 	}
 
-	activator = mo;
+	spec_activator = mo;
 
 	switch(spec_special)
 	{
@@ -1881,11 +1880,11 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			if(spec_arg[3])
 			{
 				uint8_t *message;
-				message = mobj_check_keylock(activator, spec_arg[3], spec_arg[0]);
+				message = mobj_check_keylock(spec_activator, spec_arg[3], spec_arg[0]);
 				if(message)
 				{
-					if(activator->player && message[0])
-						activator->player->message = message;
+					if(spec_activator->player && message[0])
+						spec_activator->player->message = message;
 					value_mult = 0;
 				}
 			}
@@ -2007,16 +2006,16 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 			handle_tid(ln, spec_arg[3], act_ThrustThing);
 		break;
 		case 73: // DamageThing
-			if(activator)
+			if(spec_activator)
 			{
 				if(spec_arg[0] >= 0)
 				{
 					int32_t damage = spec_arg[0];
 					if(!damage)
 						damage = 1000000;
-					mobj_damage(activator, NULL, NULL, damage, NULL);
+					mobj_damage(spec_activator, NULL, NULL, damage, NULL);
 				} else
-					mobj_give_health(activator, -spec_arg[0], 0);
+					mobj_give_health(spec_activator, -spec_arg[0], 0);
 				spec_success = 1;
 			}
 		break;

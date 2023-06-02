@@ -4295,6 +4295,22 @@ void A_IceSetTics(mobj_t *mo, state_t *st, stfunc_t stfunc)
 static __attribute((regparm(2),no_caller_saved_registers))
 void A_LineSpecial(mobj_t *mo, state_t *st, stfunc_t stfunc)
 {
+	int32_t arg[5];
+	uint32_t spec;
+	uint32_t succ;
+	line_t *line;
+	mobj_t *act;
+
+	arg[0] = spec_arg[0];
+	arg[1] = spec_arg[1];
+	arg[2] = spec_arg[2];
+	arg[3] = spec_arg[3];
+	arg[4] = spec_arg[4];
+	spec = spec_special;
+	succ = spec_success;
+	line = spec_line;
+	act = spec_activator;
+
 	spec_arg[0] = actarg_integer(mo, st->arg, 0, 0);
 	spec_arg[1] = actarg_integer(mo, st->arg, 1, 0);
 	spec_arg[2] = actarg_integer(mo, st->arg, 2, 0);
@@ -4302,6 +4318,16 @@ void A_LineSpecial(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	spec_arg[4] = actarg_integer(mo, st->arg, 4, 0);
 	spec_special = ((uint16_t*)st->arg)[6];
 	spec_activate(NULL, mo, 0);
+
+	spec_arg[0] = arg[0];
+	spec_arg[1] = arg[1];
+	spec_arg[2] = arg[2];
+	spec_arg[3] = arg[3];
+	spec_arg[4] = arg[4];
+	spec_special = spec;
+	spec_success = succ;
+	spec_line = line;
+	spec_activator = act;
 }
 
 //

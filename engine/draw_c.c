@@ -5,6 +5,7 @@
 #include "engine.h"
 #include "utils.h"
 #include "render.h"
+#include "config.h"
 #include "map.h"
 #include "vesa.h"
 #include "draw.h"
@@ -776,6 +777,9 @@ uint32_t check_map_line(line_t *li)
 
 	if(li->flags & ML_DONTDRAW && !am_cheating)
 		return 0;
+
+	if(!mod_config.automap_lockdefs)
+		return 1;
 
 	if(!li->special)
 		return 1;

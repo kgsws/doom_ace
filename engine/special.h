@@ -13,6 +13,8 @@
 extern uint32_t spec_special;
 extern int32_t spec_arg[5];
 extern uint32_t spec_success;
+extern line_t *spec_line;
+extern mobj_t *spec_activator;
 
 //
 

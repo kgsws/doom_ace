@@ -209,14 +209,17 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 	fixed_t xintercept, yintercept;
 	int32_t mapx, mapy, mapxstep, mapystep;
 	int32_t count;
-
-	validcount++;
-	intercept_p = intercepts;
+	uint32_t retry = 0;
 
 	if(((x1 - bmaporgx) & (MAPBLOCKSIZE - 1)) == 0)
 		x1 += FRACUNIT;
 	if(((y1 - bmaporgy) & (MAPBLOCKSIZE - 1)) == 0)
 		y1 += FRACUNIT;
+
+try_again:
+
+	validcount++;
+	intercept_p = intercepts;
 
 	trace.x = x1;
 	trace.y = y1;
@@ -303,8 +306,7 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 			}
 
 			if(count >= 64)
-				// TODO: better solution
-				return 0;
+				goto epic_fail;
 
 			goto traverse;
 		}
@@ -332,8 +334,21 @@ static uint32_t P_SightPathTraverse(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t 
 	}
 
 	if(count >= 64)
+	{
 		// TODO: better solution
-		return 0;
+epic_fail:
+		if(retry)
+			return 0;
+		x1 += bmaporgx;
+		y1 += bmaporgy;
+		x2 += bmaporgx;
+		y2 += bmaporgy;
+		x2 ^= 0x100;
+		y2 ^= 0x100;
+		retry++;
+		goto try_again;
+	}
+
 traverse:
 	return P_SightTraverseIntercepts();
 }

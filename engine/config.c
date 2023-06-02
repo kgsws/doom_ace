@@ -186,6 +186,7 @@ static config_entry_t config_mod[] =
 	{"damage[5].name", &damage_type_config[DAMAGE_CUSTOM_5].name, TYPE_STRING_LC_ALLOC},
 	{"damage[6].name", &damage_type_config[DAMAGE_CUSTOM_6].name, TYPE_STRING_LC_ALLOC},
 	// custom automap colors
+	{"automap.lockdefs", &mod_config.automap_lockdefs, TYPE_U8},
 	{"automap.color[0]", (void*)0x00026325, TYPE_COLOR, 1}, // background
 	{"automap.color[1]", (void*)0x00026335, TYPE_COLOR, 1}, // grid
 	{"automap.color[2]", (void*)0x00025E4B, TYPE_COLOR, 1}, // one-sided line

@@ -781,7 +781,7 @@ extra_ssec:
 //
 // map loading
 
-static inline uint32_t check_map(int32_t lump)
+uint32_t map_check_lump(int32_t lump)
 {
 	if(lump < 0)
 		return 0;
@@ -1198,7 +1198,7 @@ uint32_t map_load_setup(uint32_t new_game)
 
 	// find map lump
 	map_lump_idx = W_CheckNumForName(map_lump.name);
-	map_format = check_map(map_lump_idx);
+	map_format = map_check_lump(map_lump_idx);
 	if(!map_format)
 		goto map_load_error;
 	doom_printf("[MAP] %s map format\n", map_format == MAP_FORMAT_DOOM ? "Doom" : "Hexen");

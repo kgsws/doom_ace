@@ -641,7 +641,7 @@ static void draw_check_preview()
 			base[0] = 0;
 			base[1] = 100;
 			if(!slot->step)
-				memset(base + 3, 0, 100);
+				memset(base + 3, r_color_black, 100);
 			base[104] = 0xFF;
 			base += 105;
 		}
@@ -1538,7 +1538,7 @@ void save_auto(uint32_t clear)
 	}
 
 	// unsavable
-	if(netgame || demoplayback)
+	if(netgame)
 		return;
 
 	// check

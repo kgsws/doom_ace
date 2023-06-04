@@ -27,7 +27,7 @@ void P_Ticker()
 {
 	thinker_t *th;
 
-	if(!demorecording || netgame)
+	if(!demorecording || (!paused && !(menuactive && !netgame)))
 	{
 		// player data transfers - even when paused
 		for(uint32_t i = 0; i < MAXPLAYERS; i++)

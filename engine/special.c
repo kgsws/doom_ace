@@ -1525,14 +1525,14 @@ static inline uint32_t do_ChangeCamera()
 	{
 		player_t *pl = players + idx;
 
-		if(spec_arg[2])
-			pl->prop |= (1 << PROP_CAMERA_MOVE);
-		else
-			pl->prop &= ~(1 << PROP_CAMERA_MOVE);
-
 		if(spec_arg[0])
+		{
 			pl->camera = cam;
-		else
+			if(spec_arg[2])
+				pl->prop |= (1 << PROP_CAMERA_MOVE);
+			else
+				pl->prop &= ~(1 << PROP_CAMERA_MOVE);
+		} else
 			pl->camera = pl->mo;
 	}
 

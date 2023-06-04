@@ -73,7 +73,7 @@ static const cheat_func_t cheat_func[] =
 	// kg
 	{"kgRevenge", cf_revenge},
 	// dev
-//	{"desync", cf_net_desync}, // this should not be enable in release
+//	{"desync", cf_net_desync}, // this should not be enabled in release
 	{"savelight", cf_save_light},
 	// terminator
 	{NULL}
@@ -211,6 +211,9 @@ static void cf_iddt(player_t *pl, uint8_t *arg)
 
 static void cf_map(player_t *pl, uint8_t *arg)
 {
+	if(demorecording || demoplayback)
+		return;
+
 	while(*arg == ' ')
 		arg++;
 

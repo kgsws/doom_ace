@@ -364,7 +364,7 @@ void player_chat_char(uint32_t pidx)
 	} else
 	if((cc & TIC_CMD_DATA) == TIC_CMD_DATA)
 	{
-		// ender data transfer mode
+		// enter data transfer mode
 		cb->dlen = cc & ~TIC_CMD_DATA;
 		cb->dpos = 0;
 		return;
@@ -931,12 +931,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 	G_BuildTiccmd(cmd);
 
 	// data transfers
-	if(	!demorecording ||
-		(
-			!paused &&
-			!(menuactive && !netgame)
-		)
-	)
+	if((!demorecording || (!paused && !(menuactive && !netgame))) && leveltime)
 		cmd->chatchar = HU_dequeueChatChar();
 
 	// packet transfers

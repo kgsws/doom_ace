@@ -2051,6 +2051,8 @@ static void generate_sector_light(uint8_t *dest, uint16_t color, uint16_t fade)
 	if(color & 0xF000 && (color & 0xF000) != 0xF000)
 		engine_error("RENDER", "Unable to generate desaturation %u!\n", (color >> 8) & 0xF000);
 
+	doom_printf("[RENDER] generating %s\n", name);
+
 	if(!sector_light_warning)
 	{
 		messageToPrint = 1;

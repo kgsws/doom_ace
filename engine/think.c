@@ -5,9 +5,13 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
+#include "vesa.h"
+#include "draw.h"
+#include "saveload.h"
 #include "animate.h"
 #include "terrain.h"
 #include "player.h"
+#include "special.h"
 #include "map.h"
 #include "think.h"
 
@@ -23,12 +27,15 @@ void P_Ticker()
 {
 	thinker_t *th;
 
-	// player data transfers - even when paused
-	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	if(!demorecording || netgame)
 	{
-		if(!playeringame[i])
-			continue;
-		player_chat_char(i);
+		// player data transfers - even when paused
+		for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		{
+			if(!playeringame[i])
+				continue;
+			player_chat_char(i);
+		}
 	}
 
 	if(paused)
@@ -93,6 +100,23 @@ void P_Ticker()
 
 	// next tic
 	leveltime++;
+
+	// autosave from line action
+	if(spec_autosave)
+	{
+		if(gameaction == ga_nothing)
+		{
+			int32_t lump = W_CheckNumForName("WIAUTOSV");
+			if(lump >= 0)
+			{
+				vesa_copy();
+				V_DrawPatchDirect(0, 0, W_CacheLumpNum(lump, PU_CACHE));
+				vesa_update();
+			}
+			save_auto(0);
+		}
+		spec_autosave = 0;
+	}
 }
 
 //

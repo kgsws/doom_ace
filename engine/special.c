@@ -5,9 +5,7 @@
 #include "sdk.h"
 #include "engine.h"
 #include "utils.h"
-#include "vesa.h"
 #include "player.h"
-#include "draw.h"
 #include "mobj.h"
 #include "map.h"
 #include "render.h"
@@ -34,6 +32,8 @@ int32_t spec_arg[5];
 uint32_t spec_success;
 line_t *spec_line;
 mobj_t *spec_activator;
+
+uint_fast8_t spec_autosave;
 
 static uint_fast8_t door_monster_hack;
 static fixed_t value_mult;
@@ -1893,20 +1893,7 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 		break;
 		case 15: // Autosave
 			if(!netgame)
-			{
-				int32_t lump = W_CheckNumForName("WIAUTOSV");
-				if(lump >= 0)
-				{
-					vesa_copy();
-					V_DrawPatchDirect(0, 0, W_CacheLumpNum(lump, PU_CACHE));
-					vesa_update();
-				}
-				if(ln)
-					// special must be cleared before autosave
-					// sorry, no 'repeatable'
-					ln->special = 0;
-				save_auto(0);
-			}
+				spec_autosave = 1;
 			spec_success = 1;
 		break;
 		case 19: // Thing_Stop

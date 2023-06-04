@@ -27,6 +27,7 @@ static const linespec_t special_action[] =
 	{10, "door_close"},
 	{12, "door_raise"},
 	{13, "door_lockedraise"},
+	{15, "autosave"},
 	{19, "thing_stop"},
 	{20, "floor_lowerbyvalue"},
 	{23, "floor_raisebyvalue"},

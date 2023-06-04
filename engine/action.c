@@ -563,9 +563,9 @@ static int32_t resolve_type(mobj_t *mo, uint32_t type, uint32_t value)
 
 		rng = P_Random();
 		if(diff > 255)
-			rng = P_Random() << 8;
+			rng |= P_Random() << 8;
 
-		v0 += rng % diff;
+		v0 += rng % (diff + 1);
 
 		return v0 << MATHFRAC;
 	}
@@ -903,17 +903,23 @@ uint32_t PIT_Explode(mobj_t *thing)
 	fixed_t dist;
 	uint32_t damage;
 
-	if(thing == bombspot)
-		return 1;
-
 	if(!(thing->flags & MF_SHOOTABLE))
 		return 1;
 
 	if(thing->flags1 & MF1_NORADIUSDMG && !(bombspot->flags2 & MF2_FORCERADIUSDMG))
 		return 1;
 
-	if(thing == bombsource && !(bombflags & XF_HURTSOURCE))
-		return 1;
+	if(thing == bombsource)
+	{
+		if(!(bombflags & XF_HURTSOURCE))
+			return 1;
+		if(	thing->player &&
+			bombspot->flags1 & MF1_SPECTRAL
+		)	// well ... this is obscure
+			// and yet it does not match ZDoom
+			// in ZDoom, rocket jump is still applied
+			return 1;
+	}
 
 	dx = abs(thing->x - bombspot->x);
 	dy = abs(thing->y - bombspot->y);
@@ -4762,6 +4768,11 @@ void *act_handle_arg(int32_t idx)
 
 uint8_t *action_parser(uint8_t *name)
 {
+	// Argument layout in memory:
+	// uint16_t argument_count;
+	// uint16_t data_offset_and_type[max_argument_count];
+	// uint8_t buffer_with_data[];
+	// offset is relative to &argument_count
 	uint8_t *kw;
 	const dec_action_t *act;
 	const dec_linespec_t *spec;
@@ -4848,6 +4859,15 @@ uint8_t *action_parser(uint8_t *name)
 			if(parse_arg_idx >= act->maxarg)
 				engine_error("DECORATE", "Too many arguments for action '%s' in '%s'!", name, parse_actor_name);
 		}
+	} else
+	if(act == &line_action)
+	{
+		// empty line special hack
+		uint16_t *ac;
+		parse_action_arg = dec_es_alloc(7 * sizeof(uint16_t));
+		ac = parse_action_arg;
+		ac[0] = 0;
+		ac[6] = spec->special;
 	}
 
 	if(parse_arg_idx < act->minarg)
@@ -4981,6 +5001,7 @@ static const dec_linespec_t special_action[] =
 	{10, 0xDE1BCF04}, // door_close
 	{12, 0x9E1BD7D0}, // door_raise
 	{13, 0x4B31BE7F}, // door_lockedraise
+	{15, 0x533D5021}, // autosave
 	{19, 0xC337C323}, // thing_stop
 	{20, 0xC37E579D}, // floor_lowerbyvalue
 	{23, 0xB6E06E7C}, // floor_raisebyvalue

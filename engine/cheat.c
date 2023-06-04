@@ -86,6 +86,8 @@ static uint32_t kill_mobj(mobj_t *mo)
 {
 	if(!(mo->flags1 & MF1_ISMONSTER))
 		return 0;
+	if(mo->flags2 & MF2_ICECORPSE)
+		return 0;
 	mobj_damage(mo, NULL, NULL, 1000000, 0);
 	return 0;
 }

@@ -1124,6 +1124,7 @@ uint32_t map_load_setup(uint32_t new_game)
 	if(gameskill > sk_nightmare)
 		gameskill = sk_nightmare;
 
+	spec_autosave = 0;
 	totalkills = 0;
 	totalitems = 0;
 	totalsecret = 0;

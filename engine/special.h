@@ -16,6 +16,8 @@ extern uint32_t spec_success;
 extern line_t *spec_line;
 extern mobj_t *spec_activator;
 
+extern uint_fast8_t spec_autosave;
+
 //
 
 void spec_activate(line_t*,mobj_t*,uint32_t);

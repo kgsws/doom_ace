@@ -30,6 +30,10 @@ fixed_t tmextradrop;
 
 uint_fast8_t e3d_plane_move;
 
+uint_fast8_t e3d_dbg;
+uint32_t e3d_dbg_splitcount;
+uint32_t e3d_dbg_planecount;
+
 //
 // funcs
 
@@ -537,6 +541,7 @@ void e3d_draw_height(fixed_t height)
 					spanfunc = R_DrawMaskedSpanTint1;
 			}
 			// draw
+			e3d_dbg_planecount++;
 			r_draw_plane(pl);
 		}
 	}
@@ -547,6 +552,11 @@ void e3d_draw_planes()
 	// not really used
 	for(visplane_t *pl = e3dplanes; pl < cur_plane; pl++)
 		r_draw_plane(pl);
+}
+
+uint32_t e3d_count_planes()
+{
+	return cur_plane - e3dplanes;
 }
 
 void e3d_reset()

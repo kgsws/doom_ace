@@ -14,6 +14,7 @@
 #include "stbar.h"
 #include "sound.h"
 #include "cheat.h"
+#include "think.h"
 #include "config.h"
 #include "controls.h"
 #include "extra3d.h"
@@ -226,7 +227,7 @@ static inline void check_buttons(player_t *pl, ticcmd_t *cmd)
 	{
 		invitem_t *item;
 
-		item = inventory_find(pl->mo, extra_config.quick_inv);
+		item = inventory_find(pl->mo, player_info[pl - players].quick_inv);
 		if(!item)
 			return;
 
@@ -433,7 +434,10 @@ void P_CalcHeight(player_t *player)
 	if(player->bob > MAXBOB)
 		player->bob = MAXBOB;
 
-	angle = (FINEANGLES / 20 * leveltime) & FINEMASK;
+	if(!think_freeze_mode)
+		angle = (FINEANGLES / 20 * leveltime) & FINEMASK;
+	else
+		angle = 0;
 	bob = FixedMul(player->bob / 2, finesine[angle]);
 	if(player->mo->info->player.view_bob != FRACUNIT)
 		bob = FixedMul(bob, player->mo->info->player.view_bob);

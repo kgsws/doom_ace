@@ -185,6 +185,8 @@ DOOM_VAR 0x0002A3C8, respawnparm
 DOOM_VAR 0x0002A3CC, eventtail
 DOOM_VAR 0x0002A3D0, eventhead
 
+DOOM_VAR 0x0002A407, exitmsg
+
 DOOM_VAR 0x0002A76C, netbuffer
 DOOM_VAR 0x0002A770, doomcom
 

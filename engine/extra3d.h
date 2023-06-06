@@ -44,6 +44,10 @@ extern fixed_t tmextradrop;
 
 extern uint_fast8_t e3d_plane_move;
 
+extern uint_fast8_t e3d_dbg;
+extern uint32_t e3d_dbg_splitcount;
+extern uint32_t e3d_dbg_planecount;
+
 //
 
 void e3d_init(uint32_t count);
@@ -51,6 +55,7 @@ void e3d_create();
 void e3d_reset();
 void e3d_draw_height(fixed_t);
 void e3d_draw_planes();
+uint32_t e3d_count_planes();
 
 //
 

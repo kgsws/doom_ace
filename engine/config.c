@@ -406,7 +406,10 @@ void config_postinit()
 
 	type = mobj_check_type(extra_config.quick_inv_alias);
 	if(type >= 0 && inventory_is_usable(mobjinfo + type))
+	{
 		extra_config.quick_inv = type;
+		player_info[0].quick_inv = type;
+	}
 }
 
 static __attribute((regparm(2),no_caller_saved_registers))

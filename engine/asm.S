@@ -303,6 +303,42 @@ rng_skip:
 	ret
 
 //
+// VGA hack
+.global vga_60hz
+vga_60hz:
+	push	%edx
+	cli
+	mov	$0x03D4,%dx
+	mov	$0x0011,%ax
+	out	%ax,(%dx)
+	mov	$0x0B06,%ax
+	out	%ax,(%dx)
+	mov	$0x3E07,%ax
+	out	%ax,(%dx)
+#if 1
+	mov	$0xB910,%ax
+	out	%ax,(%dx)
+	mov	$0x8F12,%ax
+	out	%ax,(%dx)
+	mov	$0xB815,%ax
+	out	%ax,(%dx)
+	mov	$0xE216,%ax
+	out	%ax,(%dx)
+	mov	$0x8511,%ax
+	out	%ax,(%dx)
+#else
+	mov	$0x0B16,%ax
+	out	%ax,(%dx)
+	mov	$0xD710,%ax
+	out	%ax,(%dx)
+	mov	$0x8911,%ax
+	out	%ax,(%dx)
+#endif
+	sti
+	pop	%edx
+	ret
+
+//
 // Relocation table for functions with 0, 1 or 2 arguments.
 // Every entry is 'jmp 0x........' opcode. Offsets are relocated to "CODE segment".
 .section .text.__reloc_code_012

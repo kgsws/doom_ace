@@ -93,6 +93,7 @@ extern uint32_t old_game_mode;
 
 // asm.S
 void dos_exit(uint32_t) __attribute((regparm(2),noreturn));
+void vga_60hz();
 
 // word copy
 static inline void dwcopy(void *dst, void *src, uint32_t count)

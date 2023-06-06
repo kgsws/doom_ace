@@ -273,6 +273,11 @@ void vesa_init()
 	}
 
 	I_InitGraphics();
+
+	if(!vesa_on && M_CheckParm("-vga60"))
+		// a hack for some capture cards
+		// beware: this changes aspect ratio
+		vga_60hz();
 }
 
 void vesa_copy()

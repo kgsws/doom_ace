@@ -12,6 +12,7 @@
 #include "action.h"
 #include "hitscan.h"
 #include "render.h"
+#include "extra3d.h"
 #include "think.h"
 #include "map.h"
 #include "stbar.h"
@@ -49,6 +50,7 @@ static void cf_class(player_t*,uint8_t*);
 static void cf_revenge(player_t*,uint8_t*);
 static void cf_net_desync(player_t*,uint8_t*);
 static void cf_save_light(player_t*,uint8_t*);
+static void cf_3dfx(player_t*,uint8_t*);
 static const cheat_func_t cheat_func[] =
 {
 	// old
@@ -75,6 +77,7 @@ static const cheat_func_t cheat_func[] =
 	// dev
 //	{"desync", cf_net_desync}, // this should not be enabled in release
 	{"savelight", cf_save_light},
+	{"3dfx", cf_3dfx},
 	// terminator
 	{NULL}
 };
@@ -469,6 +472,11 @@ static void cf_save_light(player_t *pl, uint8_t *arg)
 	}
 
 	pl->message = fail ? "Export error!" : "Color tables exported";
+}
+
+static void cf_3dfx(player_t *pl, uint8_t *arg)
+{
+	e3d_dbg = 1;
 }
 
 //

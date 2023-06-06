@@ -354,7 +354,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, int32_t x1, int32_t x2)
 
 	// texture - extra floors
 	if(	clip_height_top < ONCEILINGZ &&
-		clip_height_bot > ONFLOORZ &&
+//		clip_height_bot > ONFLOORZ &&
 		frontsector->tag != backsector->tag
 	){
 		extraplane_t *pl;
@@ -1088,6 +1088,8 @@ static void draw_masked()
 	vissprite_t *spr;
 	drawseg_t *ds;
 
+	e3d_dbg_splitcount++;
+
 	if(vissprite_p > vissprites)
 	{
 		for(spr = vsprsortedhead.next; spr != &vsprsortedhead; spr = spr->next)
@@ -1107,6 +1109,9 @@ static inline void draw_masked_range()
 #if 1
 	fixed_t ht;
 	extra_height_t *hh;
+
+	e3d_dbg_splitcount = 0;
+	e3d_dbg_planecount = 0;
 
 	R_SortVisSprites();
 
@@ -1147,6 +1152,14 @@ static inline void draw_masked_range()
 	// middle - sprites and lines
 	clip_height_top = ht;
 	draw_masked();
+
+	if(e3d_dbg)
+	{
+		e3d_dbg = 0;
+		doom_sprintf(exitmsg, "sp: %u pv: %u pt: %u", e3d_dbg_splitcount, e3d_dbg_planecount, e3d_count_planes());
+		message_is_important = 1;
+		players[consoleplayer].message = exitmsg;
+	}
 #else
 	// UNSORTED!
 	clip_height_top = ONCEILINGZ;
@@ -1501,7 +1514,8 @@ void R_Subsector(uint32_t num)
 			continue;
 		}
 
-		e3d_add_height(*pl->height);
+		if(*pl->height > frontsector->floorheight)
+			e3d_add_height(*pl->height);
 
 		if(*pl->height <= viewz || !pl->alpha)
 		{

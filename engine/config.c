@@ -120,7 +120,7 @@ static config_entry_t config_game[] =
 	{"input.joy.use", &joyb_use, TYPE_S32},
 	{"input.joy.speed", &joyb_speed, TYPE_S32},
 	// sound
-	{"sound.channels", &numChannels, TYPE_S32},
+	{"sound.channels", &extra_config.sound_mix_channels, TYPE_U16},
 	{"sound.device.sfx", &snd_sfxdevice, TYPE_S32},
 	{"sound.device.music", &snd_musicdevice, TYPE_S32},
 	{"sound.volume.sfx", &snd_SfxVolume, TYPE_S32},
@@ -170,6 +170,8 @@ static config_entry_t config_mod[] =
 	// game
 	{"game.mode", &mod_config.game_mode, TYPE_U8},
 	{"game.save.name", &mod_config.save_name, TYPE_STR_LEN | 8},
+	// sound
+	{"sound.channels.min", &mod_config.sound_min_channels, TYPE_U8},
 	// ZDoom
 	{"zdoom.light.fullbright", &mod_config.color_fullbright, TYPE_U8},
 	// status bar ammo
@@ -398,6 +400,13 @@ void init_config()
 	pli->flags |= (uint32_t)extra_config.auto_aim << plf_auto_aim;
 	pli->flags |= (uint32_t)(!!extra_config.mouse_look) << plf_mouse_look;
 	pli->color = extra_config.player_color;
+
+	// sound
+	if(mod_config.sound_min_channels > 128)
+		mod_config.sound_min_channels = 128;
+	numChannels = extra_config.sound_mix_channels;
+	if(numChannels < mod_config.sound_min_channels)
+		numChannels = mod_config.sound_min_channels;
 }
 
 void config_postinit()

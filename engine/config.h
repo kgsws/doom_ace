@@ -17,6 +17,8 @@ typedef struct
 	int8_t menu_save_valid;
 	int8_t menu_save_error;
 	int8_t menu_save_mismatch;
+	// sound
+	uint8_t sound_min_channels;
 	// memory
 	uint8_t mem_min;
 	// game
@@ -56,6 +58,8 @@ typedef struct
 	// quick inventory
 	uint64_t quick_inv_alias;
 	uint16_t quick_inv;
+	// sound
+	uint16_t sound_mix_channels;
 } extra_config_t;
 
 //

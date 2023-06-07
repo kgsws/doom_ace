@@ -9,13 +9,14 @@
 #include "net.h"
 #include "demo.h"
 
-#define DEMO_MAGIC	0xA7B54D39	// just a random number
+#define DEMO_MAGIC	0xA7B54D3A	// just a random number
 
 typedef struct
 {
 	uint32_t magic;
 	uint32_t version;
 	uint32_t mod_csum;
+	uint16_t rngindex;
 	uint16_t flags;
 	uint8_t skill;
 	uint8_t netgame;
@@ -139,6 +140,7 @@ static void do_play_demo()
 
 	gameskill = header.skill;
 	netgame = header.netgame;
+	prndindex = header.rngindex;
 
 	memcpy(&demobackup, player_info, sizeof(player_info_t));
 
@@ -276,6 +278,7 @@ static void do_record_start()
 	header.magic = DEMO_MAGIC;
 	header.version = ace_git_version;
 	header.mod_csum = dec_mod_csum;
+	header.rngindex = prndindex;
 	header.flags = net_make_flags();
 	header.skill = gameskill;
 	header.netgame = netgame;

@@ -1414,7 +1414,7 @@ static void shatter_spawn(mobj_t *mo, uint32_t type)
 		count = 8;
 
 	// limit the amount for low-end PCs
-	count -= count >> 2;
+	count /= 4;
 	if(count > 100)
 		count = 100;
 

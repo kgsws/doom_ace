@@ -25,6 +25,7 @@ DOOM_VAR 0x00011B80, pars
 DOOM_VAR 0x00011C20, cpars
 
 DOOM_VAR 0x00012222, dtxt_skull_name
+DOOM_VAR 0x00012236, dtxt_m_ngame
 DOOM_VAR 0x00012247, dtxt_m_option
 
 DOOM_VAR 0x000122B2, dtxt_m_epi1

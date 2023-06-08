@@ -442,6 +442,7 @@ extern uint8_t dtxt_stcfn[];
 extern uint64_t dtxt_skull_name[];
 extern uint8_t dtxt_playdemo[];
 extern uint8_t dtxt_timedemo[];
+extern uint8_t dtxt_m_ngame[];
 extern uint8_t dtxt_m_option[];
 extern uint8_t dtxt_m_lscntr[];
 extern uint8_t dtxt_m_lsleft[];

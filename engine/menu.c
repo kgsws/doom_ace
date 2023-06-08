@@ -1074,7 +1074,7 @@ void init_menu()
 
 	title_pclass = W_CheckNumForName("M_PCLASS");
 	if(title_pclass < 0)
-		title_pclass = W_GetNumForName("M_NGAME");
+		title_pclass = W_GetNumForName(dtxt_m_ngame);
 }
 
 void menu_draw_slot_bg(uint32_t x, uint32_t y, uint32_t width)

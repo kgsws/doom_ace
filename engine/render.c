@@ -2477,6 +2477,9 @@ void render_preinit(uint8_t *palette)
 	}
 
 	// check for pre-calculated render tables
+	if(M_CheckParm("-dumptables"))
+		return;
+
 	lump = wad_check_lump("ACE_RNDR");
 	if(lump < 0)
 		return;
@@ -2631,7 +2634,10 @@ void init_render()
 
 	// optional export
 	if(M_CheckParm("-dumptables"))
+	{
 		ldr_dump_buffer("ace_rndr.lmp", render_tables, sizeof(render_tables_t));
+		engine_error("", "Tables were dumped to '%s' ...", "ace_rndr.lmp");
+	}
 }
 
 void render_generate_blood()

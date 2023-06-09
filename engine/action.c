@@ -2276,6 +2276,9 @@ void A_SpawnProjectile(mobj_t *mo, state_t *st, stfunc_t stfunc)
 	}
 
 	missile_stuff(th, mo, target, speed, angle, pitch, th->momz);
+
+	if(flags & CMF_SAVEPITCH)
+		th->pitch = pitch;
 }
 
 //

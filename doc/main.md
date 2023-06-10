@@ -15,6 +15,8 @@ Additionaly, `TEXTURE2` lump **must not** exist!
 
 Refer to [textures](textures.md) for workaround.
 
+NOTE: If you have issues with certain map editors you can, for development, split ACE Engine and your stuff into two different WAD files and merge those just before final release.
+
 ## TOC
 
 - [good to know](stuff.md)

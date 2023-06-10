@@ -3,6 +3,14 @@
 ACE Engine is a hack for DOS Doom so i has various workrounds, speed optimizations and stuff.  
 Here are some recommended things and good tips.
 
+## IWAD
+
+ACE Engine **can** be used in IWAD! If used this way, users won't be presented with `modified game` warning.  
+IWAD othewise must have all lumps required by `doom2.exe` present. (except wall and flat textures)  
+The only important thing is to place ACE Engine lumps **last** in a wad file.
+
+TIP: If you name your wad file `doom2f.wad`, it will take priority over normal IWAD.
+
 ## Precalculation
 
 Since palette color matching on 486 hardware is slow, some tables are better precalculated.  

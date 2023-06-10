@@ -489,6 +489,7 @@ static void cb_sndseq(lumpinfo_t *li)
 	uint16_t do_stop;
 
 	tp_load_lump(li);
+	tp_enable_array = 1;
 
 	while(1)
 	{

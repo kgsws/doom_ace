@@ -50,6 +50,8 @@ static uint_fast8_t teleblock;
 static fixed_t oldfloorz;
 mobj_t *mobj_hit_thing;
 
+uint16_t mobj_lock_sound;
+
 //
 // state changes
 
@@ -1732,12 +1734,17 @@ uint8_t *mobj_check_keylock(mobj_t *mo, uint32_t lockdef, uint32_t is_remote)
 	uint8_t *msg = NULL;
 	uint8_t *rsg = NULL;
 
+	mobj_lock_sound = 0;
+
 	while(ptr < lockdefs + lockdefs_size)
 	{
 		lockdef_t *ld = ptr;
 
 		if(ld->id == lockdef)
+		{
+			mobj_lock_sound = ld->sound;
 			data = ld->data;
+		}
 
 		ptr += ld->size;
 	}

@@ -1883,8 +1883,15 @@ void spec_activate(line_t *ln, mobj_t *mo, uint32_t type)
 				message = mobj_check_keylock(spec_activator, spec_arg[3], spec_arg[0]);
 				if(message)
 				{
-					if(spec_activator->player && message[0])
-						spec_activator->player->message = message;
+					if(spec_activator->player)
+					{
+						if(message[0])
+							spec_activator->player->message = message;
+						if(!mobj_lock_sound)
+							mobj_lock_sound = mo->info->player.sound.usefail;
+					}
+					if(mobj_lock_sound)
+						S_StartSound(spec_activator, mobj_lock_sound);
 					value_mult = 0;
 				}
 			}

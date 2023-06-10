@@ -29,6 +29,8 @@ extern uint_fast8_t reborn_inventory_hack;
 
 extern mobj_t *mobj_hit_thing;
 
+extern uint16_t mobj_lock_sound;
+
 //
 
 void mobj_set_animation(mobj_t*,uint8_t) __attribute((regparm(2),no_caller_saved_registers));

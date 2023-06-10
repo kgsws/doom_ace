@@ -121,14 +121,14 @@ static config_entry_t config_game[] =
 	{"input.joy.speed", &joyb_speed, TYPE_S32},
 	// sound
 	{"sound.channels", &extra_config.sound_mix_channels, TYPE_U16},
-	{"sound.device.sfx", &snd_sfxdevice, TYPE_S32},
-	{"sound.device.music", &snd_musicdevice, TYPE_S32},
+	{"sound.device.sfx", &extra_config.sound_sfx_device, TYPE_U8},
+	{"sound.device.music", &extra_config.sound_music_device, TYPE_U8},
 	{"sound.volume.sfx", &snd_SfxVolume, TYPE_S32},
 	{"sound.volume.music", &snd_MusicVolume, TYPE_S32},
-	{"sound.sb.port", &snd_sbport, TYPE_S32},
-	{"sound.sb.irq", &snd_sbirq, TYPE_S32},
-	{"sound.sb.dma", &snd_sbdma, TYPE_S32},
-	{"sound.m.port", &snd_mport, TYPE_S32},
+	{"sound.sb.port", &extra_config.sound_s_port, TYPE_S32},
+	{"sound.sb.irq", &extra_config.sound_s_irq, TYPE_S32},
+	{"sound.sb.dma", &extra_config.sound_s_dma, TYPE_S32},
+	{"sound.m.port", &extra_config.sound_m_port, TYPE_S32},
 	// screen
 	{"display.messages", &showMessages, TYPE_S32},
 	{"display.size", &screenblocks, TYPE_S32},
@@ -407,6 +407,36 @@ void init_config()
 	numChannels = extra_config.sound_mix_channels;
 	if(numChannels < mod_config.sound_min_channels)
 		numChannels = mod_config.sound_min_channels;
+
+	if(!snd_sfxdevice)
+		snd_sfxdevice = extra_config.sound_sfx_device;
+	else
+		extra_config.sound_sfx_device = snd_sfxdevice;
+
+	if(!snd_musicdevice)
+		snd_musicdevice = extra_config.sound_music_device;
+	else
+		extra_config.sound_music_device = snd_musicdevice;
+
+	if(!snd_sbport)
+		snd_sbport = extra_config.sound_s_port;
+	else
+		extra_config.sound_s_port = snd_sbport;
+
+	if(!snd_sbirq)
+		snd_sbirq = extra_config.sound_s_irq;
+	else
+		extra_config.sound_s_irq = snd_sbirq;
+
+	if(!snd_sbdma)
+		snd_sbdma = extra_config.sound_s_dma;
+	else
+		extra_config.sound_s_dma = snd_sbdma;
+
+	if(!snd_mport)
+		snd_mport = extra_config.sound_m_port;
+	else
+		extra_config.sound_m_port = snd_mport;
 }
 
 void config_postinit()

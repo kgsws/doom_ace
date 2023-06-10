@@ -60,6 +60,12 @@ typedef struct
 	uint16_t quick_inv;
 	// sound
 	uint16_t sound_mix_channels;
+	uint8_t sound_sfx_device;
+	uint8_t sound_music_device;
+	uint32_t sound_s_port;
+	uint32_t sound_s_irq;
+	uint32_t sound_s_dma;
+	uint32_t sound_m_port;
 } extra_config_t;
 
 //

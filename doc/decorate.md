@@ -497,7 +497,7 @@ List of supported [action functions](https://zdoom.org/wiki/Action_functions):
 - `A_CheckFlag`
 - `A_MonsterRefire`
 
-## line specials
+### line specials
 
 Most [line specials](lnspec.md) **can** be used as state functions.
 
@@ -507,3 +507,8 @@ Special case for `Line_SetTextureOffset` line special:
 Offsets have to be specified as `doom fixed point`, that is, offset `16` has to be set as `16 * 65536`.  
 No change has to be specified as `32767 * 65536`.
 **BEWARE:** Due to numeric precision limit, max positive offset is `31` and max negative offset is `-32`!
+**BEWARE:** You always have to set offset of all textures. Flags have to be either `7` or `15`.
+
+## ZDoom differences
+
+ TODO

@@ -17,6 +17,7 @@ Refer to [textures](textures.md) for workaround.
 
 ## TOC
 
+- [good to know](stuff.md)
 - [config](config.md)
 - [fonts](fonts.md)
 - [save](save.md)
@@ -28,8 +29,11 @@ Refer to [textures](textures.md) for workaround.
 - [sndseq](sndseq.md)
 - [trnslate](trnslate.md)
 - [zmapinfo](zmapinfo.md)
+- [lockdefs](lockdefs.md)
 - [animdefs](animdefs.md)
+- [terrain](terrain.md)
 - [decorate](decorate.md)
+- [sector specials](secspec.md)
 - [line specials](lnspec.md)
 
 ## Expected lumps

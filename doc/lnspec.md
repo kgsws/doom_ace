@@ -1,0 +1,113 @@
+# Line specials
+
+ACE Engine supports some of ZDoom [line specials](https://zdoom.org/wiki/Action_specials).  
+These new line specials are only available in Hexen map format or [decorate](decorate.md).
+
+## list
+
+Note: Some specials are not meant to be used in decorate and thus are only available in map.  
+Note: Not all features of specified special might be supported. It is quite likely i forgot to document some limitations.
+
+- 1 `Polyobj_StartLine`
+  - `lineid` is not supported
+  - check [good to know](stuff.md) for limitations
+- 2 `Polyobj_RotateLeft`
+- 3 `Polyobj_RotateRight`
+- 4 `Polyobj_Move`
+- 7 `Polyobj_DoorSwing`
+- 8 `Polyobj_DoorSlide`
+- 10 `Door_Close`
+- 12 `Door_Raise`
+- 13 `Door_LockedRaise`
+- 15 `Autosave`
+  - this does nothing in *netgame*
+  - custom graphic for "saving" text can be provided in `WIAUTOSV` lump
+- 19 `Thing_Stop`
+- 20 `Floor_LowerByValue`
+- 23 `Floor_RaiseByValue`
+- 26 `Stairs_BuildDown`
+- 27 `Stairs_BuildUp`
+- 28 `Floor_RaiseAndCrush`
+- 31 `Stairs_BuildDownSync`
+- 32 `Stairs_BuildUpSync`
+- 35 `Floor_RaiseByValueTimes8`
+- 36 `Floor_LowerByValueTimes8`
+- 37 `Floor_MoveToValue`
+- 40 `Ceiling_LowerByValue`
+- 41 `Ceiling_RaiseByValue`
+- 44 `Ceiling_CrushStop`
+- 47 `Ceiling_MoveToValue`
+- 49 `GlassBreak`
+  - spawning of `GlassJunk` is not supported
+  - either disable junk spawning or set your own `type`
+- 53 `Line_SetTextureOffset`
+  - only limited use for [decorate](decorate.md)
+- 55 `Line_SetBlocking`
+  - supported bits are `1` `2` `4` and `32`
+- 62 `Plat_DownWaitUpStay`
+- 64 `Plat_UpWaitDownStay`
+- 70 `Teleport`
+  - only `tid` is supported
+  - only **one** destination **must** exist, **no** randomization
+- 71 `Teleport_NoFog`
+  - only `tid` is supported
+  - only **one** destination **must** exist, **no** randomization
+- 72 `ThrustThing`
+- 73 `DamageThing`
+- 74 `Teleport_NewMap`
+- 76 `TeleportOther`
+- 78 `TeleportInSector`
+  - there are some edge case differences from ZDoom how things are selected
+- 97 `Ceiling_LowerAndCrushDist`
+- 99 `Floor_RaiseAndCrushDoom`
+- 100 `Scroll_Texture_Left`
+- 101 `Scroll_Texture_Right`
+- 102 `Scroll_Texture_Up`
+- 103 `Scroll_Texture_Down`
+- 110 `Light_RaiseByValue`
+- 111 `Light_LowerByValue`
+- 112 `Light_ChangeToValue`
+- 113 `Light_Fade`
+- 114 `Light_Glow`
+- 116 `Light_Strobe`
+- 117 `Light_Stop`
+- 119 `Thing_Damage`
+  - `mod` is not supported
+- 121 `Line_SetIdentification`
+  - only IDs up to 255 are supported
+  - only flag `32` (midtex3d) is supported
+- 127 `Thing_SetSpecial`
+- 128 `ThrustThingZ`
+- 130 `Thing_Activate`
+- 131 `Thing_Deactivate`
+- 132 `Thing_Remove`
+- 133 `Thing_Destroy`
+- 134 `Thing_Projectile`
+- 135 `Thing_Spawn`
+- 136 `Thing_ProjectileGravity`
+- 137 `Thing_SpawnNoFog`
+- 139 `Thing_SpawnFacing`
+- 160 `Sector_Set3dFloor`
+  - check [good to know](stuff.md) for limitations
+- 172 `Plat_UpNearestWaitDownStay`
+- 173 `NoiseAlert`
+- 176 `Thing_ChangeTID`
+- 179 `ChangeSkill`
+- 191 `SetPlayerProperty`
+  - only `notarget` `fly` `fronzen` and `totallyfrozen` are supported
+- 195 `Ceiling_CrushRaiseAndStayA`
+- 196 `Ceiling_CrushAndRaiseA`
+- 198 `Ceiling_RaiseByValueTimes8`
+- 199 `Ceiling_LowerByValueTimes8`
+- 200 `Generic_Floor`
+- 201 `Generic_Ceiling`
+- 206 `Plat_DownWaitUpStayLip`
+- 212 `Sector_SetColor`
+  - check [good to know](stuff.md) for limitations
+- 213 `Sector_SetFade`
+  - check [good to know](stuff.md) for limitations
+- 225 `Scroll_Texture_Offsets`
+- 237 `ChangeCamera`
+- 239 `Floor_RaiseByValueTxTy`
+- 243 `Exit_Normal`
+- 244 `Exit_Secret`

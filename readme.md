@@ -12,7 +12,7 @@ The same version is distributed with SHAREWARE.
 
 ## How to run this
 
-Compile `exploit` and `code`.
+Compile `exploit` and `engine`.
 Engine is the main thing. After compiling you get `code.lmp`.
 Exploit generates a WAD file with multiple entries. Replace `ACE_CODE` with generated `code.lmp` in any WAD editor.
 
@@ -34,4 +34,5 @@ TODO: explain the exploit chain
 
 ### Engine
 
-This is a source of the entire ACE Engine. Resulting binary `code.lmp` has to be placed into generated WAD as `ACE_CODE`.
+This is a source of the entire ACE Engine. Resulting binary `code.lmp` has to be placed into generated WAD as `ACE_CODE`.  
+NOTE: Everytime you pull new version make sure you use command `make clean` before building.

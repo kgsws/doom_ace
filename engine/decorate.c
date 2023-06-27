@@ -3332,8 +3332,7 @@ void init_decorate()
 		mobjinfo[i].state_heal = 266;
 
 		// basically everything is randomized
-		// basically everything can be seeker missile
-		mobjinfo[i].flags1 = MF1_RANDOMIZE | MF1_SEEKERMISSILE;
+		mobjinfo[i].flags1 = MF1_RANDOMIZE;
 
 		// mark enemies
 		if(mobjinfo[i].flags & MF_COUNTKILL)
@@ -3411,6 +3410,9 @@ void init_decorate()
 	mobjinfo[16].fast_speed = 20 * FRACUNIT;
 	mobjinfo[31].fast_speed = 20 * FRACUNIT;
 	mobjinfo[32].fast_speed = 20 * FRACUNIT;
+
+	// revenant tracer
+	mobjinfo[6].flags1 |= MF1_SEEKERMISSILE;
 
 	// doom weapons
 	doom_weapon[6].use = dehacked.bfg_cells;

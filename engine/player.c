@@ -873,6 +873,7 @@ void player_think(uint32_t idx)
 					cheat_player_flags(pl);
 				}
 			} else
+			if(pw->direction < 0)
 			{
 				mobjinfo_t *info = mobjinfo + pl->power_mobj[i];
 				uint16_t color = info->powerup.colorstuff;

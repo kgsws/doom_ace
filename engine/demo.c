@@ -89,6 +89,8 @@ static void demo_read_ticcmd(ticcmd_t *cmd)
 	)
 	{
 		G_CheckDemoStatus();
+		usergame = 1;
+		demoplayback = 0;
 		return;
 	}
 
@@ -173,6 +175,8 @@ demo_fail:
 	if(M_CheckParm(dtxt_playdemo) || M_CheckParm(dtxt_timedemo))
 		engine_error("DEMO", "Unable to play this demo!");
 
+	usergame = 1;
+	demoplayback = 0;
 	singledemo = 0;
 	if(gamestate != GS_DEMOSCREEN)
 	{

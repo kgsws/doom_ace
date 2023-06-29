@@ -1685,7 +1685,7 @@ static void make_doom_powerup(uint32_t idx)
 	info->powerup.inventory.max_count = 0;
 	info->powerup.duration = 0;
 	info->powerup.type = pw->power;
-	info->powerup.mode = pw->power == MOBJ_IDX_POWER_INVIS ? 0 : -1;
+	info->powerup.mode = 0;
 	info->powerup.strength = -1;
 	info->powerup.colorstuff = pw->colorstuff;
 	info->powerup.inventory.message = pw->message + doom_data_segment;

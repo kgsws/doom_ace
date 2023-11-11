@@ -1261,7 +1261,7 @@ uint32_t map_load_setup(uint32_t new_game)
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 	{
 		players[i].mo = NULL;
-		if(players[i].state = PST_WAIT_REBORN)
+		if(players[i].state == PST_WAIT_REBORN)
 			players[i].state = PST_REBORN;
 	}
 

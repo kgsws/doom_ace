@@ -223,6 +223,9 @@ static inline void draw_keybar(player_t *pl)
 {
 	uint32_t tx, ty, cc, cm;
 
+	if(deathmatch)
+		return;
+
 	cm = 0;
 	cc = 0;
 	tx = SCREENWIDTH - 1;

@@ -369,6 +369,7 @@ enum
 	PST_DEAD,
 	PST_REBORN,
 	PST_SPECTATE,
+	PST_WAIT_REBORN,
 };
 
 enum

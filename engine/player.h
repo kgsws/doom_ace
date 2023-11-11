@@ -20,9 +20,15 @@ enum
 #define PLF_AUTO_AIM	(1 << plf_auto_aim)
 #define PLF_MOUSE_LOOK	(1 << plf_mouse_look)
 
+typedef struct
+{
+	int32_t frags[MAXPLAYERS];
+} player_frags_t;
+
 //
 
 extern player_info_t player_info[MAXPLAYERS];
+extern player_frags_t player_frags[MAXPLAYERS];
 
 extern uint_fast8_t player_info_changed;
 extern int_fast16_t player_class_change;
@@ -39,3 +45,5 @@ void player_chat_char(uint32_t pidx);
 void player_finish(player_t *pl, uint32_t strip);
 
 void player_check_info(player_info_t *info);
+
+void player_setup_wi();

@@ -537,6 +537,11 @@ DOOM_VAR 0x000756F4, cheat_buf
 
 DOOM_VAR 0x000758C8, hu_font
 
+DOOM_VAR 0x00075B20, dm_frags
+DOOM_VAR 0x00075B60, dm_totals
+DOOM_VAR 0x00075B70, wi_stpb
+DOOM_VAR 0x00075BF8, dm_state
+
 DOOM_VAR 0x00075C94, numChannels
 
 DOOM_VAR 0x00075CA0, volume_val

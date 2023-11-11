@@ -21,6 +21,7 @@
 #include "ldr_texture.h"
 #include "ldr_flat.h"
 #include "demo.h"
+#include "draw.h"
 #include "map.h"
 #include "player.h"
 
@@ -38,6 +39,7 @@ uint_fast8_t player_info_changed;
 int_fast16_t player_class_change;
 
 player_info_t player_info[MAXPLAYERS];
+player_frags_t player_frags[MAXPLAYERS];
 
 // netgame check
 static uint32_t netgame_check[MAXPLAYERS][4];
@@ -1057,6 +1059,8 @@ static void build_ticcmd(ticcmd_t *cmd)
 
 void player_finish(player_t *pl, uint32_t strip)
 {
+	memset(player_frags, 0, sizeof(player_frags));
+
 	for(uint32_t i = 0; i < NUMPOWERS; i++)
 	{
 		const powerup_t *pw = powerup + i;
@@ -1066,14 +1070,19 @@ void player_finish(player_t *pl, uint32_t strip)
 			if(pw->stop && pl->mo)
 				pw->stop(pl->mo);
 		}
-		if(pl->state == PST_DEAD)
-			pl->state = PST_REBORN;
 	}
 
 	pl->fixedcolormap = 0;
 	pl->damagecount = 0;
 	pl->bonuscount = 0;
 	pl->extralight = 0;
+
+	if(pl->state == PST_DEAD || pl->state == PST_SPECTATE || deathmatch)
+	{
+		pl->inventory = NULL;
+		pl->state = PST_WAIT_REBORN;
+		return;
+	}
 
 	if(pl->mo && pl->mo->inventory)
 	{
@@ -1095,6 +1104,13 @@ void player_check_info(player_info_t *info)
 
 	if(info->playerclass >= num_player_classes)
 		info->playerclass = 0;
+}
+
+void player_setup_wi()
+{
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		if(playeringame[i])
+			r_generate_player_color(i);
 }
 
 //
@@ -1139,6 +1155,7 @@ uint32_t respawn_check(uint32_t idx)
 			mo->render_style = RS_INVISIBLE;
 			mo->angle = pl->mo->angle;
 			mo->player = pl;
+			mo->tics = -1;
 
 			pl->mo = mo;
 			pl->camera = mo;
@@ -1191,6 +1208,30 @@ uint32_t respawn_check(uint32_t idx)
 	return 0;
 }
 
+static __attribute((regparm(3),no_caller_saved_registers)) // three!
+uint32_t draw_wi_player_dm(int32_t x, int32_t y, patch_t *patch)
+{
+	uint32_t idx;
+	{
+		register uint32_t tmp asm("esi"); // hack to extract index
+		idx = tmp / 4;
+	}
+	dc_translation = render_translation + (TRANSLATION_PLAYER0 + idx) * 256;
+	V_DrawPatchTranslated(x, y, patch);
+}
+
+static __attribute((regparm(3),no_caller_saved_registers)) // three!
+uint32_t draw_wi_player_coop(int32_t x, int32_t y, patch_t *patch)
+{
+	uint32_t idx;
+	{
+		register uint32_t tmp asm("ebp"); // hack to extract index
+		idx = tmp / 4;
+	}
+	dc_translation = render_translation + (TRANSLATION_PLAYER0 + idx) * 256;
+	V_DrawPatchTranslated(x, y, patch);
+}
+
 //
 // hooks
 
@@ -1223,5 +1264,16 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003A47B, CODE_HOOK | HOOK_UINT16, 0x10EB},
 	// PU_STATIC palette chache in 'ST_doPaletteStuff'
 	{0x0003A496, CODE_HOOK | HOOK_UINT8, PU_STATIC},
+	// replace calls to 'V_DrawPatch' in 'WI_drawDeathmatchStats'
+	{0x0003CF7B, CODE_HOOK | HOOK_UINT16, 0x0D8B},
+	{0x0003CF9A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_wi_player_dm},
+	{0x0003CF9F, CODE_HOOK | HOOK_UINT16, 0x0D8B},
+	{0x0003CFBE, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_wi_player_dm},
+	{0x0003CFCF, CODE_HOOK | HOOK_UINT16, 0x158B},
+	{0x0003CFF9, CODE_HOOK | HOOK_UINT16, 0x158B},
+	// replace call to 'V_DrawPatch' in 'WI_drawNetgameStats' and change argument
+	{0x0003E862, CODE_HOOK | HOOK_UINT16, 0x0D8B},
+	{0x0003E877, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_wi_player_coop},
+	{0x0003E888, CODE_HOOK | HOOK_UINT16, 0xA190},
 };
 

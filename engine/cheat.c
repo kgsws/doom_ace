@@ -30,6 +30,8 @@ typedef struct
 
 uint_fast8_t cheat_disable;
 
+static uint8_t chat_buffer[48];
+
 // cheat list
 static void cf_noclip(player_t*,uint8_t*);
 static void cf_iddqd(player_t*,uint8_t*);
@@ -487,7 +489,7 @@ void cheat_check(uint32_t pidx)
 	const cheat_func_t *cf = cheat_func;
 	cheat_buf_t *cb = cheat_buf + pidx;
 	player_t *pl = players + pidx;
-	uint8_t *arg;
+	uint8_t *cmd, *arg, *fix;
 
 	if(!cb->tpos)
 		return;
@@ -500,28 +502,53 @@ void cheat_check(uint32_t pidx)
 		arg++;
 	if(*arg == ' ')
 	{
+		fix = arg;
 		*arg++ = 0;
 		// skip spaces
 		while(*arg == ' ')
 			arg++;
 	}
 
-	// find cheat function
-	while(cf->name)
+	// allow chat and cheats in multiplayer
+	// cheats must start with '!' character
+	if(netgame)
 	{
-		if(!strcmp(cf->name, cb->text))
-		{
-			if(cheat_disable && cf->func != cf_map) // allow map changes (and synchronization)
-				return;
-			pl->cheats |= CF_IS_CHEATER; // mark cheaters forever
-			cf->func(pl, arg);
-			break;
-		}
-		cf++;
-	}
+		if(*cb->text == '!')
+			cmd = cb->text + 1;
+		else
+			cmd = NULL;
+	} else
+		cmd = cb->text;
 
-	if(cheat_disable)
+	if(cmd)
+	{
+		// find cheat function
+		while(cf->name)
+		{
+			if(!strcmp(cf->name, cmd))
+			{
+				if(cheat_disable && cf->func != cf_map) // allow map changes (and synchronization)
+				{
+					message_is_important = 1;
+					pl->message = "Cheats are disabled!";
+					return;
+				}
+				pl->cheats |= CF_IS_CHEATER; // mark cheaters forever
+				cf->func(pl, arg);
+				break;
+			}
+			cf++;
+		}
+	} else
+	{
+		// send message
+		*fix = ' ';
+		message_is_important = 1;
+		memcpy(chat_buffer, cb->text, sizeof(chat_buffer)-1);
+		players[consoleplayer].message = chat_buffer;
+		S_StartSound(NULL, 108); // sfx_radio
 		return;
+	}
 
 	if(!cf->name)
 	{

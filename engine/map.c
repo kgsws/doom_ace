@@ -1257,9 +1257,13 @@ uint32_t map_load_setup(uint32_t new_game)
 	} else
 		utils_install_hooks(patch_hexen, 0);
 
-	// clear player mobjs
+	// clear player stuff
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+	{
 		players[i].mo = NULL;
+		if(players[i].state = PST_WAIT_REBORN)
+			players[i].state = PST_REBORN;
+	}
 
 	// check for extended nodes
 	prepare_nodes(map_lump_idx);
@@ -2721,16 +2725,22 @@ static void do_completed()
 		map_next_info = NULL;
 	map_next_num = next;
 
-	// check for cluser change
+	// check for cluster change
 	old_cl = map_find_cluster(map_level_info->cluster);
 	if(map_next_info)
 		new_cl = map_find_cluster(map_next_info->cluster);
 	else
 		new_cl = NULL;
 
+	// setup frag count
+	for(uint32_t i = 0; i < MAXPLAYERS; i++)
+		for(uint32_t j = 0; j < MAXPLAYERS; j++)
+			wminfo.plyr[i].frags[j] = player_frags[i].frags[j];
+
 	// clean-up players
 	for(uint32_t i = 0; i < MAXPLAYERS; i++)
 		player_finish(players + i, !old_cl || old_cl != new_cl || !(old_cl->flags & CLST_FLAG_HUB));
+	reborn_inventory_hack = 0;
 
 	// intermission
 	gamestate = GS_INTERMISSION;
@@ -2776,9 +2786,9 @@ static void do_completed()
 		wminfo.plyr[i].sitems = players[i].itemcount;
 		wminfo.plyr[i].ssecret = players[i].secretcount;
 		wminfo.plyr[i].stime = leveltime;
-		// TODO: frags - these are no longer in player structure
 	}
 
+	player_setup_wi();
 	WI_Start(&wminfo);
 }
 

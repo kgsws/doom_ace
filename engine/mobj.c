@@ -1053,7 +1053,20 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 	uint_fast8_t new_damage_type = DAMAGE_NORMAL;
 	uint32_t state = 0;
 
-	// TODO: frags
+	if(mo->player)
+	{
+		int32_t plrk = -1;
+		int32_t plrv;
+
+		plrv = mo->player - players;
+
+		if(source && source->player)
+			plrk = source->player - players;
+		else
+			plrk = plrv;
+
+		player_frags[plrk].frags[plrv]++;
+	}
 
 	if(mo->flags2 & MF2_STEALTH)
 	{

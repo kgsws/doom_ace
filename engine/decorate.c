@@ -3387,6 +3387,8 @@ void init_decorate()
 	mobjinfo[0].start_item.end = (void*)doom_start_items + sizeof(doom_start_items);
 	if(!mobjinfo[0].speed)
 		mobjinfo[0].speed = FRACUNIT;
+	mobjinfo[0].player.color_first = 112;
+	mobjinfo[0].player.color_last = 127;
 
 	// lost soul stuff
 	mobjinfo[18].flags1 |= MF1_ISMONSTER | MF1_DONTFALL;

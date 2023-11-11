@@ -798,7 +798,10 @@ void D_ArbitrateNetStart()
 		}
 	} else
 	{
-		ns.menu_flags = 3 | (!!nomonsters << 2) | (!!fastparm << 3) | (!!respawnparm << 5);
+		cheat_disable = 1;
+		ns.menu_flags = net_make_flags();
+		if(deathmatch == 1)
+			ns.menu_flags |= 1 << 6;
 		ns.key_check[0] = 1;
 		player_info[0].playerclass = 0;
 		ns.player_info[0] = COLOR_PINFO_CLASS;

@@ -415,6 +415,10 @@ extern int32_t finaleflat; // type is changed!
 extern uint8_t *finaletext;
 extern int32_t finalecount;
 extern int32_t finalestage;
+extern int32_t dm_frags[MAXPLAYERS][MAXPLAYERS];
+extern int32_t dm_totals[MAXPLAYERS];
+extern uint32_t dm_state;
+extern patch_t *wi_stpb[MAXPLAYERS];
 
 // original map info
 extern uint8_t *mapnames[];

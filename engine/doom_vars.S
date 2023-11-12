@@ -523,11 +523,14 @@ DOOM_VAR 0x00074FF0, w_maxammo
 DOOM_VAR 0x00075070, w_ammo
 DOOM_VAR 0x000750F0, w_arms
 DOOM_VAR 0x000751C8, w_ready
+DOOM_VAR 0x000751E8, w_frags
 
 DOOM_VAR 0x000752C8, shortnum
 DOOM_VAR 0x000752F0, tallnum
 
 DOOM_VAR 0x000753C0, keyboxes
+
+DOOM_VAR 0x00075420, st_fragscount
 
 DOOM_VAR 0x00075458, tallpercent
 DOOM_VAR 0x0007545C, lu_palette

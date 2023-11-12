@@ -1636,6 +1636,7 @@ void G_DeferedInitNew(uint32_t,uint32_t,uint32_t) __attribute((regparm(2),no_cal
 void G_BuildTiccmd(ticcmd_t*) __attribute((regparm(2),no_caller_saved_registers));
 void G_CheckDemoStatus() __attribute((regparm(2),no_caller_saved_registers));
 void G_DeathMatchSpawnPlayer(uint32_t) __attribute((regparm(2),no_caller_saved_registers));
+uint32_t G_CheckSpot(uint32_t,void*) __attribute((regparm(2),no_caller_saved_registers));
 
 // i_video
 void I_InitGraphics() __attribute((regparm(2),no_caller_saved_registers));

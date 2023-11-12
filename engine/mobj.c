@@ -1066,6 +1066,14 @@ static void mobj_kill(mobj_t *mo, mobj_t *source)
 			plrk = plrv;
 
 		player_frags[plrk].frags[plrv]++;
+
+		if(plrk == consoleplayer)
+		{
+			if(plrk != plrv)
+				st_fragscount++;
+			else
+				st_fragscount--;
+		}
 	}
 
 	if(mo->flags2 & MF2_STEALTH)

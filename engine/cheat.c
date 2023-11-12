@@ -542,7 +542,8 @@ void cheat_check(uint32_t pidx)
 	} else
 	{
 		// send message
-		*fix = ' ';
+		if(!*fix)
+			*fix = ' ';
 		message_is_important = 1;
 		memcpy(chat_buffer, cb->text, sizeof(chat_buffer)-1);
 		players[consoleplayer].message = chat_buffer;

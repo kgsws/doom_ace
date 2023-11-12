@@ -368,6 +368,7 @@ extern st_number_t w_ready;
 extern st_number_t w_ammo[];
 extern st_number_t w_maxammo[];
 extern st_multicon_t w_arms[];
+extern st_number_t w_frags;
 extern int32_t keyboxes[];
 
 // controls
@@ -409,7 +410,7 @@ extern uint8_t rndtable[256];
 extern uint32_t prndindex;
 extern uint8_t rng_table[128*16*4]; // was zlight
 
-// fi, wi
+// fi, wi, st
 extern wbstartstruct_t wminfo;
 extern int32_t finaleflat; // type is changed!
 extern uint8_t *finaletext;
@@ -419,6 +420,7 @@ extern int32_t dm_frags[MAXPLAYERS][MAXPLAYERS];
 extern int32_t dm_totals[MAXPLAYERS];
 extern uint32_t dm_state;
 extern patch_t *wi_stpb[MAXPLAYERS];
+extern int32_t st_fragscount;
 
 // original map info
 extern uint8_t *mapnames[];

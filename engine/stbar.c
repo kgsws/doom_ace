@@ -776,6 +776,11 @@ void stbar_start(player_t *pl)
 	// original status bar
 	ST_Start();
 
+	if(st_fragscount < 0)
+		w_frags.num = NULL;
+	else
+		w_frags.num = (uint16_t*)&st_fragscount;
+
 	// update everything
 	pl->stbar_update = STU_EVERYTHING;
 	stbar_update(pl);
@@ -789,6 +794,11 @@ void stbar_draw(player_t *pl)
 	// not in titlemap
 	if(is_title_map)
 		return;
+
+	if(st_fragscount < 0)
+		w_frags.num = NULL;
+	else
+		w_frags.num = (uint16_t*)&st_fragscount;
 
 	// not if dead
 	if(pl->state != PST_LIVE)
@@ -917,5 +927,8 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x00039FD9, CODE_HOOK | HOOK_UINT32, 0xDB84188A},
 	{0x00039FDD, CODE_HOOK | HOOK_UINT32, 0x08FE5674},
 	{0x00039FE1, CODE_HOOK | HOOK_UINT16, 0x2FEB},
+	// skip frag counter in 'ST_updateWidgets'
+	{0x0003A395, CODE_HOOK | HOOK_UINT16, 0x1DEB},
+	{0x0003A3D3, CODE_HOOK | HOOK_SET_NOPS, 6},
 };
 

@@ -1060,6 +1060,7 @@ static void build_ticcmd(ticcmd_t *cmd)
 void player_finish(player_t *pl, uint32_t strip)
 {
 	memset(player_frags, 0, sizeof(player_frags));
+	st_fragscount = 0;
 
 	for(uint32_t i = 0; i < NUMPOWERS; i++)
 	{
@@ -1232,6 +1233,25 @@ uint32_t draw_wi_player_coop(int32_t x, int32_t y, patch_t *patch)
 	V_DrawPatchTranslated(x, y, patch);
 }
 
+static __attribute((regparm(2),no_caller_saved_registers))
+uint32_t player_check_spot(uint32_t idx, void *spot)
+{
+	uint32_t ret;
+	uint32_t flags;
+
+	if(!players[idx].mo)
+		return G_CheckSpot(idx, spot);
+
+	flags = players[idx].mo->flags;
+	players[idx].mo->flags |= MF_SOLID;
+
+	ret = G_CheckSpot(idx, spot);
+
+	players[idx].mo->flags = flags;
+
+	return ret;
+}
+
 //
 // hooks
 
@@ -1264,6 +1284,10 @@ static const hook_t hooks[] __attribute__((used,section(".hooks"),aligned(4))) =
 	{0x0003A47B, CODE_HOOK | HOOK_UINT16, 0x10EB},
 	// PU_STATIC palette chache in 'ST_doPaletteStuff'
 	{0x0003A496, CODE_HOOK | HOOK_UINT8, PU_STATIC},
+	// replace calls to 'G_CheckSpot'
+	{0x00020C11, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_check_spot},
+	{0x00020CC1, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_check_spot},
+	{0x00020CDC, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)player_check_spot},
 	// replace calls to 'V_DrawPatch' in 'WI_drawDeathmatchStats'
 	{0x0003CF7B, CODE_HOOK | HOOK_UINT16, 0x0D8B},
 	{0x0003CF9A, CODE_HOOK | HOOK_CALL_ACE, (uint32_t)draw_wi_player_dm},

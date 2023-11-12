@@ -667,6 +667,12 @@ doom_LoadLineDefs:
 G_DeathMatchSpawnPlayer:
 	.byte	0xE9
 	.4byte	0x00020BC0
+////////////////////////////////// G_CheckSpot
+.section .text.G_CheckSpot
+.global G_CheckSpot
+G_CheckSpot:
+	.byte	0xE9
+	.4byte	0x00020A00
 ////////////////////////////////// P_GroupLines
 .section .text.P_GroupLines
 .global P_GroupLines
